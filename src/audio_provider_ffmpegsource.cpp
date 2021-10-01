@@ -166,10 +166,11 @@ void FFmpegSourceAudioProvider::LoadAudio(agi::fs::path const& filename) {
 	}
 
 	if (OPT_GET("Provider/Audio/FFmpegSource/Downmix")->GetBool()) {
-		if (channels > 1 || bytes_per_sample != 2 || float_samples) {
+		if (channels > 2 || bytes_per_sample != 2 || float_samples) {
 			std::unique_ptr<FFMS_ResampleOptions, decltype(&FFMS_DestroyResampleOptions)>
 				opt(FFMS_CreateResampleOptions(AudioSource), FFMS_DestroyResampleOptions);
-			opt->ChannelLayout = FFMS_CH_FRONT_CENTER;
+			if (channels > 2)
+				opt->ChannelLayout = FFMS_CH_FRONT_LEFT | FFMS_CH_FRONT_RIGHT;
 			opt->SampleFormat = FFMS_FMT_S16;
 
 			// Might fail if FFMS2 wasn't built with libavresample
