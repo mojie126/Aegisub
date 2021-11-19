@@ -6841,7 +6841,7 @@ msgstr "Inserir (depois)"
 
 #: default_menu.json:0
 msgid "Insert at video time (after)"
-msgstr "Inserir no tempo do vídeo (antes)"
+msgstr "Inserir no tempo do vídeo (depois)"
 
 #: default_menu.json:0
 msgid "Insert at video time (before)"
