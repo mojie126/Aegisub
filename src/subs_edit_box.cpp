@@ -45,17 +45,18 @@
 #include "include/aegisub/hotkey.h"
 #include "initial_line_state.h"
 #include "options.h"
-#include "project.h"
 #include "placeholder_ctrl.h"
+#include "project.h"
+#include "retina_helper.h"
 #include "selection_controller.h"
 #include "subs_edit_ctrl.h"
 #include "text_selection_controller.h"
 #include "timeedit_ctrl.h"
 #include "tooltip_manager.h"
-#include "utils.h"
 #include "validators.h"
 
 #include <libaegisub/character_count.h>
+#include <libaegisub/make_unique.h>
 #include <libaegisub/util.h>
 
 #include <functional>
@@ -105,6 +106,7 @@ const auto AssDialogue_Effect = &AssDialogue::Effect;
 SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 : wxPanel(parent, -1, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | wxRAISED_BORDER, "SubsEditBox")
 , c(context)
+, retina_helper(agi::make_unique<RetinaHelper>(parent))
 , undo_timer(GetEventHandler())
 {
 	using std::bind;
@@ -248,13 +250,13 @@ SubsEditBox::~SubsEditBox() {
 }
 
 wxTextCtrl *SubsEditBox::MakeMarginCtrl(wxString const& tooltip, int margin, wxString const& commit_msg) {
-	wxTextCtrl *ctrl = new wxTextCtrl(this, -1, "", wxDefaultPosition, wxSize(40,-1), wxTE_CENTRE | wxTE_PROCESS_ENTER, IntValidator());
-	ctrl->SetMaxLength(4);
+	wxTextCtrl *ctrl = new wxTextCtrl(this, -1, "", wxDefaultPosition, wxSize(40,-1), wxTE_CENTRE | wxTE_PROCESS_ENTER, IntValidator(0, true));
+	ctrl->SetMaxLength(5);
 	ctrl->SetToolTip(tooltip);
 	middle_left_sizer->Add(ctrl, wxSizerFlags().Center());
 
 	Bind(wxEVT_TEXT, [=](wxCommandEvent&) {
-		int value = agi::util::mid(0, atoi(ctrl->GetValue().utf8_str()), 9999);
+		int value = agi::util::mid(-9999, atoi(ctrl->GetValue().utf8_str()), 99999);
 		SetSelectedRows([&](AssDialogue *d) { d->Margin[margin] = value; },
 			commit_msg, AssFile::COMMIT_DIAG_META);
 	}, ctrl->GetId());
@@ -273,7 +275,7 @@ TimeEdit *SubsEditBox::MakeTimeCtrl(wxString const& tooltip, TimeField field) {
 
 void SubsEditBox::MakeButton(const char *cmd_name) {
 	cmd::Command *command = cmd::get(cmd_name);
-	wxBitmapButton *btn = new wxBitmapButton(this, -1, command->Icon(16));
+	wxBitmapButton *btn = new wxBitmapButton(this, -1, command->Icon(16, retina_helper->GetScaleFactor()));
 	ToolTipManager::Bind(btn, command->StrHelp(), "Subtitle Edit Box", cmd_name);
 
 	middle_right_sizer->Add(btn, wxSizerFlags().Expand());
@@ -427,8 +429,7 @@ void SubsEditBox::UpdateFrameTiming(agi::vfr::Framerate const& fps) {
 }
 
 void SubsEditBox::OnKeyDown(wxKeyEvent &event) {
-	if (!osx::ime::process_key_event(edit_ctrl, event))
-		hotkey::check("Subtitle Edit Box", c, event);
+	hotkey::check("Subtitle Edit Box", c, event);
 }
 
 void SubsEditBox::OnChange(wxStyledTextEvent &event) {

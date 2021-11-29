@@ -56,6 +56,10 @@
 #include <wx/menu.h>
 #include <wx/settings.h>
 
+// Maximum number of languages (locales)
+// It should be above 100 (at least 242) and probably not more than 1000
+#define LANGS_MAX 1000
+
 /// Event ids
 enum {
 	EDIT_MENU_SPLIT_PRESERVE = 1400,
@@ -73,7 +77,7 @@ enum {
 	EDIT_MENU_THESAURUS_SUGS,
 	EDIT_MENU_DIC_LANGUAGE = 1600,
 	EDIT_MENU_DIC_LANGS,
-	EDIT_MENU_THES_LANGUAGE = 1700,
+	EDIT_MENU_THES_LANGUAGE = EDIT_MENU_DIC_LANGUAGE + LANGS_MAX,
 	EDIT_MENU_THES_LANGS
 };
 
@@ -83,8 +87,6 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 , thesaurus(agi::make_unique<Thesaurus>())
 , context(context)
 {
-	osx::ime::inject(this);
-
 	// Set properties
 	SetWrapMode(wxSTC_WRAP_WORD);
 	SetMarginWidth(1,0);
@@ -178,7 +180,7 @@ BEGIN_EVENT_TABLE(SubsTextEditCtrl,wxStyledTextCtrl)
 	EVT_MENU_RANGE(EDIT_MENU_SUGGESTIONS,EDIT_MENU_THESAURUS-1,SubsTextEditCtrl::OnUseSuggestion)
 	EVT_MENU_RANGE(EDIT_MENU_THESAURUS_SUGS,EDIT_MENU_DIC_LANGUAGE-1,SubsTextEditCtrl::OnUseSuggestion)
 	EVT_MENU_RANGE(EDIT_MENU_DIC_LANGS,EDIT_MENU_THES_LANGUAGE-1,SubsTextEditCtrl::OnSetDicLanguage)
-	EVT_MENU_RANGE(EDIT_MENU_THES_LANGS,EDIT_MENU_THES_LANGS+100,SubsTextEditCtrl::OnSetThesLanguage)
+	EVT_MENU_RANGE(EDIT_MENU_THES_LANGS,EDIT_MENU_THES_LANGS+LANGS_MAX,SubsTextEditCtrl::OnSetThesLanguage)
 END_EVENT_TABLE()
 
 void SubsTextEditCtrl::OnLoseFocus(wxFocusEvent &event) {
@@ -187,7 +189,6 @@ void SubsTextEditCtrl::OnLoseFocus(wxFocusEvent &event) {
 }
 
 void SubsTextEditCtrl::OnKeyDown(wxKeyEvent &event) {
-	if (osx::ime::process_key_event(this, event)) return;
 	event.Skip();
 
 	// Workaround for wxSTC eating tabs.
@@ -245,10 +246,6 @@ void SubsTextEditCtrl::SetStyles() {
 	// Misspelling indicator
 	IndicatorSetStyle(0,wxSTC_INDIC_SQUIGGLE);
 	IndicatorSetForeground(0,wxColour(255,0,0));
-
-	// IME pending text indicator
-	IndicatorSetStyle(1, wxSTC_INDIC_PLAIN);
-	IndicatorSetUnder(1, true);
 }
 
 void SubsTextEditCtrl::UpdateStyle() {
@@ -261,7 +258,11 @@ void SubsTextEditCtrl::UpdateStyle() {
 	cursor_pos = -1;
 	UpdateCallTip();
 
-	StartStyling(0,255);
+#if wxVERSION_NUMBER >= 3100
+	StartStyling(0);
+#else
+	StartStyling(0, 255);
+#endif
 
 	if (!OPT_GET("Subtitle/Highlight/Syntax")->GetBool()) {
 		SetStyling(line_text.size(), 0);
@@ -309,7 +310,6 @@ void SubsTextEditCtrl::UpdateCallTip() {
 }
 
 void SubsTextEditCtrl::SetTextTo(std::string const& text) {
-	osx::ime::invalidate(this);
 	SetEvtHandlerEnabled(false);
 	Freeze();
 
@@ -366,15 +366,16 @@ void SubsTextEditCtrl::OnContextMenu(wxContextMenuEvent &event) {
 	currentWord = line_text.substr(currentWordPos.first, currentWordPos.second);
 
 	wxMenu menu;
-	if (spellchecker)
+	if (spellchecker) {
 		AddSpellCheckerEntries(menu);
 
-	// Append language list
-	menu.Append(-1,_("Spell checker language"), GetLanguagesMenu(
-		EDIT_MENU_DIC_LANGS,
-		to_wx(OPT_GET("Tool/Spell Checker/Language")->GetString()),
-		to_wx(spellchecker->GetLanguageList())));
-	menu.AppendSeparator();
+		// Append language list
+		menu.Append(-1, _("Spell checker language"), GetLanguagesMenu(
+			EDIT_MENU_DIC_LANGS,
+			to_wx(OPT_GET("Tool/Spell Checker/Language")->GetString()),
+			to_wx(spellchecker->GetLanguageList())));
+		menu.AppendSeparator();
+	}
 
 	AddThesaurusEntries(menu);
 

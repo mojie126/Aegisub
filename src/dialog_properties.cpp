@@ -91,6 +91,14 @@ DialogProperties::DialogProperties(agi::Context *c)
 {
 	d.SetIcon(GETICON(properties_toolbutton_16));
 
+	// Button sizer
+	// Create buttons first. See:
+	//  https://github.com/wangqr/Aegisub/issues/6
+	//  https://trac.wxwidgets.org/ticket/18472#comment:9
+	auto ButtonSizer = d.CreateStdDialogButtonSizer(wxOK | wxCANCEL | wxHELP);
+	d.Bind(wxEVT_BUTTON, &DialogProperties::OnOK, this, wxID_OK);
+	d.Bind(wxEVT_BUTTON, std::bind(&HelpButton::OpenPage, "Properties"), wxID_HELP);
+
 	// Script details crap
 	wxSizer *TopSizer = new wxStaticBoxSizer(wxHORIZONTAL,&d,_("Script"));
 	auto TopSizerGrid = new wxFlexGridSizer(0,2,5,5);
@@ -108,8 +116,8 @@ DialogProperties::DialogProperties(agi::Context *c)
 	TopSizer->Add(TopSizerGrid,1,wxALL | wxEXPAND,0);
 
 	// Resolution box
-	ResX = new wxTextCtrl(&d,-1,"",wxDefaultPosition,wxSize(50,20),0,IntValidator(c->ass->GetScriptInfoAsInt("PlayResX")));
-	ResY = new wxTextCtrl(&d,-1,"",wxDefaultPosition,wxSize(50,20),0,IntValidator(c->ass->GetScriptInfoAsInt("PlayResY")));
+	ResX = new wxTextCtrl(&d,-1,"",wxDefaultPosition,wxSize(50, -1),0,IntValidator(c->ass->GetScriptInfoAsInt("PlayResX")));
+	ResY = new wxTextCtrl(&d,-1,"",wxDefaultPosition,wxSize(50, -1),0,IntValidator(c->ass->GetScriptInfoAsInt("PlayResY")));
 
 	wxButton *FromVideo = new wxButton(&d,-1,_("From &video"));
 	if (!c->project->VideoProvider())
@@ -156,11 +164,6 @@ DialogProperties::DialogProperties(agi::Context *c)
 	optionsGrid->AddGrowableCol(1,1);
 	optionsBox->Add(optionsGrid,1,wxEXPAND,0);
 
-	// Button sizer
-	auto ButtonSizer = d.CreateStdDialogButtonSizer(wxOK | wxCANCEL | wxHELP);
-	d.Bind(wxEVT_BUTTON, &DialogProperties::OnOK, this, wxID_OK);
-	d.Bind(wxEVT_BUTTON, std::bind(&HelpButton::OpenPage, "Properties"), wxID_HELP);
-
 	// MainSizer
 	wxSizer *MainSizer = new wxBoxSizer(wxVERTICAL);
 	MainSizer->Add(TopSizer,0,wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND,5);
@@ -173,7 +176,7 @@ DialogProperties::DialogProperties(agi::Context *c)
 }
 
 void DialogProperties::AddProperty(wxSizer *sizer, wxString const& label, std::string const& property) {
-	wxTextCtrl *ctrl = new wxTextCtrl(&d, -1, to_wx(c->ass->GetScriptInfo(property)), wxDefaultPosition, wxSize(200, 20));
+	wxTextCtrl *ctrl = new wxTextCtrl(&d, -1, to_wx(c->ass->GetScriptInfo(property)), wxDefaultPosition, wxSize(200, -1));
 	sizer->Add(new wxStaticText(&d, -1, label), wxSizerFlags().Center().Left());
 	sizer->Add(ctrl, wxSizerFlags(1).Expand());
 	properties.push_back({property, ctrl});

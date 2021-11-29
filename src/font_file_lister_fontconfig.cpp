@@ -63,8 +63,8 @@ CollectionResult FontConfigFontFileLister::GetFontPaths(std::string const& facen
 	std::string family = facename[0] == '@' ? facename.substr(1) : facename;
 	boost::to_lower(family);
 
-	int weight = bold == 0 ? 80 :
-	             bold == 1 ? 200 :
+	int weight = bold == 0 ? 400 :
+	             bold == 1 ? 700 :
 	                         bold;
 	int slant  = italic ? 110 : 0;
 
@@ -74,7 +74,7 @@ CollectionResult FontConfigFontFileLister::GetFontPaths(std::string const& facen
 
 	FcPatternAddBool(pat, FC_OUTLINE, true);
 	FcPatternAddInteger(pat, FC_SLANT, slant);
-	FcPatternAddInteger(pat, FC_WEIGHT, weight);
+	FcPatternAddInteger(pat, FC_WEIGHT, FcWeightFromOpenType(weight));
 
 	FcDefaultSubstitute(pat);
 	if (!FcConfigSubstitute(config, pat, FcMatchPattern)) return ret;
@@ -109,11 +109,9 @@ CollectionResult FontConfigFontFileLister::GetFontPaths(std::string const& facen
 		}
 	}
 
-	if (weight > 80) {
-		int actual_weight = weight;
-		if (FcPatternGetInteger(match, FC_WEIGHT, 0, &actual_weight) == FcResultMatch)
-			ret.fake_bold = actual_weight <= 80;
-	}
+	int actual_weight = 0;
+	if (FcPatternGetInteger(match, FC_WEIGHT, 0, &actual_weight) == FcResultMatch)
+		ret.fake_bold = weight > FcWeightToOpenType(actual_weight) + 150;
 
 	int actual_slant = slant;
 	if (FcPatternGetInteger(match, FC_SLANT, 0, &actual_slant) == FcResultMatch)

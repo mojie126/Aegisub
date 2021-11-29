@@ -18,10 +18,10 @@
 
 #include "dialogs.h"
 
-#if (BOOST_VERSION / 100000) <= 1 && ((BOOST_VERSION / 100) % 1000) <= 67
-#include <boost/gil/gil_all.hpp>
-#else
+#if BOOST_VERSION >= 106900
 #include <boost/gil.hpp>
+#else
+#include <boost/gil/gil_all.hpp>
 #endif
 
 AGI_DEFINE_EVENT(EVT_COLOR, agi::Color);

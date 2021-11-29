@@ -208,7 +208,7 @@ void AudioSpectrumRenderer::FillBlock(size_t block_index, float *block)
 	assert(block);
 
 	int64_t first_sample = (((int64_t)block_index) << derivation_dist) - ((int64_t)1 << derivation_size);
-	provider->GetAudio(audio_scratch.data(), first_sample, 2 << derivation_size);
+	provider->GetAudio(&audio_scratch[0], first_sample, 2 << derivation_size);
 
 	// Because the FFTs used here are unnormalized DFTs, we have to compensate
 	// the possible length difference between derivation_size used in the
@@ -263,7 +263,7 @@ void AudioSpectrumRenderer::Render(wxBitmap &bmp, int start, AudioRenderingStyle
 		return;
 
 	assert(bmp.IsOk());
-	assert(bmp.GetDepth() == 24);
+	assert(bmp.GetDepth() == 24 || bmp.GetDepth() == 32);
 
 	int end = start + bmp.GetWidth();
 

@@ -46,10 +46,10 @@
 #include <libaegisub/util.h>
 
 #include <atomic>
-#if (BOOST_VERSION / 100000) <= 1 && ((BOOST_VERSION / 100) % 1000) <= 67
-#include <boost/gil/gil_all.hpp>
-#else
+#if BOOST_VERSION >= 106900
 #include <boost/gil.hpp>
+#else
+#include <boost/gil/gil_all.hpp>
 #endif
 #include <memory>
 #include <mutex>

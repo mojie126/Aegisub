@@ -30,7 +30,7 @@ TEST(lagi_audio, dummy_blank) {
 	auto provider = agi::CreateDummyAudioProvider("dummy-audio:", nullptr);
 
 	char buff[1024];
-	memset(buff, sizeof(buff), 1);
+	memset(buff, 1, sizeof(buff));
 	provider->GetAudio(buff, 12356, 512);
 	for (size_t i = 0; i < sizeof(buff); ++i) ASSERT_EQ(0, buff[i]);
 }
@@ -39,7 +39,7 @@ TEST(lagi_audio, dummy_noise) {
 	auto provider = agi::CreateDummyAudioProvider("dummy-audio:noise?", nullptr);
 
 	char buff[1024];
-	memset(buff, sizeof(buff), 0);
+	memset(buff, 0, sizeof(buff));
 	provider->GetAudio(buff, 12356, 512);
 	for (size_t i = 0; i < sizeof(buff); ++i) {
 		if (buff[i] != 0)
@@ -78,7 +78,7 @@ TEST(lagi_audio, before_sample_zero) {
 	TestAudioProvider<> provider;
 
 	uint16_t buff[16];
-	memset(buff, sizeof(buff), 1);
+	memset(buff, 1, sizeof(buff));
 	provider.GetAudio(buff, -8, 16);
 
 	for (int i = 0; i < 8; ++i)
@@ -92,7 +92,7 @@ TEST(lagi_audio, before_sample_zero_8bit) {
 	provider.bias = 128;
 
 	uint8_t buff[16];
-	memset(buff, sizeof(buff), 1);
+	memset(buff, 1, sizeof(buff));
 	provider.GetAudio(buff, -8, 16);
 
 	for (int i = 0; i < 8; ++i)
@@ -105,7 +105,7 @@ TEST(lagi_audio, after_end) {
 	TestAudioProvider<> provider(1);
 
 	uint16_t buff[16];
-	memset(buff, sizeof(buff), 1);
+	memset(buff, 1, sizeof(buff));
 	provider.GetAudio(buff, provider.GetNumSamples() - 8, 16);
 
 	for (int i = 0; i < 8; ++i)
@@ -122,7 +122,7 @@ TEST(lagi_audio, save_audio_clip) {
 	agi::SaveAudioClip(*provider, path, 60 * 60 * 1000, (60 * 60 + 10) * 1000);
 
 	{
-		bfs::ifstream s(path);
+		bfs::ifstream s(path, std::ios_base::binary);
 		ASSERT_TRUE(s.good());
 		s.seekg(0, std::ios::end);
 		// 10 seconds of 44.1 kHz samples per second of 16-bit mono, plus 44 bytes of header
@@ -141,7 +141,7 @@ TEST(lagi_audio, save_audio_clip_out_of_audio_range) {
 	// Start time after end of clip: empty file
 	agi::SaveAudioClip(*provider, path, end_time, end_time + 1);
 	{
-		bfs::ifstream s(path);
+		bfs::ifstream s(path, std::ios_base::binary);
 		ASSERT_TRUE(s.good());
 		s.seekg(0, std::ios::end);
 		EXPECT_EQ(44, s.tellg());
@@ -151,7 +151,7 @@ TEST(lagi_audio, save_audio_clip_out_of_audio_range) {
 	// Start time >= end time: empty file
 	agi::SaveAudioClip(*provider, path, end_time - 1, end_time - 1);
 	{
-		bfs::ifstream s(path);
+		bfs::ifstream s(path, std::ios_base::binary);
 		ASSERT_TRUE(s.good());
 		s.seekg(0, std::ios::end);
 		EXPECT_EQ(44, s.tellg());
@@ -161,7 +161,7 @@ TEST(lagi_audio, save_audio_clip_out_of_audio_range) {
 	// Start time during clip, end time after end of clip: save only the part that exists
 	agi::SaveAudioClip(*provider, path, end_time - 1000, end_time + 1000);
 	{
-		bfs::ifstream s(path);
+		bfs::ifstream s(path, std::ios_base::binary);
 		ASSERT_TRUE(s.good());
 		s.seekg(0, std::ios::end);
 		// 1 second of 44.1 kHz samples per second of 16-bit mono, plus 44 bytes of header
@@ -365,18 +365,20 @@ TEST(lagi_audio, pcm_simple) {
 		agi::SaveAudioClip(provider, path, 0, 1000);
 	}
 
-	auto provider = agi::CreatePCMAudioProvider(path, nullptr);
-	EXPECT_EQ(1, provider->GetChannels());
-	EXPECT_EQ(48000, provider->GetNumSamples());
-	EXPECT_EQ(48000, provider->GetSampleRate());
-	EXPECT_EQ(2, provider->GetBytesPerSample());
-	EXPECT_EQ(false, provider->AreSamplesFloat());
-	EXPECT_EQ(false, provider->NeedsCache());
+	{
+		auto provider = agi::CreatePCMAudioProvider(path, nullptr);
+		EXPECT_EQ(1, provider->GetChannels());
+		EXPECT_EQ(48000, provider->GetNumSamples());
+		EXPECT_EQ(48000, provider->GetSampleRate());
+		EXPECT_EQ(2, provider->GetBytesPerSample());
+		EXPECT_EQ(false, provider->AreSamplesFloat());
+		EXPECT_EQ(false, provider->NeedsCache());
 
-	for (int i = 0; i < 100; ++i) {
-		uint16_t sample;
-		provider->GetAudio(&sample, i, 1);
-		ASSERT_EQ(i, sample);
+		for (int i = 0; i < 100; ++i) {
+			uint16_t sample;
+			provider->GetAudio(&sample, i, 1);
+			ASSERT_EQ(i, sample);
+		}
 	}
 
 	agi::fs::Remove(path);
@@ -391,31 +393,33 @@ TEST(lagi_audio, pcm_truncated) {
 
 	char file[1000];
 
-	{ bfs::ifstream s(path); s.read(file, sizeof file); }
-	{ bfs::ofstream s(path); s.write(file, sizeof file); }
+	{ bfs::ifstream s(path, std::ios_base::binary); s.read(file, sizeof file); }
+	{ bfs::ofstream s(path, std::ios_base::binary); s.write(file, sizeof file); }
 
-	auto provider = agi::CreatePCMAudioProvider(path, nullptr);
+	{
+		auto provider = agi::CreatePCMAudioProvider(path, nullptr);
 
-	// Should still report full duration
-	EXPECT_EQ(48000, provider->GetNumSamples());
+		// Should still report full duration
+		EXPECT_EQ(48000, provider->GetNumSamples());
 
-	// And should zero-pad past the end
-	auto sample_count = (1000 - 44) / 2;
-	uint16_t sample;
+		// And should zero-pad past the end
+		int64_t sample_count = (1000 - 44) / 2;
+		uint16_t sample;
 
-	provider->GetAudio(&sample, sample_count - 1, 1);
-	EXPECT_EQ(sample_count - 1, sample);
+		provider->GetAudio(&sample, sample_count - 1, 1);
+		EXPECT_EQ(sample_count - 1, sample);
 
-	provider->GetAudio(&sample, sample_count, 1);
-	EXPECT_EQ(0, sample);
+		provider->GetAudio(&sample, sample_count, 1);
+		EXPECT_EQ(0, sample);
+	}
 
 	agi::fs::Remove(path);
 }
 
 #define RIFF "RIFF\0\0\0\x60WAVE"
-#define FMT_VALID "fmt \20\0\0\0\1\0\1\0\20\0\0\0\0\0\0\0\0\0\20\0"
+#define FMT_VALID "fmt \x10\0\0\0\1\0\1\0\x10\0\0\0\x20\0\0\0\2\0\x10\0"
 #define DATA_VALID "data\1\0\0\0\0\0"
-#define WRITE(str) do { bfs::ofstream s(path); s.write(str, sizeof(str) - 1); } while (false)
+#define WRITE(str) do { bfs::ofstream s(path, std::ios_base::binary); s.write(str, sizeof(str) - 1); } while (false)
 
 TEST(lagi_audio, pcm_incomplete) {
 	auto path = agi::Path().Decode("?temp/pcm_incomplete");
@@ -423,7 +427,7 @@ TEST(lagi_audio, pcm_incomplete) {
 	agi::fs::Remove(path);
 	ASSERT_THROW(agi::CreatePCMAudioProvider(path, nullptr), agi::fs::FileNotFound);
 
-	bfs::ofstream{path};
+	{bfs::ofstream(path, std::ios_base::binary); }
 	ASSERT_THROW(agi::CreatePCMAudioProvider(path, nullptr), agi::AudioDataNotFound);
 
 	// Invalid tags
@@ -434,12 +438,14 @@ TEST(lagi_audio, pcm_incomplete) {
 	ASSERT_THROW(agi::CreatePCMAudioProvider(path, nullptr), agi::AudioDataNotFound);
 
 	// Incomplete files
-	auto valid_file = RIFF FMT_VALID DATA_VALID;
+	const char valid_file[] = RIFF FMT_VALID DATA_VALID;
 
 	// -1 for nul term, -3 so that longest file is still invalid
 	for (size_t i = 0; i < sizeof(valid_file) - 4; ++i) {
-		bfs::ofstream s(path);
-		s.write(valid_file, i);
+		{
+			bfs::ofstream s(path, std::ios_base::binary);
+			s.write(valid_file, i);
+		}
 		ASSERT_THROW(agi::CreatePCMAudioProvider(path, nullptr), agi::AudioDataNotFound);
 	}
 
@@ -463,28 +469,30 @@ TEST(lagi_audio, multiple_data_chunks) {
 
 	WRITE(RIFF FMT_VALID "data\2\0\0\0\1\0" "data\2\0\0\0\2\0" "data\2\0\0\0\3\0");
 
-	auto provider = agi::CreatePCMAudioProvider(path, nullptr);
-	ASSERT_EQ(3, provider->GetNumSamples());
+	{
+		auto provider = agi::CreatePCMAudioProvider(path, nullptr);
+		ASSERT_EQ(3, provider->GetNumSamples());
 
-	uint16_t samples[3];
+		uint16_t samples[3];
 
-	provider->GetAudio(samples, 0, 3);
-	EXPECT_EQ(1, samples[0]);
-	EXPECT_EQ(2, samples[1]);
-	EXPECT_EQ(3, samples[2]);
+		provider->GetAudio(samples, 0, 3);
+		EXPECT_EQ(1, samples[0]);
+		EXPECT_EQ(2, samples[1]);
+		EXPECT_EQ(3, samples[2]);
 
-	samples[1] = 5;
-	provider->GetAudio(samples, 2, 1);
-	EXPECT_EQ(3, samples[0]);
-	EXPECT_EQ(5, samples[1]);
+		samples[1] = 5;
+		provider->GetAudio(samples, 2, 1);
+		EXPECT_EQ(3, samples[0]);
+		EXPECT_EQ(5, samples[1]);
 
-	provider->GetAudio(samples, 1, 1);
-	EXPECT_EQ(2, samples[0]);
-	EXPECT_EQ(5, samples[1]);
+		provider->GetAudio(samples, 1, 1);
+		EXPECT_EQ(2, samples[0]);
+		EXPECT_EQ(5, samples[1]);
 
-	provider->GetAudio(samples, 0, 1);
-	EXPECT_EQ(1, samples[0]);
-	EXPECT_EQ(5, samples[1]);
+		provider->GetAudio(samples, 0, 1);
+		EXPECT_EQ(1, samples[0]);
+		EXPECT_EQ(5, samples[1]);
+	}
 
 	agi::fs::Remove(path);
 }
@@ -504,13 +512,15 @@ TEST(lagi_audio, wave64_simple) {
 	auto path = agi::Path().Decode("?temp/w64_valid");
 	WRITE(WAVE64_FILE);
 
-	auto provider = agi::CreatePCMAudioProvider(path, nullptr);
-	ASSERT_EQ(2, provider->GetNumSamples());
+	{
+		auto provider = agi::CreatePCMAudioProvider(path, nullptr);
+		ASSERT_EQ(2, provider->GetNumSamples());
 
-	uint16_t samples[2];
-	provider->GetAudio(samples, 0, 2);
-	EXPECT_EQ(1, samples[0]);
-	EXPECT_EQ(2, samples[1]);
+		uint16_t samples[2];
+		provider->GetAudio(samples, 0, 2);
+		EXPECT_EQ(1, samples[0]);
+		EXPECT_EQ(2, samples[1]);
+	}
 
 	agi::fs::Remove(path);
 }
@@ -520,13 +530,15 @@ TEST(lagi_audio, wave64_truncated) {
 
 	// Should be invalid until there's an entire sample
 	for (size_t i = 0; i < sizeof(WAVE64_FILE) - 4; ++i) {
-		bfs::ofstream s(path);
-		s.write(WAVE64_FILE, i);
+		{
+			bfs::ofstream s(path, std::ios_base::binary);
+			s.write(WAVE64_FILE, i);
+		}
 		ASSERT_THROW(agi::CreatePCMAudioProvider(path, nullptr), agi::AudioDataNotFound);
 	}
 
 	{
-		bfs::ofstream s(path);
+		bfs::ofstream s(path, std::ios_base::binary);
 		s.write(WAVE64_FILE, sizeof(WAVE64_FILE) - 3);
 	}
 	ASSERT_NO_THROW(agi::CreatePCMAudioProvider(path, nullptr));

@@ -22,12 +22,29 @@
 #include "libaegisub/scoped_ptr.h"
 
 #ifdef WITH_UCHARDET
-#include <uchardet/uchardet.h>
+#include <uchardet.h>
 #endif
 
 namespace agi { namespace charset {
 std::string Detect(agi::fs::path const& file) {
 	agi::read_file_mapping fp(file);
+
+	// First check for known magic bytes which identify the file type
+	if (fp.size() >= 4) {
+		const char* header = fp.read(0, 4);
+		if (!strncmp(header, "\xef\xbb\xbf", 3))
+			return "utf-8";
+		if (!strncmp(header, "\x00\x00\xfe\xff", 4))
+			return "utf-32be";
+		if (!strncmp(header, "\xff\xfe\x00\x00", 4))
+			return "utf-32le";
+		if (!strncmp(header, "\xfe\xff", 2))
+			return "utf-16be";
+		if (!strncmp(header, "\xff\xfe", 2))
+			return "utf-16le";
+		if (!strncmp(header, "\x1a\x45\xdf\xa3", 4))
+			return "binary"; // Actually EBML/Matroska
+	}
 
 	// If it's over 100 MB it's either binary or big enough that we won't
 	// be able to do anything useful with it anyway
@@ -42,9 +59,6 @@ std::string Detect(agi::fs::path const& file) {
 		auto read = std::min<uint64_t>(4096, fp.size() - offset);
 		auto buf = fp.read(offset, read);
 		uchardet_handle_data(ud, buf, read);
-		uchardet_data_end(ud);
-		if (*uchardet_get_charset(ud))
-			return uchardet_get_charset(ud);
 
 		offset += read;
 
@@ -57,6 +71,7 @@ std::string Detect(agi::fs::path const& file) {
 		if (binaryish > offset / 8)
 			return "binary";
 	}
+	uchardet_data_end(ud);
 	return uchardet_get_charset(ud);
 #else
 	auto read = std::min<uint64_t>(4096, fp.size());
