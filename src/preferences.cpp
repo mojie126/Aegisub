@@ -435,6 +435,7 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 	p->OptionChoice(expert, _("Subtitles provider"), sp_choice, "Subtitle/Provider");
 	
 	p->OptionAdd(expert, _("Video Panning"), "Video/Video Pan");
+	p->OptionAdd(expert, _("Default to UI Zoom"), "Video/Default to UI Zoom");
 	
 
 #ifdef WITH_AVISYNTH
