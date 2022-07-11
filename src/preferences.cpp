@@ -435,6 +435,8 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 	p->OptionChoice(expert, _("Subtitles provider"), sp_choice, "Subtitle/Provider");
 	
 	p->OptionAdd(expert, _("Video Panning"), "Video/Video Pan");
+	p->OptionAdd(expert, _("Default to Video Zoom"), "Video/Default to Video Zoom")
+		->SetToolTip("Reverses the behavior of Ctrl while scrolling the video display. If not set, scrolling will default to UI zoom and Ctrl+scrolling will zoom the video. If set, this will be reversed.");
 	
 
 #ifdef WITH_AVISYNTH
