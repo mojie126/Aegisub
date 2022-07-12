@@ -65,12 +65,19 @@ void VisualToolVectorClip::SetToolbar(wxToolBar *toolBar) {
 }
 
 void VisualToolVectorClip::SetMode(VisualToolVectorClipMode new_mode) {
+	if (toolBar == nullptr) {
+		throw agi::InternalError("Vector clip toolbar hasn't been set yet!");
+	}
 	// Manually enforce radio behavior as we want one selection in the bar
 	// rather than one per group
 	for (int i = 0; i < VCLIP_LAST; i++)
 		toolBar->ToggleTool(BUTTON_ID_BASE + i, i == new_mode);
 
 	mode = new_mode;
+}
+
+VisualToolVectorClipMode VisualToolVectorClip::GetMode() {
+	return mode;
 }
 
 void VisualToolVectorClip::Draw() {

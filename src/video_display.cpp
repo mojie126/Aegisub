@@ -428,8 +428,21 @@ void VideoDisplay::SetTool(std::unique_ptr<VisualToolBase> new_tool) {
 	}
 }
 
+bool VideoDisplay::SetVectorClipTool(VisualToolVectorClipMode vcliptoolmode) const {
+	if (ToolIsType(typeid(VisualToolVectorClip))) {
+		static_cast<VisualToolVectorClip*>(tool.get())->SetMode(vcliptoolmode);
+		return true;
+	} else {
+		return false;
+	}
+}
+
 bool VideoDisplay::ToolIsType(std::type_info const& type) const {
 	return tool && typeid(*tool) == type;
+}
+
+bool VideoDisplay::ToolIsVectorClipTool(VisualToolVectorClipMode vcliptoolmode) const {
+	return ToolIsType(typeid(VisualToolVectorClip)) && static_cast<VisualToolVectorClip*>(tool.get());
 }
 
 Vector2D VideoDisplay::GetMousePosition() const {

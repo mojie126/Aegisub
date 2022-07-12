@@ -14,6 +14,8 @@
 //
 // Aegisub Project http://www.aegisub.org/
 
+#pragma once
+
 #include "visual_feature.h"
 #include "visual_tool.h"
 #include "spline.h"
@@ -51,10 +53,6 @@ class VisualToolVectorClip final : public VisualTool<VisualToolVectorClipDraggab
 
 	std::set<Feature *> box_added;
 
-	/// @brief Set the mode
-	/// @param mode 0-7
-	void SetMode(VisualToolVectorClipMode mode);
-
 	void Save();
 	void Commit(wxString message="") override;
 
@@ -73,4 +71,10 @@ class VisualToolVectorClip final : public VisualTool<VisualToolVectorClipDraggab
 public:
 	VisualToolVectorClip(VideoDisplay *parent, agi::Context *context);
 	void SetToolbar(wxToolBar *tb) override;
+
+	/// @brief Set the mode. Only valid if the tool is already active.
+	/// @param mode
+	void SetMode(VisualToolVectorClipMode mode);
+
+	VisualToolVectorClipMode GetMode();
 };

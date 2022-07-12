@@ -35,6 +35,7 @@
 #include <libaegisub/signal.h>
 
 #include "vector2d.h"
+#include "visual_tool_vector_clip.h"
 
 #include <memory>
 #include <typeinfo>
@@ -165,7 +166,13 @@ public:
 
 	void SetTool(std::unique_ptr<VisualToolBase> new_tool);
 
+	/// Will only set the vector clip mode if the vector clip tool is active already,
+	/// otherwise it just returns false.
+	bool SetVectorClipTool(VisualToolVectorClipMode vcliptoolmode) const;
+
 	bool ToolIsType(std::type_info const& type) const;
+
+	bool ToolIsVectorClipTool(VisualToolVectorClipMode vcliptoolmode) const;
 
 	/// Discard all OpenGL state
 	void Unload();
