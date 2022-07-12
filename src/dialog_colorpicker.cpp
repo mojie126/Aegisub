@@ -386,7 +386,13 @@ void ColorPickerScreenDropper::DropFromScreenXY(int x, int y) {
 	wxMemoryDC capdc(capture);
 	capdc.SetPen(*wxTRANSPARENT_PEN);
 #ifndef __WXMAC__
-	wxScreenDC screen;
+	wxWindow *superparent = GetParent();
+	while (superparent->GetParent() != nullptr) {
+		superparent = superparent->GetParent();
+	}
+	superparent->ScreenToClient(&x, &y);
+
+	wxWindowDC screen(superparent);
 	capdc.StretchBlit(0, 0, resx * magnification, resy * magnification,
 		&screen, x - resx / 2, y - resy / 2, resx, resy);
 #else
