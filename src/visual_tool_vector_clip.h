@@ -19,6 +19,7 @@
 #include "visual_feature.h"
 #include "visual_tool.h"
 #include "spline.h"
+#include "command/command.h"
 
 class wxToolBar;
 
@@ -55,6 +56,8 @@ class VisualToolVectorClip final : public VisualTool<VisualToolVectorClipDraggab
 
 	void Save();
 	void Commit(wxString message="") override;
+
+	void AddTool(std::string command_name, VisualToolVectorClipMode mode);
 
 	void MakeFeature(size_t idx);
 	void MakeFeatures();
