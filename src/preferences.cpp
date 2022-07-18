@@ -228,6 +228,9 @@ void Interface(wxTreebook *book, Preferences *parent) {
 	auto tl_assistant = p->PageSizer(_("Translation Assistant"));
 	p->OptionAdd(tl_assistant, _("Skip over whitespace"), "Tool/Translation Assistant/Skip Whitespace");
 
+	auto color_picker = p->PageSizer(_("Color Picker"));
+	p->OptionAdd(color_picker, _("Restrict Screen Picker to Window"), "Tool/Color Picker/Restrict to Window");
+
 	p->SetSizerAndFit(p->sizer);
 }
 
