@@ -63,8 +63,7 @@ namespace {
 		}
 
 		void operator()(agi::Context *c) override {
-			std::unique_ptr<VisualToolVectorClip> vclip = agi::make_unique<VisualToolVectorClip>(c->videoDisplay, c);
-			c->videoDisplay->SetTool(std::move(vclip));
+			c->videoDisplay->SetTool(agi::make_unique<VisualToolVectorClip>(c->videoDisplay, c));
 			c->videoDisplay->SetVectorClipTool(M);
 		}
 	};
