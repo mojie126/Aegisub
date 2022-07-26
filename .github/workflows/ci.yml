@@ -2,7 +2,9 @@ name: Meson CI
 
 on:
   push:
-    branches: [ master ]
+    branches:
+        - master
+        - cibuilds
   pull_request:
     branches: [ master ]
 
@@ -32,6 +34,7 @@ jobs:
               -Dfribidi:tests=false
               -Dfribidi:docs=false
               -Dlibass:fontconfig=disabled
+              -Davisynth=enabled
           #- {
           #  name: Windows MinGW,
           #  os: windows-latest,
@@ -48,12 +51,6 @@ jobs:
             os: ubuntu-latest,
             buildtype: release,
             args: ''
-          }
-          - {
-            name: macOS Debug,
-            os: macos-latest,
-            buildtype: debugoptimized,
-            args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true
           }
           - {
             name: macOS Release,
@@ -74,7 +71,7 @@ jobs:
       - name: Setup Meson
         run: |
           python -m pip install --upgrade pip
-          pip install meson
+          pip install meson==0.62.2
 
       - name: Setup MSVC
         if: matrix.config.os == 'windows-latest' && matrix.config.msvc == true
