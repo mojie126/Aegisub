@@ -47,6 +47,8 @@ namespace {
 	IScriptEnvironment *env = nullptr;
 	std::mutex AviSynthMutex;
 }
+// This needs to be visible so Avisynth sees it
+const AVS_Linkage *AVS_linkage = nullptr;
 
 typedef IScriptEnvironment* __stdcall FUNC(int);
 
@@ -61,14 +63,12 @@ AviSynthWrapper::AviSynthWrapper() {
 		if (!CreateScriptEnv)
 			throw AvisynthError("Failed to get address of CreateScriptEnv from avisynth.dll");
 
-		// Require Avisynth 2.5.6+?
-		if (OPT_GET("Provider/Avisynth/Allow Ancient")->GetBool())
-			env = CreateScriptEnv(AVISYNTH_INTERFACE_VERSION-1);
-		else
-			env = CreateScriptEnv(AVISYNTH_INTERFACE_VERSION);
+		env = CreateScriptEnv(AVISYNTH_INTERFACE_VERSION);
 
 		if (!env)
 			throw AvisynthError("Failed to create a new avisynth script environment. Avisynth is too old?");
+
+		AVS_linkage = env->GetAVSLinkage();
 
 		// Set memory limit
 		const int memoryMax = OPT_GET("Provider/Avisynth/Memory Max")->GetInt();
@@ -80,6 +80,7 @@ AviSynthWrapper::AviSynthWrapper() {
 AviSynthWrapper::~AviSynthWrapper() {
 	if (!--avs_refcount) {
 		delete env;
+		AVS_linkage = nullptr;
 		FreeLibrary(hLib);
 	}
 }

@@ -335,8 +335,7 @@
 			}
 		},
 		"Avisynth" : {
-			"Allow Ancient" : false,
-			"Memory Max" : 64
+			"Memory Max" : 128
 		},
 		"FFmpegSource" : {
 			"Cache" : {
@@ -611,6 +610,8 @@
 			"Fast Jump Step" : 10,
 			"Show Keyframes" : true
 		},
-		"Subtitle Sync" : true
+		"Subtitle Sync" : true,
+		"Video Pan": false,
+		"Default to UI Zoom": false
 	}
 }

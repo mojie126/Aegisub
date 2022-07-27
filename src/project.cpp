@@ -53,7 +53,6 @@ Project::Project(agi::Context *c) : context(c) {
 	OPT_SUB("Audio/Cache/Type", &Project::ReloadAudio, this);
 	OPT_SUB("Audio/Provider", &Project::ReloadAudio, this);
 	OPT_SUB("Provider/Audio/FFmpegSource/Decode Error Handling", &Project::ReloadAudio, this);
-	OPT_SUB("Provider/Avisynth/Allow Ancient", &Project::ReloadVideo, this);
 	OPT_SUB("Provider/Avisynth/Memory Max", &Project::ReloadVideo, this);
 	OPT_SUB("Provider/Video/FFmpegSource/Decoding Threads", &Project::ReloadVideo, this);
 	OPT_SUB("Provider/Video/FFmpegSource/Unsafe Seeking", &Project::ReloadVideo, this);
@@ -220,7 +219,7 @@ void Project::LoadUnloadFiles(ProjectProperties properties) {
 				vc->SetAspectRatio(properties.ar_value);
 			else
 				vc->SetAspectRatio(ar_mode);
-			context->videoDisplay->SetZoom(properties.video_zoom);
+			context->videoDisplay->SetWindowZoom(properties.video_zoom);
 		}
 	}
 

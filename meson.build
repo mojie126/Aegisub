@@ -1,6 +1,6 @@
 project('Aegisub', ['c', 'cpp'],
         license: 'BSD-3-Clause',
-        meson_version: '>=0.56.1',
+        meson_version: '>=0.57.0',
         default_options: ['cpp_std=c++14', 'buildtype=debugoptimized'],
         version: '3.2.2')
 
@@ -226,6 +226,15 @@ endforeach
 
 if host_machine.system() == 'windows' and get_option('avisynth').enabled()
     conf.set('WITH_AVISYNTH', 1) # bundled separately with installer
+    deps += cc.find_library('avifil32', required: true)
+
+    avs_opt = cmake.subproject_options()
+    avs_opt.add_cmake_defines({
+        'HEADERS_ONLY': true
+    })
+
+    avs = cmake.subproject('avisynth', options: avs_opt)
+    deps_inc += avs.include_directories('AviSynth-Headers')
 endif
 
 if host_machine.system() == 'windows' and not get_option('directsound').disabled()
