@@ -572,6 +572,9 @@
 			"Maximized" : false,
 			"Skip Whitespace" : true
 		},
+		"Color Picker" : {
+			"Restrict to Window" : false
+		},
 		"Visual" : {
 			"Autohide": false
 		}
