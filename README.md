@@ -2,7 +2,7 @@
 Go [here](#branchfeature-list) for the new features.
 
 ### Don't we have enough Aegisub forks already??
-We absolutely do, and I'm aware that adding another one doesn't sound like a good idea on paper. However,
+We absolutely do, and I'm aware that adding another one [doesn't sound like a good idea on paper](https://xkcd.com/927/). However,
 
 - None of the existing forks are completely satisfying at the moment:
   - [wangqr's fork](https://github.com/wangqr/Aegisub) is actively maintained, but focussing more on stability. It's missing most of the modern features.
