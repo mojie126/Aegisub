@@ -1,3 +1,45 @@
+## arch1t3cht's Aegisub "fork"
+Go [here](#branchfeature-list) for the new features.
+
+### Don't we have enough Aegisub forks already??
+We absolutely do, and I'm aware that adding another one doesn't sound like a good idea on paper. However,
+
+- None of the existing forks are completely satisfying at the moment:
+  - [wangqr's fork](https://github.com/wangqr/Aegisub) is actively maintained, but focussing more on stability. It's missing most of the modern features.
+  - [AegisubDC](https://github.com/Ristellise/AegisubDC) has the most modern features (in particular video-panning), but is Windows-only and not actively maintained anymore.
+  - [The TypesettingTools fork](https://github.com/TypesettingTools/Aegisub) is the one that will one day become the upstream version and builds relatively effortlessly on all operating systems, but at the moment it's not moving much. It's the base for this fork, and I hope to one day merge most of these additions into it.
+- Only PR'ing the changes in here to various forks would cause even more chaos
+- I try to convince myself that this isn't really a "fork" in the traditional sense - one which aims to provide extended support and stability fixes. It's a collection of new feature additions which I built myself, together with some of the most important new features floating around other forks.
+
+    While this is usually also the version of Aegisub I'm currently using, I make absolutely no promises on stability. **Don't** use this version if you're just looking for any version of Aegisub - this is mostly intended for typesetting and other advanced usage.
+
+### Organization
+Being a collection of different feature additions, this repository consists of a set of branches for different features, so that they can easily be merged into other repositories. The [`feature`](https://github.com/arch1t3cht/Aegisub/tree/feature) branch merges together all the features I deem as currently usable. Due to the structure of the repository, I will be force-pushing to this branch and some of the individual branches very frequently, so they're not ideal for basing further branches on.
+
+The `cibuilds` branch makes some CI builds of snapshots of `feature` at relevant points in time.
+
+### Branch/Feature list
+- [`folding`](https://github.com/arch1t3cht/Aegisub/tree/folding): Add the ability to visually group and collapse lines in the subtitle grid
+- [`vector_clip_actions`](https://github.com/arch1t3cht/Aegisub/tree/vector_clip_actions): Make the different modes of the vector clip tool (lines, bezier curves, adding points, etc) bindable to hotkeys
+- [`color_picker_fix2`](https://github.com/arch1t3cht/Aegisub/tree/color_picker_fix2): Add an option (under "Interface") to restrict the color picker to the window, which fixes the color picker on Linux in a lot of cases.
+- [`avisynth`](https://github.com/arch1t3cht/Aegisub/tree/avisynth): Reenable Avisynth support on Windows (Still occasionally crashes)
+- [`bugfixes`](https://github.com/arch1t3cht/Aegisub/tree/bugfixes): Various fixes, mostly relevant for compilation
+- [`video_panning_feature`](https://github.com/arch1t3cht/Aegisub/tree/video_panning_feature): Merge [moex3's video zoom and panning](https://github.com/TypesettingTools/Aegisub/pull/150), with an OSX fix and an option to toggle the behavior of Ctrl+Zoom
+- [`spectrum-frequency-mapping`](https://github.com/arch1t3cht/Aegisub/tree/spectrum-frequency-mapping): Merge EleonoreMizo's [spectrum display improvements](https://github.com/TypesettingTools/Aegisub/pull/94), and also make Shift+Scroll vertically zoom the audio display
+
+### Troubleshooting
+#### Building fails with a "CMake sandbox violation"
+This is an upstream bug in meson. For now, you need to downgrade meson using `pip install meson==0.62.2`.
+
+#### Aegisub on Linux doesn't recognize my GTK theme
+This is probably because you're building with wxgtk2. Building with wxgtk3 fixes this, but causes some problems of its own (notably the broken color picker, occasional crashes when opening file dialogs from automation scripts, and general layouting issues).
+
+The exact way of switching depends on your Linux distribution, but essentially you need to ensure that `wx-config` or the next best variant of it points to wxgtk3. If it points to wxgtk2 by default and deinstalling wxgtk2 isn't an option, you can also temporarily move it out of the path. Then, fully reconfigure meson using `meson configure --clearcache` and `meson setup --reconfigure`.
+
+#### I get errors like "Option not found" after merging one of these branches
+The changes to `default_config.json` or similar files weren't detected by meson due to missing regen dependencies. You can either merge the `bugfixes` branch or rebuild from scratch.
+
+
 # Aegisub
 
 For binaries and general information [see the homepage](http://www.aegisub.org).
