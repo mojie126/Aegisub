@@ -24,6 +24,7 @@ The `cibuilds` branch makes some CI builds of snapshots of `feature` at relevant
 - [`color_picker_fix2`](https://github.com/arch1t3cht/Aegisub/tree/color_picker_fix2): Add an option (under "Interface") to restrict the color picker to the window, which fixes the color picker on Linux in a lot of cases.
 - [`avisynth`](https://github.com/arch1t3cht/Aegisub/tree/avisynth): Reenable Avisynth support on Windows (Still occasionally crashes)
 - [`bugfixes`](https://github.com/arch1t3cht/Aegisub/tree/bugfixes): Various fixes, mostly relevant for compilation
+- [`mix_dc`](https://github.com/arch1t3cht/Aegisub/tree/misc_dc): Miscellaneous changes taken from AegisubDC
 - [`video_panning_feature`](https://github.com/arch1t3cht/Aegisub/tree/video_panning_feature): Merge [moex3's video zoom and panning](https://github.com/TypesettingTools/Aegisub/pull/150), with an OSX fix and an option to toggle the behavior of Ctrl+Zoom
 - [`spectrum-frequency-mapping`](https://github.com/arch1t3cht/Aegisub/tree/spectrum-frequency-mapping): Merge EleonoreMizo's [spectrum display improvements](https://github.com/TypesettingTools/Aegisub/pull/94), and also make Shift+Scroll vertically zoom the audio display
 
@@ -38,6 +39,9 @@ The exact way of switching depends on your Linux distribution, but essentially y
 
 #### I get errors like "Option not found" after merging one of these branches
 The changes to `default_config.json` or similar files weren't detected by meson due to missing regen dependencies. You can either merge the `bugfixes` branch or rebuild from scratch.
+
+#### The video is desynced / Frames don't appear at the right time
+This is probably due to the ffms2 seeking bug ([#394](https://github.com/FFMS/ffms2/issues/394)). On Windows, this shouldn't happen anymore. On Linux, you need to install the latest git version of ffms2 - for example the [`ffms2-git`](https://aur.archlinux.org/packages/ffms2-git) AUR package on Arch linux, or just compile it yourself.
 
 
 # Aegisub
