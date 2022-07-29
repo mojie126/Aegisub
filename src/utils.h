@@ -44,7 +44,7 @@ class wxWindow;
 
 wxString PrettySize(int bytes);
 
-std::string float_to_string(double val);
+std::string float_to_string(double val, int precision = 3);
 
 /// @brief Get the smallest power of two that is greater or equal to x
 ///
