@@ -175,7 +175,7 @@ void FFmpegSourceAudioProvider::LoadAudio(agi::fs::path const& filename) {
 
 			// Might fail if FFMS2 wasn't built with libavresample
 			if (!FFMS_SetOutputFormatA(AudioSource, opt.get(), nullptr)) {
-				channels = 1;
+				channels = channels > 2 ? 2 : channels;
 				bytes_per_sample = 2;
 				float_samples = false;
 			}
