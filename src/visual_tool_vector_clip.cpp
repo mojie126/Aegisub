@@ -76,7 +76,7 @@ void VisualToolVectorClip::SetToolbar(wxToolBar *toolBar) {
 	toolBar->Realize();
 	toolBar->Show(true);
 	toolBar->Bind(wxEVT_TOOL, [=](wxCommandEvent& e) { SetMode((VisualToolVectorClipMode) (e.GetId() - BUTTON_ID_BASE)); });
-	SetMode(VCLIP_DRAG);
+	SetMode(VCLIP_LINE);
 #undef ICON
 }
 
