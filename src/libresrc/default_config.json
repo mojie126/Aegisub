@@ -581,6 +581,10 @@
 		},
 		"Visual" : {
 			"Autohide": false
+		},
+		"Align to Video" : {
+			"Tolerance" : 20,
+			"Maximized" : true
 		}
 	},
 
@@ -590,6 +594,8 @@
 	},
 
 	"Video" : {
+		"Disable Scroll Zoom" : false,
+		"Reverse Zoom" : false,
 		"Default Zoom" : 7,
 		"Detached" : {
 			"Enabled" : false,
@@ -619,6 +625,6 @@
 		},
 		"Subtitle Sync" : true,
 		"Video Pan": false,
-		"Default to UI Zoom": false
+		"Default to Video Zoom": false
 	}
 }

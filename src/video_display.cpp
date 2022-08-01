@@ -409,8 +409,11 @@ void VideoDisplay::OnMouseLeave(wxMouseEvent& event) {
 void VideoDisplay::OnMouseWheel(wxMouseEvent& event) {
 	bool videoPan = OPT_GET("Video/Video Pan")->GetBool();
 	if (int wheel = event.GetWheelRotation()) {
-		if (ForwardMouseWheelEvent(this, event)) {
-			if (!videoPan || (event.ControlDown() != OPT_GET("Video/Default to UI Zoom")->GetBool())) {
+		if (ForwardMouseWheelEvent(this, event) && !OPT_GET("Video/Disable Scroll Zoom")->GetBool()) {
+			if (OPT_GET("Video/Reverse Zoom")->GetBool()) {
+				wheel = -wheel;
+			}
+			if (!videoPan || (event.ControlDown() == OPT_GET("Video/Default to Video Zoom")->GetBool())) {
 				SetWindowZoom(windowZoomValue + .125 * (wheel / event.GetWheelDelta()));
 			} else {
 				SetVideoZoom(wheel / event.GetWheelDelta());

@@ -174,6 +174,9 @@ void Video(wxTreebook *book, Preferences *parent) {
 	p->CellSkip(general);
 	p->OptionAdd(general, _("Automatically open audio when opening video"), "Video/Open Audio");
 	p->CellSkip(general);
+	p->OptionAdd(general, _("Disable zooming with scroll bar"), "Video/Disable Scroll Zoom")
+		->SetToolTip("Makes the scroll bar not zoom the video. Useful when using a track pad that often scrolls accidentally.");
+	p->OptionAdd(general, _("Reverse zoom direction"), "Video/Reverse Zoom");
 
 	const wxString czoom_arr[24] = { "12.5%", "25%", "37.5%", "50%", "62.5%", "75%", "87.5%", "100%", "112.5%", "125%", "137.5%", "150%", "162.5%", "175%", "187.5%", "200%", "212.5%", "225%", "237.5%", "250%", "262.5%", "275%", "287.5%", "300%" };
 	wxArrayString choice_zoom(24, czoom_arr);
@@ -446,7 +449,8 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 	p->OptionChoice(expert, _("Subtitles provider"), sp_choice, "Subtitle/Provider");
 	
 	p->OptionAdd(expert, _("Video Panning"), "Video/Video Pan");
-	p->OptionAdd(expert, _("Default to UI Zoom"), "Video/Default to UI Zoom");
+	p->OptionAdd(expert, _("Default to Video Zoom"), "Video/Default to Video Zoom")
+		->SetToolTip("Reverses the behavior of Ctrl while scrolling the video display. If not set, scrolling will default to UI zoom and Ctrl+scrolling will zoom the video. If set, this will be reversed.");
 	
 
 #ifdef WITH_AVISYNTH
