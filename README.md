@@ -20,13 +20,15 @@ The `cibuilds` branch makes some CI builds of snapshots of `feature` at relevant
 
 ### Branch/Feature list
 - [`folding`](https://github.com/arch1t3cht/Aegisub/tree/folding): Add the ability to visually group and collapse lines in the subtitle grid
+- [`lua_api`](https://github.com/arch1t3cht/Aegisub/tree/lua_api): Add new functions to the Lua automation API, like controlling the selection or cursor in the text edit box
 - [`vector_clip_actions`](https://github.com/arch1t3cht/Aegisub/tree/vector_clip_actions): Make the different modes of the vector clip tool (lines, bezier curves, adding points, etc) bindable to hotkeys
 - [`color_picker_fix2`](https://github.com/arch1t3cht/Aegisub/tree/color_picker_fix2): Add an option (under "Interface") to restrict the color picker to the window, which fixes the color picker on Linux in a lot of cases.
 - [`avisynth`](https://github.com/arch1t3cht/Aegisub/tree/avisynth): Reenable Avisynth support on Windows (Still occasionally crashes)
 - [`bugfixes`](https://github.com/arch1t3cht/Aegisub/tree/bugfixes): Various fixes, mostly relevant for compilation
 - [`misc_dc`](https://github.com/arch1t3cht/Aegisub/tree/misc_dc): Miscellaneous changes taken from AegisubDC
-- [`video_panning_feature`](https://github.com/arch1t3cht/Aegisub/tree/video_panning_feature): Merge [moex3's video zoom and panning](https://github.com/TypesettingTools/Aegisub/pull/150), with an OSX fix and an option to toggle the behavior of Ctrl+Zoom
+- [`video_panning_feature`](https://github.com/arch1t3cht/Aegisub/tree/video_panning_feature): Merge [moex3's video zoom and panning](https://github.com/TypesettingTools/Aegisub/pull/150), with an OSX fix and more options to control zoom behavior
 - [`spectrum-frequency-mapping`](https://github.com/arch1t3cht/Aegisub/tree/spectrum-frequency-mapping): Merge EleonoreMizo's [spectrum display improvements](https://github.com/TypesettingTools/Aegisub/pull/94), and also make Shift+Scroll vertically zoom the audio display
+- [`wangqr_time_video`](https://github.com/arch1t3cht/Aegisub/tree/wangqr_time_video): Merge wangqr's feature adding a tool for timing subtitles to changes in the video
 
 ### Troubleshooting
 #### Building fails with a "CMake sandbox violation"
@@ -42,6 +44,9 @@ The changes to `default_config.json` or similar files weren't detected by meson 
 
 #### The video is desynced / Frames don't appear at the right time
 This is probably due to the ffms2 seeking bug ([#394](https://github.com/FFMS/ffms2/issues/394)). On Windows, this shouldn't happen anymore. On Linux, you need to install the latest git version of ffms2 - for example the [`ffms2-git`](https://aur.archlinux.org/packages/ffms2-git) AUR package on Arch linux, or just compile it yourself.
+
+#### On Windows: Aegisub crashes whenever I open a video
+If you're compiling yourself, try adding `--force-fallback-for=zlib` to the meson options.
 
 
 # Aegisub
