@@ -584,6 +584,8 @@
 	},
 
 	"Video" : {
+		"Disable Scroll Zoom" : false,
+		"Reverse Zoom" : false,
 		"Default Zoom" : 7,
 		"Detached" : {
 			"Enabled" : false,
