@@ -155,7 +155,6 @@ void BSVideoProvider::GetFrame(int n, VideoFrame &out) {
 		throw VideoDecodeError("Couldn't read frame!");
 	}
 	const AVFrame *frame = bsframe->GetAVFrame();
-	AVFrame *newframe = av_frame_alloc();
 
 	SwsContext *context = sws_getContext(
 			frame->width, frame->height, (AVPixelFormat) frame->format,  	// TODO figure out aegi's color space forcing.
@@ -166,17 +165,17 @@ void BSVideoProvider::GetFrame(int n, VideoFrame &out) {
 		throw VideoDecodeError("Couldn't convert frame!");
 	}
 
-	sws_scale_frame(context, newframe, frame);
+	out.data.resize(frame->width * frame->height * 4);
+	uint8_t *data[1] = {&out.data[0]};
+	int stride[1] = {frame->width * 4};
+	sws_scale(context, frame->data, frame->linesize, 0, frame->height, data, stride);
 
-	out.width = newframe->width;
-	out.height = newframe->height;
-	out.pitch = newframe->width * 4;
+	out.width = frame->width;
+	out.height = frame->height;
+	out.pitch = stride[0];
 	out.flipped = false; 		// TODO figure out flipped
 
-	out.data.assign(newframe->data[0], newframe->data[0] + newframe->linesize[0] * newframe->height);
-
 	sws_freeContext(context);
-	av_frame_free(&newframe);
 }
 
 }
