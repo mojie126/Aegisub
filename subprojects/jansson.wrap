@@ -1,0 +1,4 @@
+[wrap-git]
+directory = jansson
+url = https://github.com/akheron/jansson.git
+revision = v2.14

@@ -3,7 +3,7 @@ project('BestSource', 'cpp',
     meson_version: '>=0.48.0'
 )
 
-libs = []
+cmake = import('cmake')
 
 sources = [
     'src/audiosource.cpp',
@@ -13,11 +13,19 @@ sources = [
 ]
 
 deps = [
-    dependency('jansson', version: '>= 2.7', required: true),
     dependency('libavcodec'),
     dependency('libavformat'),
     dependency('libavutil'),
 ]
+
+jansson_dep = dependency('jansson', version: '>= 2.7', required: false)
+
+if jansson_dep.found()
+    deps += jansson_dep
+else
+    jansson = cmake.subproject('jansson')
+    deps += jansson.dependency('jansson')
+endif
 
 bs_lib = static_library('bestsource', sources,
     dependencies: deps,
