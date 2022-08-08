@@ -29,6 +29,7 @@ std::unique_ptr<VideoProvider> CreateDummyVideoProvider(agi::fs::path const&, st
 std::unique_ptr<VideoProvider> CreateYUV4MPEGVideoProvider(agi::fs::path const&, std::string const&, agi::BackgroundRunner *);
 std::unique_ptr<VideoProvider> CreateFFmpegSourceVideoProvider(agi::fs::path const&, std::string const&, agi::BackgroundRunner *);
 std::unique_ptr<VideoProvider> CreateAvisynthVideoProvider(agi::fs::path const&, std::string const&, agi::BackgroundRunner *);
+std::unique_ptr<VideoProvider> CreateBSVideoProvider(agi::fs::path const&, std::string const&, agi::BackgroundRunner *);
 
 std::unique_ptr<VideoProvider> CreateCacheVideoProvider(std::unique_ptr<VideoProvider>);
 
@@ -47,6 +48,9 @@ namespace {
 #endif
 #ifdef WITH_AVISYNTH
 		{"Avisynth", CreateAvisynthVideoProvider, false},
+#endif
+#ifdef WITH_BESTSOURCE
+		{"BestSource", CreateBSVideoProvider, false},
 #endif
 	};
 }

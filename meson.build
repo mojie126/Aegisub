@@ -220,6 +220,23 @@ foreach dep: [
     endif
 endforeach
 
+needs_ffmpeg = false
+
+if get_option('bestsource').enabled()
+    conf.set('WITH_BESTSOURCE', 1)
+    bs = subproject('bestsource')
+    deps += bs.get_variable('bestsource_dep')
+    needs_ffmpeg = true
+endif
+
+if needs_ffmpeg
+    conf.set('WITH_FFMPEG', 1)
+    deps += [
+      dependency('libavutil', default_options: ['tests=disabled']),
+      dependency('libswscale', default_options: ['tests=disabled']),
+    ]
+endif
+
 if host_machine.system() == 'windows' and get_option('avisynth').enabled()
     conf.set('WITH_AVISYNTH', 1) # bundled separately with installer
 endif

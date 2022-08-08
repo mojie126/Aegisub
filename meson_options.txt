@@ -7,6 +7,7 @@ option('default_audio_output', type: 'combo', choices: ['auto', 'ALSA', 'OpenAL'
 
 option('ffms2', type: 'feature', description: 'FFMS2 video source')
 option('avisynth', type: 'feature', description: 'AviSynth video source')
+option('bestsource', type: 'feature', description: 'BestSource video source')
 
 option('fftw3', type: 'feature', description: 'FFTW3 support')
 option('hunspell', type: 'feature', description: 'Hunspell spell checker')

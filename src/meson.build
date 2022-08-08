@@ -224,6 +224,10 @@ if conf.has('WITH_CSRI')
     aegisub_src += files('subtitles_provider_csri.cpp')
 endif
 
+if conf.has('WITH_BESTSOURCE')
+    aegisub_src += files('video_provider_bestsource.cpp')
+endif
+
 opt_src = [
     ['ALSA', 'audio_player_alsa.cpp'],
     ['PortAudio', 'audio_player_portaudio.cpp'],
