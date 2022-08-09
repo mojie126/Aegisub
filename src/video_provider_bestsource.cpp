@@ -23,6 +23,7 @@
 #include "include/aegisub/video_provider.h"
 
 #include "videosource.h"
+#include "audiosource.h"
 #include "BSRational.h"
 
 extern "C" {
@@ -57,6 +58,8 @@ class BSVideoProvider final : public VideoProvider {
 
 	std::vector<int> Keyframes;
 	agi::vfr::Framerate Timecodes;
+	std::string colorspace;
+	bool has_audio = false;
 
 	std::string GetCacheFile(agi::fs::path const& filename);
 
@@ -65,7 +68,7 @@ public:
 
 	void GetFrame(int n, VideoFrame &out) override;
 
-	void SetColorSpace(std::string const& matrix) override { }
+	void SetColorSpace(std::string const& matrix) override { } 	// TODO Follow Aegisub's colorspace forcing?
 
 	int GetFrameCount() const override { return properties.NumFrames; };
 
@@ -74,18 +77,45 @@ public:
 	double GetDAR() const override { return ((double) properties.Width * properties.SAR.Num) / (properties.Height * properties.SAR.Den); };
 
 	agi::vfr::Framerate GetFPS() const override { return Timecodes; };
-	std::string GetColorSpace() const override { return "TV.709"; }; 	// TODO
-	std::string GetRealColorSpace() const override { return "TV.709"; };
+	std::string GetColorSpace() const override { return colorspace; };
+	std::string GetRealColorSpace() const override { return colorspace; };
 	std::vector<int> GetKeyFrames() const override { return Keyframes; };
 	std::string GetDecoderName() const override { return "BestSource"; };
 	bool WantsCaching() const override { return false; };
-	bool HasAudio() const override { return false; };
+	bool HasAudio() const override { return has_audio; };
 };
+
+// Match the logic from the ffms2 provider, but directly use libavutil's constants and don't abort when encountering an unknown color space
+std::string colormatrix_description(const AVFrame *frame) {
+	// Assuming TV for unspecified
+	std::string str = frame->color_range == AVCOL_RANGE_JPEG ? "PC" : "TV";
+	LOG_D("bestsource") << frame->colorspace;
+
+	switch (frame->colorspace) {
+		case AVCOL_SPC_BT709:
+			return str + ".709";
+		case AVCOL_SPC_FCC:
+			return str + ".FCC";
+		case AVCOL_SPC_BT470BG:
+		case AVCOL_SPC_SMPTE170M:
+			return str + ".601";
+		case AVCOL_SPC_SMPTE240M:
+			return str + ".240M";
+		default:
+			return "None";
+	}
+}
 
 BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string const& colormatrix, agi::BackgroundRunner *br) try
 : bsopts()
 , bs(filename.string(), "", -1, false, 0, GetCacheFile(filename), &bsopts)
 {
+	try {
+		BestAudioSource dummysource(filename.string(), -1, 0, "");
+		has_audio = true;
+	} catch (AudioException const& err) {
+		has_audio = false;
+	}
 
 	properties = bs.GetVideoProperties();
 
@@ -130,6 +160,10 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 			Timecodes = agi::vfr::Framerate(TimecodesVector);
 		}
 	});
+
+	// Decode the first frame to get the color space
+	std::unique_ptr<BestVideoFrame> frame(bs.GetFrame(0));
+	colorspace = colormatrix_description(frame->GetAVFrame());
 }
 catch (VideoException const& err) {
 	throw VideoOpenError("Failed to create BestVideoSource");
