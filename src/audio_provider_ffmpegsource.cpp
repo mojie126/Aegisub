@@ -126,8 +126,10 @@ void FFmpegSourceAudioProvider::LoadAudio(agi::fs::path const& filename) {
 
 	// reindex if the error handling mode has changed
 	FFMS_IndexErrorHandling ErrorHandling = GetErrorHandlingMode();
+#if FFMS_VERSION >= ((2 << 24) | (17 << 16) | (2 << 8) | 0)
 	if (Index && FFMS_GetErrorHandling(Index) != ErrorHandling)
 		Index = nullptr;
+#endif
 
 	// moment of truth
 	if (!Index) {
@@ -165,22 +167,23 @@ void FFmpegSourceAudioProvider::LoadAudio(agi::fs::path const& filename) {
 			throw agi::AudioProviderError("unknown or unsupported sample format");
 	}
 
+#if FFMS_VERSION >= ((2 << 24) | (17 << 16) | (4 << 8) | 0)
 	if (OPT_GET("Provider/Audio/FFmpegSource/Downmix")->GetBool()) {
-		if (channels > 2 || bytes_per_sample != 2 || float_samples) {
+		if (channels > 1 || bytes_per_sample != 2 || float_samples) {
 			std::unique_ptr<FFMS_ResampleOptions, decltype(&FFMS_DestroyResampleOptions)>
 				opt(FFMS_CreateResampleOptions(AudioSource), FFMS_DestroyResampleOptions);
-			if (channels > 2)
-				opt->ChannelLayout = FFMS_CH_FRONT_LEFT | FFMS_CH_FRONT_RIGHT;
+			opt->ChannelLayout = FFMS_CH_FRONT_CENTER;
 			opt->SampleFormat = FFMS_FMT_S16;
 
 			// Might fail if FFMS2 wasn't built with libavresample
 			if (!FFMS_SetOutputFormatA(AudioSource, opt.get(), nullptr)) {
-				channels = channels > 2 ? 2 : channels;
+				channels = 1;
 				bytes_per_sample = 2;
 				float_samples = false;
 			}
 		}
 	}
+#endif
 }
 
 }

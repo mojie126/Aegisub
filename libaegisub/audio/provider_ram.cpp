@@ -46,14 +46,14 @@ public:
 		decoded_samples = 0;
 
 		try {
-			blockcache.resize((source->GetNumSamples() * source->GetBytesPerSample() + CacheBlockSize - 1) >> CacheBits);
+			blockcache.resize((num_samples * bytes_per_sample * channels + CacheBlockSize - 1) >> CacheBits);
 		}
 		catch (std::bad_alloc const&) {
 			throw AudioProviderError("Not enough memory available to cache in RAM");
 		}
 
 		decoder = std::thread([&] {
-			int64_t readsize = CacheBlockSize / source->GetBytesPerSample();
+			int64_t readsize = CacheBlockSize / bytes_per_sample / channels;
 			for (size_t i = 0; i < blockcache.size(); i++) {
 				if (cancelled) break;
 				auto actual_read = std::min<int64_t>(readsize, num_samples - i * readsize);
