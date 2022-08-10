@@ -7,7 +7,7 @@ project('Aegisub', ['c', 'cpp'],
 cmake = import('cmake')
 
 if host_machine.system() == 'windows'
-    add_project_arguments('-DNOMINMAX', '-D_WIN32_WINNT=0x0601', language: 'cpp')
+    add_project_arguments('-DNOMINMAX', language: 'cpp')
 
     if not get_option('csri').disabled()
         add_global_arguments('-DCSRI_NO_EXPORT', language: 'c')
@@ -259,16 +259,26 @@ if host_machine.system() == 'windows'
     if not get_option('xaudio2').disabled()
         have_xaudio_h = cc.has_header('xaudio2.h')
         xaudio2_dep = cc.find_library('xaudio2', required: true)
-        if have_xaudio_h
+        if have_xaudio_h and xaudio2_dep.found()
             deps += [xaudio2_dep]
             conf.set('WITH_XAUDIO2', 1)
             dep_avail += 'XAudio2'
+            # XAudio2 needs Windows 8 or newer, so we tell meson not to define an older windows or else it can break things.
+            add_project_arguments('-D_WIN32_WINNT=0x0602', language: 'cpp')
+        else
+            # Windows 8 not required if XAudio2 fails to be found. revert for compat.
+            add_project_arguments('-D_WIN32_WINNT=0x0601', language: 'cpp')
         endif
         
         if not have_dsound_h and get_option('xaudio2').enabled()
             error('xaudio2 enabled but xaudio2.h not found')
         endif
+    else
+        # Windows 8 not required if XAudio2 is disabled. revert for compat.
+        add_project_arguments('-D_WIN32_WINNT=0x0601', language: 'cpp')
     endif
+    
+
 endif
 
 if host_machine.system() == 'darwin'

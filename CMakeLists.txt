@@ -497,6 +497,7 @@ set_property(SOURCE src/subtitles_provider_csri.cpp PROPERTY INCLUDE_DIRECTORIES
 if(MSVC)
     target_link_libraries (Aegisub dsound)
     add_definitions("-DWITH_DIRECTSOUND")
+    add_definitions("-DWITH_XAUDIO2")
     target_sources(Aegisub PRIVATE src/audio_player_dsound.cpp src/audio_player_dsound2.cpp src/audio_player_xaudio2.cpp)
 endif(MSVC)
 

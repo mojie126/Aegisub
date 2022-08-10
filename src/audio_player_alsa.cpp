@@ -127,7 +127,7 @@ void AlsaPlayer::PlaybackThread()
 
 do_setup:
 	snd_pcm_format_t pcm_format;
-	switch (provider->GetBytesPerSample())
+	switch (/*provider->GetBytesPerSample()*/ sizeof(int16_t))
 	{
 	case 1:
 		LOG_D("audio/player/alsa") << "format U8";
@@ -143,7 +143,7 @@ do_setup:
 	if (snd_pcm_set_params(pcm,
 	                       pcm_format,
 	                       SND_PCM_ACCESS_RW_INTERLEAVED,
-	                       provider->GetChannels(),
+	                       /*provider->GetChannels()*/ 1,
 	                       provider->GetSampleRate(),
 	                       1, // allow resample
 	                       100*1000 // 100 milliseconds latency
@@ -151,7 +151,8 @@ do_setup:
 		return;
 	LOG_D("audio/player/alsa") << "set pcm params";
 
-	size_t framesize = provider->GetChannels() * provider->GetBytesPerSample();
+	//size_t framesize = provider->GetChannels() * provider->GetBytesPerSample();
+	size_t framesize = sizeof(int16_t);
 
 	while (true)
 	{
@@ -175,7 +176,7 @@ do_setup:
 		{
 			auto avail = std::min(snd_pcm_avail(pcm), (snd_pcm_sframes_t)(end_position-position));
 			decode_buffer.resize(avail * framesize);
-			provider->GetAudioWithVolume(decode_buffer.data(), position, avail, volume);
+			provider->GetInt16MonoAudioWithVolume(reinterpret_cast<int16_t*>(decode_buffer.data()), position, avail, volume);
 
 			snd_pcm_sframes_t written = 0;
 			while (written <= 0)
@@ -235,7 +236,7 @@ do_setup:
 
 			{
 				decode_buffer.resize(avail * framesize);
-				provider->GetAudioWithVolume(decode_buffer.data(), position, avail, volume);
+				provider->GetInt16MonoAudioWithVolume(reinterpret_cast<int16_t*>(decode_buffer.data()), position, avail, volume);
 				snd_pcm_sframes_t written = 0;
 				while (written <= 0)
 				{

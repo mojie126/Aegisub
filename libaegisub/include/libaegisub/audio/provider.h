@@ -20,7 +20,6 @@
 #include <libaegisub/fs_fwd.h>
 
 #include <atomic>
-#include <memory>
 #include <vector>
 
 namespace agi {
@@ -37,6 +36,7 @@ protected:
 	bool float_samples = false;
 
 	virtual void FillBuffer(void *buf, int64_t start, int64_t count) const = 0;
+	virtual void FillBufferInt16Mono(int16_t* buf, int64_t start, int64_t count) const;
 
 	void ZeroFill(void *buf, int64_t count) const;
 
@@ -44,7 +44,8 @@ public:
 	virtual ~AudioProvider() = default;
 
 	void GetAudio(void *buf, int64_t start, int64_t count) const;
-	void GetAudioWithVolume(void *buf, int64_t start, int64_t count, double volume) const;
+	void GetInt16MonoAudio(int16_t* buf, int64_t start, int64_t count) const;
+	void GetInt16MonoAudioWithVolume(int16_t *buf, int64_t start, int64_t count, double volume) const;
 
 	int64_t GetNumSamples()     const { return num_samples; }
 	int64_t GetDecodedSamples() const { return decoded_samples; }
