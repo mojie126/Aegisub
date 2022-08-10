@@ -452,6 +452,13 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 	p->OptionAdd(ffms, _("Enable unsafe seeking"), "Provider/Video/FFmpegSource/Unsafe Seeking");
 #endif
 
+#ifdef WITH_BESTSOURCE
+	auto bs = p->PageSizer("BestSource");
+	p->OptionAdd(bs, _("Max cache size (MB)"), "Provider/Video/BestSource/Max Cache Size");
+	p->OptionAdd(bs, _("Decoder Threads (0 to autodetect)"), "Provider/Video/BestSource/Threads");
+	p->OptionAdd(bs, _("Seek preroll (Frames)"), "Provider/Video/BestSource/Seek Preroll");
+#endif
+
 	p->SetSizerAndFit(p->sizer);
 }
 

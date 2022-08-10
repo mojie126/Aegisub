@@ -108,8 +108,10 @@ std::string colormatrix_description(const AVFrame *frame) {
 
 BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string const& colormatrix, agi::BackgroundRunner *br) try
 : bsopts()
-, bs(filename.string(), "", -1, false, 0, GetCacheFile(filename), &bsopts)
+, bs(filename.string(), "", -1, false, OPT_GET("Provider/Video/BestSource/Threads")->GetInt(), GetCacheFile(filename), &bsopts)
 {
+	bs.SetMaxCacheSize(OPT_GET("Provider/Video/BestSource/Max Cache Size")->GetInt() << 20);
+	bs.SetSeekPreRoll(OPT_GET("Provider/Video/BestSource/Seek Preroll")->GetInt());
 	try {
 		BestAudioSource dummysource(filename.string(), -1, 0, "");
 		has_audio = true;
