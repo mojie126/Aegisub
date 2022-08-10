@@ -237,20 +237,37 @@ if host_machine.system() == 'windows' and get_option('avisynth').enabled()
     deps_inc += avs.include_directories('AviSynth-Headers')
 endif
 
-if host_machine.system() == 'windows' and not get_option('directsound').disabled()
-    dsound_dep = cc.find_library('dsound', required: get_option('directsound'))
-    winmm_dep = cc.find_library('winmm', required: get_option('directsound'))
-    ole32_dep = cc.find_library('ole32', required: get_option('directsound'))
-    have_dsound_h = cc.has_header('dsound.h')
-    if not have_dsound_h and get_option('directsound').enabled()
-        error('DirectSound enabled but dsound.h not found')
+if host_machine.system() == 'windows'
+
+    if not get_option('directsound').disabled()
+        dsound_dep = cc.find_library('dsound', required: get_option('directsound'))
+        winmm_dep = cc.find_library('winmm', required: get_option('directsound'))
+        ole32_dep = cc.find_library('ole32', required: get_option('directsound'))
+        have_dsound_h = cc.has_header('dsound.h')
+        if not have_dsound_h and get_option('directsound').enabled()
+            error('DirectSound enabled but dsound.h not found')
+        endif
+
+        dxguid_dep = cc.find_library('dxguid', required: true)
+        if dsound_dep.found() and winmm_dep.found() and ole32_dep.found() and dxguid_dep.found() and have_dsound_h
+            deps += [dsound_dep, winmm_dep, ole32_dep, dxguid_dep]
+            conf.set('WITH_DIRECTSOUND', 1)
+            dep_avail += 'DirectSound'
+        endif
     endif
 
-    dxguid_dep = cc.find_library('dxguid', required: true)
-    if dsound_dep.found() and winmm_dep.found() and ole32_dep.found() and dxguid_dep.found() and have_dsound_h
-        deps += [dsound_dep, winmm_dep, ole32_dep, dxguid_dep]
-        conf.set('WITH_DIRECTSOUND', 1)
-        dep_avail += 'DirectSound'
+    if not get_option('xaudio2').disabled()
+        have_xaudio_h = cc.has_header('xaudio2.h')
+        xaudio2_dep = cc.find_library('xaudio2', required: true)
+        if have_xaudio_h
+            deps += [xaudio2_dep]
+            conf.set('WITH_XAUDIO2', 1)
+            dep_avail += 'XAudio2'
+        endif
+        
+        if not have_dsound_h and get_option('xaudio2').enabled()
+            error('xaudio2 enabled but xaudio2.h not found')
+        endif
     endif
 endif
 
