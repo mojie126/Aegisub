@@ -226,6 +226,7 @@ if get_option('bestsource').enabled()
     conf.set('WITH_BESTSOURCE', 1)
     bs = subproject('bestsource')
     deps += bs.get_variable('bestsource_dep')
+    dep_avail += 'BestSource'
     needs_ffmpeg = true
 endif
 

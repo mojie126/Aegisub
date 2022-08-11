@@ -32,7 +32,7 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
-/* #include "utils.h" */
+#include "bestsource_common.h"
 #include "options.h"
 #include "compat.h"
 #include "video_frame.h"
@@ -43,9 +43,6 @@ namespace agi { class BackgroundRunner; }
 #include <libaegisub/make_unique.h>
 #include <libaegisub/background_runner.h>
 #include <libaegisub/log.h>
-
-#include <boost/crc.hpp>
-#include <boost/filesystem/path.hpp>
 
 namespace {
 
@@ -60,8 +57,6 @@ class BSVideoProvider final : public VideoProvider {
 	agi::vfr::Framerate Timecodes;
 	std::string colorspace;
 	bool has_audio = false;
-
-	std::string GetCacheFile(agi::fs::path const& filename);
 
 public:
 	BSVideoProvider(agi::fs::path const& filename, std::string const& colormatrix, agi::BackgroundRunner *br);
@@ -108,7 +103,7 @@ std::string colormatrix_description(const AVFrame *frame) {
 
 BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string const& colormatrix, agi::BackgroundRunner *br) try
 : bsopts()
-, bs(filename.string(), "", -1, false, OPT_GET("Provider/Video/BestSource/Threads")->GetInt(), GetCacheFile(filename), &bsopts)
+, bs(filename.string(), "", -1, false, OPT_GET("Provider/Video/BestSource/Threads")->GetInt(), GetBSCacheFile(filename), &bsopts)
 {
 	bs.SetMaxCacheSize(OPT_GET("Provider/Video/BestSource/Max Cache Size")->GetInt() << 20);
 	bs.SetSeekPreRoll(OPT_GET("Provider/Video/BestSource/Seek Preroll")->GetInt());
@@ -169,20 +164,6 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 }
 catch (VideoException const& err) {
 	throw VideoOpenError("Failed to create BestVideoSource");
-}
-
-std::string BSVideoProvider::GetCacheFile(agi::fs::path const& filename) {
-	// BS can store all its index data in a single file, but we make a separate index file
-	// for each video file to ensure that the old index is invalidated if the file is modified.
-	// While BS does check the filesize of the files, it doesn't check the modification time.
-	uintmax_t len = agi::fs::Size(filename);
-	boost::crc_32_type hash;
-	hash.process_bytes(filename.string().c_str(), filename.string().size());
-
-	auto result = config::path->Decode("?local/bsindex/" + filename.filename().string() + "_" + std::to_string(hash.checksum()) + "_" + std::to_string(len) + "_" + std::to_string(agi::fs::ModifiedTime(filename)) + ".json");
-	agi::fs::CreateDirectory(result.parent_path());
-
-	return result.string();
 }
 
 void BSVideoProvider::GetFrame(int n, VideoFrame &out) {

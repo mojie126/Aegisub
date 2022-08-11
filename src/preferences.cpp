@@ -403,6 +403,13 @@ void Advanced_Audio(wxTreebook *book, Preferences *parent) {
 	p->OptionAdd(ffms, _("Always index all audio tracks"), "Provider/FFmpegSource/Index All Tracks");
 #endif
 
+#ifdef WITH_BESTSOURCE
+	auto bs = p->PageSizer("BestSource");
+	p->OptionAdd(bs, _("Max BS cache size (MB)"), "Provider/Audio/BestSource/Max Cache Size");
+	p->OptionAdd(bs, _("Use Aegisub's Cache"), "Provider/Audio/BestSource/Aegisub Cache");
+#endif
+
+
 #ifdef WITH_PORTAUDIO
 	auto portaudio = p->PageSizer("Portaudio");
 	p->OptionChoice(portaudio, _("Portaudio device"), PortAudioPlayer::GetOutputDevices(), "Player/Audio/PortAudio/Device Name");
