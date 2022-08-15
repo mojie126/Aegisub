@@ -75,37 +75,8 @@ catch (AudioException const& err) {
 	throw agi::AudioProviderError("Failed to create BestAudioSource");
 }
 
-// Taken from BestSource code and reversed
-template<typename T>
-static void PackChannels(const uint8_t *Src, void *Dst, size_t Length, size_t Channels) {
-    const T *S = reinterpret_cast<const T *>(Src);
-    T *D = reinterpret_cast<T *>(Dst);
-    for (size_t i = 0; i < Length; i++) {
-        for (size_t c = 0; c < Channels; c++)
-            D[c] = S[Length * c];
-        S += 1;
-        D += Channels;
-    }
-}
-
 void BSAudioProvider::FillBuffer(void *Buf, int64_t Start, int64_t Count) const {
-	// BS unpacked the channels, so until it gets a feature to disable that, let's just
-	// pack them in the same way they were unpacked
-	std::vector<uint8_t> unpacked_buf(channels * bytes_per_sample * Count);
-	std::vector<uint8_t *> bufs(channels);
-	for (int i = 0; i < channels; i++) {
-		bufs[i] = unpacked_buf.data() + i * bytes_per_sample * Count;
-	}
-	const_cast<BestAudioSource &>(bs).GetAudio(bufs.data(), Start, Count);
-
-	if (bytes_per_sample == 1)
-		PackChannels<uint8_t>(unpacked_buf.data(), Buf, Count, channels);
-	else if (bytes_per_sample == 2)
-		PackChannels<uint16_t>(unpacked_buf.data(), Buf, Count, channels);
-	else if (bytes_per_sample == 4)
-		PackChannels<uint32_t>(unpacked_buf.data(), Buf, Count, channels);
-	else if (bytes_per_sample == 8)
-		PackChannels<uint64_t>(unpacked_buf.data(), Buf, Count, channels);
+	const_cast<BestAudioSource &>(bs).GetPackedAudio(reinterpret_cast<uint8_t *>(Buf), Start, Count);
 }
 
 }
