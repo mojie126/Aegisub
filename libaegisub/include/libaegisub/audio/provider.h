@@ -21,6 +21,7 @@
 
 #include <atomic>
 #include <vector>
+#include <memory>
 
 namespace agi {
 class AudioProvider {

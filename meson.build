@@ -238,7 +238,6 @@ if host_machine.system() == 'windows' and get_option('avisynth').enabled()
 endif
 
 if host_machine.system() == 'windows'
-
     if not get_option('directsound').disabled()
         dsound_dep = cc.find_library('dsound', required: get_option('directsound'))
         winmm_dep = cc.find_library('winmm', required: get_option('directsound'))
@@ -277,8 +276,6 @@ if host_machine.system() == 'windows'
         # Windows 8 not required if XAudio2 is disabled. revert for compat.
         add_project_arguments('-D_WIN32_WINNT=0x0601', language: 'cpp')
     endif
-    
-
 endif
 
 if host_machine.system() == 'darwin'

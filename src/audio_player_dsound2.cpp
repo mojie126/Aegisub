@@ -469,7 +469,6 @@ stop_playback:
 					invert_volume = DSBVOLUME_MAX;
 				else if (invert_volume < DSBVOLUME_MIN / 2)
 					invert_volume = DSBVOLUME_MIN / 2;
-				LOG_I("DS2") << "Earrape vlume: " <<invert_volume;
 				bfr->SetVolume(invert_volume);
 			}
 			// Change volume
