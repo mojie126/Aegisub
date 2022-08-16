@@ -335,6 +335,10 @@
 			},
 			"FFmpegSource" : {
 				"Decode Error Handling" : "ignore"
+			},
+			"BestSource": {
+				"Max Cache Size" : 100,
+				"Aegisub Cache" : true
 			}
 		},
 		"Avisynth" : {
@@ -355,6 +359,11 @@
 			"FFmpegSource" : {
 				"Decoding Threads" : -1,
 				"Unsafe Seeking" : false
+			},
+			"BestSource" : {
+				"Max Cache Size" : 1024,
+				"Threads" : 0,
+				"Seek Preroll" : 12
 			}
 		}
 	},

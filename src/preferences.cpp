@@ -417,6 +417,13 @@ void Advanced_Audio(wxTreebook *book, Preferences *parent) {
 	stereo->SetToolTip("Reduces memory usage on surround audio, but may cause audio tracks to sound blank in specific circumstances. This will not affect audio with two channels or less.");
 #endif
 
+#ifdef WITH_BESTSOURCE
+	auto bs = p->PageSizer("BestSource");
+	p->OptionAdd(bs, _("Max BS cache size (MB)"), "Provider/Audio/BestSource/Max Cache Size");
+	p->OptionAdd(bs, _("Use Aegisub's Cache"), "Provider/Audio/BestSource/Aegisub Cache");
+#endif
+
+
 #ifdef WITH_PORTAUDIO
 	auto portaudio = p->PageSizer("Portaudio");
 	p->OptionChoice(portaudio, _("Portaudio device"), PortAudioPlayer::GetOutputDevices(), "Player/Audio/PortAudio/Device Name");
@@ -467,6 +474,13 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 
 	p->OptionAdd(ffms, _("Decoding threads"), "Provider/Video/FFmpegSource/Decoding Threads", -1);
 	p->OptionAdd(ffms, _("Enable unsafe seeking"), "Provider/Video/FFmpegSource/Unsafe Seeking");
+#endif
+
+#ifdef WITH_BESTSOURCE
+	auto bs = p->PageSizer("BestSource");
+	p->OptionAdd(bs, _("Max cache size (MB)"), "Provider/Video/BestSource/Max Cache Size");
+	p->OptionAdd(bs, _("Decoder Threads (0 to autodetect)"), "Provider/Video/BestSource/Threads");
+	p->OptionAdd(bs, _("Seek preroll (Frames)"), "Provider/Video/BestSource/Seek Preroll");
 #endif
 
 	p->SetSizerAndFit(p->sizer);

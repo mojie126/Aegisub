@@ -237,6 +237,12 @@ opt_src = [
     ['FFMS2', ['audio_provider_ffmpegsource.cpp',
                'video_provider_ffmpegsource.cpp',
                'ffmpegsource_common.cpp']],
+    ['BestSource', ['audio_provider_bestsource.cpp',
+                    'video_provider_bestsource.cpp',
+                    'bestsource_common.cpp']],
+    ['VapourSynth', ['vapoursynth_wrap.cpp',
+                     'audio_provider_vs.cpp',
+                     'video_provider_vs.cpp']],
 
     ['AviSynth', ['avisynth_wrap.cpp',
                   'audio_provider_avs.cpp',

@@ -19,6 +19,7 @@ tools/repack-thes-dict.dSYM
 # Meson
 build*/
 subprojects/avisynth
+subprojects/bestsource/
 subprojects/boost*/
 subprojects/cairo*
 subprojects/ffmpeg
@@ -30,6 +31,7 @@ subprojects/glib*
 subprojects/googletest-*
 subprojects/harfbuzz
 subprojects/icu
+subprojects/jansson
 subprojects/libass
 subprojects/libffi*
 subprojects/libpng-*
@@ -42,3 +44,4 @@ subprojects/zlib-*
 subprojects/dirent-*
 subprojects/hunspell-*
 subprojects/uchardet-*
+subprojects/vapoursynth

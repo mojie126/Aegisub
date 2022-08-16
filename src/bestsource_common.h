@@ -1,4 +1,4 @@
-// Copyright (c) 2013, Thomas Goyne <plorkyeran@aegisub.org>
+// Copyright (c) 2022, arch1t3cht <arch1t3cht@gmail.com>>
 //
 // Permission to use, copy, modify, and distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
@@ -14,18 +14,15 @@
 //
 // Aegisub Project http://www.aegisub.org/
 
-#pragma once
+/// @file ffmpegsource_common.h
+/// @see ffmpegsource_common.cpp
+/// @ingroup video_input audio_input ffms
+///
 
-#include <vector>
+#ifdef WITH_BESTSOURCE
 
-class wxImage;
+#include <libaegisub/fs_fwd.h>
 
-struct VideoFrame {
-	std::vector<unsigned char> data;
-	size_t width;
-	size_t height;
-	size_t pitch;
-	bool flipped;
-};
+std::string GetBSCacheFile(agi::fs::path const& filename);
 
-wxImage GetImage(VideoFrame const& frame);
+#endif /* WITH_BESTSOURCE */

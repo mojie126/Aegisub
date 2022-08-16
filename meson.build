@@ -224,6 +224,24 @@ foreach dep: [
     endif
 endforeach
 
+needs_ffmpeg = false
+
+if get_option('bestsource').enabled()
+    conf.set('WITH_BESTSOURCE', 1)
+    bs = subproject('bestsource')
+    deps += bs.get_variable('bestsource_dep')
+    dep_avail += 'BestSource'
+    needs_ffmpeg = true
+endif
+
+if needs_ffmpeg
+    conf.set('WITH_FFMPEG', 1)
+    deps += [
+      dependency('libavutil', default_options: ['tests=disabled']),
+      dependency('libswscale', default_options: ['tests=disabled']),
+    ]
+endif
+
 if get_option('avisynth').enabled()
     conf.set('WITH_AVISYNTH', 1) # bundled separately with installer
     dep_avail += 'AviSynth'
@@ -239,6 +257,13 @@ if get_option('avisynth').enabled()
     if host_machine.system() == 'windows'
       deps += cc.find_library('avifil32', required: true)
     endif
+endif
+
+if get_option('vapoursynth').enabled()
+    conf.set('WITH_VAPOURSYNTH', 1)
+    vs_sub = subproject('vapoursynth')
+    deps_inc += vs_sub.get_variable('vs_inc')
+    dep_avail += 'VapourSynth'
 endif
 
 if host_machine.system() == 'windows' and not get_option('directsound').disabled()
