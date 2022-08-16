@@ -388,7 +388,7 @@ void ColorPickerScreenDropper::DropFromScreenXY(int x, int y) {
 #ifndef __WXMAC__
 	std::unique_ptr<wxDC> screen;
 
-	if (!OPT_GET("Tool/Color Picker/Restrict to Window")->GetBool()) {
+	if (!OPT_GET("Tool/Colour Picker/Restrict to Window")->GetBool()) {
 		screen = agi::make_unique<wxScreenDC>();
 	} else {
 		wxWindow *superparent = GetParent();
@@ -397,7 +397,7 @@ void ColorPickerScreenDropper::DropFromScreenXY(int x, int y) {
 		}
 		superparent->ScreenToClient(&x, &y);
 
-		screen = agi::make_unique<wxWindowDC>(superparent);
+		screen = agi::make_unique<wxClientDC>(superparent);
 	}
 	capdc.StretchBlit(0, 0, resx * magnification, resy * magnification,
 		screen.get(), x - resx / 2, y - resy / 2, resx, resy);

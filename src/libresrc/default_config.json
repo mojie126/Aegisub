@@ -448,6 +448,7 @@
 				"X" : -1,
 				"Y" : -1
 			},
+			"Restrict to Window" : false,
 			"Maximized" : false
 		},
 		"Fonts Collector" : {
@@ -572,9 +573,6 @@
 			},
 			"Maximized" : false,
 			"Skip Whitespace" : true
-		},
-		"Color Picker" : {
-			"Restrict to Window" : false
 		},
 		"Visual" : {
 			"Autohide": false
