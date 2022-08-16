@@ -131,7 +131,7 @@ public:
 
         while (!TestDestroy() && parent->cur_frame < parent->end_frame) {
             int rsize = std::min(wsize, parent->end_frame - parent->cur_frame);
-            parent->provider->GetAudioWithVolume(buf, parent->cur_frame,
+            parent->provider->GetInt16MonoAudioWithVolume(reinterpret_cast<int16_t*>(buf), parent->cur_frame,
                                                  rsize, parent->volume);
             int written = ::write(parent->dspdev, buf, rsize * parent->bpf);
             parent->cur_frame += written / parent->bpf;
@@ -146,7 +146,7 @@ public:
 
 void OSSPlayer::OpenStream()
 {
-    bpf = provider->GetChannels() * provider->GetBytesPerSample();
+    bpf = /*provider->GetChannels() * provider->GetBytesPerSample()*/sizeof(int16_t);
 
     // Open device
     wxString device = to_wx(OPT_GET("Player/Audio/OSS/Device")->GetString());
@@ -162,14 +162,14 @@ void OSSPlayer::OpenStream()
 #endif
 
     // Set number of channels
-    int channels = provider->GetChannels();
+    int channels = /*provider->GetChannels()*/1;
     if (ioctl(dspdev, SNDCTL_DSP_CHANNELS, &channels) < 0) {
         throw AudioPlayerOpenError("OSS player: setting channels failed");
     }
 
     // Set sample format
     int sample_format;
-    switch (provider->GetBytesPerSample()) {
+    switch (/*provider->GetBytesPerSample()*/sizeof(int16_t)) {
         case 1:
             sample_format = AFMT_S8;
             break;

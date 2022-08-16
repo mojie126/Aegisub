@@ -133,11 +133,11 @@ PulseAudioPlayer::PulseAudioPlayer(agi::AudioProvider *provider) : AudioPlayer(p
 	}
 
 	// Set up stream
-	bpf = provider->GetChannels() * provider->GetBytesPerSample();
+	bpf = /*provider->GetChannels() * provider->GetBytesPerSample()*/sizeof(int16_t);
 	pa_sample_spec ss;
 	ss.format = PA_SAMPLE_S16LE; // FIXME
 	ss.rate = provider->GetSampleRate();
-	ss.channels = provider->GetChannels();
+	ss.channels = /*provider->GetChannels()*/1;
 	pa_channel_map map;
 	pa_channel_map_init_auto(&map, ss.channels, PA_CHANNEL_MAP_DEFAULT);
 
@@ -308,7 +308,7 @@ void PulseAudioPlayer::pa_stream_write(pa_stream *p, size_t length, PulseAudioPl
 	unsigned long maxframes = thread->end_frame - thread->cur_frame;
 	if (frames > maxframes) frames = maxframes;
 	void *buf = malloc(frames * bpf);
-	thread->provider->GetAudioWithVolume(buf, thread->cur_frame, frames, thread->volume);
+	thread->provider->GetInt16MonoAudioWithVolume(reinterpret_cast<int16_t*>(buf), thread->cur_frame, frames, thread->volume);
 	::pa_stream_write(p, buf, frames*bpf, free, 0, PA_SEEK_RELATIVE);
 	thread->cur_frame += frames;
 }

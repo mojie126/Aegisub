@@ -233,7 +233,7 @@ opt_src = [
     ['OSS', 'audio_player_oss.cpp'],
     ['DirectSound', ['audio_player_dsound.cpp',
                      'audio_player_dsound2.cpp']],
-
+    ['XAudio2', 'audio_player_xaudio2.cpp'],
     ['FFMS2', ['audio_provider_ffmpegsource.cpp',
                'video_provider_ffmpegsource.cpp',
                'ffmpegsource_common.cpp']],

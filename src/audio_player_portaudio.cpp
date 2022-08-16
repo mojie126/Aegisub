@@ -140,7 +140,7 @@ void PortAudioPlayer::OpenStream() {
 		const PaDeviceInfo *device_info = Pa_GetDeviceInfo((*device_ids)[i]);
 		PaStreamParameters pa_output_p;
 		pa_output_p.device = (*device_ids)[i];
-		pa_output_p.channelCount = provider->GetChannels();
+		pa_output_p.channelCount = /*provider->GetChannels()*/ 1;
 		pa_output_p.sampleFormat = paInt16;
 		pa_output_p.suggestedLatency = device_info->defaultLowOutputLatency;
 		pa_output_p.hostApiSpecificStreamInfo = nullptr;
@@ -222,7 +222,7 @@ int PortAudioPlayer::paCallback(const void *inputBuffer, void *outputBuffer,
 
 	// Play something
 	if (lenAvailable > 0) {
-		player->provider->GetAudioWithVolume(outputBuffer, player->current, lenAvailable, player->GetVolume());
+		player->provider->GetInt16MonoAudioWithVolume(reinterpret_cast<int16_t*>(outputBuffer), player->current, lenAvailable, player->GetVolume());
 
 		// Set play position
 		player->current += lenAvailable;

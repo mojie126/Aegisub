@@ -7,7 +7,7 @@ project('Aegisub', ['c', 'cpp'],
 cmake = import('cmake')
 
 if host_machine.system() == 'windows'
-    add_project_arguments('-DNOMINMAX', '-D_WIN32_WINNT=0x0601', language: 'cpp')
+    add_project_arguments('-DNOMINMAX', language: 'cpp')
 
     if not get_option('csri').disabled()
         add_global_arguments('-DCSRI_NO_EXPORT', language: 'c')
@@ -266,20 +266,44 @@ if get_option('vapoursynth').enabled()
     dep_avail += 'VapourSynth'
 endif
 
-if host_machine.system() == 'windows' and not get_option('directsound').disabled()
-    dsound_dep = cc.find_library('dsound', required: get_option('directsound'))
-    winmm_dep = cc.find_library('winmm', required: get_option('directsound'))
-    ole32_dep = cc.find_library('ole32', required: get_option('directsound'))
-    have_dsound_h = cc.has_header('dsound.h')
-    if not have_dsound_h and get_option('directsound').enabled()
-        error('DirectSound enabled but dsound.h not found')
+if host_machine.system() == 'windows'
+    if not get_option('directsound').disabled()
+        dsound_dep = cc.find_library('dsound', required: get_option('directsound'))
+        winmm_dep = cc.find_library('winmm', required: get_option('directsound'))
+        ole32_dep = cc.find_library('ole32', required: get_option('directsound'))
+        have_dsound_h = cc.has_header('dsound.h')
+        if not have_dsound_h and get_option('directsound').enabled()
+            error('DirectSound enabled but dsound.h not found')
+        endif
+
+        dxguid_dep = cc.find_library('dxguid', required: true)
+        if dsound_dep.found() and winmm_dep.found() and ole32_dep.found() and dxguid_dep.found() and have_dsound_h
+            deps += [dsound_dep, winmm_dep, ole32_dep, dxguid_dep]
+            conf.set('WITH_DIRECTSOUND', 1)
+            dep_avail += 'DirectSound'
+        endif
     endif
 
-    dxguid_dep = cc.find_library('dxguid', required: true)
-    if dsound_dep.found() and winmm_dep.found() and ole32_dep.found() and dxguid_dep.found() and have_dsound_h
-        deps += [dsound_dep, winmm_dep, ole32_dep, dxguid_dep]
-        conf.set('WITH_DIRECTSOUND', 1)
-        dep_avail += 'DirectSound'
+    if not get_option('xaudio2').disabled()
+        have_xaudio_h = cc.has_header('xaudio2.h')
+        xaudio2_dep = cc.find_library('xaudio2', required: true)
+        if have_xaudio_h and xaudio2_dep.found()
+            deps += [xaudio2_dep]
+            conf.set('WITH_XAUDIO2', 1)
+            dep_avail += 'XAudio2'
+            # XAudio2 needs Windows 8 or newer, so we tell meson not to define an older windows or else it can break things.
+            add_project_arguments('-D_WIN32_WINNT=0x0602', language: 'cpp')
+        else
+            # Windows 8 not required if XAudio2 fails to be found. revert for compat.
+            add_project_arguments('-D_WIN32_WINNT=0x0601', language: 'cpp')
+        endif
+        
+        if not have_dsound_h and get_option('xaudio2').enabled()
+            error('xaudio2 enabled but xaudio2.h not found')
+        endif
+    else
+        # Windows 8 not required if XAudio2 is disabled. revert for compat.
+        add_project_arguments('-D_WIN32_WINNT=0x0601', language: 'cpp')
     endif
 endif
 

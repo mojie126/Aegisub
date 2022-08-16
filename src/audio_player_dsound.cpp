@@ -45,6 +45,7 @@
 
 #include <mmsystem.h>
 #include <dsound.h>
+#include <cguid.h>
 
 namespace {
 class DirectSoundPlayer;
@@ -111,8 +112,10 @@ DirectSoundPlayer::DirectSoundPlayer(agi::AudioProvider *provider, wxWindow *par
 	WAVEFORMATEX waveFormat;
 	waveFormat.wFormatTag = WAVE_FORMAT_PCM;
 	waveFormat.nSamplesPerSec = provider->GetSampleRate();
-	waveFormat.nChannels = provider->GetChannels();
-	waveFormat.wBitsPerSample = provider->GetBytesPerSample() * 8;
+	//waveFormat.nChannels = provider->GetChannels();
+	//waveFormat.wBitsPerSample = provider->GetBytesPerSample() * 8;
+	waveFormat.nChannels = 1;
+	waveFormat.wBitsPerSample = sizeof(int16_t) * 8;
 	waveFormat.nBlockAlign = waveFormat.nChannels * waveFormat.wBitsPerSample / 8;
 	waveFormat.nAvgBytesPerSec = waveFormat.nSamplesPerSec * waveFormat.nBlockAlign;
 	waveFormat.cbSize = sizeof(waveFormat);
@@ -160,7 +163,7 @@ bool DirectSoundPlayer::FillBuffer(bool fill) {
 	HRESULT res;
 	void *ptr1, *ptr2;
 	unsigned long int size1, size2;
-	int bytesps = provider->GetBytesPerSample();
+	int bytesps = /*provider->GetBytesPerSample()*/ sizeof(int16_t);
 
 	// To write length
 	int toWrite = 0;
@@ -223,8 +226,8 @@ RetryLock:
 	LOG_D_IF(!count1 && !count2, "audio/player/dsound1") << "DS fill: nothing";
 
 	// Get source wave
-	if (count1) provider->GetAudioWithVolume(ptr1, playPos, count1, volume);
-	if (count2) provider->GetAudioWithVolume(ptr2, playPos+count1, count2, volume);
+	if (count1) provider->GetInt16MonoAudioWithVolume(reinterpret_cast<int16_t*>(ptr1), playPos, count1, volume);
+	if (count2) provider->GetInt16MonoAudioWithVolume(reinterpret_cast<int16_t*>(ptr2), playPos+count1, count2, volume);
 	playPos += count1+count2;
 
 	buffer->Unlock(ptr1,count1*bytesps,ptr2,count2*bytesps);
@@ -254,7 +257,7 @@ void DirectSoundPlayer::Play(int64_t start,int64_t count) {
 	FillBuffer(true);
 
 	DWORD play_flag = 0;
-	if (count*provider->GetBytesPerSample() > bufSize) {
+	if (count*/*provider->GetBytesPerSample()*/sizeof(int16_t) > bufSize) {
 		// Start thread
 		thread = new DirectSoundPlayerThread(this);
 		thread->Create();
