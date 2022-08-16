@@ -242,6 +242,13 @@ if host_machine.system() == 'windows' and get_option('avisynth').enabled()
     conf.set('WITH_AVISYNTH', 1) # bundled separately with installer
 endif
 
+if get_option('vapoursynth').enabled()
+    conf.set('WITH_VAPOURSYNTH', 1)
+    vs_sub = subproject('vapoursynth')
+    deps_inc += vs_sub.get_variable('vs_inc')
+    dep_avail += 'VapourSynth'
+endif
+
 if host_machine.system() == 'windows' and not get_option('directsound').disabled()
     dsound_dep = cc.find_library('dsound', required: get_option('directsound'))
     winmm_dep = cc.find_library('winmm', required: get_option('directsound'))

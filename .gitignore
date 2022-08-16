@@ -43,3 +43,4 @@ subprojects/zlib-*
 subprojects/dirent-*
 subprojects/hunspell-*
 subprojects/uchardet-*
+subprojects/vapoursynth
