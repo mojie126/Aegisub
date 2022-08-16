@@ -1,4 +1,4 @@
-// Copyright (c) 2013, Thomas Goyne <plorkyeran@aegisub.org>
+// Copyright (c) 2022, arch1t3cht <arch1t3cht@gmail.com>
 //
 // Permission to use, copy, modify, and distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
@@ -14,18 +14,29 @@
 //
 // Aegisub Project http://www.aegisub.org/
 
-#pragma once
+/// @file vapoursynth_wrap.h
+/// @see vapoursynth_wrap.cpp
+/// @ingroup video_input audio_input
+///
 
-#include <vector>
+#ifdef WITH_VAPOURSYNTH
 
-class wxImage;
+#include <libaegisub/exception.h>
 
-struct VideoFrame {
-	std::vector<unsigned char> data;
-	size_t width;
-	size_t height;
-	size_t pitch;
-	bool flipped;
+DEFINE_EXCEPTION(VapoursynthError, agi::Exception);
+
+struct VSAPI;
+struct VSSCRIPTAPI;
+namespace std { class mutex; }
+
+class VapourSynthWrapper {
+	VapourSynthWrapper(VapourSynthWrapper const&);
+public:
+	std::mutex& GetMutex() const;
+	const VSAPI *GetAPI() const;
+	const VSSCRIPTAPI *GetScriptAPI() const;
+
+	VapourSynthWrapper();
 };
 
-wxImage GetImage(VideoFrame const& frame);
+#endif

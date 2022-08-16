@@ -334,7 +334,12 @@
 				"Sample Rate" : 0
 			},
 			"FFmpegSource" : {
-				"Decode Error Handling" : "ignore"
+				"Decode Error Handling" : "ignore",
+				"Downmix" : false
+			},
+			"BestSource": {
+				"Max Cache Size" : 100,
+				"Aegisub Cache" : true
 			}
 		},
 		"Avisynth" : {
@@ -355,6 +360,11 @@
 			"FFmpegSource" : {
 				"Decoding Threads" : -1,
 				"Unsafe Seeking" : false
+			},
+			"BestSource" : {
+				"Max Cache Size" : 1024,
+				"Threads" : 0,
+				"Seek Preroll" : 12
 			}
 		}
 	},
@@ -450,6 +460,7 @@
 				"X" : -1,
 				"Y" : -1
 			},
+			"Restrict to Window" : false,
 			"Maximized" : false
 		},
 		"Fonts Collector" : {
@@ -574,9 +585,6 @@
 			},
 			"Maximized" : false,
 			"Skip Whitespace" : true
-		},
-		"Color Picker" : {
-			"Restrict to Window" : false
 		},
 		"Visual" : {
 			"Autohide": false

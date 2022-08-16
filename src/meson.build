@@ -233,10 +233,16 @@ opt_src = [
     ['OSS', 'audio_player_oss.cpp'],
     ['DirectSound', ['audio_player_dsound.cpp',
                      'audio_player_dsound2.cpp']],
-
+    ['XAudio2', 'audio_player_xaudio2.cpp'],
     ['FFMS2', ['audio_provider_ffmpegsource.cpp',
                'video_provider_ffmpegsource.cpp',
                'ffmpegsource_common.cpp']],
+    ['BestSource', ['audio_provider_bestsource.cpp',
+                    'video_provider_bestsource.cpp',
+                    'bestsource_common.cpp']],
+    ['VapourSynth', ['vapoursynth_wrap.cpp',
+                     'audio_provider_vs.cpp',
+                     'video_provider_vs.cpp']],
 
     ['AviSynth', ['avisynth_wrap.cpp',
                   'audio_provider_avs.cpp',

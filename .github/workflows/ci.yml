@@ -35,6 +35,8 @@ jobs:
               -Dfribidi:docs=false
               -Dlibass:fontconfig=disabled
               -Davisynth=enabled
+              -Dbestsource=enabled
+              -Dvapoursynth=enabled
           #- {
           #  name: Windows MinGW,
           #  os: windows-latest,
@@ -56,7 +58,7 @@ jobs:
             name: macOS Release,
             os: macos-latest,
             buildtype: release,
-            args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true
+            args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true -Davisynth=enabled -Dbestsource=enabled -Dvapoursynth=enabled
           }
 
     steps:
