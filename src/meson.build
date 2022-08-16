@@ -240,6 +240,7 @@ opt_src = [
                     'video_provider_bestsource.cpp',
                     'bestsource_common.cpp']],
     ['VapourSynth', ['vapoursynth_wrap.cpp',
+                     'audio_provider_vs.cpp',
                      'video_provider_vs.cpp']],
 
     ['Hunspell', 'spellchecker_hunspell.cpp'],
