@@ -25,7 +25,7 @@ The `cibuilds` branch makes some CI builds of snapshots of `feature` at relevant
 - [`color_picker_fix2`](https://github.com/arch1t3cht/Aegisub/tree/color_picker_fix2): Add an option (under "Interface") to restrict the color picker to the window, which fixes the color picker on Linux in a lot of cases.
 - [`avisynth`](https://github.com/arch1t3cht/Aegisub/tree/avisynth): Reenable Avisynth support on Windows and enable Avisynth on Linux
 - [`bestsource`](https://github.com/arch1t3cht/Aegisub/tree/bestsource): Add BestSource audio and video source. This source is slower than others by multiple orders of magnitude, but in exchange it can guarantee exact seeking.
-- [`vapoursynth`](https://github.com/arch1t3cht/Aegisub/tree/vapourssynth): Add Vapoursynth audio and video source
+- [`vapoursynth`](https://github.com/arch1t3cht/Aegisub/tree/vapoursynth): Add Vapoursynth audio and video source
 - [`bugfixes`](https://github.com/arch1t3cht/Aegisub/tree/bugfixes): Various fixes necessary for compilation. Most branches are based on this.
 - [`fixes`](https://github.com/arch1t3cht/Aegisub/tree/fixes): Miscellaneous bugfixes
 - [`misc_dc`](https://github.com/arch1t3cht/Aegisub/tree/misc_dc): Miscellaneous changes taken from AegisubDC
