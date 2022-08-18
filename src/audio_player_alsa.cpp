@@ -79,6 +79,7 @@ class AlsaPlayer final : public AudioPlayer {
 	std::atomic<double> volume{1.0};
 	int64_t start_position = 0;
 	std::atomic<int64_t> end_position{0};
+	bool fallback_mono16 = false;	// whether to convert to 16 bit mono. FIXME: more flexible conversion
 
 	std::mutex position_mutex;
 	int64_t last_position = 0;
@@ -87,6 +88,8 @@ class AlsaPlayer final : public AudioPlayer {
 	std::vector<char> decode_buffer;
 
 	std::thread thread;
+
+	snd_pcm_format_t GetPCMFormat(const agi::AudioProvider *provider);
 
 	void PlaybackThread();
 
@@ -115,6 +118,36 @@ public:
 	void SetEndPosition(int64_t pos) override;
 };
 
+snd_pcm_format_t AlsaPlayer::GetPCMFormat(const agi::AudioProvider *provider) {
+	if (provider->AreSamplesFloat()) {
+		switch (provider->GetBytesPerSample()) {
+			case 4:
+				return SND_PCM_FORMAT_FLOAT_LE;
+			case 8:
+				return SND_PCM_FORMAT_FLOAT64_LE;
+			default:
+				fallback_mono16 = true;
+				return SND_PCM_FORMAT_S16_LE;
+		}
+	} else {
+		switch (provider->GetBytesPerSample()) {
+			case 1:
+				return SND_PCM_FORMAT_U8;
+			case 2:
+				return SND_PCM_FORMAT_S16_LE;
+			case 3:
+				return SND_PCM_FORMAT_S24_LE;
+			case 4:
+				return SND_PCM_FORMAT_S32_LE;
+			case 8:
+				return SND_PCM_FORMAT_S32_LE;
+			default:
+				fallback_mono16 = true;
+				return SND_PCM_FORMAT_S16_LE;
+		}
+	}
+}
+
 void AlsaPlayer::PlaybackThread()
 {
 	std::unique_lock<std::mutex> lock(mutex);
@@ -126,24 +159,11 @@ void AlsaPlayer::PlaybackThread()
 	BOOST_SCOPE_EXIT_ALL(&) { snd_pcm_close(pcm); };
 
 do_setup:
-	snd_pcm_format_t pcm_format;
-	switch (/*provider->GetBytesPerSample()*/ sizeof(int16_t))
-	{
-	case 1:
-		LOG_D("audio/player/alsa") << "format U8";
-		pcm_format = SND_PCM_FORMAT_U8;
-		break;
-	case 2:
-		LOG_D("audio/player/alsa") << "format S16_LE";
-		pcm_format = SND_PCM_FORMAT_S16_LE;
-		break;
-	default:
-		return;
-	}
+	snd_pcm_format_t pcm_format = GetPCMFormat(provider);
 	if (snd_pcm_set_params(pcm,
 	                       pcm_format,
 	                       SND_PCM_ACCESS_RW_INTERLEAVED,
-	                       /*provider->GetChannels()*/ 1,
+	                       fallback_mono16 ? 1 : provider->GetChannels(),
 	                       provider->GetSampleRate(),
 	                       1, // allow resample
 	                       100*1000 // 100 milliseconds latency
@@ -151,8 +171,7 @@ do_setup:
 		return;
 	LOG_D("audio/player/alsa") << "set pcm params";
 
-	//size_t framesize = provider->GetChannels() * provider->GetBytesPerSample();
-	size_t framesize = sizeof(int16_t);
+	size_t framesize = fallback_mono16 ? sizeof(int16_t) : provider->GetChannels() * provider->GetBytesPerSample();
 
 	while (true)
 	{
@@ -176,7 +195,11 @@ do_setup:
 		{
 			auto avail = std::min(snd_pcm_avail(pcm), (snd_pcm_sframes_t)(end_position-position));
 			decode_buffer.resize(avail * framesize);
-			provider->GetInt16MonoAudioWithVolume(reinterpret_cast<int16_t*>(decode_buffer.data()), position, avail, volume);
+			if (fallback_mono16) {
+				provider->GetInt16MonoAudioWithVolume(reinterpret_cast<int16_t*>(decode_buffer.data()), position, avail, volume);
+			} else {
+				provider->GetAudioWithVolume(decode_buffer.data(), position, avail, volume);
+			}
 
 			snd_pcm_sframes_t written = 0;
 			while (written <= 0)
@@ -236,7 +259,11 @@ do_setup:
 
 			{
 				decode_buffer.resize(avail * framesize);
-				provider->GetInt16MonoAudioWithVolume(reinterpret_cast<int16_t*>(decode_buffer.data()), position, avail, volume);
+				if (fallback_mono16) {
+					provider->GetInt16MonoAudioWithVolume(reinterpret_cast<int16_t*>(decode_buffer.data()), position, avail, volume);
+				} else {
+					provider->GetAudioWithVolume(decode_buffer.data(), position, avail, volume);
+				}
 				snd_pcm_sframes_t written = 0;
 				while (written <= 0)
 				{

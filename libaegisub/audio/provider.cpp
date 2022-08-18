@@ -119,6 +119,47 @@ void AudioProvider::FillBufferInt16Mono(int16_t* buf, int64_t start, int64_t cou
 	free(buff);
 }
 
+// This entire file has turned into a mess. For now I'm just following the pattern of the wangqr code, but
+// this should really be restructured entirely again. The original type constructor-based system worked very well - it could
+// just give downmix/conversion control to the players instead.
+void AudioProvider::GetAudioWithVolume(void *buf, int64_t start, int64_t count, double volume) const {
+	GetAudio(buf, start, count);
+	if (volume == 1.0) return;
+
+	int64_t n = count * GetChannels();
+
+	if (float_samples) {
+		if (bytes_per_sample == sizeof(float)) {
+			float *buff = reinterpret_cast<float *>(buf);
+			for (int64_t i = 0; i < n; ++i)
+				buff[i] = static_cast<float>(buff[i] * volume);
+		} else if (bytes_per_sample == sizeof(double)) {
+			double *buff = reinterpret_cast<double *>(buf);
+			for (int64_t i = 0; i < n; ++i)
+				buff[i] = buff[i] * volume;
+		}
+	}
+	else {
+		if (bytes_per_sample == sizeof(uint8_t)) {
+			uint8_t *buff = reinterpret_cast<uint8_t *>(buf);
+			for (int64_t i = 0; i < n; ++i)
+				buff[i] = util::mid(0, static_cast<int>(((int) buff[i] - 128) * volume + 128), 0xFF);
+		} else if (bytes_per_sample == sizeof(int16_t)) {
+			int16_t *buff = reinterpret_cast<int16_t *>(buf);
+			for (int64_t i = 0; i < n; ++i)
+				buff[i] = util::mid(-0x8000, static_cast<int>(buff[i] * volume), 0x7FFF);
+		} else if (bytes_per_sample == sizeof(int32_t)) {
+			int32_t *buff = reinterpret_cast<int32_t *>(buf);
+			for (int64_t i = 0; i < n; ++i)
+				buff[i] = static_cast<int32_t>(buff[i] * volume);
+		} else if (bytes_per_sample == sizeof(int64_t)) {
+			int64_t *buff = reinterpret_cast<int64_t *>(buf);
+			for (int64_t i = 0; i < n; ++i)
+				buff[i] = static_cast<int64_t>(buff[i] * volume);
+		}
+	}
+}
+
 void AudioProvider::GetInt16MonoAudioWithVolume(int16_t *buf, int64_t start, int64_t count, double volume) const {
 	GetInt16MonoAudio(buf, start, count);
 	if (volume == 1.0) return;
