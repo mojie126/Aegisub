@@ -342,9 +342,7 @@ struct video_frame_copy_subs final : public validator_video_loaded {
 	STR_HELP("Copy the currently displayed subtitles to the clipboard, with transparent background")
 
 	void operator()(agi::Context *c) override {
-        wxBitmap img(get_image(c, false, true));
-        img.UseAlpha();
-		SetClipboard(img);
+		SetClipboard(wxBitmap(get_image(c, false, true), 32));
 	}
 };
 
