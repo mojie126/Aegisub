@@ -71,6 +71,8 @@ class OpenALPlayer final : public AudioPlayer, wxTimer {
 	float volume = 1.f; ///< Current audio volume
 	ALsizei samplerate; ///< Sample rate of the audio
 	int bpf; ///< Bytes per frame
+	bool fallback_mono16 = false; ///< whether to fall back to int16 mono. FIXME: More flexible conversion
+	int format; ///< AL format (stereo/mono, 8/16 bit)
 
 	int64_t start_frame = 0; ///< First frame of playbacka
 	int64_t cur_frame = 0; ///< Next frame to write to playback buffers
@@ -125,8 +127,39 @@ public:
 OpenALPlayer::OpenALPlayer(agi::AudioProvider *provider)
 : AudioPlayer(provider)
 , samplerate(provider->GetSampleRate())
-, bpf(/*provider->GetChannels() * provider->GetBytesPerSample()*/sizeof(int16_t))
 {
+	switch (provider->GetChannels()) {
+		case 1:
+			switch (provider->GetBytesPerSample()) {
+				case 1:
+					format = AL_FORMAT_MONO8;
+					break;
+				case 2:
+					format = AL_FORMAT_MONO16;
+					break;
+				default:
+					format = AL_FORMAT_MONO16;
+					fallback_mono16 = true;
+			}
+			break;
+		case 2:
+			switch (provider->GetBytesPerSample()) {
+				case 1:
+					format = AL_FORMAT_STEREO8;
+					break;
+				case 2:
+					format = AL_FORMAT_STEREO16;
+					break;
+				default:
+					format = AL_FORMAT_MONO16;
+					fallback_mono16 = true;
+			}
+			break;
+		default:
+			format = AL_FORMAT_MONO16;
+			fallback_mono16 = true;
+	}
+	bpf = fallback_mono16 ? sizeof(int16_t) : provider->GetChannels() * provider->GetBytesPerSample();
 	device = alcOpenDevice(nullptr);
 	if (!device) throw AudioPlayerOpenError("Failed opening default OpenAL device");
 
@@ -239,16 +272,21 @@ void OpenALPlayer::FillBuffers(ALsizei count)
 	for (count = mid(1, count, buffers_free); count > 0; --count) {
 		ALsizei fill_len = mid<ALsizei>(0, decode_buffer.size() / bpf, end_frame - cur_frame);
 
-		if (fill_len > 0)
+		if (fill_len > 0) {
 			// Get fill_len frames of audio
-			provider->GetInt16MonoAudioWithVolume(reinterpret_cast<int16_t*>(decode_buffer.data()), cur_frame, fill_len, volume);
+			if (fallback_mono16) {
+				provider->GetInt16MonoAudioWithVolume(reinterpret_cast<int16_t*>(decode_buffer.data()), cur_frame, fill_len, volume);
+			} else {
+				provider->GetAudioWithVolume(decode_buffer.data(), cur_frame, fill_len, volume);
+			}
+		}
 		if ((size_t)fill_len * bpf < decode_buffer.size())
 			// And zerofill the rest
 			memset(&decode_buffer[fill_len * bpf], 0, decode_buffer.size() - fill_len * bpf);
 
 		cur_frame += fill_len;
 
-		alBufferData(buffers[buf_first_free], AL_FORMAT_MONO16, &decode_buffer[0], decode_buffer.size(), samplerate);
+		alBufferData(buffers[buf_first_free], format, &decode_buffer[0], decode_buffer.size(), samplerate);
 		alSourceQueueBuffers(source, 1, &buffers[buf_first_free]); // FIXME: collect buffer handles and queue all at once instead of one at a time?
 		buf_first_free = (buf_first_free + 1) % num_buffers;
 		--buffers_free;
