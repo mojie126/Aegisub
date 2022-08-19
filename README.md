@@ -19,6 +19,7 @@ Being a collection of different feature additions, this repository consists of a
 The `cibuilds` branch makes some CI builds of snapshots of `feature` at relevant points in time.
 
 ### Branch/Feature list
+This list is for navigating the repository. Go to the [release page](https://github.com/arch1t3cht/Aegisub/releases) for a more structured changelog.
 - [`folding`](https://github.com/arch1t3cht/Aegisub/tree/folding): Add the ability to visually group and collapse lines in the subtitle grid
 - [`lua_api`](https://github.com/arch1t3cht/Aegisub/tree/lua_api): Add new functions to the Lua automation API, like controlling the selection or cursor in the text edit box
 - [`vector_clip_actions`](https://github.com/arch1t3cht/Aegisub/tree/vector_clip_actions): Make the different modes of the vector clip tool (lines, bezier curves, adding points, etc) bindable to hotkeys
@@ -28,13 +29,20 @@ The `cibuilds` branch makes some CI builds of snapshots of `feature` at relevant
 - [`vapoursynth`](https://github.com/arch1t3cht/Aegisub/tree/vapoursynth): Add Vapoursynth audio and video source
 - [`bugfixes`](https://github.com/arch1t3cht/Aegisub/tree/bugfixes): Various fixes necessary for compilation. Most branches are based on this.
 - [`fixes`](https://github.com/arch1t3cht/Aegisub/tree/fixes): Miscellaneous bugfixes
+- [`misc`](https://github.com/arch1t3cht/Aegisub/tree/misc): Other miscellaneous additions
 - [`misc_dc`](https://github.com/arch1t3cht/Aegisub/tree/misc_dc): Miscellaneous changes taken from AegisubDC
 - [`xa-ds2`](https://github.com/arch1t3cht/Aegisub/tree/xa-ds2): Add XAudio2 backend and allow stereo playback for some other backends, by wangqr and Shinon.
+- [`stereo`](https://github.com/arch1t3cht/Aegisub/tree/stereo): Add multi-channel support for the other audio backends where possible.
 - [`video_panning_feature`](https://github.com/arch1t3cht/Aegisub/tree/video_panning_feature): Merge [moex3's video zoom and panning](https://github.com/TypesettingTools/Aegisub/pull/150), with an OSX fix and more options to control zoom behavior
 - [`spectrum-frequency-mapping`](https://github.com/arch1t3cht/Aegisub/tree/spectrum-frequency-mapping): Merge EleonoreMizo's [spectrum display improvements](https://github.com/TypesettingTools/Aegisub/pull/94), and also make Shift+Scroll vertically zoom the audio display
 - [`wangqr_time_video`](https://github.com/arch1t3cht/Aegisub/tree/wangqr_time_video): Merge wangqr's feature adding a tool for timing subtitles to changes in the video
 
 ### Troubleshooting
+I'll gladly take any bug reports, but if you encounter an issue, please check first if it occurs only on my fork, or also on [earlier TSTools builds](https://github.com/TypesettingTools/Aegisub/actions).
+If it wasn't introduced by my fork, I can still take a look, but I can't promise anything.
+
+You can find me for support on various servers, including the cave and the TSTools server linked below.
+
 #### Building fails with a "CMake sandbox violation"
 This is an upstream bug in meson. For now, you need to downgrade meson using `pip install meson==0.62.2`.
 
@@ -53,6 +61,37 @@ If it's not because of this particular bug, you can also try an alternative vide
 
 #### On Windows: Aegisub crashes whenever I open a video
 If you're compiling yourself, try adding `--force-fallback-for=zlib` to the meson options.
+
+
+### Compilation
+For compilation on Windows, see the TSTools documentation below. Also check the [GitHub workflow](https://github.com/arch1t3cht/Aegisub/blob/cibuilds/.github/workflows/ci.yml) for the project arguments.
+
+On Linux, you can use the [TSTools PKGBUILD](https://aur.archlinux.org/packages/aegisub-ttools-meson-git) as a base, in particular for installing the necessary dependencies if you don't want to compile them yourself.
+To compile manually,
+- Install Meson (at the moment, you'll need to downgrade Meson below 0.63.0: `pip install meson==0.62.2`)
+- Clone the repository
+- In the repository, run `meson setup build` for the default configuration. See below for further options.
+- `cd` to the `build` directory and run `ninja`
+- You'll get an `aegisub` binary in the `build` folder. To install it to a system-wide location, run `ninja install`. To install to `/usr` instead of `/usr/local`, pass `--prefix=/usr` when configuring or reconfiguring meson.
+- When recompiling after pulling new commits, skip the `meson setup` setup and just immediately run `ninja` from the build directory - even when the build configuration changed.
+
+#### Compilation flags
+Some features are not enabled by default. To enable them, pass `-D<feature>=enabled` with the `meson setup` command:
+
+- `-Davisynth=enabled`: Avisynth support
+- `-Dbestsource=enabled`: BestSource
+- `-Dvapoursynth=enabled`: Vapoursynth support
+
+You can also disable options that are active by default in the same way. Check the file `meson_options.txt` for all options.
+
+To change the options of an existing build directory, run `meson setup --reconfigure <new arguments>` from inside the `build` directory.
+
+### Dependencies
+Apart from the dependencies for the TSTools version, there are some additional dependencies. These are cloned and compiled from scratch if not found, but you might want to install binaries instead:
+- `jansson`: For BestSource
+- `ffmpeg`: Becomes a direct dependency when compiling with BestSource
+- `avisynth` (or `avisynthplus`): Optional run-time dependency for the Avisynth source
+- `vapoursynth`: Optional run-time dependency for the VapourSynth source
 
 
 # Aegisub
