@@ -323,7 +323,9 @@ void VideoDisplay::UpdateSize() {
 	if (!provider || !IsShownOnScreen()) return;
 
 	videoSize.Set(provider->GetWidth(), provider->GetHeight());
-	videoSize *= videoZoomValue * windowZoomValue;
+	videoSize *= windowZoomValue;
+	if (con->videoController->GetAspectRatioType() != AspectRatio::Default)
+		videoSize.SetWidth(videoSize.GetHeight() * con->videoController->GetAspectRatioValue());
 
 	wxEventBlocker blocker(this);
 	if (freeSize) {
@@ -338,12 +340,12 @@ void VideoDisplay::UpdateSize() {
 		SetClientSize(oldClientSize + (top->GetSize() - oldSize));
 	}
 	else {
-		wxSize newSize = wxSize(provider->GetWidth(), provider->GetHeight()) * windowZoomValue / scale_factor;
-		SetMinClientSize(newSize);
-		SetMaxClientSize(newSize);
+		SetMinClientSize(videoSize / scale_factor);
+		SetMaxClientSize(videoSize / scale_factor);
 
 		GetGrandParent()->Layout();
 	}
+	videoSize *= videoZoomValue;
 
 	PositionVideo();
 }
@@ -477,7 +479,10 @@ void VideoDisplay::SetVideoZoom(int step) {
 	int pixelChangeW = std::lround(videoSize.GetWidth() * (newVideoZoom / videoZoomValue - 1.0));
 	int pixelChangeH = std::lround(videoSize.GetHeight() * (newVideoZoom / videoZoomValue - 1.0));
 
-	pan_x -= pixelChangeW * (mp.X() / videoSize.GetWidth());
+	AsyncVideoProvider *provider = con->project->VideoProvider();
+	double arfactor = (double) provider->GetHeight() * (double) videoSize.GetWidth() / (double) provider->GetWidth() / (double) videoSize.GetHeight();
+
+	pan_x -= pixelChangeW * (mp.X() / videoSize.GetWidth() * arfactor);
 	pan_y -= pixelChangeH * (mp.Y() / videoSize.GetHeight());
 
 	videoZoomValue = newVideoZoom;
