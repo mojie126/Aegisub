@@ -612,6 +612,17 @@ struct video_open_dummy final : public Command {
 	}
 };
 
+struct video_reload final : public Command {
+	CMD_NAME("video/reload")
+	STR_MENU("Reload Video")
+	STR_DISP("Reload Video")
+	STR_HELP("Reload the current video file")
+
+	void operator()(agi::Context *c) override {
+		c->project->ReloadVideo();
+	}
+};
+
 struct video_opt_autoscroll final : public Command {
 	CMD_NAME("video/opt/autoscroll")
 	CMD_ICON(toggle_video_autoscroll)
@@ -794,6 +805,7 @@ namespace cmd {
 		reg(agi::make_unique<video_jump_start>());
 		reg(agi::make_unique<video_open>());
 		reg(agi::make_unique<video_open_dummy>());
+		reg(agi::make_unique<video_reload>());
 		reg(agi::make_unique<video_opt_autoscroll>());
 		reg(agi::make_unique<video_play>());
 		reg(agi::make_unique<video_play_line>());
