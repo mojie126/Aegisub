@@ -109,6 +109,8 @@
         { "command" : "grid/sort/style" },
         { "command" : "grid/sort/actor" },
         { "command" : "grid/sort/effect" },
+        { "command" : "grid/sort/text" },
+        { "command" : "grid/sort/text_stripped" },
         { "command" : "grid/sort/layer" }
     ],
     "main/subtitle/sort selected lines" : [
@@ -117,6 +119,8 @@
         { "command" : "grid/sort/style/selected" },
         { "command" : "grid/sort/actor/selected" },
         { "command" : "grid/sort/effect/selected" },
+        { "command" : "grid/sort/text/selected" },
+        { "command" : "grid/sort/text_stripped/selected" },
         { "command" : "grid/sort/layer/selected" }
     ],
     "main/timing" : [
