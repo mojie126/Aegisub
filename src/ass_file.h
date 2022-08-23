@@ -208,6 +208,10 @@ public:
 	static bool CompEffect(AssDialogue const& lft, AssDialogue const& rgt);
 	/// Compare based on layer
 	static bool CompLayer(AssDialogue const& lft, AssDialogue const& rgt);
+	/// Compare based on text
+	static bool CompText(AssDialogue const& lft, AssDialogue const& rgt);
+	/// Compare based on stripped text
+	static bool CompTextStripped(AssDialogue const& lft, AssDialogue const& rgt);
 
 	/// @brief Sort the dialogue lines in this file
 	/// @param comp Comparison function to use. Defaults to sorting by start time.

@@ -202,6 +202,12 @@ bool AssFile::CompEffect(AssDialogue const& lft, AssDialogue const& rgt) {
 bool AssFile::CompLayer(AssDialogue const& lft, AssDialogue const& rgt) {
 	return lft.Layer < rgt.Layer;
 }
+bool AssFile::CompText(AssDialogue const& lft, AssDialogue const& rgt) {
+	return lft.Text < rgt.Text;
+}
+bool AssFile::CompTextStripped(AssDialogue const& lft, AssDialogue const& rgt) {
+	return lft.GetStrippedText() < rgt.GetStrippedText();
+}
 
 void AssFile::Sort(CompFunc comp, std::set<AssDialogue*> const& limit) {
 	Sort(Events, comp, limit);
