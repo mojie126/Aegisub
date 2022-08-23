@@ -128,6 +128,17 @@ struct audio_open_video final : public Command {
 	}
 };
 
+struct audio_reload final : public Command {
+	CMD_NAME("audio/reload")
+	STR_MENU("Reload Audio")
+	STR_DISP("Reload Audio")
+	STR_HELP("Reload the current audio file")
+
+	void operator()(agi::Context *c) override {
+		c->project->ReloadAudio();
+	}
+};
+
 struct audio_view_spectrum final : public Command {
 	CMD_NAME("audio/view/spectrum")
 	STR_MENU("&Spectrum Display")
@@ -549,6 +560,7 @@ namespace cmd {
 		reg(agi::make_unique<audio_open_blank>());
 		reg(agi::make_unique<audio_open_noise>());
 		reg(agi::make_unique<audio_open_video>());
+		reg(agi::make_unique<audio_reload>());
 		reg(agi::make_unique<audio_play_after>());
 		reg(agi::make_unique<audio_play_before>());
 		reg(agi::make_unique<audio_play_begin>());

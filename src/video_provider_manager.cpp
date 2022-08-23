@@ -51,7 +51,7 @@ namespace {
 		{"Avisynth", CreateAvisynthVideoProvider, false},
 #endif
 #ifdef WITH_BESTSOURCE
-		{"BestSource", CreateBSVideoProvider, false},
+		{"BestSource (SLOW)", CreateBSVideoProvider, false},
 #endif
 #ifdef WITH_VAPOURSYNTH
 		{"Vapoursynth", CreateVapoursynthVideoProvider, false},
