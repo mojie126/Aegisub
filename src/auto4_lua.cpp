@@ -624,27 +624,33 @@ namespace {
 	{
 		bool failed = false;
 		BackgroundScriptRunner bsr(parent, title);
-		bsr.Run([&](ProgressSink *ps) {
-			LuaProgressSink lps(L, ps, can_open_config);
+		try {
+			bsr.Run([&](ProgressSink *ps) {
+				LuaProgressSink lps(L, ps, can_open_config);
 
-			// Insert our error handler under the function to call
-			lua_pushcclosure(L, add_stack_trace, 0);
-			lua_insert(L, -nargs - 2);
+				// Insert our error handler under the function to call
+				lua_pushcclosure(L, add_stack_trace, 0);
+				lua_insert(L, -nargs - 2);
 
-			if (lua_pcall(L, nargs, nresults, -nargs - 2)) {
-				if (!lua_isnil(L, -1)) {
-					// if the call failed, log the error here
-					ps->Log("\n\nLua reported a runtime error:\n");
-					ps->Log(get_string_or_default(L, -1));
+				if (lua_pcall(L, nargs, nresults, -nargs - 2)) {
+					if (!lua_isnil(L, -1)) {
+						// if the call failed, log the error here
+						ps->Log("\n\nLua reported a runtime error:\n");
+						ps->Log(get_string_or_default(L, -1));
+					}
+					lua_pop(L, 2);
+					failed = true;
 				}
-				lua_pop(L, 2);
-				failed = true;
-			}
-			else
-				lua_remove(L, -nresults - 1);
+				else
+					lua_remove(L, -nresults - 1);
 
-			lua_gc(L, LUA_GCCOLLECT, 0);
-		});
+				lua_gc(L, LUA_GCCOLLECT, 0);
+			});
+		} catch (agi::UserCancelException const&) {
+			if (!failed)
+				lua_pop(L, 2);
+			throw;
+		}
 		if (failed)
 			throw agi::UserCancelException("Script threw an error");
 	}
