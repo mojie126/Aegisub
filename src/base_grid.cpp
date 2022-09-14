@@ -483,13 +483,13 @@ void BaseGrid::OnMouseEvent(wxMouseEvent &event) {
 		else {
 			// Only scroll if the mouse has moved to a different row to avoid
 			// scrolling on sloppy clicks
-			if (row != extendRow) {
+			if (VisRowToRow(row) != extendRow) {
 				if (row <= yPos)
 					ScrollTo(yPos - 3);
 				// When dragging down we give a 3 row margin to make it easier
 				// to see what's going on, but we don't want to scroll down if
 				// the user clicks on the bottom row and drags up
-				else if (row > yPos + h / lineHeight - (row > extendRow ? 3 : 1))
+				else if (row > yPos + h / lineHeight - (VisRowToRow(row) > extendRow ? 3 : 1))
 					ScrollTo(yPos + 3);
 			}
 		}
@@ -512,7 +512,7 @@ void BaseGrid::OnMouseEvent(wxMouseEvent &event) {
 		int old_y_pos = yPos;
 		context->selectionController->SetActiveLine(dlg);
 		ScrollTo(old_y_pos);
-		extendRow = row;
+		extendRow = VisRowToRow(row);
 
 		auto const& selection = context->selectionController->GetSelectedSet();
 
@@ -541,7 +541,7 @@ void BaseGrid::OnMouseEvent(wxMouseEvent &event) {
 		// Block select
 		if ((click && shift && !alt) || holding) {
 			extendRow = old_extend;
-			int i1 = row;
+			int i1 = VisRowToRow(row);
 			int i2 = extendRow;
 
 			if (i1 > i2)
@@ -550,7 +550,7 @@ void BaseGrid::OnMouseEvent(wxMouseEvent &event) {
 			// Toggle each
 			Selection newsel;
 			if (ctrl) newsel = selection;
-			for (int i = VisRowToRow(i1); i <= VisRowToRow(i2); i++)
+			for (int i = i1; i <= i2; i++)
 				newsel.insert(GetDialogue(i));
 			context->selectionController->SetSelectedSet(std::move(newsel));
 			return;
@@ -739,14 +739,14 @@ void BaseGrid::OnKeyDown(wxKeyEvent &event) {
 	if (shift && !ctrl && !alt) {
 		extendRow = old_extend;
 		// Set range
-		int begin = next;
+		int begin = VisRowToRow(next);
 		int end = extendRow;
 		if (end < begin)
 			std::swap(begin, end);
 
 		// Select range
 		Selection newsel;
-		for (int i = VisRowToRow(begin); i <= VisRowToRow(end); i++)
+		for (int i = begin; i <= end; i++)
 			newsel.insert(GetDialogue(i));
 
 		context->selectionController->SetSelectedSet(std::move(newsel));
