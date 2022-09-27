@@ -28,13 +28,13 @@
 
 #include <libaegisub/access.h>
 #include <libaegisub/format.h>
-#include <libaegisub/fs.h>
 #include <libaegisub/path.h>
 #include <libaegisub/make_unique.h>
 
 #include <mutex>
 
 #include "vapoursynth_wrap.h"
+#include "vapoursynth_common.h"
 #include "VSScript4.h"
 
 namespace {
@@ -62,7 +62,7 @@ VapoursynthAudioProvider::VapoursynthAudioProvider(agi::fs::path const& filename
 		throw VapoursynthError("Error creating script API");
 	}
 	vs.GetScriptAPI()->evalSetWorkingDir(script, 1);
-	if (vs.GetScriptAPI()->evaluateFile(script, filename.string().c_str())) {
+	if (OpenScriptOrVideo(vs.GetScriptAPI(), script, filename, OPT_GET("Provider/Audio/VapourSynth/Default Script")->GetString())) {
 		std::string msg = agi::format("Error executing VapourSynth script: %s", vs.GetScriptAPI()->getError(script));
 		vs.GetScriptAPI()->freeScript(script);
 		throw VapoursynthError(msg);
