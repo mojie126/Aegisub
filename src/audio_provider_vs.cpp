@@ -54,7 +54,6 @@ public:
 };
 
 VapoursynthAudioProvider::VapoursynthAudioProvider(agi::fs::path const& filename) try {
-	agi::acs::CheckFileRead(filename);
 	std::lock_guard<std::mutex> lock(vs.GetMutex());
 
 	script = vs.GetScriptAPI()->createScript(nullptr);
@@ -162,6 +161,7 @@ VapoursynthAudioProvider::~VapoursynthAudioProvider() {
 }
 
 std::unique_ptr<agi::AudioProvider> CreateVapoursynthAudioProvider(agi::fs::path const& file, agi::BackgroundRunner *) {
+	agi::acs::CheckFileRead(file);
 	return agi::make_unique<VapoursynthAudioProvider>(file);
 }
 #endif

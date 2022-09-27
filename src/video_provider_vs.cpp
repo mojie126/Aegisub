@@ -105,7 +105,6 @@ void VapoursynthVideoProvider::SetResizeArg(VSMap *args, const VSMap *props, con
 }
 
 VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename, std::string const& colormatrix) try {
-	agi::acs::CheckFileRead(filename);
 	std::lock_guard<std::mutex> lock(vs.GetMutex());
 
 	script = vs.GetScriptAPI()->createScript(nullptr);
@@ -277,6 +276,7 @@ VapoursynthVideoProvider::~VapoursynthVideoProvider() {
 
 namespace agi { class BackgroundRunner; }
 std::unique_ptr<VideoProvider> CreateVapoursynthVideoProvider(agi::fs::path const& path, std::string const& colormatrix, agi::BackgroundRunner *) {
+	agi::acs::CheckFileRead(path);
 	return agi::make_unique<VapoursynthVideoProvider>(path, colormatrix);
 }
 #endif // WITH_VAPOURSYNTH
