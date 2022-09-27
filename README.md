@@ -2,7 +2,7 @@
 Go [here](#branchfeature-list) for the new features.
 
 ### Don't we have enough Aegisub forks already??
-We absolutely do, and I'm aware that adding another one [doesn't sound like a good idea on paper](https://xkcd.com/927/). However,
+We absolutely do, and I'm aware that adding another one [doesn't sound like](https://xkcd.com/927/) a [good idea on paper](https://cdn.discordapp.com/attachments/425357202963038208/1007103606421459004/unknown.png). However,
 
 - None of the existing forks are completely satisfying at the moment:
   - [wangqr's fork](https://github.com/wangqr/Aegisub) is actively maintained, but focussing more on stability. It's missing most of the modern features.
@@ -28,10 +28,11 @@ This list is for navigating the repository. Go to the [release page](https://git
 - [`bestsource`](https://github.com/arch1t3cht/Aegisub/tree/bestsource): Add BestSource audio and video source. This source is slower than others by multiple orders of magnitude, but in exchange it can guarantee exact seeking.
 - [`vapoursynth`](https://github.com/arch1t3cht/Aegisub/tree/vapoursynth): Add Vapoursynth audio and video source
 - [`bugfixes`](https://github.com/arch1t3cht/Aegisub/tree/bugfixes): Various fixes necessary for compilation. Most branches are based on this.
+- [`workarounds`](https://github.com/arch1t3cht/Aegisub/tree/workarounds): Same as `bugfixes`, but these are hacky fixes that probably shouldn't be pulled without more work.
 - [`fixes`](https://github.com/arch1t3cht/Aegisub/tree/fixes): Miscellaneous bugfixes
 - [`misc`](https://github.com/arch1t3cht/Aegisub/tree/misc): Other miscellaneous additions
 - [`misc_dc`](https://github.com/arch1t3cht/Aegisub/tree/misc_dc): Miscellaneous changes taken from AegisubDC
-- [`xa-ds2`](https://github.com/arch1t3cht/Aegisub/tree/xa-ds2): Add XAudio2 backend and allow stereo playback for some other backends, by wangqr and Shinon.
+- [`xa2-ds`](https://github.com/arch1t3cht/Aegisub/tree/xa2-ds): Add XAudio2 backend and allow stereo playback for some other backends, by wangqr and Shinon.
 - [`stereo`](https://github.com/arch1t3cht/Aegisub/tree/stereo): Add multi-channel support for the other audio backends where possible.
 - [`video_panning_feature`](https://github.com/arch1t3cht/Aegisub/tree/video_panning_feature): Merge [moex3's video zoom and panning](https://github.com/TypesettingTools/Aegisub/pull/150), with an OSX fix and more options to control zoom behavior
 - [`spectrum-frequency-mapping`](https://github.com/arch1t3cht/Aegisub/tree/spectrum-frequency-mapping): Merge EleonoreMizo's [spectrum display improvements](https://github.com/TypesettingTools/Aegisub/pull/94), and also make Shift+Scroll vertically zoom the audio display
@@ -43,13 +44,10 @@ If it wasn't introduced by my fork, I can still take a look, but I can't promise
 
 You can find me for support on various servers, including the cave and the TSTools server linked below.
 
-#### Building fails with a "CMake sandbox violation"
-This is an upstream bug in meson. For now, you need to downgrade meson using `pip install meson==0.62.2`.
-
 #### Aegisub on Linux doesn't recognize my GTK theme
 This is probably because you're building with wxgtk2. Building with wxgtk3 fixes this, but causes some problems of its own (notably the broken color picker, occasional crashes when opening file dialogs from automation scripts, and general layouting issues).
 
-The exact way of switching depends on your Linux distribution, but essentially you need to ensure that `wx-config` or the next best variant of it points to wxgtk3. If it points to wxgtk2 by default and deinstalling wxgtk2 isn't an option, you can also temporarily move it out of the path. Then, fully reconfigure meson using `meson configure --clearcache` and `meson setup --reconfigure`.
+The exact way of switching depends on your Linux distribution, but essentially you need to ensure that `wx-config` or the next best variant of it points to wxgtk3. If it points to wxgtk2 by default and deinstalling wxgtk2 isn't an option, you can also temporarily move it out of the path or use a `native-file` in your meson project. Then, fully reconfigure meson using `meson configure --clearcache` and `meson setup --reconfigure`.
 
 #### I get errors like "Option not found" after merging one of these branches
 The changes to `default_config.json` or similar files weren't detected by meson due to missing regen dependencies. You can either merge the `bugfixes` branch or rebuild from scratch.

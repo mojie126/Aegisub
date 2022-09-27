@@ -147,7 +147,7 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 				Keyframes.push_back(n);
 			}
 
-			TimecodesVector.push_back((int) frame->GetAVFrame()->pts);
+			TimecodesVector.push_back(frame->Pts * properties.TimeBase.Den / properties.TimeBase.Num);
 			ps->SetProgress(n, properties.NumFrames);
 		}
 
@@ -181,6 +181,14 @@ void BSVideoProvider::GetFrame(int n, VideoFrame &out) {
 	if (context == nullptr) {
 		throw VideoDecodeError("Couldn't convert frame!");
 	}
+
+	int range = frame->color_range == AVCOL_RANGE_JPEG;
+	const int *coefficients = sws_getCoefficients(frame->colorspace == AVCOL_SPC_UNSPECIFIED ? AVCOL_SPC_BT709 : frame->colorspace);
+
+    sws_setColorspaceDetails(context,
+        coefficients, range,
+        coefficients, range,
+        0, 1 << 16, 1 << 16);
 
 	out.data.resize(frame->width * frame->height * 4);
 	uint8_t *data[1] = {&out.data[0]};

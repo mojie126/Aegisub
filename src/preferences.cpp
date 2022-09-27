@@ -486,6 +486,32 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 	p->SetSizerAndFit(p->sizer);
 }
 
+void VapourSynth(wxTreebook *book, Preferences *parent) {
+#ifdef WITH_VAPOURSYNTH
+	auto p = new OptionPage(book, parent, _("VapourSynth"), OptionPage::PAGE_SUB);
+	auto video = p->PageSizer(_("Default Video Script"));
+
+	auto vhint = new wxStaticText(p, wxID_ANY, _("This script will be executed to load video files that aren't\nVapourSynth scripts (i.e. end in .py or .vpy).\nThe filename variable stores the path to the file."));
+	p->sizer->Fit(p);
+	vhint->Wrap(400);
+	video->Add(vhint, 0, wxALL, 5);
+	video->AddSpacer(16);
+
+	p->OptionAddMultiline(video, "Provider/Video/VapourSynth/Default Script");
+
+	auto audio = p->PageSizer(_("Default Audio Script"));
+	auto ahint = new wxStaticText(p, wxID_ANY, _("This script will be executed to load audio files that aren't\nVapourSynth scripts (i.e. end in .py or .vpy).\nThe filename variable stores the path to the file."));
+	p->sizer->Fit(p);
+	ahint->Wrap(400);
+	audio->Add(ahint, 0, wxALL, 5);
+	audio->AddSpacer(16);
+
+	p->OptionAddMultiline(audio, "Provider/Audio/VapourSynth/Default Script");
+
+	p->SetSizerAndFit(p->sizer);
+#endif
+}
+
 /// wxDataViewIconTextRenderer with command name autocompletion
 class CommandRenderer final : public wxDataViewCustomRenderer {
 	wxArrayString autocomplete;
@@ -741,6 +767,7 @@ Preferences::Preferences(wxWindow *parent): wxDialog(parent, -1, _("Preferences"
 	Advanced(book, this);
 	Advanced_Audio(book, this);
 	Advanced_Video(book, this);
+	VapourSynth(book, this);
 
 	book->Fit();
 

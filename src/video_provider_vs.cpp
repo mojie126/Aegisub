@@ -22,13 +22,13 @@
 
 #include <libaegisub/access.h>
 #include <libaegisub/format.h>
-#include <libaegisub/fs.h>
 #include <libaegisub/path.h>
 #include <libaegisub/make_unique.h>
 
 #include <mutex>
 
 #include "vapoursynth_wrap.h"
+#include "vapoursynth_common.h"
 #include "VSScript4.h"
 #include "VSHelper4.h"
 #include "VSConstants4.h"
@@ -105,7 +105,6 @@ void VapoursynthVideoProvider::SetResizeArg(VSMap *args, const VSMap *props, con
 }
 
 VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename, std::string const& colormatrix) try {
-	agi::acs::CheckFileRead(filename);
 	std::lock_guard<std::mutex> lock(vs.GetMutex());
 
 	script = vs.GetScriptAPI()->createScript(nullptr);
@@ -113,7 +112,7 @@ VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename
 		throw VapoursynthError("Error creating script API");
 	}
 	vs.GetScriptAPI()->evalSetWorkingDir(script, 1);
-	if (vs.GetScriptAPI()->evaluateFile(script, filename.string().c_str())) {
+	if (OpenScriptOrVideo(vs.GetScriptAPI(), script, filename, OPT_GET("Provider/Video/VapourSynth/Default Script")->GetString())) {
 		std::string msg = agi::format("Error executing VapourSynth script: %s", vs.GetScriptAPI()->getError(script));
 		vs.GetScriptAPI()->freeScript(script);
 		throw VapoursynthError(msg);
@@ -277,6 +276,7 @@ VapoursynthVideoProvider::~VapoursynthVideoProvider() {
 
 namespace agi { class BackgroundRunner; }
 std::unique_ptr<VideoProvider> CreateVapoursynthVideoProvider(agi::fs::path const& path, std::string const& colormatrix, agi::BackgroundRunner *) {
+	agi::acs::CheckFileRead(path);
 	return agi::make_unique<VapoursynthVideoProvider>(path, colormatrix);
 }
-#endif // HAVE_VAPOURSYNTH
+#endif // WITH_VAPOURSYNTH

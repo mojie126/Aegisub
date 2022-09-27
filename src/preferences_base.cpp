@@ -156,6 +156,20 @@ wxControl *OptionPage::OptionAdd(wxFlexGridSizer *flex, const wxString &name, co
 	}
 }
 
+wxControl *OptionPage::OptionAddMultiline(wxSizer *sizer, const char *opt_name) {
+	parent->AddChangeableOption(opt_name);
+	const auto opt = OPT_GET(opt_name);
+
+	if (opt->GetType() != agi::OptionType::String) {
+		throw agi::InternalError("Unsupported type for multiline option");
+	}
+
+	auto text = new wxTextCtrl(this, -1, to_wx(opt->GetString()), wxDefaultPosition, wxSize(-1, 200), wxTE_MULTILINE);
+	text->Bind(wxEVT_TEXT, StringUpdater(opt_name, parent));
+	sizer->Add(text, wxSizerFlags().Expand());
+	return text;
+}
+
 void OptionPage::OptionChoice(wxFlexGridSizer *flex, const wxString &name, const wxArrayString &choices, const char *opt_name) {
 	parent->AddChangeableOption(opt_name);
 	const auto opt = OPT_GET(opt_name);
