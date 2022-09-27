@@ -215,6 +215,7 @@ elif host_machine.system() == 'windows'
                                                  depends: version_h,
                                                  include_directories: [res_inc, version_inc, wx_inc])
     endif
+    aegisub_src += windows.compile_resources('res/strings.rc')
 endif
 
 if conf.has('WITH_FONTCONFIG')
@@ -241,6 +242,7 @@ opt_src = [
                     'video_provider_bestsource.cpp',
                     'bestsource_common.cpp']],
     ['VapourSynth', ['vapoursynth_wrap.cpp',
+                     'vapoursynth_common.cpp',
                      'audio_provider_vs.cpp',
                      'video_provider_vs.cpp']],
 

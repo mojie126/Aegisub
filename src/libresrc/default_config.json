@@ -340,6 +340,9 @@
 			"BestSource": {
 				"Max Cache Size" : 100,
 				"Aegisub Cache" : true
+			},
+			"VapourSynth" : {
+				"Default Script" : "import vapoursynth as vs\nvs.core.bas.Source(source=filename).set_output()"
 			}
 		},
 		"Avisynth" : {
@@ -365,6 +368,9 @@
 				"Max Cache Size" : 1024,
 				"Threads" : 0,
 				"Seek Preroll" : 12
+			},
+			"VapourSynth" : {
+				"Default Script" : "import vapoursynth as vs\nvs.core.lsmas.LWLibavSource(source=filename).set_output()"
 			}
 		}
 	},

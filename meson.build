@@ -360,7 +360,7 @@ if not deps.contains(luajit)
 else
     luajit_inc = include_directories(luajit.get_variable('includedir'))
 endif
-subdir('subprojects/luabins/src')
+subdir('vendor/luabins/src')
 
 dep_gl = dependency('gl', required: false)
 if not dep_gl.found()
