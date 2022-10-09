@@ -120,12 +120,11 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	// Only supported in wxgtk
 	comment_box->SetCanFocus(false);
 #endif
-	top_sizer->Add(comment_box, 0, wxRIGHT | wxALIGN_CENTER, 5);
+	top_sizer->Add(comment_box, wxSizerFlags().Expand().Border(wxRIGHT, 5));
 
 	style_box = MakeComboBox("Default", wxCB_READONLY, &SubsEditBox::OnStyleChange, _("Style for this line"));
 
-	style_edit_button = new wxButton(this, -1, _("Edit"), wxDefaultPosition,
-		wxSize(GetTextExtent(_("Edit")).GetWidth() + 20, -1));
+	style_edit_button = new wxButton(this, -1, _("Edit"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
 	style_edit_button->Bind(wxEVT_BUTTON, [=](wxCommandEvent&) {
 		if (active_style) {
 			wxArrayString font_list = wxFontEnumerator::GetFacenames();
@@ -133,28 +132,35 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 			DialogStyleEditor(this, active_style, c, nullptr, "", font_list).ShowModal();
 		}
 	});
-	top_sizer->Add(style_edit_button, wxSizerFlags().Center().Border(wxRIGHT));
+	top_sizer->Add(style_edit_button, wxSizerFlags().Expand().Border(wxRIGHT));
 
-	actor_box = new Placeholder<wxComboBox>(this, _("Actor"), wxSize(110, -1), wxCB_DROPDOWN | wxTE_PROCESS_ENTER, _("Actor name for this speech. This is only for reference, and is mainly useless."));
+	actor_box = new Placeholder<wxComboBox>(this, _("Actor"), wxDefaultSize, wxCB_DROPDOWN | wxTE_PROCESS_ENTER, _("Actor name for this speech. This is only for reference, and is mainly useless."));
 	Bind(wxEVT_TEXT, &SubsEditBox::OnActorChange, this, actor_box->GetId());
 	Bind(wxEVT_COMBOBOX, &SubsEditBox::OnActorChange, this, actor_box->GetId());
-	top_sizer->Add(actor_box, wxSizerFlags(2).Center().Border(wxRIGHT));
+	top_sizer->Add(actor_box, wxSizerFlags(2).Expand().Border(wxRIGHT));
 
-	effect_box = new Placeholder<wxComboBox>(this, _("Effect"), wxSize(80,-1), wxCB_DROPDOWN | wxTE_PROCESS_ENTER, _("Effect for this line. This can be used to store extra information for karaoke scripts, or for the effects supported by the renderer."));
+	effect_box = new Placeholder<wxComboBox>(this, _("Effect"), wxDefaultSize, wxCB_DROPDOWN | wxTE_PROCESS_ENTER, _("Effect for this line. This can be used to store extra information for karaoke scripts, or for the effects supported by the renderer."));
 	Bind(wxEVT_TEXT, &SubsEditBox::OnEffectChange, this, effect_box->GetId());
 	Bind(wxEVT_COMBOBOX, &SubsEditBox::OnEffectChange, this, effect_box->GetId());
-	top_sizer->Add(effect_box, 3, wxALIGN_CENTER, 5);
+	top_sizer->Add(effect_box, wxSizerFlags(3).Expand());
 
-	char_count = new wxTextCtrl(this, -1, "0", wxDefaultPosition, wxSize(30, -1), wxTE_READONLY | wxTE_CENTER);
+	char_count = new wxTextCtrl(this, -1, "0", wxDefaultPosition, wxDefaultSize, wxTE_READONLY | wxTE_CENTER);
+	char_count->SetInitialSize(char_count->GetSizeFromTextSize(GetTextExtent(wxS("000"))));
 	char_count->SetToolTip(_("Number of characters in the longest line of this subtitle."));
-	top_sizer->Add(char_count, 0, wxALIGN_CENTER, 5);
+	top_sizer->Add(char_count, wxSizerFlags().Expand());
 
 	// Middle controls
 	middle_left_sizer = new wxBoxSizer(wxHORIZONTAL);
 
-	layer = new wxSpinCtrl(this,-1,"",wxDefaultPosition,wxSize(50,-1), wxSP_ARROW_KEYS | wxTE_PROCESS_ENTER,0,0x7FFFFFFF,0);
+	layer = new wxSpinCtrl(this,-1,"",wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS | wxTE_PROCESS_ENTER,0,0x7FFFFFFF,0);
+#ifndef __WXGTK3__
+	// GTK3 has a bug that we cannot shrink the size of a widget, so do nothing there. See:
+	//  http://gtk.10911.n7.nabble.com/gtk-widget-set-size-request-stopped-working-with-GTK3-td26274.html
+	//  https://trac.wxwidgets.org/ticket/18568
+	layer->SetInitialSize(layer->GetSizeFromTextSize(GetTextExtent(wxS("00"))));
+#endif
 	layer->SetToolTip(_("Layer number"));
-	middle_left_sizer->Add(layer, wxSizerFlags().Center());
+	middle_left_sizer->Add(layer, wxSizerFlags().Expand());
 	middle_left_sizer->AddSpacer(5);
 
 	start_time = MakeTimeCtrl(_("Start time"), TIME_START);
@@ -191,22 +197,27 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	split_box = new wxCheckBox(this,-1,_("Show Original"));
 	split_box->SetToolTip(_("Show the contents of the subtitle line when it was first selected above the edit box. This is sometimes useful when editing subtitles or translating subtitles into another language."));
 	split_box->Bind(wxEVT_CHECKBOX, &SubsEditBox::OnSplit, this);
-	middle_right_sizer->Add(split_box, wxSizerFlags().Center().Left());
+	middle_right_sizer->Add(split_box, wxSizerFlags().Expand());
 
 	// Main sizer
 	wxSizer *main_sizer = new wxBoxSizer(wxVERTICAL);
-	main_sizer->Add(top_sizer,0,wxEXPAND | wxALL,3);
-	main_sizer->Add(middle_left_sizer,0,wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM,3);
-	main_sizer->Add(middle_right_sizer,0,wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM,3);
+	main_sizer->Add(top_sizer, wxSizerFlags().Expand().Border(wxALL, 3));
+	main_sizer->Add(middle_left_sizer, wxSizerFlags().Expand().Border(wxLEFT | wxRIGHT | wxBOTTOM, 3));
+	main_sizer->Add(middle_right_sizer, wxSizerFlags().Expand().Border(wxLEFT | wxRIGHT | wxBOTTOM, 3));
 
 	// Text editor
-	edit_ctrl = new SubsTextEditCtrl(this, wxSize(300,50), wxBORDER_SUNKEN, c);
+	edit_ctrl = new SubsTextEditCtrl(this, wxDefaultSize, wxBORDER_SUNKEN, c);
 	edit_ctrl->Bind(wxEVT_CHAR_HOOK, &SubsEditBox::OnKeyDown, this);
 
-	secondary_editor = new wxTextCtrl(this, -1, "", wxDefaultPosition, wxSize(300,50), wxBORDER_SUNKEN | wxTE_MULTILINE | wxTE_READONLY);
+	secondary_editor = new wxTextCtrl(this, -1, "", wxDefaultPosition, wxDefaultSize, wxBORDER_SUNKEN | wxTE_MULTILINE | wxTE_READONLY);
+	// Here we use the height of secondary_editor as the initial size of edit_ctrl,
+	// which is more reasonable than the default given by wxWidgets.
+	// See: https://trac.wxwidgets.org/ticket/18471#ticket
+	//      https://github.com/wangqr/Aegisub/issues/4
+	edit_ctrl->SetInitialSize(secondary_editor->GetSize());
 
-	main_sizer->Add(secondary_editor,1,wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM,3);
-	main_sizer->Add(edit_ctrl,1,wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM,3);
+	main_sizer->Add(secondary_editor, wxSizerFlags(1).Expand().Border(wxLEFT | wxRIGHT | wxBOTTOM, 3));
+	main_sizer->Add(edit_ctrl, wxSizerFlags(1).Expand().Border(wxLEFT | wxRIGHT | wxBOTTOM, 3));
 	main_sizer->Hide(secondary_editor);
 
 	bottom_sizer = new wxBoxSizer(wxHORIZONTAL);
@@ -250,10 +261,11 @@ SubsEditBox::~SubsEditBox() {
 }
 
 wxTextCtrl *SubsEditBox::MakeMarginCtrl(wxString const& tooltip, int margin, wxString const& commit_msg) {
-	wxTextCtrl *ctrl = new wxTextCtrl(this, -1, "", wxDefaultPosition, wxSize(40,-1), wxTE_CENTRE | wxTE_PROCESS_ENTER, IntValidator(0, true));
+	wxTextCtrl *ctrl = new wxTextCtrl(this, -1, "", wxDefaultPosition, wxDefaultSize, wxTE_CENTRE | wxTE_PROCESS_ENTER, IntValidator(0, true));
+	ctrl->SetInitialSize(ctrl->GetSizeFromTextSize(GetTextExtent(wxS("0000"))));
 	ctrl->SetMaxLength(5);
 	ctrl->SetToolTip(tooltip);
-	middle_left_sizer->Add(ctrl, wxSizerFlags().Center());
+	middle_left_sizer->Add(ctrl, wxSizerFlags().Expand());
 
 	Bind(wxEVT_TEXT, [=](wxCommandEvent&) {
 		int value = agi::util::mid(-9999, atoi(ctrl->GetValue().utf8_str()), 99999);
@@ -265,17 +277,18 @@ wxTextCtrl *SubsEditBox::MakeMarginCtrl(wxString const& tooltip, int margin, wxS
 }
 
 TimeEdit *SubsEditBox::MakeTimeCtrl(wxString const& tooltip, TimeField field) {
-	TimeEdit *ctrl = new TimeEdit(this, -1, c, "", wxSize(GetTextExtent(wxS(" 0:00:00.000 ")).GetWidth(),-1), field == TIME_END);
+	TimeEdit *ctrl = new TimeEdit(this, -1, c, "", wxDefaultSize, field == TIME_END);
+	ctrl->SetInitialSize(ctrl->GetSizeFromTextSize(GetTextExtent(wxS("0:00:00.000"))));
 	ctrl->SetToolTip(tooltip);
 	Bind(wxEVT_TEXT, [=](wxCommandEvent&) { CommitTimes(field); }, ctrl->GetId());
 	ctrl->Bind(wxEVT_CHAR_HOOK, time_edit_char_hook);
-	middle_left_sizer->Add(ctrl, wxSizerFlags().Center());
+	middle_left_sizer->Add(ctrl, wxSizerFlags().Expand());
 	return ctrl;
 }
 
 void SubsEditBox::MakeButton(const char *cmd_name) {
 	cmd::Command *command = cmd::get(cmd_name);
-	wxBitmapButton *btn = new wxBitmapButton(this, -1, command->Icon(16, retina_helper->GetScaleFactor()));
+	wxBitmapButton *btn = new wxBitmapButton(this, -1, command->Icon(OPT_GET("App/Toolbar Icon Size")->GetInt(), retina_helper->GetScaleFactor()));
 	ToolTipManager::Bind(btn, command->StrHelp(), "Subtitle Edit Box", cmd_name);
 
 	middle_right_sizer->Add(btn, wxSizerFlags().Expand());
@@ -293,9 +306,9 @@ wxButton *SubsEditBox::MakeBottomButton(const char *cmd_name) {
 
 wxComboBox *SubsEditBox::MakeComboBox(wxString const& initial_text, int style, void (SubsEditBox::*handler)(wxCommandEvent&), wxString const& tooltip) {
 	wxString styles[] = { "Default" };
-	wxComboBox *ctrl = new wxComboBox(this, -1, initial_text, wxDefaultPosition, wxSize(110,-1), 1, styles, style | wxTE_PROCESS_ENTER);
+	wxComboBox *ctrl = new wxComboBox(this, -1, initial_text, wxDefaultPosition, wxDefaultSize, 1, styles, style | wxTE_PROCESS_ENTER);
 	ctrl->SetToolTip(tooltip);
-	top_sizer->Add(ctrl, wxSizerFlags(2).Center().Border(wxRIGHT));
+	top_sizer->Add(ctrl, wxSizerFlags(2).Expand().Border(wxRIGHT));
 	Bind(wxEVT_COMBOBOX, handler, this, ctrl->GetId());
 	return ctrl;
 }
