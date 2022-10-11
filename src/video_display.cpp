@@ -360,7 +360,7 @@ void VideoDisplay::OnSizeEvent(wxSizeEvent &event) {
 		/* If the video is moving, we only need to update the size in this case */
 		else if (videoSize.GetWidth() == 0 && videoSize.GetHeight() == 0)
 			videoSize = GetClientSize() * videoZoomValue * scale_factor;
-		windowZoomValue = double(GetClientSize().GetHeight() * scale_factor) / con->project->VideoProvider()->GetHeight();
+		windowZoomValue = double(std::max(GetClientSize().GetHeight(), 1) * scale_factor) / con->project->VideoProvider()->GetHeight();
 		zoomBox->ChangeValue(fmt_wx("%g%%", windowZoomValue * 100.));
 		con->ass->Properties.video_zoom = windowZoomValue;
 		UpdateSize();
