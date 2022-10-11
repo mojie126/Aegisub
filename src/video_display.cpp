@@ -197,11 +197,11 @@ void VideoDisplay::Render() try {
 
 	int client_w, client_h;
 	GetClientSize(&client_w, &client_h);
-	E(glViewport(0, 0, client_w, client_h));
+	E(glViewport(0, 0, client_w * scale_factor, client_h * scale_factor));
 
 	E(glMatrixMode(GL_PROJECTION));
 	E(glLoadIdentity());
-	E(glOrtho(0.0f, client_w / scale_factor, client_h / scale_factor, 0.0f, -1000.0f, 1000.0f));
+	E(glOrtho(0.0f, client_w, client_h, 0.0f, -1000.0f, 1000.0f));
 
 	if (OPT_GET("Video/Overscan Mask")->GetBool()) {
 		double ar = con->videoController->GetAspectRatioValue();
