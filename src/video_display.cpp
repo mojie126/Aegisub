@@ -276,9 +276,11 @@ void VideoDisplay::PositionVideo() {
 
 	int client_w, client_h;
 	GetClientSize(&client_w, &client_h);
+	client_w *= scale_factor;
+	client_h *= scale_factor;
 
 	viewport_left = 0;
-	viewport_bottom = client_h * scale_factor - videoSize.GetHeight();
+	viewport_bottom = client_h - videoSize.GetHeight();
 	viewport_top = 0;
 	viewport_width = videoSize.GetWidth();
 	viewport_height = videoSize.GetHeight();
@@ -311,7 +313,7 @@ void VideoDisplay::PositionVideo() {
 	viewport_bottom -= pan_y;
 
 	if (tool) {
-		tool->SetClientSize(client_w * scale_factor, client_h * scale_factor);
+		tool->SetClientSize(client_w, client_h);
 		tool->SetDisplayArea(viewport_left / scale_factor, viewport_top / scale_factor,
 		                     viewport_width / scale_factor, viewport_height / scale_factor);
 	}
@@ -358,7 +360,7 @@ void VideoDisplay::OnSizeEvent(wxSizeEvent &event) {
 		/* If the video is moving, we only need to update the size in this case */
 		else if (videoSize.GetWidth() == 0 && videoSize.GetHeight() == 0)
 			videoSize = GetClientSize() * videoZoomValue * scale_factor;
-		windowZoomValue = double(GetClientSize().GetHeight()) / con->project->VideoProvider()->GetHeight();
+		windowZoomValue = double(GetClientSize().GetHeight() * scale_factor) / con->project->VideoProvider()->GetHeight();
 		zoomBox->ChangeValue(fmt_wx("%g%%", windowZoomValue * 100.));
 		con->ass->Properties.video_zoom = windowZoomValue;
 		UpdateSize();
