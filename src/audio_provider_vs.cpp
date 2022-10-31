@@ -117,7 +117,7 @@ void VapoursynthAudioProvider::FillBufferWithFrame(void *buf, int n, int64_t sta
 
 	std::vector<const uint8_t *> planes(channels);
 	for (int c = 0; c < channels; c++) {
-		planes[c] = vs.GetAPI()->getReadPtr(frame, c);
+		planes[c] = vs.GetAPI()->getReadPtr(frame, c) + bytes_per_sample * start;
 		if (planes[c] == nullptr) {
 			vs.GetAPI()->freeFrame(frame);
 			throw VapoursynthError("Failed to read audio channel");
