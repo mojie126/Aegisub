@@ -63,11 +63,12 @@ public:
 	int GetHeight() const override                 { return vi->height; }
 	double GetDAR() const override                 { return dar; }
 	std::vector<int> GetKeyFrames() const override { return keyframes; }
-	std::string GetColorSpace() const override     { return colorspace; }
-	std::string GetRealColorSpace() const override { return colorspace; }
+	std::string GetColorSpace() const override     { return GetRealColorSpace(); }
+	std::string GetRealColorSpace() const override { return colorspace == "Unknown" ? "None" : colorspace; }
 	bool HasAudio() const override                 { return false; }
-	virtual bool WantsCaching() const override     { return true; }
-	virtual std::string GetDecoderName() const override { return "VapourSynth"; }
+	bool WantsCaching() const override             { return true; }
+	std::string GetDecoderName() const override    { return "VapourSynth"; }
+	bool ShouldSetVideoProperties() const override { return colorspace != "Unknown"; }
 };
 
 std::string colormatrix_description(int colorFamily, int colorRange, int matrix) {
@@ -90,7 +91,7 @@ std::string colormatrix_description(int colorFamily, int colorRange, int matrix)
 		case VSC_MATRIX_ST240_M:
 			return str + ".240M";
 		default:
-			return "None";
+			return "Unknown"; 	// Will return "None" in GetColorSpace
 	}
 }
 
