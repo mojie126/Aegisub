@@ -137,7 +137,7 @@ VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename
 	// Assume constant frame rate, since handling VFR would require going through all frames when loading.
 	// Users can load custom timecodes files to deal with VFR.
 	// Alternatively (TODO) the provider could read timecodes and keyframes from a second output node.
-	fps = (double) vi->fpsNum / vi->fpsDen;
+	fps = agi::vfr::Framerate(vi->fpsNum, vi->fpsDen);
 
 	// Find the first frame to get some info
 	const VSFrame *frame;
