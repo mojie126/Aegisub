@@ -201,7 +201,7 @@ void VideoDisplay::Render() try {
 
 	E(glMatrixMode(GL_PROJECTION));
 	E(glLoadIdentity());
-	E(glOrtho(0.0f, client_w, client_h, 0.0f, -1000.0f, 1000.0f));
+	E(glOrtho(0.0f, std::max(client_w, 1), std::max(client_h, 1), 0.0f, -1000.0f, 1000.0f));
 
 	if (OPT_GET("Video/Overscan Mask")->GetBool()) {
 		double ar = con->videoController->GetAspectRatioValue();
