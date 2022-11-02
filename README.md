@@ -35,7 +35,7 @@ This list is for navigating the repository. Go to the [release page](https://git
 - [`misc_dc`](https://github.com/arch1t3cht/Aegisub/tree/misc_dc): Miscellaneous changes taken from AegisubDC
 - [`xa2-ds`](https://github.com/arch1t3cht/Aegisub/tree/xa2-ds): Add XAudio2 backend and allow stereo playback for some other backends, by wangqr and Shinon.
 - [`stereo`](https://github.com/arch1t3cht/Aegisub/tree/stereo): Add multi-channel support for the other audio backends where possible.
-- [`video_panning_feature`](https://github.com/arch1t3cht/Aegisub/tree/video_panning_feature): Merge [moex3's video zoom and panning](https://github.com/TypesettingTools/Aegisub/pull/150), with several bugfixes and more options to control zoom behavior
+- [`video_panning_option`](https://github.com/arch1t3cht/Aegisub/tree/video_panning_option): Merge [moex3's video zoom and panning](https://github.com/TypesettingTools/Aegisub/pull/150), with several bugfixes and more options to control zoom behavior
 - [`spectrum-frequency-mapping`](https://github.com/arch1t3cht/Aegisub/tree/spectrum-frequency-mapping): Merge EleonoreMizo's [spectrum display improvements](https://github.com/TypesettingTools/Aegisub/pull/94), and also make Shift+Scroll vertically zoom the audio display
 - [`wangqr_time_video`](https://github.com/arch1t3cht/Aegisub/tree/wangqr_time_video): Merge wangqr's feature adding a tool for timing subtitles to changes in the video
 
