@@ -259,7 +259,7 @@ void MarkDrawings(std::string const& str, std::vector<DialogueToken> &tokens) {
 						goto tag_p;
 					if (!drawing_start)
 						drawing_start = i + 2;
-					if (drawing_end == drawing_start + 1)
+					if (drawing_end == drawing_start)
 						goto tag_p;
 
 					// We found a clip between drawing_start and drawing_end. Now, join
