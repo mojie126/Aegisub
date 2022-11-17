@@ -614,7 +614,6 @@
 			"Show Keyframes" : true
 		},
 		"Subtitle Sync" : true,
-		"Video Pan": false,
 		"Default to Video Zoom": false
 	}
 }

@@ -376,27 +376,17 @@ void VideoDisplay::OnMouseEvent(wxMouseEvent& event) {
 
 	last_mouse_pos = mouse_pos = event.GetPosition();
 
-	///if video pan
-	bool videoPan = OPT_GET("Video/Video Pan")->GetBool();
-
-	if (videoPan){
-		if (event.GetButton() == wxMOUSE_BTN_MIDDLE) {
-			if ((panning = event.ButtonDown()))
-				pan_last_pos = event.GetPosition();
-		}
-		if (panning && event.Dragging()) {
-			pan_x += event.GetX() - pan_last_pos.X();
-			pan_y += event.GetY() - pan_last_pos.Y();
+	if (event.GetButton() == wxMOUSE_BTN_MIDDLE) {
+		if ((panning = event.ButtonDown()))
 			pan_last_pos = event.GetPosition();
+	}
+	if (panning && event.Dragging()) {
+		pan_x += event.GetX() - pan_last_pos.X();
+		pan_y += event.GetY() - pan_last_pos.Y();
+		pan_last_pos = event.GetPosition();
 
-			PositionVideo();
-		}
-	}
-	else if ((pan_x != 0 || pan_y != 0) && !videoPan)
-	{
-	    pan_x = pan_y = 0;
-	    PositionVideo();
-	}
+		PositionVideo();
+    }
 
 	///
 
@@ -411,13 +401,12 @@ void VideoDisplay::OnMouseLeave(wxMouseEvent& event) {
 }
 
 void VideoDisplay::OnMouseWheel(wxMouseEvent& event) {
-	bool videoPan = OPT_GET("Video/Video Pan")->GetBool();
 	if (int wheel = event.GetWheelRotation()) {
 		if (ForwardMouseWheelEvent(this, event) && !OPT_GET("Video/Disable Scroll Zoom")->GetBool()) {
 			if (OPT_GET("Video/Reverse Zoom")->GetBool()) {
 				wheel = -wheel;
 			}
-			if (!videoPan || (event.ControlDown() == OPT_GET("Video/Default to Video Zoom")->GetBool())) {
+			if (event.ControlDown() == OPT_GET("Video/Default to Video Zoom")->GetBool()) {
 				SetWindowZoom(windowZoomValue + .125 * (wheel / event.GetWheelDelta()));
 			} else {
 				SetVideoZoom(wheel / event.GetWheelDelta());
