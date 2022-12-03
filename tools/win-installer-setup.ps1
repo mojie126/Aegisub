@@ -61,7 +61,7 @@ if (!(Test-Path VSFilter)) {
 # ffi-experiments
 if (!(Test-Path ffi-experiments)) {
 	Get-Command "moonc" # check to ensure Moonscript is present
-	git clone https://github.com/TypesettingTools/ffi-experiments.git
+	git clone https://github.com/arch1t3cht/ffi-experiments.git
 	Set-Location ffi-experiments
 	meson build -Ddefault_library=static
 	meson compile -C build
