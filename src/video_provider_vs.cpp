@@ -101,6 +101,9 @@ void VapoursynthVideoProvider::SetResizeArg(VSMap *args, const VSMap *props, con
 	int result = vs.GetAPI()->mapGetInt(props, prop_name, 0, &err);
 	if (err != 0 || result == unspecified) {
 		result = deflt;
+		if (!strcmp(arg_name, "range_in")) {
+			result = result == VSC_RANGE_FULL ? 1 : 0;
+		}
 		vs.GetAPI()->mapSetInt(args, arg_name, result, maAppend);
 	}
 }
