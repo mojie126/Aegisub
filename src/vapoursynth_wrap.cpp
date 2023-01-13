@@ -56,7 +56,6 @@ typedef VSSCRIPTAPI* VS_CC FUNC(int);
 VapourSynthWrapper::VapourSynthWrapper() {
 	// VSScript assumes it's only loaded once, so unlike AVS we can't unload it when the refcount reaches zero
 	if (!vs_loaded) {
-		vs_loaded = true;
 #ifdef _WIN32
 #define CONCATENATE(x, y) x ## y
 #define _Lstr(x) CONCATENATE(L, x)
@@ -92,6 +91,8 @@ VapourSynthWrapper::VapourSynthWrapper() {
 
 		if (!api)
 			throw VapoursynthError("Failed to get Vapoursynth API");
+
+		vs_loaded = true;
 	}
 }
 
