@@ -42,15 +42,7 @@ VisualToolVectorClip::VisualToolVectorClip(VideoDisplay *parent, agi::Context *c
 // as is done in toolbar.cpp feels like too big of a hack. At least this way the button's actions
 // are not purely controlled by the order they're added in.
 void VisualToolVectorClip::AddTool(std::string command_name, VisualToolVectorClipMode mode) {
-	cmd::Command *command;
-	try {
-		command = cmd::get(command_name);
-	}
-	catch (cmd::CommandNotFound const&) {
-		// Toolbar names are all hardcoded so this should never happen
-		throw agi::InternalError("Toolbar named " + command_name + " not found.");
-	}
-
+	cmd::Command *command = cmd::get(command_name);
 	int icon_size = OPT_GET("App/Toolbar Icon Size")->GetInt();
 	toolBar->AddTool(BUTTON_ID_BASE + mode, command->StrDisplay(c), command->Icon(icon_size), command->GetTooltip("Video"), wxITEM_CHECK);
 }
@@ -75,24 +67,23 @@ void VisualToolVectorClip::SetToolbar(wxToolBar *toolBar) {
 	toolBar->ToggleTool(BUTTON_ID_BASE + VCLIP_DRAG, true);
 	toolBar->Realize();
 	toolBar->Show(true);
-	toolBar->Bind(wxEVT_TOOL, [=](wxCommandEvent& e) { SetMode((VisualToolVectorClipMode) (e.GetId() - BUTTON_ID_BASE)); });
-	SetMode(VCLIP_LINE);
-#undef ICON
+	toolBar->Bind(wxEVT_TOOL, [=](wxCommandEvent& e) { SetSubTool(e.GetId() - BUTTON_ID_BASE); });
+	SetSubTool(VCLIP_LINE);
 }
 
-void VisualToolVectorClip::SetMode(VisualToolVectorClipMode new_mode) {
+void VisualToolVectorClip::SetSubTool(int subtool) {
 	if (toolBar == nullptr) {
 		throw agi::InternalError("Vector clip toolbar hasn't been set yet!");
 	}
 	// Manually enforce radio behavior as we want one selection in the bar
 	// rather than one per group
 	for (int i = 0; i < VCLIP_LAST; i++)
-		toolBar->ToggleTool(BUTTON_ID_BASE + i, i == new_mode);
+		toolBar->ToggleTool(BUTTON_ID_BASE + i, i == subtool);
 
-	mode = new_mode;
+	mode = subtool;
 }
 
-VisualToolVectorClipMode VisualToolVectorClip::GetMode() {
+int VisualToolVectorClip::GetSubTool() {
 	return mode;
 }
 
@@ -452,7 +443,7 @@ void VisualToolVectorClip::UpdateHold() {
 
 	// End freedraw
 	if (!holding && (mode == VCLIP_FREEHAND || mode == VCLIP_FREEHAND_SMOOTH)) {
-		SetMode(VCLIP_DRAG);
+		SetSubTool(VCLIP_DRAG);
 		MakeFeatures();
 	}
 }

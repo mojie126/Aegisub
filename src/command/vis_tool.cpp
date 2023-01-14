@@ -59,12 +59,12 @@ namespace {
 		}
 
 		bool IsActive(const agi::Context *c) override {
-			return c->videoDisplay->ToolIsVectorClipTool(M);
+			return c->videoDisplay->ToolIsType(typeid(VisualToolVectorClip)) && c->videoDisplay->GetSubTool() == M;
 		}
 
 		void operator()(agi::Context *c) override {
 			c->videoDisplay->SetTool(agi::make_unique<VisualToolVectorClip>(c->videoDisplay, c));
-			c->videoDisplay->SetVectorClipTool(M);
+			c->videoDisplay->SetSubTool(M);
 		}
 	};
 
