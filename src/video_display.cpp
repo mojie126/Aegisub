@@ -464,7 +464,7 @@ void VideoDisplay::SetVideoZoom(int step) {
 	}
 
 	// Mouse coordinates, relative to the video, at the current zoom level
-	Vector2D mp = GetMousePosition() * videoZoomValue * windowZoomValue;
+	Vector2D mp = last_mouse_pos - Vector2D(viewport_left, viewport_top) / scale_factor;
 
 	// The video size will change by this many pixels
 	int pixelChangeW = std::lround(videoSize.GetWidth() * (newVideoZoom / videoZoomValue - 1.0));
