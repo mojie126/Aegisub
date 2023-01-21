@@ -2,7 +2,6 @@
 directory = ffmpeg
 url = https://gitlab.freedesktop.org/gstreamer/meson-ports/ffmpeg.git
 revision = meson-4.4
-patch_directory = ffmpeg
 
 [provide]
 libavformat = libavformat_dep
