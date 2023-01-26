@@ -16,21 +16,17 @@
 # License along with this library; if not, see <http://www.gnu.org/licenses/>.
 
 project('FFmpeg', 'c',
-  meson_version: '>= 0.54',
+  meson_version: '>= 0.59',
   license: 'LGPL2.1+',
-  default_options: [ 'buildtype=debugoptimized'],
-  version: '4.4.2',
+  default_options: [ 'buildtype=debugoptimized', 'c_std=c99', 'cpp_std=c++11'],
+  version: '4.4.3',
 )
 
 # HOWTO:
 #
-# Get meson >= 0.50 from pip or your distro's package manager then:
+# Get meson >= 0.59 from pip or your distro's package manager then:
 #
 # meson build && ninja -C build
-#
-# Will only build static libraries on Windows
-#
-# FIXME: address that last point
 
 # Overview of the configure process:
 #
@@ -69,7 +65,6 @@ project('FFmpeg', 'c',
 # * Porting the FATE test suite
 # * Continue going over the configure script and importing various
 #   bits of logic
-# * Exposing options, for now everything is automatically enabled
 
 common_incs = [include_directories('.')]
 
@@ -117,8 +112,13 @@ project_c_args = [
   '-Wno-bool-operation',
   '-Wno-incompatible-pointer-types',
   '-Wno-address',
-  '-std=c99',
 ]
+
+# Work around meson subprojects ignoring default_options
+# https://github.com/mesonbuild/meson/issues/1889#issuecomment-1275991958
+if meson.is_subproject() and meson.version().version_compare('< 0.63')
+  project_c_args += ['-std=c99']
+endif
 
 project_c_args = cc.get_supported_arguments(project_c_args)
 
@@ -463,13 +463,30 @@ types_list = [
   'struct_v4l2_frmivalenum_discrete',
 ]
 
+conf.set('runtime_cpudetect', 1)
+asm = get_option('asm')
+inline_asm = get_option('inline_asm')
+
+conf.set10('asm', asm.allowed())
+
+if inline_asm.allowed()
+  conf.set10('inline_asm', 
+    cc.compiles(
+      'void foo(void){ __asm__ volatile(@0@); }'.format('"" ::'),
+      name: 'inline_asm'
+    )
+  )
+else
+  conf.set10('inline_asm', false)
+endif
+
 arch_ext_list_external = []
 arch_ext_list_inline = []
 
 foreach arch_ext : arch_ext_list
-  conf.set(arch_ext, 1)
-  conf.set('@0@_external'.format(arch_ext), 1)
-  conf.set('@0@_inline'.format(arch_ext), 1)
+  conf.set10(arch_ext, conf.get('asm') == 1)
+  conf.set10('@0@_external'.format(arch_ext), conf.get('asm') == 1)
+  conf.set10('@0@_inline'.format(arch_ext), conf.get('asm') == 1 and conf.get('inline_asm') == 1)
   arch_ext_list_external += ['@0@_external'.format(arch_ext)]
   arch_ext_list_inline += ['@0@_inline'.format(arch_ext)]
 endforeach
@@ -590,6 +607,7 @@ external_autodetect_library_list = [
   'libxcb_shape',
   'libxcb_xfixes',
   'lzma',
+  'mediafoundation',
   'schannel',
   'sdl2',
   'securetransport',
@@ -601,13 +619,14 @@ external_autodetect_library_list = [
 library_gpl_list = [
   'avisynth',
   'frei0r',
-  'libaribb24',
   'libcdio',
+  'libdavs2',
   'librubberband',
   'libvidstab',
   'libx264',
   'libx265',
   'libxavs',
+  'libxavs2',
   'libxvid',
 ]
 
@@ -620,9 +639,10 @@ library_nonfree_list = [
 
 library_version3_list = [
   'gmp',
+  'libaribb24',
+  'liblensfun',
   'libopencore_amrnb',
   'libopencore_amrwb',
-  'libvmaf',
   'libvo_amrwbenc',
   'rkmpp',
 ]
@@ -749,6 +769,7 @@ check_pkg_config = [
   ['libcaca', ['caca.h'], ['caca_create_canvas'], {'pkg': 'caca'}],
   ['libcdio', ['cdio/cdda.h', 'cdio/paranoia.h'], ['cdio_cddap_open'], {'pkg': 'libcdio_paranoia'}],
   ['libcdio', ['cdio/paranoia/cdda.h', 'cdio/paranoia/paranoia.h'], ['cdio_cddap_open'], {'pkg': 'libcdio_paranoia'}],
+  ['libdavs2', ['davs2.h'], ['davs2_decoder_open'], {'pkg': 'davs2', 'version': '>= 1.6.0'}],
   ['libdc1394', ['dc1394/dc1394.h'], ['dc1394_new'], {'pkg': 'libdc1394-2'}],
   ['libdrm', ['xf86drm.h'], ['drmGetVersion'], {}],
   ['libfdk_aac', ['fdk-aac/aacenc_lib.h'], ['aacEncOpen'], {'pkg': 'fdk-aac'}],
@@ -756,7 +777,9 @@ check_pkg_config = [
   ['libfreetype', ['ft2build.h', 'FT_FREETYPE_H'], ['FT_Init_FreeType'], {'pkg': 'freetype2'}],
   ['libfribidi', ['fribidi.h'], ['fribidi_version_info'], {'pkg': 'fribidi'}],
   ['libjack', ['jack/jack.h'], ['jack_port_get_latency_range'], {'pkg': 'jack'}],
+  ['libklvanc', ['libklvanc/vanc.h'], ['klvanc_context_create'], {}],
   ['libkvazaar', ['kvazaar.h'], ['kvz_api_get'], {'pkg': 'kvazaar', 'version': '>= 0.8.1'}],
+  ['liblensfun', ['lensfun.h'], ['lf_db_new'], {'pkg': 'lensfun'}],
   ['libmfx', ['mfx/mfxvideo.h'], ['MFXInit'], {}],
   ['libmodplug', ['libmodplug/modplug.h'], ['ModPlug_Load'], {}],
   ['libopencv', ['opencv2/core/core_c.h'], ['cvCreateImageHeader'], {'pkg': 'opencv'}],
@@ -773,6 +796,7 @@ check_pkg_config = [
   ['libpulse', ['pulse/pulseaudio.h'], ['pa_context_new'], {}],
   ['librabbitmq', ['amqp.h'], ['amqp_new_connection'], {'pkg': 'librabbitmq', 'version': '>= 0.7.1'}],
   ['librav1e', ['rav1e.h'], ['rav1e_context_new'], {'pkg': 'rav1e', 'version': '>= 0.1.0'}],
+  ['librist', ['librist/librist.h'], ['rist_receiver_create'], {'pkg': 'rist', 'version': '>= 0.2'}],
   ['librsvg', ['librsvg-2.0/librsvg/rsvg.h'], ['rsvg_handle_render_cairo'], {'pkg': 'librsvg-2.0'}],
   ['librtmp', ['librtmp/rtmp.h'], ['RTMP_Socket'], {}],
   ['librubberband', ['rubberband/rubberband-c.h'], ['rubberband_new'], {'pkg': 'rubberband', 'version': '>= 1.8.1'}],
@@ -781,6 +805,7 @@ check_pkg_config = [
   ['libssh', ['libssh/sftp.h'], ['sftp_init'], {}],
   ['libspeex', ['speex/speex.h'], ['speex_decoder_init'], {'pkg': 'speex'}],
   ['libsrt', ['srt/srt.h'], ['srt_socket'], {'pkg': 'srt', 'version': '>= 1.2.0'}],
+  ['libsvtav1', ['EbSvtAv1Enc.h'], ['svt_av1_enc_init_handle'], {'pkg': 'SvtAv1Enc', 'version': '>= 0.8.4'}],
   ['libtesseract', ['tesseract/capi.h'], ['TessBaseAPICreate'], {'pkg': 'tesseract'}],
   ['libtls', ['tls.h'], ['tls_configure'], {}],
   ['libv4l2', ['libv4l2.h'], ['v4l2_ioctl'], {}],
@@ -788,6 +813,7 @@ check_pkg_config = [
   ['libvmaf', ['libvmaf.h'], ['compute_vmaf'], {'version': '>= 0.6.2'}],
   ['libvorbis', ['vorbis/codec.h'], ['vorbis_info_init'], {'pkg': 'vorbis'}],
   ['libvorbisenc', ['vorbis/vorbisenc.h'], ['vorbis_encode_init'], {'pkg': 'vorbisenc'}],
+  ['libvpx', ['vpx/vpx_decoder.h', 'vpx/vpx_encoder.h'], [], {'pkg': 'vpx', 'version': '>= 1.4.0'}],
   ['libvpx_vp8_decoder', ['vpx/vpx_decoder.h', 'vpx/vp8dx.h'], ['vpx_codec_vp8_dx'], {'pkg': 'vpx', 'version': '>= 1.4.0'}],
   ['libvpx_vp8_encoder', ['vpx/vpx_encoder.h', 'vpx/vp8cx.h'], ['vpx_codec_vp8_cx'], {'pkg': 'vpx', 'version': '>= 1.4.0'}],
   ['libvpx_vp9_decoder', ['vpx/vpx_decoder.h', 'vpx/vp8dx.h'], ['vpx_codec_vp9_dx'], {'pkg': 'vpx', 'version': '>= 1.4.0'}],
@@ -808,7 +834,9 @@ check_pkg_config = [
   ['pocketsphinx', ['pocketsphinx/pocketsphinx.h'], ['ps_init'], {}],
   ['rkmpp', ['rockchip/rk_mpi.h'], ['mpp_create'], {'pkg': 'rockchip_mpp'}],
   ['rockchip_mpp', ['rockchip/rk_mpi.h'], ['mpp_create'], {'version': '>= 1.3.7'}],
-  ['sdl2', ['SDL_events.h'], ['SDL_PollEvent'], {'version': ['>= 2.0.1', '< 2.1.0']}],
+  ['sdl2', ['SDL_events.h'], ['SDL_PollEvent'], {'version': ['>= 2.0.1', '< 3.0.0']}],
+  ['vapoursynth', ['VSScript.h'], ['vsscript_init'], {'pkg': 'vapoursynth-script', 'version': '>= 42'}],
+  ['vulkan', ['vulkan/vulkan.h'], ['vkCreateInstance'], {'pkg': 'vulkan', 'version': '>= 1.1.97'}],
 ]
 
 foreach check : check_pkg_config
@@ -854,6 +882,7 @@ check_components = [
   ['libiec61883', ['libiec61883/iec61883.h'], ['iec61883_cmp_connect'], ['raw1394', 'avc1394', 'rom1394', 'iec61883']],
   ['libilbc', ['ilbc.h'], ['WebRtcIlbcfix_InitDecode'], ['lbc']],
   ['libm', ['math.h'], ['sin'], ['m'], {'always-check': true}], # always check for libm don't provide an option to disable it
+  ['libopenvino', ['c_api/ie_c_api.h'], ['ie_c_api_version'], ['inference_engine_c_api']],
   ['libnpp', ['npp.h'], ['nppGetLibVersion'], ['nppig', 'nppicc', 'nppc']],
   ['libnpp', ['npp.h'], ['nppGetLibVersion'], ['nppi', 'nppc']],
   ['libopencore_amrnb', ['opencore-amrnb/interf_dec.h'], ['Decoder_Interface_init'], ['opencore-amrnb']],
@@ -862,6 +891,7 @@ check_components = [
   ['libsmbclient', ['libsmbclient.h'], ['smbc_init'], ['smbclient']],
   ['libsnappy', ['snappy-c.h'], ['snappy_compress'], ['snappy', 'stdc++']],
   ['libsoxr', ['soxr.h'], ['soxr_create'], ['soxr']],
+  ['libtensorflow', ['tensorflow/c/c_api.h'], ['TF_Version'], ['tensorflow']],
   ['libtheora', ['theora/theoraenc.h'], ['th_info_init'], ['theoraenc', 'theoradec', 'ogg']],
   ['libtwolame', ['twolame.h'], ['twolame_init', 'twolame_encode_buffer_float32_interleaved'], ['twolame']],
   ['libvo_amrwbenc', ['vo-amrwbenc/enc_if.h'], ['E_IF_init'], ['vo-amrwbenc']],
@@ -873,10 +903,10 @@ check_components = [
     {'defines': ['VPX_IMG_FMT_HIGHBITDEPTH'], 'extra_deps': ['libm_extra_deps', 'thread_dep']}],
   ['libvpx_vp9_encoder', ['vpx/vpx_encoder.h', 'vpx/vp8cx.h'], ['vpx_codec_vp9_cx'], ['vpx'],
     {'defines': ['VPX_IMG_FMT_HIGHBITDEPTH'], 'extra_deps': ['libm_extra_deps', 'thread_dep']}],
-  ['libwavpack', ['wavpack/wavpack.h'], ['WavpackOpenFileOutput'], ['wavpack']],
   ['libxvid', ['xvid.h'], ['xvid_global'], ['xvidcore']],
   ['linux_fb_h', ['linux/fb.h'], [], []],
   ['lzma', ['lzma.h'], ['lzma_version_number'], ['lzma']],
+  ['mediafoundation', ['mfapi.h'], ['MFCreateAlignedMemoryBuffer'], ['mfplat', 'mfuuid', 'ole32', 'strmiids'], {'defines': ['mftransform_h']}],
   ['mediandk', ['stdint.h', 'media/NdkImage.h'], ['AImage_delete'], ['mediandk']],
   ['mmal', ['interface/mmal/mmal.h'], ['mmal_port_connect'], ['mmal_core', 'mmal_util', 'mmal_vc_client', 'bcm_host']],
   ['nanosleep', ['time.h'], ['nanosleep'], ['rt']],
@@ -897,7 +927,7 @@ check_components = [
   ['user32', ['windows.h', 'winuser.h'], ['GetShellWindow'], ['user32']],
   ['vfw32', ['windows.h', 'vfw.h'], ['capCreateCaptureWindow'], ['vfw3']],
   ['vaapi', ['va/va.h'], ['vaInitialize'], ['va']],
-  ['zlib', ['zlib.h'], ['zlibVersion'], ['z']],
+  ['zlib', ['zlib.h'], ['zlibVersion'], ['z'], {'meson-dep': 'zlib'}],
 
   # Libraries with preconditions
   ['vaapi_drm', ['va/va.h', 'va/va_drm.h'], ['vaGetDisplayDRM'], ['va', 'va-drm'],
@@ -1095,6 +1125,7 @@ external_library_list = library_gpl_list + library_nonfree_list + library_versio
   'gcrypt',
   'gnutls',
   'jni',
+  'ladspa',
   'libaom',
   'libass',
   'libbluray',
@@ -1102,17 +1133,20 @@ external_library_list = library_gpl_list + library_nonfree_list + library_versio
   'libcaca',
   'libcelt',
   'libcodec2',
+  'libdav1d',
   'libdc1394',
   'libdrm',
   'libflite',
   'libfontconfig',
   'libfreetype',
   'libfribidi',
+  'libglslang',
   'libgme',
   'libgsm',
   'libiec61883',
   'libilbc',
   'libjack',
+  'libklvanc',
   'libkvazaar',
   'libmodplug',
   'libmp3lame',
@@ -1123,6 +1157,9 @@ external_library_list = library_gpl_list + library_nonfree_list + library_versio
   'libopenmpt',
   'libopus',
   'libpulse',
+  'librabbitmq',
+  'librav1e',
+  'librist',
   'librsvg',
   'librtmp',
   'libshine',
@@ -1132,13 +1169,15 @@ external_library_list = library_gpl_list + library_nonfree_list + library_versio
   'libspeex',
   'libsrt',
   'libssh',
+  'libsvtav1',
   'libtesseract',
   'libtheora',
   'libtwolame',
+  'libuavs3d',
   'libv4l2',
+  'libvmaf',
   'libvorbis',
   'libvpx',
-  'libwavpack',
   'libwebp',
   'libxml2',
   'libzimg',
@@ -1148,6 +1187,8 @@ external_library_list = library_gpl_list + library_nonfree_list + library_versio
   'mediacodec',
   'openal',
   'opengl',
+  'pocketsphinx',
+  'vapoursynth',
 ]
 
 hwaccel_library_nonfree_list = [
@@ -1160,6 +1201,7 @@ hwaccel_library_list = hwaccel_library_nonfree_list + [
   'mmal',
   'omx',
   'opencl',
+  'vulkan'
 ]
 
 subsystem_list = [
@@ -1224,6 +1266,7 @@ config_extra = [
   'cbs_h265',
   'cbs_mpeg2',
   'dirac_parse',
+  'dnn',
   'dvprofile',
   'exif',
   'faandct',
@@ -1361,6 +1404,10 @@ avformat_components = [
 
 component_list = avcodec_components + avdevice_components + avfilter_components + avformat_components
 
+foreach component : component_list
+  conf.set10(component, get_option(component).allowed())
+endforeach
+
 config_list = (
   document_list +
   example_list +
@@ -1395,6 +1442,11 @@ check_compiles = [
   ['intrinsics_neon', ['arm_neon.h'], 'int16x8_t test = vdupq_n_s16(0);'],
 ]
 
+check_links = [
+  ['stdatomic', ['stdatomic.h'], 'int main(void) {atomic_int foo, bar = ATOMIC_VAR_INIT(-1); atomic_store(&foo, 0); foo += bar;}', {'link_with': ['atomic']}],
+  ['stdatomic', ['stdatomic.h'], 'int main(void) {atomic_int foo, bar = ATOMIC_VAR_INIT(-1); atomic_store(&foo, 0); foo += bar;}'],
+]
+
 v4l2m2m_formats = [
   ['vc1', 'VC1_ANNEX_G'],
   ['mpeg1'],
@@ -1414,6 +1466,10 @@ endforeach
 
 foreach check : check_compiles
   all_checks += [['compiles', check]]
+endforeach
+
+foreach check : check_links
+  all_checks += [['links', check]]
 endforeach
 
 foreach arch : arch_list
@@ -1436,21 +1492,36 @@ foreach license : license_list
 endforeach
 
 foreach lib : library_list
-  conf.set(lib, 1)
+  conf.set(lib, get_option(lib).enabled().to_int())
 endforeach
 
 arch = 'c'
 
-if host_machine.cpu_family() == 'x86'
+cpu = host_machine.cpu_family()
+
+if cpu == 'x86'
   arch = 'x86'
   conf.set('x86', 1)
   conf.set('i686', 1)
   conf.set('x86_32', 1)
-elif host_machine.cpu_family() == 'x86_64'
+elif cpu == 'x86_64'
   arch = 'x86'
   conf.set('x86', 1)
   conf.set('i686', 1)
   conf.set('x86_64', 1)
+elif cpu == 'aarch64'
+  # FIXME: Implement assembly support for MSVC
+  # It relies on Meson adding support for armasm and MASM,
+  # see foreach check : asm_as_checks below.
+  if cc.get_id() == 'msvc'
+    warning('Using aarch64 assembly on MSVC is not yet supported by Meson.')
+  else
+    arch = 'aarch64'
+    conf.set('aarch64', 1)
+  endif
+elif cpu == 'arm'
+  arch = 'arm'
+  conf.set('arm', 1)
 endif
 
 foreach feature : arch_features
@@ -1466,6 +1537,46 @@ foreach feature : arch_features
   conf.set10(name, have)
 endforeach
 
+if cc.get_id() == 'clang' 
+  if conf.get('x86_32') == 1
+    # Clang doesn't support maintaining alignment without assuming the
+    # same alignment in every function. If 16 byte alignment would be
+    # enabled, one would also have to either add attribute_align_arg on
+    # every single entry point into the libraries or enable -mstackrealign
+    # (doing stack realignment in every single function).
+
+    if ['windows', 'freebsd', 'netbsd', 'openbsd'].contains(host_machine.system())
+      conf.set('aligned_stack', 0)
+    else
+      project_c_args += cc.get_supported_arguments([
+        '-mllvm -stack-alignment=16',
+        '-mstack-alignment=16'
+      ])
+    endif
+  else
+    project_c_args += cc.get_supported_arguments([
+        '-mllvm -stack-alignment=16',
+        '-mstack-alignment=16'
+      ])
+  endif
+elif cc.get_id() == 'msvc'
+  if conf.get('x86_32') == 1
+    conf.set('aligned_stack', 0)
+  endif
+  # the new SSA optimzer in VS2015 U3 is mis-optimizing some parts of the code
+  # Issue has been fixed in MSVC v19.00.24218.
+  if cc.links(cpp_cond.format('windows.h', '_MSC_FULL_VER < 190024218'))
+    project_c_args += cc.get_supported_arguments([
+      'd2SSAOptimizer-'
+    ])
+  endif
+  if conf.get('x86_32') == 1 and (get_option('buildtype') == 'debug' or get_option('optimization') == '0')
+    project_c_args += cc.get_supported_arguments([
+      '-Oy-'
+    ])
+  endif
+endif
+
 conf.set10('shared', get_option('default_library') != 'static')
 conf.set('pthreads', 0)
 conf.set('w32threads', 0)
@@ -1473,13 +1584,18 @@ conf.set('os2threads', 0)
 conf.set10('bigendian', host_machine.endian() == 'big')
 conf.set10('fast_unaligned', ['x86', 'x86_64', 'aarch', 'ppc'].contains(host_machine.cpu_family()))
 
+conf.set('frame_thread_encoder', 1)
+
 if ['linux', 'darwin', 'android'].contains(host_machine.system())
   conf.set10('pthreads', thread_dep.found())
-  conf.set('section_data_rel_ro', 1)
 elif host_machine.system() == 'windows'
   conf.set10('w32threads', thread_dep.found())
   conf.set('symver', 0)
   conf.set('dos_paths', 1)
+endif
+
+if ['linux', 'openbsd', 'android'].contains(host_machine.system())
+  conf.set('section_data_rel_ro', 1)
 endif
 
 # Our option names can't be 1:1 mapping because newer meson versions disallow
@@ -1508,6 +1624,7 @@ foreach check : all_checks
   link_withs = []
   funcs = []
   compiles = ''
+  links = ''
   type = ''
 
   if check_type == 'pkg-config'
@@ -1532,6 +1649,11 @@ foreach check : all_checks
       opts = check[3]
     endif
     compiles = check[2]
+  elif check_type == 'links'
+    if check.length() > 3
+      opts = check[3]
+    endif
+    links = check[2]
   elif check_type == 'type'
     if check.length() > 2
       opts = check[2]
@@ -1541,9 +1663,12 @@ foreach check : all_checks
 
   if check_type == 'header-func' or check_type == 'func'
     funcs = opts.get('funcs', [name])
-    link_withs = opts.get('link_with', [])
   elif check_type == 'pkg-config' or check_type == 'component'
     funcs = check[2]
+  endif
+
+  if check_type != 'component'
+    link_withs = opts.get('link_with', [])
   endif
 
   found = false
@@ -1561,6 +1686,7 @@ foreach check : all_checks
     prefix = ''
 
     found = true
+    skipchecks = false
 
     preconditions = opts.get('preconditions', [])
 
@@ -1600,6 +1726,11 @@ foreach check : all_checks
             req = false
           endif
           dep = cc.find_library(link_with, required : req)
+          if not dep.found() and opts.has_key('meson-dep')
+            dep = dependency(opts.get('meson-dep'), required: false)
+            # We can't do compiler checks for non-external dependencies, so skip them and trust the meson dependency
+            skipchecks = true
+          endif
           found = found and dep.found()
           extra_deps += dep
         endforeach
@@ -1633,14 +1764,14 @@ foreach check : all_checks
         endif
 
         if not conf.has(header.underscorify())
-          has_header = cc.has_header(header, dependencies: extra_deps)
+          has_header = skipchecks or cc.has_header(header, dependencies: extra_deps)
           conf.set10(header.underscorify().to_lower(), has_header)
           found = found and has_header
         endif
       endforeach
     endif
 
-    if found
+    if found and not skipchecks
       n_funcs_found = 0
       foreach symbol : funcs
         if check_type == 'header-func'
@@ -1660,7 +1791,7 @@ foreach check : all_checks
       endif
     endif
 
-    if found
+    if found and not skipchecks
       n_defines_found = 0
       foreach symbol : defines
         if cc.get_define(symbol, dependencies : extra_deps, prefix: prefix, args : c_args + project_c_args) != ''
@@ -1670,11 +1801,15 @@ foreach check : all_checks
       found = n_defines_found == defines.length()
     endif
 
-    if found and compiles != ''
+    if found and compiles != '' and not skipchecks
       found = cc.compiles('\n\n'.join([prefix, compiles]), dependencies : extra_deps, args : c_args + project_c_args, name: name)
     endif
 
-    if found and type != ''
+    if found and links != '' and not skipchecks
+      found = cc.links('\n\n'.join([prefix, links]), dependencies : extra_deps, args : c_args + project_c_args, name: name)
+    endif
+
+    if found and type != '' and not skipchecks
       found = cc.has_type(type, prefix : prefix, dependencies : extra_deps, args : c_args + project_c_args)
     endif
 
@@ -1727,28 +1862,16 @@ x86asm_type = 'none'
 
 x86asm_checks = []
 
-if conf.get('x86') == 1
-  nasm_version = '>=0'
-  if host_machine.system() == 'windows'
-    nasm_version = '>=2.12'
-  endif
-  x86asm = find_program('yasm', required : false)
-  x86asm_type = 'yasm'
-  conf.set10('x86asm', x86asm.found())
-  if x86asm.found()
-    x86asm_checks += [
-      ['meson_asm_checks/cpunop.asm', 'cpunop'],
-      ['meson_asm_checks/avx2_external.asm', 'avx2_external'],
-      ['meson_asm_checks/avx512_external.asm', 'avx512_external'],
-      ['meson_asm_checks/fma4_external.asm', 'fma4_external'],
-      ['meson_asm_checks/xop_external.asm', 'xop_external'],
-    ]
-  else
-    error('yasm not found!')
-  endif
-else
-  x86asm = disabler()
-endif
+asm_inline_checks = [
+  ['"1:\\n"', 'inline_asm_labels'],
+  ['"Label:\\n"', 'inline_asm_nonlocal_labels']
+]
+
+extern_prefix = cc.symbols_have_underscore_prefix() ? '_' : ''
+
+asm_insn_checks = []
+
+asm_as_checks = []
 
 if host_machine.system() == 'windows'
   asm_format = conf.get('x86_64') == 1 ? 'win64' : 'win32'
@@ -1758,7 +1881,146 @@ else
   asm_format = conf.get('x86_64') == 1 ? 'elf64' : 'elf32'
 endif
 
-extern_prefix = cc.symbols_have_underscore_prefix() ? '_' : ''
+x86asm = disabler()
+conf.set('x86asm', 0)
+
+if conf.get('x86') == 1
+  conf.set10('rdtsc', cc.has_function('__rdtsc', prefix: '#include <intrin.h>'))
+  conf.set10('mm_empty', cc.has_function('_mm_empty', prefix: '#include <mmintrin.h>'))
+
+  conf.set('local_aligned', 1)
+
+  if conf.get('asm', 0) == 1
+    nasm_version = '>=0'
+    if host_machine.system() == 'windows'
+      nasm_version = '>=2.12'
+    endif
+    x86asm = find_program('nasm', version: nasm_version, required: false)
+    x86asm_type = 'nasm'
+    if not x86asm.found() and host_machine.system() == 'windows'
+      # Note that on Windows we require NASM because when optimizations are
+      # disabled, the Windows linker does not optimize out functions with
+      # EXTERNAL_* SIMD calls and errors out with unresolved symbols
+      subproject('win-nasm')
+      x86asm = find_program('nasm', version: nasm_version)
+    endif
+    if not x86asm.found()
+      x86asm = find_program('yasm', required: false)
+      x86asm_type = 'yasm'
+    endif
+    conf.set10('x86asm', x86asm.found())
+    if x86asm.found()
+      x86asm_checks += [
+        ['meson_asm_checks/cpunop.asm', 'cpunop'],
+        ['meson_asm_checks/avx2_external.asm', 'avx2_external'],
+        ['meson_asm_checks/avx512_external.asm', 'avx512_external'],
+        ['meson_asm_checks/fma4_external.asm', 'fma4_external'],
+        ['meson_asm_checks/xop_external.asm', 'xop_external'],
+      ]
+
+      asm_inline_checks += [
+        ['"":::"%xmm0"', 'xmm_clobbers'],
+        ['"pabsw %xmm0, %xmm0"', 'ssse3_inline'],
+        ['"pmaxub %mm0, %mm1"', 'mmxext_inline'],
+      ]
+    endif
+  endif
+
+  ebp_available = cc.run('''
+  int main() {
+    volatile int i=0;
+    __asm__ volatile ("xorl %%ebp, %%ebp" ::: "%ebp");
+    return i;
+  }
+  ''', name: 'if_ebp_available_this_should_crash')
+
+  # FFmpeg upstream doesn't know that EBP is always unavailable
+  # under Clang if stack realignment is used. This is probably
+  # because the only compilers still supporting the architecture
+  # are the Android NDK and MSYS CLANG32.
+  # Thus an additional check on aligned_stack is done here.
+  # See:
+  # - https://github.com/android/ndk/issues/693
+  # - https://bugs.llvm.org/show_bug.cgi?id=37542
+  conf.set10('ebp_available', conf.get('aligned_stack') == 1 and ebp_available.compiled() and ebp_available.returncode() != 0)
+
+  asm_inline_checks += [
+    ['""::"b"(0)', 'ebx_available_1'],
+    ['"":::"%ebx"', 'ebx_available_2'],
+    ['"movl @0@test, %eax"'.format(extern_prefix), 'inline_asm_direct_symbol_refs_1'],
+    ['"movl @0@test(%rip), %eax"'.format(extern_prefix), 'inline_asm_direct_symbol_refs_2'],
+    ['"":::"%xmm0"', 'xmm_clobbers'],
+    ['"pabsw %xmm0, %xmm0"', 'ssse3_inline'],
+    ['"pmaxub %mm0, %mm1"', 'mmxext_inline'],
+  ]
+elif conf.get('aarch64') == 1
+  asm_insn_checks += [
+    ['prfm   pldl1strm, [x0]', 'armv8'],
+    ['ext   v0.8B, v0.8B, v1.8B, #1', 'neon'],
+    ['fmadd d0,    d0,    d1,    d2', 'vfp'],
+  ]
+elif conf.get('arm') == 1
+  if cc.get_id() == 'msvc'
+    conf.set10('thumb', cc.has_header_symbol('stddef.h', '_M_ARMT'))
+  endif
+  if cc.has_header_symbol('stddef.h', '__thumb__')
+    conf.set10('thumb', cc.compiles(
+      'float func(float a, float b){ return a+b; }',
+      name: 'weak_thumb'))
+  endif
+  if conf.get('thumb', 0) == 1
+    if cc.has_argument('-mthumb')
+      project_c_args += ['-mthumb']
+    elif cc.has_argument('-marm')
+      project_c_args += ['-marm']
+    endif
+  endif
+
+  if cc.has_header_symbol('stddef.h', '__ARM_PCS_VFP')
+    conf.set('vfp_args', 1)
+  elif cc.links(cpp_cond.format('stddef.h', 'defined _M_ARM_FP && _M_ARM_FP >= 30'), name: 'vfp_args_fp')
+    conf.set('vfp_args', 1)
+  elif not cc.links(cpp_cond.format('stddef.h', 'defined __ARM_PCS || defined __SOFTFP__'), name: 'arm_pcs_or_softfp') and host_machine.system() != 'darwin'
+    if not cc.has_header_symbol('stddef.h', '__SOFTFP__')
+      conf.set('vfp_args', 1)
+      conf.set('fpabi', 'vfp')
+    elif cc.links('__asm__ (".eabi_attribute 28, 1"); int main(void) { return 0; }', name: 'vfp_abi_check')
+      conf.set('vfp_args', 1)
+      conf.set('fpabi', 'vfp')
+    else
+      conf.set('fpabi', 'soft')
+    endif
+
+    message('Floating point ABI: @0@'.format(conf.get('fpabi')))
+  endif
+
+  asm_insn_checks += [
+    ['qadd r0, r0, r0', 'armv5te'],
+    ['sadd16 r0, r0, r0', 'armv6'],
+    ['movt r0, #0', 'armv6t2'],
+    ['vadd.i16 q0, q0, q0', 'neon'],
+    ['fadds s0, s0, s0', 'vfp'],
+    ['vmov.f32 s0, #1.0', 'vfpv3'],
+    ['setend be', 'setend']
+  ]
+
+  asm_inline_checks += [
+    ['"add r0, %Q0, %R0" :: "r"((long long)0)', 'asm_mod_q']
+  ]
+
+  asm_as_checks += [
+    ['.arch armv7-a', 'as_arch_directive'],
+    ['ra .dn d0.i16', 'as_dn_directive'],
+    ['.fpu neon', 'as_fpu_directive']
+  ]
+
+  # llvm's integrated assembler supports .object_arch from llvm 3.5
+  if asm_format == 'elf32' or asm_format == 'elf64'
+    asm_as_checks += [
+      ['.object_arch armv4', 'as_object_arch']
+    ]
+  endif
+endif
 
 asm_args = ['-DPIC']
 # Add debug args explicitly
@@ -1792,15 +2054,117 @@ if extern_prefix != ''
   asm_args += ['-DPREFIX']
 endif
 
-foreach check: x86asm_checks
-  result = run_command(x86asm, '-f', asm_format, asm_args, '-Werror', check[0], '-o', 'tmpasm.o')
+foreach ext : arch_ext_list_x86_simd
+  if ext == 'mmx'
+    continue
+  endif
 
-  if result.returncode() == 0
-    conf.set(check[1], 1)
+  inline = '@0@_inline'.format(ext)
+  external = '@0@_external'.format(ext)
+  conf.set10(inline, conf.get(ext) == 1 and conf.get('inline_asm') == 1 and conf.get('x86') == 1)
+  conf.set10(external, conf.get(ext) == 1 and conf.get('x86asm') == 1)
+endforeach
+
+foreach check: x86asm_checks
+  result = run_command(x86asm, '-f', asm_format, asm_args, '-Werror', check[0], '-o', join_paths(meson.current_build_dir(), 'tmpasm.o'), check: false)
+
+  if conf.get('asm') == 1
+    conf.set10(check[1], result.returncode() == 0)
+
+    if result.returncode() != 0
+    message('@0@ x86 asm check failed: @1@'.format(check[1], result.stderr().strip()))
+    endif
   else
-    message('@0@ x68 asm check failed: @1@'.format(check[1], result.stderr().strip()))
+    conf.set10(check[1], false)
   endif
 endforeach
+
+foreach check : asm_insn_checks
+  asm_inline_checks += [
+    ['"@0@"'.format(check[0]), '@0@_inline'.format(check[1])]
+  ]
+  asm_as_checks += [
+    [check[0], '@0@_external'.format(check[1])]
+  ]
+endforeach
+
+foreach check: asm_inline_checks
+  if conf.get('inline_asm') == 1
+    result = cc.compiles(
+      'void foo(void){ __asm__ volatile(@0@); }'.format(check[0]),
+      name: check[1]
+    )
+
+    conf.set10(check[1], result)
+  else
+    conf.set10(check[1], false)
+  endif
+endforeach
+
+if (conf.get('arm', 0) == 1 or conf.get('aarch64', 0) == 1) and cc.get_id() != 'msvc'
+  asm_as_checks += [
+    ['''
+    .macro m n, y:vararg=0
+    .int \y
+    .endm
+    m x
+    ''', 'vararg'],
+  ]
+
+  if conf.get('arm', 0) == 1
+    asm_as_checks += [
+      ['.altmacro', 'gnu_as']
+    ]
+  endif
+
+  asm_as_checks += [
+    ['''.func test
+      .endfunc''', 'as_func']
+  ]
+endif
+
+
+# FIXME: this won't work until Meson detects and
+# exposes the underlying assembler.
+# These checks cannot be done with run_command either
+# because they rely on setup-time input.
+# See:
+# - https://github.com/mesonbuild/meson/issues/9889
+# - https://github.com/mesonbuild/meson/pull/10916
+# - https://github.com/mesonbuild/meson/pull/10922
+foreach check : asm_as_checks
+  warning('Meson does not yet expose the ASM compiler, skipping @0@ check'.format(check[1]))
+  # if conf.get('asm') == 1
+  #   conf.set10(check[1], cc.compiles(
+  #     check[0],
+  #     args: ['-x', 'assembler'],
+  #     name: check[1]
+  #   ))
+  # else 
+    conf.set10(check[1], false)
+  # endif
+endforeach
+
+if conf.get('x86') == 1
+  conf.set10('ebx_available', conf.get('ebx_available_1') == 1 and conf.get('ebx_available_2') == 1)
+  message('EBX available: @0@'.format(conf.get('ebx_available')))
+  conf.set10('inline_asm_direct_symbol_refs', conf.get('inline_asm_direct_symbol_refs_1') == 1 or conf.get('inline_asm_direct_symbol_refs_2') == 1)
+  message('Inline assembly direct symbol references available: @0@'.format(conf.get('inline_asm_direct_symbol_refs')))
+endif
+
+arm_skip_checks = conf.get('arm', 0) == 1 and (host_machine.system() == 'linux' or host_machine.system() == 'android')
+
+foreach ext : arch_ext_list_arm
+  inline = '@0@_inline'.format(ext)
+  external = '@0@_external'.format(ext)
+  if not arm_skip_checks
+    conf.set10(ext, conf.get(inline, 0) == 1 or conf.get(external, 0) == 1)
+  endif
+endforeach
+
+if get_option('b_lto')
+  conf.set10('inline_asm_direct_symbol_refs', 0)
+endif
 
 extern_things = [
   ['AVOutputFormat', 'muxer', 'libavformat/allformats.c', 'muxer_list'],
@@ -1833,12 +2197,15 @@ foreach extern_thing : extern_things
                        '--type=@0@'.format(c_type),
                        '--suffix=@0@'.format(type),
                        '--thing-suffix=@0@'.format(thing_suffix),
-                       files(filename))
-  assert(result.returncode() == 0, 'Could not extract @0@ list!'.format(type))
+                       files(filename),
+                       check: true)
   list = result.stdout().strip().split('\n')
 
+  thing_allowed = get_option('@0@s'.format(thing_suffix)).allowed()
+
   foreach elem : list
-    conf.set(elem, 1)
+    opt = get_option(elem)
+    conf.set(elem, (opt.enabled() or (opt.allowed() and thing_allowed)).to_int())
   endforeach
 
   set_variable(variable_name, list)
@@ -1846,20 +2213,21 @@ endforeach
 
 find_things = find_program('find_things.py')
 
-result = run_command(find_things, files('libavfilter/allfilters.c'))
-assert(result.returncode() == 0, 'Could not extract filter list!')
+result = run_command(find_things, files('libavfilter/allfilters.c'), check: true)
 filter_list = result.stdout().strip().split('\n')
 
+filters_allowed = get_option('filters').allowed()
+
 foreach filter : filter_list
-  conf.set(filter, 1)
+  opt = get_option(filter)
+  conf.set(filter, (opt.enabled() or (opt.allowed() and filters_allowed)).to_int())
 endforeach
 
 foreach program : program_list
-  conf.set(program, 1)
+  conf.set(program, get_option(program).allowed().to_int())
 endforeach
 
-result = run_command(find_things, '--full', files('libavfilter/allfilters.c'))
-assert(result.returncode() == 0, 'Could not extract filter full names list!')
+result = run_command(find_things, '--full', files('libavfilter/allfilters.c'), check: true)
 full_filter_list = result.stdout().strip().split('\n')
 
 avcodec_components_list = bsf_list + decoder_list + encoder_list + hwaccel_list + parser_list
@@ -1950,11 +2318,6 @@ if conf.get('schannel') == 1
   endif
 endif
 
-foreach ext : arch_ext_list_x86_simd
-  conf.set10('@0@_inline'.format(ext), conf.get(ext) == 1 and conf.get('inline_asm') == 1)
-  conf.set10('@0@_external'.format(ext), conf.get(ext) == 1 and conf.get('x86asm') == 1)
-endforeach
-
 things_to_print = [
   ['libavcodec/codec_list.c', 'AVCodec', 'codec_list', encoder_list + decoder_list],
   ['libavcodec/parser_list.c', 'AVCodecParser', 'parser_list', parser_list],
@@ -1997,11 +2360,7 @@ foreach thing : things_to_print
     '--filename=@0@'.format(join_paths(meson.current_build_dir(), thing[0])),
     '--struct-name=@0@'.format(thing[1]),
     '--name=@0@'.format(thing[2]),
-    list)
-
-  if res.returncode() != 0
-    error(res.stderr().strip())
-  endif
+    list, check: true)
 endforeach
 
 if not cc.check_header('stdatomic.h') and thread_dep.found()
@@ -2032,6 +2391,22 @@ built_libs = [
   ['avdevice', ['libavutil', 'libavformat', 'libavfilter', 'libavcodec']],
 ]
 
+windows = import('windows')
+
+makedef = find_program('compat/windows/makedef.py')
+
+makedef_args = [makedef]
+
+if cc.get_id() != 'msvc'
+  nm = find_program('nm', required: true)
+  makedef_args += ['--nm', nm]
+else
+  dumpbin = find_program('dumpbin', required: true)
+  makedef_args += ['--dumpbin', dumpbin]
+endif
+
+makedef_args += ['--prefix', extern_prefix]
+
 foreach built_lib : built_libs
   sources = get_variable('lib@0@_sources'.format(built_lib[0])) + [ffversion_h]
   x86asm_sources = []
@@ -2040,6 +2415,20 @@ foreach built_lib : built_libs
   optional_deps = get_variable('lib@0@_optional_deps'.format(built_lib[0]), [])
 
   sources += get_variable('lib@0@_@1@_sources'.format(built_lib[0], arch), [])
+
+  if host_machine.system() == 'windows'
+    sources += windows.compile_resources(
+      'lib@0@/@1@res.rc'.format(built_lib[0], built_lib[0]),
+      include_directories: common_incs,
+      depends: ffversion_h
+    )
+  endif
+
+  foreach arch_ext : arch_list
+    if conf.get(arch_ext, 0) == 1
+      sources += get_variable('lib@0@_@1@_sources'.format(built_lib[0], arch_ext), [])
+    endif
+  endforeach
 
   foreach arch_ext : arch_ext_list
     if conf.get(arch_ext, 0) == 1
@@ -2061,7 +2450,7 @@ foreach built_lib : built_libs
 
     if languages_map.has_key(comp_name)
       foreach lang: languages_map[comp_name]
-        add_languages(languages_map[comp_name], required: get_option(comp_name), native: false)
+        add_languages(languages_map[comp_name], required: get_option(comp_name).enabled(), native: false)
       endforeach
     endif
   endforeach
@@ -2141,12 +2530,30 @@ foreach built_lib : built_libs
 
   link_args = cc.get_supported_link_arguments([vflag])
 
+  static_link_args = []
+
+  if cc.get_id() == 'msvc'
+    message('Applying MSVC link workaround for Debug mode and static libraries.')
+    static_link_args += cc.get_supported_link_arguments('/FORCE:UNRESOLVED')
+
+    if get_option('buildtype') == 'debug' or get_option('optimization') == '0'
+      link_args += cc.get_supported_link_arguments('/FORCE:UNRESOLVED')
+    endif
+  endif
+
   static_lib = static_library('@0@-static'.format(built_lib[0]), sources + gen_objects,
     dependencies: deps,
     include_directories: common_incs,
     link_with: link_with,
+    link_args: static_link_args,
     c_args: c_args,
     implicit_include_directories : false,
+  )
+
+  vs_module_def = custom_target('@0@-def'.format(built_lib[0]),
+    output: '@0@.def'.format(built_lib[0]),
+    command: [makedef_args, '@0@/lib@1@/lib@1@.ver'.format(meson.current_build_dir(), built_lib[0]), static_lib],
+    capture: true
   )
 
   lib = library(built_lib[0],
@@ -2157,7 +2564,7 @@ foreach built_lib : built_libs
     link_whole: static_lib,
     link_args: link_args,
     c_args: c_args,
-    vs_module_defs: 'compat/windows/@0@.def'.format(built_lib[0]),
+    vs_module_defs: vs_module_def,
     implicit_include_directories : false,
     install: true,
   )
@@ -2188,6 +2595,7 @@ foreach built_lib : built_libs
         c_args: c_args,
         dependencies: test_deps,
         include_directories: common_incs,
+        link_args: static_link_args,
         link_with: [static_lib] + link_with,
         implicit_include_directories : false)
 
@@ -2208,7 +2616,7 @@ if not get_option('cli').disabled()
 endif
 
 foreach built_exe : built_exe_list
-  sources = get_variable('@0@_sources'.format(built_exe))
+  sources = get_variable('@0@_sources'.format(built_exe)) + [ffversion_h]
   optional_deps = []
 
   message('Checking @0@ dependencies'.format(built_exe))
@@ -2266,14 +2674,14 @@ endforeach
 final_conf = configuration_data()
 
 final_conf.set_quoted('FFMPEG_CONFIGURATION', '') # FIXME
-final_conf.set('CONFIG_THIS_YEAR', 2021)
+final_conf.set('CONFIG_THIS_YEAR', 2022)
 final_conf.set_quoted('FFMPEG_DATADIR', join_paths(get_option('prefix'), get_option('datadir')))
 final_conf.set_quoted('AVCONV_DATADIR', join_paths(get_option('prefix'), get_option('datadir')))
-final_conf.set_quoted('CC_IDENT', cc.get_id())
+final_conf.set_quoted('CC_IDENT', '@0@ @1@'.format(cc.get_id(), cc.version()))
 final_conf.set_quoted('BUILDSUF', '')
 final_conf.set_quoted('SLIBSUF', host_machine.system() == 'windows' ? '.dll' : '.so')
 final_conf.set('SWS_MAX_FILTER_SIZE', 256)
-final_conf.set('EXTERN_ASM', true)
+final_conf.set('EXTERN_ASM', extern_prefix)
 final_conf.set_quoted('EXTERN_PREFIX', extern_prefix)
 
 if not get_option('nonfree').disabled()
@@ -2298,6 +2706,8 @@ if not get_option('version3').disabled()
   endif
 endif
 
+conf.set('mmx2', conf.get('mmxext'))
+
 foreach restrict_kw : ['restrict', '__restrict__', '__restrict', '']
   if not final_conf.has('av_restrict') and cc.compiles('void foo(char * @0@ p);'.format(restrict_kw))
     final_conf.set('av_restrict', restrict_kw)
@@ -2309,14 +2719,17 @@ foreach arch: arch_list
 endforeach
 
 foreach have: have_list
+  if have == 'unistd_h' and conf.get(have) == 0
+    # an atrocious hack to get this working with the zlib subproject on windows...
+    # zlib also uses a HAVE_UNISTD_H define, but it checks it with #ifdef and not #if
+    continue
+  endif
   final_conf.set('HAVE_@0@'.format(have.to_upper()), conf.get(have.to_lower()))
 endforeach
 
 foreach config: config_list + config_extra + all_components
   final_conf.set('CONFIG_@0@'.format(config.to_upper()), conf.get(config.to_lower()))
 endforeach
-
-final_conf.set('HAVE_MMX2', final_conf.get('HAVE_MMXEXT'))
 
 configure_file(
   output: 'config.h',
@@ -2328,3 +2741,9 @@ configure_file(
   output_format: 'nasm',
   configuration: final_conf,
 )
+
+# Put this at the end so people see it
+if conf.get('x86_32') == 1 and conf.get('asm') == 1 and cc.get_id() == 'msvc' and cc.version().version_compare('<19.30')
+  # -Dasm=enabled seems to hang reliably on some Visual Studio 2019 installations, ask users to report back to us
+  warning('Using VS 2019 x86 with `asm` enabled: if you see a hang while linking, please report an issue at https://gitlab.freedesktop.org/gstreamer/meson-ports/ffmpeg/-/issues')
+endif

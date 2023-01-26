@@ -2,10 +2,20 @@ fs = import('fs')
 
 respack = find_program(meson.project_source_root() / 'tools/respack.py')
 
+bitmap_manifest = '../bitmaps/manifest.respack'
+bitmap_files = []
+foreach bfile : fs.read(bitmap_manifest).strip().split('\n')
+    bfile_s = bfile.strip()
+    if bfile_s != ''
+        bitmap_files += files('../bitmaps' / bfile_s)
+    endif
+endforeach
+
 resrc = [
     custom_target('bitmap.{cpp,h}',
                   command: [respack, '@INPUT@', '@OUTPUT@'],
-                  input: files('../bitmaps/manifest.respack'),
+                  input: files(bitmap_manifest),
+                  depend_files: bitmap_files,
                   output: ['bitmap.cpp', 'bitmap.h'])
 ]
 
