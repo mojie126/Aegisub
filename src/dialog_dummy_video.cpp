@@ -108,9 +108,9 @@ DialogDummyVideo::DialogDummyVideo(wxWindow *parent)
 	d.SetIcon(GETICON(use_dummy_video_menu_16));
 
 	auto res_sizer = new wxBoxSizer(wxHORIZONTAL);
-	res_sizer->Add(spin_ctrl(&d, 1, 10000, &width), wxSizerFlags(1).Expand());
+	res_sizer->Add(spin_ctrl(&d, 1, 100000, &width), wxSizerFlags(1).Expand());
 	res_sizer->Add(new wxStaticText(&d, -1, " x "), wxSizerFlags().Center());
-	res_sizer->Add(spin_ctrl(&d, 1, 10000, &height), wxSizerFlags(1).Expand());
+	res_sizer->Add(spin_ctrl(&d, 1, 100000, &height), wxSizerFlags(1).Expand());
 
 	auto color_sizer = new wxBoxSizer(wxHORIZONTAL);
 	auto color_btn = new ColourButton(&d, wxSize(30, 17), false, color);
