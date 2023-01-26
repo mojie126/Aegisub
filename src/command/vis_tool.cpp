@@ -23,7 +23,6 @@
 #include "../visual_tool_clip.h"
 #include "../visual_tool_cross.h"
 #include "../visual_tool_drag.h"
-#include "../visual_tool_perspective.h"
 #include "../visual_tool_rotatexy.h"
 #include "../visual_tool_rotatez.h"
 #include "../visual_tool_scale.h"
@@ -99,14 +98,6 @@ namespace {
 		STR_MENU("Rotate XY")
 		STR_DISP("Rotate XY")
 		STR_HELP("Rotate subtitles on their X and Y axes")
-	};
-
-	struct visual_mode_perspective final : public visual_tool_command<VisualToolPerspective> {
-		CMD_NAME("video/tool/perspective")
-		CMD_ICON(visual_vector_clip_drag) //TODO
-		STR_MENU("Apply 3D Perspective")
-		STR_DISP("Apply 3D Perspective")
-		STR_HELP("Rotate and shear subtitles to make them fit a given quad's perspective")
 	};
 
 	struct visual_mode_scale final : public visual_tool_command<VisualToolScale> {
@@ -200,7 +191,6 @@ namespace cmd {
 		reg(agi::make_unique<visual_mode_drag>());
 		reg(agi::make_unique<visual_mode_rotate_z>());
 		reg(agi::make_unique<visual_mode_rotate_xy>());
-		reg(agi::make_unique<visual_mode_perspective>());
 		reg(agi::make_unique<visual_mode_scale>());
 		reg(agi::make_unique<visual_mode_clip>());
 		reg(agi::make_unique<visual_mode_vector_clip>());
