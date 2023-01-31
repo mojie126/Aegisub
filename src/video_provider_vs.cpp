@@ -111,6 +111,8 @@ void VapoursynthVideoProvider::SetResizeArg(VSMap *args, const VSMap *props, con
 VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename, std::string const& colormatrix) try {
 	std::lock_guard<std::mutex> lock(vs.GetMutex());
 
+	VSCleanCache();
+
 	script = vs.GetScriptAPI()->createScript(nullptr);
 	if (script == nullptr) {
 		throw VapoursynthError("Error creating script API");

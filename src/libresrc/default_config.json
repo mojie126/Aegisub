@@ -353,6 +353,12 @@
 			"Index All Tracks" : true,
 			"Log Level" : "quiet"
 		},
+		"VapourSynth" : {
+			"Cache" : {
+				"Files" : 500,
+				"Size" : 1000
+			}
+		},
 		"Video" : {
 			"Cache" : {
 				"Size" : 32

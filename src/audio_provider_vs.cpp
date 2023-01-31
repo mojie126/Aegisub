@@ -56,6 +56,8 @@ public:
 VapoursynthAudioProvider::VapoursynthAudioProvider(agi::fs::path const& filename) try {
 	std::lock_guard<std::mutex> lock(vs.GetMutex());
 
+	VSCleanCache();
+
 	script = vs.GetScriptAPI()->createScript(nullptr);
 	if (script == nullptr) {
 		throw VapoursynthError("Error creating script API");

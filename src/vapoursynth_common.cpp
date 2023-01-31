@@ -19,6 +19,7 @@
 
 #include "vapoursynth_wrap.h"
 #include "options.h"
+#include "utils.h"
 #include <libaegisub/fs.h>
 #include <libaegisub/path.h>
 
@@ -39,6 +40,7 @@ int OpenScriptOrVideo(const VSAPI *api, const VSSCRIPTAPI *sapi, VSScript *scrip
 			throw VapoursynthError("Failed to create VSMap for script info");
 
 		SetStringVar(api, map, "filename", filename.string());
+		SetStringVar(api, map, "__aegi_vscache", config::path->Decode("?local/vscache").string());
 		for (std::string dir : { "data", "dictionary", "local", "script", "temp", "user", })
 			// Don't include ?audio and ?video in here since these only hold the paths to the previous audio/video files.
 			SetStringVar(api, map, "__aegi_" + dir, config::path->Decode("?" + dir).string());
@@ -56,6 +58,13 @@ int OpenScriptOrVideo(const VSAPI *api, const VSSCRIPTAPI *sapi, VSScript *scrip
 		result = sapi->evaluateBuffer(script, vscript.c_str(), "aegisub");
 	}
 	return result;
+}
+
+void VSCleanCache() {
+	CleanCache(config::path->Decode("?local/vscache/"),
+		"",
+		OPT_GET("Provider/VapourSynth/Cache/Size")->GetInt(),
+		OPT_GET("Provider/VapourSynth/Cache/Files")->GetInt());
 }
 
 #endif // WITH_VAPOURSYNTH
