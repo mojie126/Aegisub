@@ -63,6 +63,7 @@ BSAudioProvider::BSAudioProvider(agi::fs::path const& filename, agi::BackgroundR
 			LOG_D("bs") << "File cached and has exact samples.";
 		}
 	});
+	BSCleanCache();
 	properties = bs.GetAudioProperties();
 	float_samples = properties.IsFloat;
 	bytes_per_sample = properties.BytesPerSample;

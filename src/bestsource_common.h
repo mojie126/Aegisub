@@ -1,4 +1,4 @@
-// Copyright (c) 2022, arch1t3cht <arch1t3cht@gmail.com>>
+// Copyright (c) 2022, arch1t3cht <arch1t3cht@gmail.com>
 //
 // Permission to use, copy, modify, and distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
@@ -24,5 +24,6 @@
 #include <libaegisub/fs_fwd.h>
 
 std::string GetBSCacheFile(agi::fs::path const& filename);
+void BSCleanCache();
 
 #endif /* WITH_BESTSOURCE */

@@ -350,6 +350,12 @@
 			"Index All Tracks" : true,
 			"Log Level" : "quiet"
 		},
+		"BestSource" : {
+			"Cache" : {
+				"Files" : 100,
+				"Size" : 42
+			}
+		},
 		"Video" : {
 			"Cache" : {
 				"Size" : 32

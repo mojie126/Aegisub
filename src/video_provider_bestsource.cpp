@@ -158,6 +158,8 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 		}
 	});
 
+	BSCleanCache();
+
 	// Decode the first frame to get the color space
 	std::unique_ptr<BestVideoFrame> frame(bs.GetFrame(0));
 	colorspace = colormatrix_description(frame->GetAVFrame());
