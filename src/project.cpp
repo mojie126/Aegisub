@@ -429,7 +429,7 @@ void Project::LoadList(std::vector<agi::fs::path> const& files) {
 		".rm",
 		".rmvb",
 		".ts",
-		".webm"
+		".webm",
 		".wmv",
 		".y4m",
 		".yuv"
