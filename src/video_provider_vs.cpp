@@ -33,6 +33,10 @@
 #include "VSHelper4.h"
 #include "VSConstants4.h"
 
+static const char *kf_key = "__aegi_keyframes";
+static const char *tc_key = "__aegi_timecodes";
+static const char *audio_key = "__aegi_hasaudio";
+
 namespace {
 class VapoursynthVideoProvider: public VideoProvider {
 	VapourSynthWrapper vs;
@@ -45,9 +49,10 @@ class VapoursynthVideoProvider: public VideoProvider {
 	std::vector<int> keyframes;
 	std::string colorspace;
 	std::string real_colorspace;
+	bool has_audio = false;
 
 	const VSFrame *GetVSFrame(int n);
-	void SetResizeArg(VSMap *args, const VSMap *props, const char *arg_name, const char *prop_name, int deflt, int unspecified = -1);
+	void SetResizeArg(VSMap *args, const VSMap *props, const char *arg_name, const char *prop_name, int64_t deflt, int64_t unspecified = -1);
 
 public:
 	VapoursynthVideoProvider(agi::fs::path const& filename, std::string const& colormatrix);
@@ -65,7 +70,7 @@ public:
 	std::vector<int> GetKeyFrames() const override { return keyframes; }
 	std::string GetColorSpace() const override     { return GetRealColorSpace(); }
 	std::string GetRealColorSpace() const override { return colorspace == "Unknown" ? "None" : colorspace; }
-	bool HasAudio() const override                 { return false; }
+	bool HasAudio() const override                 { return has_audio; }
 	bool WantsCaching() const override             { return true; }
 	std::string GetDecoderName() const override    { return "VapourSynth"; }
 	bool ShouldSetVideoProperties() const override { return colorspace != "Unknown"; }
@@ -96,9 +101,9 @@ std::string colormatrix_description(int colorFamily, int colorRange, int matrix)
 }
 
 // Adds an argument to the rescaler if the corresponding frameprop does not exist or is set as unspecified
-void VapoursynthVideoProvider::SetResizeArg(VSMap *args, const VSMap *props, const char *arg_name, const char *prop_name, int deflt, int unspecified) {
+void VapoursynthVideoProvider::SetResizeArg(VSMap *args, const VSMap *props, const char *arg_name, const char *prop_name, int64_t deflt, int64_t unspecified) {
 	int err;
-	int result = vs.GetAPI()->mapGetInt(props, prop_name, 0, &err);
+	int64_t result = vs.GetAPI()->mapGetInt(props, prop_name, 0, &err);
 	if (err != 0 || result == unspecified) {
 		result = deflt;
 		if (!strcmp(arg_name, "range_in")) {
@@ -108,7 +113,7 @@ void VapoursynthVideoProvider::SetResizeArg(VSMap *args, const VSMap *props, con
 	}
 }
 
-VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename, std::string const& colormatrix) try {
+VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename, std::string const& colormatrix) try { try {
 	std::lock_guard<std::mutex> lock(vs.GetMutex());
 
 	VSCleanCache();
@@ -120,29 +125,21 @@ VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename
 	vs.GetScriptAPI()->evalSetWorkingDir(script, 1);
 	if (OpenScriptOrVideo(vs.GetAPI(), vs.GetScriptAPI(), script, filename, OPT_GET("Provider/Video/VapourSynth/Default Script")->GetString())) {
 		std::string msg = agi::format("Error executing VapourSynth script: %s", vs.GetScriptAPI()->getError(script));
-		vs.GetScriptAPI()->freeScript(script);
 		throw VapoursynthError(msg);
 	}
 	node = vs.GetScriptAPI()->getOutputNode(script, 0);
-	if (node == nullptr) {
-		vs.GetScriptAPI()->freeScript(script);
+	if (node == nullptr)
 		throw VapoursynthError("No output node set");
-	}
+
 	if (vs.GetAPI()->getNodeType(node) != mtVideo) {
-		vs.GetAPI()->freeNode(node);
-		vs.GetScriptAPI()->freeScript(script);
 		throw VapoursynthError("Output node isn't a video node");
 	}
 	vi = vs.GetAPI()->getVideoInfo(node);
-	if (!vsh::isConstantVideoFormat(vi)) {
-		vs.GetAPI()->freeNode(node);
-		vs.GetScriptAPI()->freeScript(script);
+	if (vi == nullptr)
+		throw VapoursynthError("Couldn't get video info");
+	if (!vsh::isConstantVideoFormat(vi))
 		throw VapoursynthError("Video doesn't have constant format");
-	}
 
-	// Assume constant frame rate, since handling VFR would require going through all frames when loading.
-	// Users can load custom timecodes files to deal with VFR.
-	// Alternatively (TODO) the provider could read timecodes and keyframes from a second output node.
 	int fpsNum = vi->fpsNum;
 	int fpsDen = vi->fpsDen;
 	if (fpsDen == 0) {
@@ -151,25 +148,64 @@ VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename
 	}
 	fps = agi::vfr::Framerate(fpsNum, fpsDen);
 
-	// Find the first frame to get some info
-	const VSFrame *frame;
-	try {
-		frame = GetVSFrame(0);
-	} catch (VapoursynthError const& err) {
-		vs.GetAPI()->freeNode(node);
-		vs.GetScriptAPI()->freeScript(script);
-		throw err;
-	}
-	int err1, err2;
-	const VSMap *props = vs.GetAPI()->getFramePropertiesRO(frame);
-	int sarn = vs.GetAPI()->mapGetInt(props, "_SARNum", 0, &err1);
-	int sard = vs.GetAPI()->mapGetInt(props, "_SARDen", 0, &err2);
-	if (!err1 && !err2) {
-		dar = ((double) vi->width * sarn) / (vi->height * sard);
+	// Get timecodes and/or keyframes if provided
+	VSMap *clipinfo = vs.GetAPI()->createMap();
+	if (clipinfo == nullptr)
+		throw VapoursynthError("Couldn't create map");
+	vs.GetScriptAPI()->getVariable(script, kf_key, clipinfo);
+	vs.GetScriptAPI()->getVariable(script, tc_key, clipinfo);
+	vs.GetScriptAPI()->getVariable(script, audio_key, clipinfo);
+
+	int numkf = vs.GetAPI()->mapNumElements(clipinfo, kf_key);
+	int numtc = vs.GetAPI()->mapNumElements(clipinfo, tc_key);
+	int err;
+
+	int64_t audio = vs.GetAPI()->mapGetInt(clipinfo, audio_key, 0, &err);
+	if (!err)
+		has_audio = bool(audio);
+
+	if (numkf > 0) {
+		const int64_t *kfs = vs.GetAPI()->mapGetIntArray(clipinfo, kf_key, &err);
+		if (err)
+			throw VapoursynthError("Error getting keyframes from returned VSMap");
+
+		keyframes.reserve(numkf);
+		for (int i = 0; i < numkf; i++)
+			keyframes.push_back(int(kfs[i]));
 	}
 
-	int range = vs.GetAPI()->mapGetInt(props, "_ColorRange", 0, &err1);
-	int matrix = vs.GetAPI()->mapGetInt(props, "_Matrix", 0, &err2);
+	if (numtc != -1) {
+		if (numtc != vi->numFrames)
+			throw VapoursynthError("Number of returned timecodes does not match number of frames");
+
+		const int64_t *tcs = vs.GetAPI()->mapGetIntArray(clipinfo, tc_key, &err);
+		if (err)
+			throw VapoursynthError("Error getting timecodes from returned map");
+
+		std::vector<int> timecodes;
+		timecodes.reserve(numtc);
+		for (int i = 0; i < numtc; i++)
+			timecodes.push_back(int(tcs[i]));
+
+		fps = agi::vfr::Framerate(timecodes);
+	}
+	vs.GetAPI()->freeMap(clipinfo);
+
+	// Find the first frame Of the video to get some info
+	const VSFrame *frame = GetVSFrame(0);
+
+	int err1, err2;
+	const VSMap *props = vs.GetAPI()->getFramePropertiesRO(frame);
+	if (props == nullptr)
+		throw VapoursynthError("Couldn't get frame properties");
+	int64_t sarn = vs.GetAPI()->mapGetInt(props, "_SARNum", 0, &err1);
+	int64_t sard = vs.GetAPI()->mapGetInt(props, "_SARDen", 0, &err2);
+	if (!err1 && !err2) {
+		dar = double(vi->width * sarn) / (vi->height * sard);
+	}
+
+	int64_t range = vs.GetAPI()->mapGetInt(props, "_ColorRange", 0, &err1);
+	int64_t matrix = vs.GetAPI()->mapGetInt(props, "_Matrix", 0, &err2);
 	colorspace = colormatrix_description(vi->format.colorFamily, err1 == 0 ? range : -1, err2 == 0 ? matrix : -1);
 
 	vs.GetAPI()->freeFrame(frame);
@@ -177,13 +213,12 @@ VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename
 	if (vi->format.colorFamily != cfRGB || vi->format.bitsPerSample != 8) {
 		// Convert to RGB24 format
 		VSPlugin *resize = vs.GetAPI()->getPluginByID(VSH_RESIZE_PLUGIN_ID, vs.GetScriptAPI()->getCore(script));
-		if (resize == nullptr) {
+		if (resize == nullptr)
 			throw VapoursynthError("Couldn't find resize plugin");
-		}
+
 		VSMap *args = vs.GetAPI()->createMap();
-		if (args == nullptr) {
+		if (args == nullptr)
 			throw VapoursynthError("Failed to create argument map");
-		}
 
 		vs.GetAPI()->mapSetNode(args, "clip", node, maAppend);
 		vs.GetAPI()->mapSetInt(args, "format", pfRGB24, maAppend);
@@ -213,18 +248,18 @@ VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename
 		}
 
 		// Finally, try to get the first frame again, so if the filter does crash, it happens before loading finishes
-		const VSFrame *rgbframe;
-		try {
-			rgbframe = GetVSFrame(0);
-		} catch (VapoursynthError const& err) {
-			vs.GetAPI()->freeNode(node);
-			vs.GetScriptAPI()->freeScript(script);
-			throw err;
-		}
+		const VSFrame *rgbframe = GetVSFrame(0);
 		vs.GetAPI()->freeFrame(rgbframe);
 	}
+} catch (VapoursynthError const& err) {     // for try inside of function. We need both here since we need to catch errors from the VapoursynthWrap constructor.
+	if (node != nullptr)
+		vs.GetAPI()->freeNode(node);
+	if (script != nullptr)
+		vs.GetScriptAPI()->freeScript(script);
+	throw err;
 }
-catch (VapoursynthError const& err) {
+}
+catch (VapoursynthError const& err) {    // for the entire constructor
 	throw VideoProviderError(agi::format("Vapoursynth error: %s", err.GetMessage()));
 }
 
