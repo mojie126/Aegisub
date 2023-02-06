@@ -22,8 +22,10 @@
 
 #include <libaegisub/access.h>
 #include <libaegisub/format.h>
-#include <libaegisub/path.h>
+#include <libaegisub/keyframe.h>
+#include <libaegisub/log.h>
 #include <libaegisub/make_unique.h>
+#include <libaegisub/path.h>
 
 #include <mutex>
 
@@ -118,6 +120,7 @@ VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename
 
 	VSCleanCache();
 
+	int err1, err2;
 	script = vs.GetScriptAPI()->createScript(nullptr);
 	if (script == nullptr) {
 		throw VapoursynthError("Error creating script API");
@@ -158,28 +161,40 @@ VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename
 
 	int numkf = vs.GetAPI()->mapNumElements(clipinfo, kf_key);
 	int numtc = vs.GetAPI()->mapNumElements(clipinfo, tc_key);
-	int err;
 
-	int64_t audio = vs.GetAPI()->mapGetInt(clipinfo, audio_key, 0, &err);
-	if (!err)
+	int64_t audio = vs.GetAPI()->mapGetInt(clipinfo, audio_key, 0, &err1);
+	if (!err1)
 		has_audio = bool(audio);
 
 	if (numkf > 0) {
-		const int64_t *kfs = vs.GetAPI()->mapGetIntArray(clipinfo, kf_key, &err);
-		if (err)
+		const int64_t *kfs = vs.GetAPI()->mapGetIntArray(clipinfo, kf_key, &err1);
+		const char *kfs_path = vs.GetAPI()->mapGetData(clipinfo, kf_key, 0, &err2);
+		if (err1 && err2)
 			throw VapoursynthError("Error getting keyframes from returned VSMap");
 
-		keyframes.reserve(numkf);
-		for (int i = 0; i < numkf; i++)
-			keyframes.push_back(int(kfs[i]));
+		if (!err1) {
+			keyframes.reserve(numkf);
+			for (int i = 0; i < numkf; i++)
+				keyframes.push_back(int(kfs[i]));
+		} else {
+			int kfs_path_size = vs.GetAPI()->mapGetDataSize(clipinfo, kf_key, 0, &err1);
+			if (err1)
+				throw VapoursynthError("Error getting size of keyframes path");
+
+			try {
+				keyframes = agi::keyframe::Load(config::path->Decode(std::string(kfs_path, size_t(kfs_path_size))));
+			} catch (agi::Exception const& e) {
+				LOG_E("vapoursynth/video/keyframes") << "Failed to open keyframes file specified by script: " << e.GetMessage();
+			}
+		}
 	}
 
 	if (numtc != -1) {
 		if (numtc != vi->numFrames)
 			throw VapoursynthError("Number of returned timecodes does not match number of frames");
 
-		const int64_t *tcs = vs.GetAPI()->mapGetIntArray(clipinfo, tc_key, &err);
-		if (err)
+		const int64_t *tcs = vs.GetAPI()->mapGetIntArray(clipinfo, tc_key, &err1);
+		if (err1)
 			throw VapoursynthError("Error getting timecodes from returned map");
 
 		std::vector<int> timecodes;
@@ -194,7 +209,6 @@ VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename
 	// Find the first frame Of the video to get some info
 	const VSFrame *frame = GetVSFrame(0);
 
-	int err1, err2;
 	const VSMap *props = vs.GetAPI()->getFramePropertiesRO(frame);
 	if (props == nullptr)
 		throw VapoursynthError("Couldn't get frame properties");
