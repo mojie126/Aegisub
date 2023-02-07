@@ -338,7 +338,7 @@
 				"Aegisub Cache" : true
 			},
 			"VapourSynth" : {
-				"Default Script" : "import vapoursynth as vs\nvs.core.bas.Source(source=filename).set_output()"
+				"Default Script" : "# This default script will load an audio file using BestAudioSource.\n# It requires the `bas` plugin.\n\nimport vapoursynth as vs\ntry:\n    vs.core.bas.Source(source=filename).set_output()\nexcept AttributeError:\n   raise vs.Error(\"To use Aegisub's default audio loader, the `bas` plugin for VapourSynth must be installed\")"
 			}
 		},
 		"Avisynth" : {
@@ -373,7 +373,7 @@
 				"Seek Preroll" : 12
 			},
 			"VapourSynth" : {
-				"Default Script" : "import vapoursynth as vs\nvs.core.lsmas.LWLibavSource(source=filename).set_output()"
+				"Default Script" : "# This default script will load a video file using LWLibavSource.\n# It requires the `lsmas` plugin.\n# See ?data/automation/vapoursynth/aegisub_vs.py for more information.\n\nimport aegisub_vs as a\nimport vapoursynth as vs\n\nclip, videoinfo = a.wrap_lwlibavsource(filename, __aegi_vscache)\nclip.set_output()\n__aegi_timecodes = videoinfo[\"timecodes\"]\n__aegi_keyframes = videoinfo[\"keyframes\"]\n# Uncomment this to automatically generate keyframes at scene changes.\n#__aegi_keyframes = a.get_keyframes(filename, clip)\n\n# Check if the file has an audio track. This requires the `bas` plugin.\n__aegi_hasaudio = 1 if a.check_audio(filename) else 0"
 			}
 		}
 	},
