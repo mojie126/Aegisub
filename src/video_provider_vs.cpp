@@ -17,10 +17,12 @@
 #ifdef WITH_VAPOURSYNTH
 #include "include/aegisub/video_provider.h"
 
+#include "compat.h"
 #include "options.h"
 #include "video_frame.h"
 
 #include <libaegisub/access.h>
+#include <libaegisub/background_runner.h>
 #include <libaegisub/format.h>
 #include <libaegisub/keyframe.h>
 #include <libaegisub/log.h>
@@ -57,7 +59,7 @@ class VapoursynthVideoProvider: public VideoProvider {
 	void SetResizeArg(VSMap *args, const VSMap *props, const char *arg_name, const char *prop_name, int64_t deflt, int64_t unspecified = -1);
 
 public:
-	VapoursynthVideoProvider(agi::fs::path const& filename, std::string const& colormatrix);
+	VapoursynthVideoProvider(agi::fs::path const& filename, std::string const& colormatrix, agi::BackgroundRunner *br);
 	~VapoursynthVideoProvider();
 
 	void GetFrame(int n, VideoFrame &frame) override;
@@ -115,7 +117,7 @@ void VapoursynthVideoProvider::SetResizeArg(VSMap *args, const VSMap *props, con
 	}
 }
 
-VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename, std::string const& colormatrix) try { try {
+VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename, std::string const& colormatrix, agi::BackgroundRunner *br) try { try {
 	std::lock_guard<std::mutex> lock(vs.GetMutex());
 
 	VSCleanCache();
@@ -126,7 +128,12 @@ VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename
 		throw VapoursynthError("Error creating script API");
 	}
 	vs.GetScriptAPI()->evalSetWorkingDir(script, 1);
-	if (OpenScriptOrVideo(vs.GetAPI(), vs.GetScriptAPI(), script, filename, OPT_GET("Provider/Video/VapourSynth/Default Script")->GetString())) {
+	br->Run([&](agi::ProgressSink *ps) {
+		ps->SetTitle(from_wx(_("Executing Vapoursynth Script")));
+		ps->SetIndeterminate();
+		err1 = OpenScriptOrVideo(vs.GetAPI(), vs.GetScriptAPI(), script, filename, OPT_GET("Provider/Video/VapourSynth/Default Script")->GetString());
+	});
+	if (err1) {
 		std::string msg = agi::format("Error executing VapourSynth script: %s", vs.GetScriptAPI()->getError(script));
 		throw VapoursynthError(msg);
 	}
@@ -350,8 +357,8 @@ VapoursynthVideoProvider::~VapoursynthVideoProvider() {
 }
 
 namespace agi { class BackgroundRunner; }
-std::unique_ptr<VideoProvider> CreateVapoursynthVideoProvider(agi::fs::path const& path, std::string const& colormatrix, agi::BackgroundRunner *) {
+std::unique_ptr<VideoProvider> CreateVapoursynthVideoProvider(agi::fs::path const& path, std::string const& colormatrix, agi::BackgroundRunner *br) {
 	agi::acs::CheckFileRead(path);
-	return agi::make_unique<VapoursynthVideoProvider>(path, colormatrix);
+	return agi::make_unique<VapoursynthVideoProvider>(path, colormatrix, br);
 }
 #endif // WITH_VAPOURSYNTH
