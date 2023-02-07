@@ -190,19 +190,33 @@ VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename
 	}
 
 	if (numtc != -1) {
-		if (numtc != vi->numFrames)
-			throw VapoursynthError("Number of returned timecodes does not match number of frames");
-
 		const int64_t *tcs = vs.GetAPI()->mapGetIntArray(clipinfo, tc_key, &err1);
-		if (err1)
+		const char *tcs_path = vs.GetAPI()->mapGetData(clipinfo, tc_key, 0, &err2);
+		if (err1 && err2)
 			throw VapoursynthError("Error getting timecodes from returned map");
 
-		std::vector<int> timecodes;
-		timecodes.reserve(numtc);
-		for (int i = 0; i < numtc; i++)
-			timecodes.push_back(int(tcs[i]));
+		if (!err1) {
+			if (numtc != vi->numFrames)
+				throw VapoursynthError("Number of returned timecodes does not match number of frames");
 
-		fps = agi::vfr::Framerate(timecodes);
+			std::vector<int> timecodes;
+			timecodes.reserve(numtc);
+			for (int i = 0; i < numtc; i++)
+				timecodes.push_back(int(tcs[i]));
+
+			fps = agi::vfr::Framerate(timecodes);
+		} else {
+			int tcs_path_size = vs.GetAPI()->mapGetDataSize(clipinfo, tc_key, 0, &err1);
+			if (err1)
+				throw VapoursynthError("Error getting size of keyframes path");
+
+			try {
+				fps = agi::vfr::Framerate(config::path->Decode(std::string(tcs_path, size_t(tcs_path_size))));
+			} catch (agi::Exception const& e) {
+				// Throw an error here unlike with keyframes since the timecodes not being loaded might not be immediately noticeable
+				throw VapoursynthError("Failed to open timecodes file specified by script: " + e.GetMessage());
+			}
+		}
 	}
 	vs.GetAPI()->freeMap(clipinfo);
 
