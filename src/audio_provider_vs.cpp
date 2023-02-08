@@ -165,7 +165,6 @@ VapoursynthAudioProvider::~VapoursynthAudioProvider() {
 }
 
 std::unique_ptr<agi::AudioProvider> CreateVapoursynthAudioProvider(agi::fs::path const& file, agi::BackgroundRunner *) {
-	agi::acs::CheckFileRead(file);
 	return agi::make_unique<VapoursynthAudioProvider>(file);
 }
 #endif
