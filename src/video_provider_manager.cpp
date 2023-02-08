@@ -72,11 +72,6 @@ std::unique_ptr<VideoProvider> VideoProviderFactory::GetProvider(agi::fs::path c
 			LOG_I("manager/video/provider") << factory->name << ": opened " << filename;
 			return provider->WantsCaching() ? CreateCacheVideoProvider(std::move(provider)) : std::move(provider);
 		}
-		catch (agi::fs::FileNotFound const&) {
-			err = "file not found.";
-			// Keep trying other providers as this one may just not be able to
-			// open a valid path
-		}
 		catch (VideoNotSupported const&) {
 			found = true;
 			err = "video is not in a supported format.";
