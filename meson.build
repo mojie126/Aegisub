@@ -338,14 +338,17 @@ aegisub_cpp_pch = ['src/include/agi_pre.h']
 aegisub_c_pch = ['src/include/agi_pre_c.h']
 
 link_args = []
+link_depends = []
 if host_machine.system() == 'windows'
     manifest_file = configure_file(copy: true, input: 'src/res/aegisub.exe.manifest', output: 'aegisub.exe.manifest')
     link_args += ['/MANIFEST:EMBED', '/MANIFESTINPUT:@0@'.format(manifest_file)]
+    link_depends += manifest_file
 endif
 
 aegisub = executable('aegisub', aegisub_src, version_h, acconf,
                      link_with: [libresrc, libluabins, libaegisub],
                      link_args: link_args,
+                     link_depends: link_depends,
                      include_directories: [libaegisub_inc, libresrc_inc, version_inc, deps_inc, include_directories('src')],
                      cpp_pch: aegisub_cpp_pch,
                      c_pch: aegisub_c_pch,
