@@ -94,6 +94,11 @@ Apart from the dependencies for the TSTools version, there are some additional d
 - `avisynth` (or `avisynthplus`): Optional run-time dependency for the Avisynth source
 - `vapoursynth`: Optional run-time dependency for the VapourSynth source
 
+   The following VapourSynth plugins are used by the default scripts set in the default configuration:
+   - [`lsmas`](https://github.com/AkarinVS/L-SMASH-Works): For LWLibavSource
+   - [`bas`](https://github.com/vapoursynth/bestaudiosource): For BestAudioSource
+   - [`wwxd`](https://github.com/dubhater/vapoursynth-wwxd) and [`scxvid`](https://github.com/dubhater/vapoursynth-scxvid) (depending on settings): For keyframe generation
+
 
 # Aegisub
 
