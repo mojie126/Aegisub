@@ -147,7 +147,7 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 				Keyframes.push_back(n);
 			}
 
-			TimecodesVector.push_back(frame->Pts * properties.TimeBase.Den / properties.TimeBase.Num);
+			TimecodesVector.push_back(1000 * frame->Pts * properties.TimeBase.Num / properties.TimeBase.Den);
 			ps->SetProgress(n, properties.NumFrames);
 		}
 
