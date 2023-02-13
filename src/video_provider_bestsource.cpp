@@ -84,7 +84,6 @@ public:
 std::string colormatrix_description(const AVFrame *frame) {
 	// Assuming TV for unspecified
 	std::string str = frame->color_range == AVCOL_RANGE_JPEG ? "PC" : "TV";
-	LOG_D("bestsource") << frame->colorspace;
 
 	switch (frame->colorspace) {
 		case AVCOL_SPC_BT709:
@@ -114,20 +113,15 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 		has_audio = false;
 	}
 
+	br->Run([&](agi::ProgressSink *ps) {
+		ps->SetTitle(from_wx(_("Exacting")));
+		ps->SetMessage(from_wx(_("Creating cache... This can take a while!")));
+		ps->SetIndeterminate();
+		if (bs.GetExactDuration()) {
+			LOG_D("provider/video/bestsource") << "File cached and has exact samples.";
+		}
+	});
 	properties = bs.GetVideoProperties();
-
-	if (properties.NumFrames == -1) {
-	    LOG_D("bs") << "File not cached or varying samples, creating cache.";
-	    br->Run([&](agi::ProgressSink *ps) {
-	        ps->SetTitle(from_wx(_("Exacting")));
-	        ps->SetMessage(from_wx(_("Creating cache... This can take a while!")));
-	        ps->SetIndeterminate();
-	        if (bs.GetExactDuration()) {
-	            LOG_D("bs") << "File cached and has exact samples.";
-	        }
-	    });
-	    properties = bs.GetVideoProperties();
-	}
 
 	br->Run([&](agi::ProgressSink *ps) {
 		ps->SetTitle(from_wx(_("Scanning")));
