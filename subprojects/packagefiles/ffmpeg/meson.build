@@ -1750,7 +1750,8 @@ foreach check : all_checks
         else
           dep = dependency(pkg_name, required : req)
         endif
-        found = dep.found() and dep.type_name() != 'internal'
+        found = dep.found()
+        skipchecks = dep.type_name() == 'internal'  # same here, trust the meson dependency
         extra_deps += dep
       endif
     endif
