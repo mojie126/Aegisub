@@ -1,6 +1,6 @@
 [wrap-git]
 url = https://github.com/vapoursynth/bestsource
-revision = head
+revision = ba1249c1f5443be6d0ec2be32490af5bbc96bf99
 patch_directory = bestsource
 
 [provide]

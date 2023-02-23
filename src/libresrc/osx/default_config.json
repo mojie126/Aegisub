@@ -365,6 +365,12 @@
 			"Index All Tracks" : true,
 			"Log Level" : "quiet"
 		},
+		"BestSource" : {
+			"Cache" : {
+				"Files" : 100,
+				"Size" : 42
+			}
+		},
 		"Video" : {
 			"Cache" : {
 				"Size" : 32
@@ -416,6 +422,7 @@
 			"Syntax" : true
 		},
 		"Provider" : "libass",
+		"Show Original": false,
 		"Time Edit" : {
 			"Insert Mode" : true
 		}

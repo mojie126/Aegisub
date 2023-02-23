@@ -23,6 +23,7 @@
 #include "bestsource_common.h"
 
 #include "options.h"
+#include "utils.h"
 
 #include <libaegisub/fs.h>
 #include <libaegisub/path.h>
@@ -45,5 +46,11 @@ std::string GetBSCacheFile(agi::fs::path const& filename) {
 	return result.string();
 }
 
+void BSCleanCache() {
+	CleanCache(config::path->Decode("?local/bsindex/"),
+		"*.json",
+		OPT_GET("Provider/BestSource/Cache/Size")->GetInt(),
+		OPT_GET("Provider/BestSource/Cache/Files")->GetInt());
+}
 
 #endif // WITH_BESTSOURCE
