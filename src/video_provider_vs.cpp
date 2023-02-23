@@ -111,12 +111,14 @@ void VapoursynthVideoProvider::SetResizeArg(VSMap *args, const VSMap *props, con
 VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename, std::string const& colormatrix) try {
 	std::lock_guard<std::mutex> lock(vs.GetMutex());
 
+	VSCleanCache();
+
 	script = vs.GetScriptAPI()->createScript(nullptr);
 	if (script == nullptr) {
 		throw VapoursynthError("Error creating script API");
 	}
 	vs.GetScriptAPI()->evalSetWorkingDir(script, 1);
-	if (OpenScriptOrVideo(vs.GetScriptAPI(), script, filename, OPT_GET("Provider/Video/VapourSynth/Default Script")->GetString())) {
+	if (OpenScriptOrVideo(vs.GetAPI(), vs.GetScriptAPI(), script, filename, OPT_GET("Provider/Video/VapourSynth/Default Script")->GetString())) {
 		std::string msg = agi::format("Error executing VapourSynth script: %s", vs.GetScriptAPI()->getError(script));
 		vs.GetScriptAPI()->freeScript(script);
 		throw VapoursynthError(msg);
@@ -141,7 +143,13 @@ VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename
 	// Assume constant frame rate, since handling VFR would require going through all frames when loading.
 	// Users can load custom timecodes files to deal with VFR.
 	// Alternatively (TODO) the provider could read timecodes and keyframes from a second output node.
-	fps = agi::vfr::Framerate(vi->fpsNum, vi->fpsDen);
+	int fpsNum = vi->fpsNum;
+	int fpsDen = vi->fpsDen;
+	if (fpsDen == 0) {
+		fpsNum = 25;
+		fpsDen = 1;
+	}
+	fps = agi::vfr::Framerate(fpsNum, fpsDen);
 
 	// Find the first frame to get some info
 	const VSFrame *frame;

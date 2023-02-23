@@ -19,6 +19,7 @@
 
 #include <libaegisub/fs_fwd.h>
 
-int OpenScriptOrVideo(const VSSCRIPTAPI *api, VSScript *script, agi::fs::path const& filename, std::string default_script);
+int OpenScriptOrVideo(const VSAPI *api, const VSSCRIPTAPI *sapi, VSScript *script, agi::fs::path const& filename, std::string default_script);
+void VSCleanCache();
 
 #endif // WITH_VAPOURSYNTH
