@@ -21,5 +21,6 @@
 
 int OpenScriptOrVideo(const VSAPI *api, const VSSCRIPTAPI *sapi, VSScript *script, agi::fs::path const& filename, std::string default_script);
 void VSCleanCache();
+void VSLogToProgressSink(int msgType, const char *msg, void *userData);
 
 #endif // WITH_VAPOURSYNTH

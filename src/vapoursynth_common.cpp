@@ -20,6 +20,7 @@
 #include "vapoursynth_wrap.h"
 #include "options.h"
 #include "utils.h"
+#include <libaegisub/background_runner.h>
 #include <libaegisub/fs.h>
 #include <libaegisub/path.h>
 
@@ -58,6 +59,28 @@ int OpenScriptOrVideo(const VSAPI *api, const VSSCRIPTAPI *sapi, VSScript *scrip
 		result = sapi->evaluateBuffer(script, vscript.c_str(), "aegisub");
 	}
 	return result;
+}
+
+void VSLogToProgressSink(int msgType, const char *msg, void *userData) {
+	int loglevel = 0;
+	std::string loglevel_str = OPT_GET("Provider/Video/VapourSynth/Log Level")->GetString();
+	if (loglevel_str == "Quiet")
+		loglevel = 5;
+	else if (loglevel_str == "Fatal")
+		loglevel = 4;
+	else if (loglevel_str == "Critical")
+		loglevel = 3;
+	else if (loglevel_str == "Warning")
+		loglevel = 2;
+	else if (loglevel_str == "Information")
+		loglevel = 1;
+	else if (loglevel_str == "Debug")
+		loglevel = 0;
+
+	if (msgType < loglevel)
+		return;
+
+	reinterpret_cast<agi::ProgressSink *>(userData)->Log(msg);
 }
 
 void VSCleanCache() {

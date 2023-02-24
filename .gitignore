@@ -1,5 +1,6 @@
 /tests/data
 
+automation/vapoursynth/__pycache__
 packages/desktop/aegisub.desktop
 packages/desktop/aegisub.desktop.template
 src/libresrc/bitmap.cpp
