@@ -472,6 +472,12 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 void VapourSynth(wxTreebook *book, Preferences *parent) {
 #ifdef WITH_VAPOURSYNTH
 	auto p = new OptionPage(book, parent, _("VapourSynth"), OptionPage::PAGE_SUB);
+	auto general = p->PageSizer(_("General"));
+
+	const wxString log_levels[] = { "Quiet", "Fatal", "Critical", "Warning", "Information", "Debug" };
+	wxArrayString log_levels_choice(6, log_levels);
+	p->OptionChoice(general, _("Log Level"), log_levels_choice, "Provider/Video/VapourSynth/Log Level");
+
 	auto video = p->PageSizer(_("Default Video Script"));
 
 	auto vhint = new wxStaticText(p, wxID_ANY, _("This script will be executed to load video files that aren't\nVapourSynth scripts (i.e. end in .py or .vpy).\nThe filename variable stores the path to the file."));

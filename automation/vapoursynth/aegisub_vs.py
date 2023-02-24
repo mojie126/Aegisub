@@ -150,11 +150,17 @@ def make_keyframes(clip: vs.VideoNode, use_scxvid: bool = False,
                        .format("scxvid" if use_scxvid else "wwxd"))
 
     keyframes = {}
+    done = 0
     def _cb(n: int, f: vs.VideoFrame) -> vs.VideoFrame:
+        nonlocal done
         keyframes[n] = f.props._SceneChangePrev if use_scxvid else f.props.Scenechange # type: ignore
+        done += 1
+        if done % (clip.num_frames // 25) == 0:
+            vs.core.log_message(vs.MESSAGE_TYPE_INFORMATION, "Detecting keyframes... {}% done.\n".format(100 * done // clip.num_frames))
         return f
 
     deque(clip.std.ModifyFrame(clip, _cb).frames(close=True), 0)
+    vs.core.log_message(vs.MESSAGE_TYPE_INFORMATION, "Done detecting keyframes.\n")
     return [n for n in range(clip.num_frames) if keyframes[n]]
 
 
@@ -178,6 +184,7 @@ def get_keyframes(filename: str, clip: vs.VideoNode, **kwargs: Any) -> str:
     kffilename = make_keyframes_filename(filename)
 
     if not os.path.exists(kffilename):
+        vs.core.log_message(vs.MESSAGE_TYPE_INFORMATION, "No keyframes file found, detecting keyframes...\n")
         keyframes = make_keyframes(clip, **kwargs)
         save_keyframes(kffilename, keyframes)
 

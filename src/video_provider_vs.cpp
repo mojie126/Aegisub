@@ -123,15 +123,28 @@ VapoursynthVideoProvider::VapoursynthVideoProvider(agi::fs::path const& filename
 	VSCleanCache();
 
 	int err1, err2;
-	script = vs.GetScriptAPI()->createScript(nullptr);
+	VSCore *core = vs.GetAPI()->createCore(0);
+	if (core == nullptr) {
+		throw VapoursynthError("Error creating core");
+	}
+	script = vs.GetScriptAPI()->createScript(core);
 	if (script == nullptr) {
+		vs.GetAPI()->freeCore(core);
 		throw VapoursynthError("Error creating script API");
 	}
 	vs.GetScriptAPI()->evalSetWorkingDir(script, 1);
 	br->Run([&](agi::ProgressSink *ps) {
 		ps->SetTitle(from_wx(_("Executing Vapoursynth Script")));
+		ps->SetMessage("");
 		ps->SetIndeterminate();
+
+		VSLogHandle *logger = vs.GetAPI()->addLogHandler(VSLogToProgressSink, nullptr, ps, core);
 		err1 = OpenScriptOrVideo(vs.GetAPI(), vs.GetScriptAPI(), script, filename, OPT_GET("Provider/Video/VapourSynth/Default Script")->GetString());
+		vs.GetAPI()->removeLogHandler(logger, core);
+
+		ps->SetStayOpen(bool(err1));
+		if (err1)
+			ps->SetMessage(from_wx(_("Failed to execute script! Press \"Close\" to continue.")));
 	});
 	if (err1) {
 		std::string msg = agi::format("Error executing VapourSynth script: %s", vs.GetScriptAPI()->getError(script));

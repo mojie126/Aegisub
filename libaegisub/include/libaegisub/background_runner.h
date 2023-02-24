@@ -46,9 +46,14 @@ namespace agi {
 
 		/// @brief Log a message
 		///
-		/// If any messages are logged then the dialog will not automatically close
-		/// when the task finishes so that the user has the chance to read them.
+		/// If any messages are logged and StayOpen is set (set by default)
+		/// then the dialog will not automatically close when the task finishes
+		/// so that the user has the chance to read them.
 		virtual void Log(std::string const& str)=0;
+
+		/// Set whether the dialog should stay open after the task finishes.
+		/// Defaults to true.
+		virtual void SetStayOpen(bool stayopen)=0;
 
 		/// Has the user asked the task to cancel?
 		virtual bool IsCancelled()=0;

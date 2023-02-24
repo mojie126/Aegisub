@@ -73,6 +73,7 @@ namespace {
 class DialogProgressSink final : public agi::ProgressSink {
 	DialogProgress *dialog;
 	std::atomic<bool> cancelled{false};
+	std::atomic<bool> stayopen{true};
 	int progress = 0;
 
 public:
@@ -96,6 +97,14 @@ public:
 
 	void Log(std::string const& str) override {
 		Main().Async([=]{ dialog->pending_log += to_wx(str); });
+	}
+
+	void SetStayOpen(bool b) override {
+		stayopen = b;
+	}
+
+	bool GetStayOpen() {
+		return stayopen;
 	}
 
 	bool IsCancelled() override {
@@ -169,7 +178,7 @@ void DialogProgress::Run(std::function<void(agi::ProgressSink*)> task) {
 			// so the user can read the debug output and switch the cancel button to a
 			// close button
 			bool cancelled = this->ps->IsCancelled();
-			if (cancelled || (log_output->IsEmpty() && !pending_log))
+			if (cancelled || !this->ps->GetStayOpen() || (log_output->IsEmpty() && !pending_log))
 				EndModal(!cancelled);
 			else {
 				if (!pending_log.empty()) {
