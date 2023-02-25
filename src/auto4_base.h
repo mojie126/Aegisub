@@ -132,7 +132,6 @@ namespace Automation4 {
 		/// Show the passed dialog on the GUI thread, blocking the calling
 		/// thread until it closes
 		void ShowDialog(ScriptDialog *config_dialog);
-		int ShowDialog(wxDialog *dialog);
 		wxWindow *GetParentWindow() const { return bsr->GetParentWindow(); }
 
 		/// Get the current automation trace level
