@@ -43,6 +43,7 @@ namespace agi { class BackgroundRunner; }
 #include <libaegisub/make_unique.h>
 #include <libaegisub/background_runner.h>
 #include <libaegisub/log.h>
+#include <libaegisub/format.h>
 
 namespace {
 
@@ -159,7 +160,7 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 	colorspace = colormatrix_description(frame->GetAVFrame());
 }
 catch (VideoException const& err) {
-	throw VideoOpenError("Failed to create BestVideoSource");
+	throw VideoOpenError(agi::format("Failed to create BestVideoSource: %s",  + err.what()));
 }
 
 void BSVideoProvider::GetFrame(int n, VideoFrame &out) {
