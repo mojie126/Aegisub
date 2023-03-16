@@ -1,14 +1,14 @@
 """
-Utility functions for loading video files into Aegisub using the Vapoursynth
+Utility functions for loading video files into Aegisub using the VapourSynth
 video provider.
 
 When encountering a file whose file extension is not .py or .vpy, the
-Vapoursynth audio and video providers will execute the respective default
+VapourSynth audio and video providers will execute the respective default
 script set in Aegisub's configuration, with the following string variables set:
 - filename: The path to the file that's being opened.
 - __aegi_data, __aegi_dictionary, __aegi_local, __aegi_script, __aegi_temp, __aegi_user:
   The values of ?data, ?dictionary, etc. respectively.
-- __aegi_vscache: The path to a directory where the Vapoursynth script can
+- __aegi_vscache: The path to a directory where the VapourSynth script can
   store cache files. This directory is cleaned by Aegisub when it gets too
   large (as defined by Aegisub's configuration).
 
@@ -53,7 +53,7 @@ def set_paths(vars: dict):
 
 def ensure_plugin(name: str, loadname: str, errormsg: str):
     """
-    Ensures that the Vapoursynth plugin with the given name exists.
+    Ensures that the VapourSynth plugin with the given name exists.
     If it doesn't, it tries to load it from `loadname`.
     If that fails, it raises an error with the given error message.
     """

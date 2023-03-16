@@ -58,7 +58,7 @@ if (!(Test-Path VSFilter)) {
 	Set-Location $DepsDir
 }
 
-### Vapoursynth plugins
+### VapourSynth plugins
 
 # L-SMASH-Works
 if (!(Test-Path L-SMASH-Works)) {
