@@ -216,6 +216,16 @@ def save_keyframes(filename: str, keyframes: List[int]):
         f.write("".join(f"{n}\n" for n in keyframes))
 
 
+def try_get_keyframes(filename: str, default: str | List[int]) -> str | List[int]:
+    """
+    Checks if a keyframes file for the given filename is present and, if so,
+    returns it. Otherwise, returns the given list of keyframes.
+    """
+    kffilename = make_keyframes_filename(filename)
+
+    return kffilename if os.path.exists(kffilename) else default
+
+
 def get_keyframes(filename: str, clip: vs.VideoNode, **kwargs: Any) -> str:
     """
     When not already present, creates a keyframe file for the given clip next
