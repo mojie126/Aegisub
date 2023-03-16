@@ -15,7 +15,7 @@
 // Aegisub Project http://www.aegisub.org/
 
 /// @file vapoursynth_wrap.cpp
-/// @brief Wrapper-layer for Vapoursynth
+/// @brief Wrapper-layer for VapourSynth
 /// @ingroup video_input audio_input
 ///
 
@@ -67,7 +67,7 @@ VapourSynthWrapper::VapourSynthWrapper() {
 #endif
 
 		if (!hLib)
-			throw VapoursynthError("Could not load " VSSCRIPT_SO);
+			throw VapourSynthError("Could not load " VSSCRIPT_SO);
 
 #ifdef _WIN32
 		FUNC* getVSScriptAPI = (FUNC*)GetProcAddress(hLib, "getVSScriptAPI");
@@ -75,7 +75,7 @@ VapourSynthWrapper::VapourSynthWrapper() {
 		FUNC* getVSScriptAPI = (FUNC*)dlsym(hLib, "getVSScriptAPI");
 #endif
 		if (!getVSScriptAPI)
-			throw VapoursynthError("Failed to get address of getVSScriptAPI from " VSSCRIPT_SO);
+			throw VapourSynthError("Failed to get address of getVSScriptAPI from " VSSCRIPT_SO);
 
 		// Python will set the program's locale to the user's default locale, which will break
 		// half of wxwidgets on some operating systems due to locale mismatches. There's not really anything
@@ -85,12 +85,12 @@ VapourSynthWrapper::VapourSynthWrapper() {
 		setlocale(LC_ALL, oldlocale.c_str());
 
 		if (!scriptapi)
-			throw VapoursynthError("Failed to get Vapoursynth ScriptAPI");
+			throw VapourSynthError("Failed to get VapourSynth ScriptAPI");
 
 		api = scriptapi->getVSAPI(VAPOURSYNTH_API_VERSION);
 
 		if (!api)
-			throw VapoursynthError("Failed to get Vapoursynth API");
+			throw VapourSynthError("Failed to get VapourSynth API");
 
 		vs_loaded = true;
 	}

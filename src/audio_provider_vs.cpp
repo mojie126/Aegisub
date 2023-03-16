@@ -15,7 +15,7 @@
 // Aegisub Project http://www.aegisub.org/
 
 /// @file audio_provider_vs.cpp
-/// @brief Vapoursynth-based audio provider
+/// @brief VapourSynth-based audio provider
 /// @ingroup audio_input
 ///
 
@@ -38,7 +38,7 @@
 #include "VSScript4.h"
 
 namespace {
-class VapoursynthAudioProvider final : public agi::AudioProvider {
+class VapourSynthAudioProvider final : public agi::AudioProvider {
 	VapourSynthWrapper vs;
 	VSScript *script = nullptr;
 	VSNode *node = nullptr;
@@ -47,36 +47,36 @@ class VapoursynthAudioProvider final : public agi::AudioProvider {
 	void FillBufferWithFrame(void *buf, int frame, int64_t start, int64_t count) const;
 	void FillBuffer(void *buf, int64_t start, int64_t count) const override;
 public:
-	VapoursynthAudioProvider(agi::fs::path const& filename);
-	~VapoursynthAudioProvider();
+	VapourSynthAudioProvider(agi::fs::path const& filename);
+	~VapourSynthAudioProvider();
 
 	bool NeedsCache() const override { return true; }
 };
 
-VapoursynthAudioProvider::VapoursynthAudioProvider(agi::fs::path const& filename) try {
+VapourSynthAudioProvider::VapourSynthAudioProvider(agi::fs::path const& filename) try {
 	std::lock_guard<std::mutex> lock(vs.GetMutex());
 
 	VSCleanCache();
 
 	script = vs.GetScriptAPI()->createScript(nullptr);
 	if (script == nullptr) {
-		throw VapoursynthError("Error creating script API");
+		throw VapourSynthError("Error creating script API");
 	}
 	vs.GetScriptAPI()->evalSetWorkingDir(script, 1);
 	if (OpenScriptOrVideo(vs.GetAPI(), vs.GetScriptAPI(), script, filename, OPT_GET("Provider/Audio/VapourSynth/Default Script")->GetString())) {
 		std::string msg = agi::format("Error executing VapourSynth script: %s", vs.GetScriptAPI()->getError(script));
 		vs.GetScriptAPI()->freeScript(script);
-		throw VapoursynthError(msg);
+		throw VapourSynthError(msg);
 	}
 	node = vs.GetScriptAPI()->getOutputNode(script, 0);
 	if (node == nullptr) {
 		vs.GetScriptAPI()->freeScript(script);
-		throw VapoursynthError("No output node set");
+		throw VapourSynthError("No output node set");
 	}
 	if (vs.GetAPI()->getNodeType(node) != mtAudio) {
 		vs.GetAPI()->freeNode(node);
 		vs.GetScriptAPI()->freeScript(script);
-		throw VapoursynthError("Output node isn't an audio node");
+		throw VapourSynthError("Output node isn't an audio node");
 	}
 	vi = vs.GetAPI()->getAudioInfo(node);
 	float_samples = vi->format.sampleType == stFloat;
@@ -85,10 +85,10 @@ VapoursynthAudioProvider::VapoursynthAudioProvider(agi::fs::path const& filename
 	channels = vi->format.numChannels;
 	num_samples = vi->numSamples;
 }
-catch (VapoursynthError const& err) {
+catch (VapourSynthError const& err) {
 	// Unlike the video provider manager, the audio provider factory catches AudioProviderErrors and picks whichever source doesn't throw one.
 	// So just rethrow the Error here with an extra label so the user will see the error message and know the audio wasn't loaded with VS
-	throw VapoursynthError(agi::format("Vapoursynth error: %s", err.GetMessage()));
+	throw VapourSynthError(agi::format("VapourSynth error: %s", err.GetMessage()));
 }
 
 template<typename T>
@@ -102,19 +102,19 @@ static void PackChannels(const uint8_t **Src, void *Dst, size_t Length, size_t C
 	}
 }
 
-void VapoursynthAudioProvider::FillBufferWithFrame(void *buf, int n, int64_t start, int64_t count) const {
+void VapourSynthAudioProvider::FillBufferWithFrame(void *buf, int n, int64_t start, int64_t count) const {
 	char errorMsg[1024];
 	const VSFrame *frame = vs.GetAPI()->getFrame(n, node, errorMsg, sizeof(errorMsg));
 	if (frame == nullptr) {
-		throw VapoursynthError(agi::format("Error getting frame: %s", errorMsg));
+		throw VapourSynthError(agi::format("Error getting frame: %s", errorMsg));
 	}
 	if (vs.GetAPI()->getFrameLength(frame) < count) {
 		vs.GetAPI()->freeFrame(frame);
-		throw VapoursynthError("Audio frame too short");
+		throw VapourSynthError("Audio frame too short");
 	}
 	if (vs.GetAPI()->getAudioFrameFormat(frame)->numChannels != channels || vs.GetAPI()->getAudioFrameFormat(frame)->bytesPerSample != bytes_per_sample) {
 		vs.GetAPI()->freeFrame(frame);
-		throw VapoursynthError("Audio format is not constant");
+		throw VapourSynthError("Audio format is not constant");
 	}
 
 	std::vector<const uint8_t *> planes(channels);
@@ -122,7 +122,7 @@ void VapoursynthAudioProvider::FillBufferWithFrame(void *buf, int n, int64_t sta
 		planes[c] = vs.GetAPI()->getReadPtr(frame, c) + bytes_per_sample * start;
 		if (planes[c] == nullptr) {
 			vs.GetAPI()->freeFrame(frame);
-			throw VapoursynthError("Failed to read audio channel");
+			throw VapourSynthError("Failed to read audio channel");
 		}
 	}
 
@@ -138,7 +138,7 @@ void VapoursynthAudioProvider::FillBufferWithFrame(void *buf, int n, int64_t sta
 	vs.GetAPI()->freeFrame(frame);
 }
 
-void VapoursynthAudioProvider::FillBuffer(void *buf, int64_t start, int64_t count) const {
+void VapourSynthAudioProvider::FillBuffer(void *buf, int64_t start, int64_t count) const {
 	int end = start + count; 	// exclusive
 	int startframe = start / VS_AUDIO_FRAME_SAMPLES;
 	int endframe = (end - 1) / VS_AUDIO_FRAME_SAMPLES;
@@ -154,7 +154,7 @@ void VapoursynthAudioProvider::FillBuffer(void *buf, int64_t start, int64_t coun
 	}
 }
 
-VapoursynthAudioProvider::~VapoursynthAudioProvider() {
+VapourSynthAudioProvider::~VapourSynthAudioProvider() {
 	if (node != nullptr) {
 		vs.GetAPI()->freeNode(node);
 	}
@@ -164,7 +164,7 @@ VapoursynthAudioProvider::~VapoursynthAudioProvider() {
 }
 }
 
-std::unique_ptr<agi::AudioProvider> CreateVapoursynthAudioProvider(agi::fs::path const& file, agi::BackgroundRunner *) {
-	return agi::make_unique<VapoursynthAudioProvider>(file);
+std::unique_ptr<agi::AudioProvider> CreateVapourSynthAudioProvider(agi::fs::path const& file, agi::BackgroundRunner *) {
+	return agi::make_unique<VapourSynthAudioProvider>(file);
 }
 #endif
