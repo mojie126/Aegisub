@@ -42,6 +42,11 @@ int OpenScriptOrVideo(const VSAPI *api, const VSSCRIPTAPI *sapi, VSScript *scrip
 
 		SetStringVar(api, map, "filename", filename.string());
 		SetStringVar(api, map, "__aegi_vscache", config::path->Decode("?local/vscache").string());
+#ifdef WIN32
+		SetStringVar(api, map, "__aegi_vsplugins", config::path->Decode("?data/vapoursynth").string());
+#else
+		SetStringVar(api, map, "__aegi_vsplugins", "");
+#endif
 		for (std::string dir : { "data", "dictionary", "local", "script", "temp", "user", })
 			// Don't include ?audio and ?video in here since these only hold the paths to the previous audio/video files.
 			SetStringVar(api, map, "__aegi_" + dir, config::path->Decode("?" + dir).string());

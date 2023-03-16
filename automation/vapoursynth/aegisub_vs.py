@@ -34,6 +34,43 @@ from typing import Any, Dict, List, Tuple
 import vapoursynth as vs
 core = vs.core
 
+aegi_vscache: str = ""
+aegi_vsplugins: str = ""
+
+plugin_extension = ".dll" if os.name == "nt" else ".so"
+
+def set_paths(vars: dict):
+    """
+    Initialize the wrapper library with the given configuration directories.
+    Should usually be called at the start of the default script as
+        set_paths(globals())
+    """
+    global aegi_vscache
+    global aegi_vsplugins
+    aegi_vscache = vars["__aegi_vscache"]
+    aegi_vsplugins = vars["__aegi_vsplugins"]
+
+
+def ensure_plugin(name: str, loadname: str, errormsg: str):
+    """
+    Ensures that the Vapoursynth plugin with the given name exists.
+    If it doesn't, it tries to load it from `loadname`.
+    If that fails, it raises an error with the given error message.
+    """
+    if hasattr(core, name):
+        return
+
+    if aegi_vsplugins and loadname:
+        try:
+            core.std.LoadPlugin(os.path.join(aegi_vsplugins, loadname + plugin_extension))
+            if hasattr(core, name):
+                return
+        except vs.Error:
+            pass
+
+    raise vs.Error(errormsg)
+
+
 def make_lwi_cache_filename(filename: str) -> str:
     """
     Given a path to a video, will return a file name like the one LWLibavSource
@@ -103,21 +140,23 @@ def info_from_lwindex(indexfile: str) -> Dict[str, List[int]]:
     }
 
 
-def wrap_lwlibavsource(filename: str, cachedir: str, **kwargs: Any) -> Tuple[vs.VideoNode, Dict[str, List[int]]]:
+def wrap_lwlibavsource(filename: str, cachedir: str | None = None, **kwargs: Any) -> Tuple[vs.VideoNode, Dict[str, List[int]]]:
     """
     Given a path to a video file and a directory to store index files in
     (usually __aegi_vscache), will open the video with LWLibavSource and read
     the generated .lwi file to obtain the timecodes and keyframes.
     Additional keyword arguments are passed on to LWLibavSource.
     """
+    if cachedir is None:
+        cachedir = aegi_vscache
+
     try:
         os.mkdir(cachedir)
     except FileExistsError:
         pass
     cachefile = os.path.join(cachedir, make_lwi_cache_filename(filename))
 
-    if not hasattr(core, "lsmas"):
-        raise vs.Error("To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin for VapourSynth must be installed")
+    ensure_plugin("lsmas", "libvslsmashsource", "To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin for VapourSynth must be installed")
 
     if b"-Dcachedir" not in core.lsmas.Version()["config"]: # type: ignore
         raise vs.Error("To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin must support the `cachedir` option for LWLibavSource.")
@@ -143,11 +182,13 @@ def make_keyframes(clip: vs.VideoNode, use_scxvid: bool = False,
     """
 
     clip = core.resize.Bilinear(clip, width=resize_h * clip.width // clip.height, height=resize_h, format=resize_format);
-    try:
-        clip = core.scxvid.Scxvid(clip, **kwargs) if use_scxvid else core.wwxd.WWXD(clip, **kwargs)
-    except AttributeError:
-        raise vs.Error("To use the keyframe generation, the `{}` plugin for VapourSynth must be installed"
-                       .format("scxvid" if use_scxvid else "wwxd"))
+
+    if use_scxvid:
+        ensure_plugin("scxvid", "libscxvid", "To use the keyframe generation, the scxvid plugin for VapourSynth must be installed")
+        clip = core.scxvid.Scxvid(clip, **kwargs)
+    else:
+        ensure_plugin("wwxd", "libwwxd64", "To use the keyframe generation, the wwxdplugin for VapourSynth must be installed")
+        clip = core.wwxd.WWXD(clip, **kwargs)
 
     keyframes = {}
     done = 0
@@ -199,6 +240,7 @@ def check_audio(filename: str, **kwargs: Any) -> bool:
     Additional keyword arguments are passed on to BestAudioSource.
     """
     try:
+        ensure_plugin("bas", "BestAudioSource", "")
         vs.core.bas.Source(source=filename, **kwargs)
         return True
     except AttributeError:

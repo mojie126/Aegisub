@@ -58,6 +58,51 @@ if (!(Test-Path VSFilter)) {
 	Set-Location $DepsDir
 }
 
+### Vapoursynth plugins
+
+# L-SMASH-Works
+if (!(Test-Path L-SMASH-Works)) {
+	New-Item -ItemType Directory L-SMASH-Works
+	$lsmasReleases = Invoke-WebRequest "https://api.github.com/repos/AkarinVS/L-SMASH-Works/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
+	$lsmasUrl = "https://github.com/AkarinVS/L-SMASH-Works/releases/download/" + $lsmasReleases.tag_name + "/release-x86_64-cachedir-cwd.zip"
+	Invoke-WebRequest $lsmasUrl -OutFile release-x86_64-cachedir-cwd.zip -UseBasicParsing
+	Expand-Archive -LiteralPath release-x86_64-cachedir-cwd.zip -DestinationPath L-SMASH-Works
+	Remove-Item release-x86_64-cachedir-cwd.zip
+}
+
+# bestaudiosource
+if (!(Test-Path bestaudiosource)) {
+	$basDir = New-Item -ItemType Directory bestaudiosource
+	Set-Location $basDir
+	$basReleases = Invoke-WebRequest "https://api.github.com/repos/vapoursynth/bestaudiosource/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
+	$basUrl = $basReleases.assets[0].browser_download_url
+	Invoke-WebRequest $basUrl -OutFile bas-r1.7z -UseBasicParsing
+	7z x bas-r1.7z
+	Remove-Item bas-r1.7z
+	Set-Location $DepsDir
+}
+
+# SCXVid
+if (!(Test-Path SCXVid)) {
+	$scxDir = New-Item -ItemType Directory SCXVid
+	Set-Location $scxDir
+	$scxReleases = Invoke-WebRequest "https://api.github.com/repos/dubhater/vapoursynth-scxvid/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
+	$scxUrl = "https://github.com/dubhater/vapoursynth-scxvid/releases/download/" + $scxReleases.tag_name + "/vapoursynth-scxvid-v1-win64.7z"
+	Invoke-WebRequest $scxUrl -OutFile vapoursynth-scxvid-v1-win64.7z -UseBasicParsing
+	7z x vapoursynth-scxvid-v1-win64.7z
+	Remove-Item vapoursynth-scxvid-v1-win64.7z
+	Set-Location $DepsDir
+}
+
+# WWXD
+if (!(Test-Path WWXD)) {
+	New-Item -ItemType Directory WWXD
+	$wwxdReleases = Invoke-WebRequest "https://api.github.com/repos/dubhater/vapoursynth-wwxd/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
+	$wwxdUrl = "https://github.com/dubhater/vapoursynth-wwxd/releases/download/" + $wwxdReleases.tag_name + "/libwwxd64.dll"
+	Invoke-WebRequest $wwxdUrl -OutFile WWXD/libwwxd64.dll -UseBasicParsing
+}
+
+
 # ffi-experiments
 if (!(Test-Path ffi-experiments)) {
 	Get-Command "moonc" # check to ensure Moonscript is present
