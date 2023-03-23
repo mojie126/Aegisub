@@ -79,7 +79,14 @@ if (!(Test-Path VC_redist)) {
 	Invoke-WebRequest https://aka.ms/vs/17/release/VC_redist.x64.exe -OutFile "$redistDir\VC_redist.x64.exe" -UseBasicParsing
 }
 
-# TODO dictionaries
+# dictionaries
+if (!(Test-Path dictionaries)) {
+	New-Item -ItemType Directory dictionaries
+	[Net.ServicePointManager]::SecurityProtocol = "Tls12" 	# Needed since otherwise downloading fails in some places like on the GitHub CI: https://stackoverflow.com/a/66614041/4730656
+	Invoke-WebRequest https://downloads.sourceforge.net/project/openofficeorg.mirror/contrib/dictionaries/en_US.zip -UserAgent "Wget" -OutFile en_US.zip -UseBasicParsing
+	Expand-Archive -LiteralPath en_US.zip -DestinationPath dictionaries
+	Remove-Item en_US.zip
+}
 
 # localization
 Set-Location $BuildRoot
