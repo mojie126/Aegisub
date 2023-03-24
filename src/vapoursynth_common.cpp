@@ -28,7 +28,7 @@
 
 void SetStringVar(const VSAPI *api, VSMap *map, std::string variable, std::string value) {
 	if (api->mapSetData(map, variable.c_str(), value.c_str(), -1, dtUtf8, 1))
-		throw VapoursynthError("Failed to set VSMap entry");
+		throw VapourSynthError("Failed to set VSMap entry");
 }
 
 int OpenScriptOrVideo(const VSAPI *api, const VSSCRIPTAPI *sapi, VSScript *script, agi::fs::path const& filename, std::string default_script) {
@@ -38,16 +38,21 @@ int OpenScriptOrVideo(const VSAPI *api, const VSSCRIPTAPI *sapi, VSScript *scrip
 	} else {
 		VSMap *map = api->createMap();
 		if (map == nullptr)
-			throw VapoursynthError("Failed to create VSMap for script info");
+			throw VapourSynthError("Failed to create VSMap for script info");
 
 		SetStringVar(api, map, "filename", filename.string());
 		SetStringVar(api, map, "__aegi_vscache", config::path->Decode("?local/vscache").string());
+#ifdef WIN32
+		SetStringVar(api, map, "__aegi_vsplugins", config::path->Decode("?data/vapoursynth").string());
+#else
+		SetStringVar(api, map, "__aegi_vsplugins", "");
+#endif
 		for (std::string dir : { "data", "dictionary", "local", "script", "temp", "user", })
 			// Don't include ?audio and ?video in here since these only hold the paths to the previous audio/video files.
 			SetStringVar(api, map, "__aegi_" + dir, config::path->Decode("?" + dir).string());
 
 		if (sapi->setVariables(script, map))
-			throw VapoursynthError("Failed to set script info variables");
+			throw VapourSynthError("Failed to set script info variables");
 
 		api->freeMap(map);
 

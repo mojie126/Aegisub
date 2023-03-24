@@ -351,7 +351,7 @@
 				"Aegisub Cache" : true
 			},
 			"VapourSynth" : {
-				"Default Script" : "# This default script will load an audio file using BestAudioSource.\n# It requires the `bas` plugin.\n\nimport vapoursynth as vs\ntry:\n    vs.core.bas.Source(source=filename).set_output()\nexcept AttributeError:\n   raise vs.Error(\"To use Aegisub's default audio loader, the `bas` plugin for VapourSynth must be installed\")"
+				"Default Script" : "# This default script will load an audio file using BestAudioSource.\n# It requires the `bas` plugin.\n\nimport vapoursynth as vs\nimport aegisub_vs as a\na.set_paths(globals())\n\na.ensure_plugin(\"bas\", \"BestAudioSource\", \"To use Aegisub's default audio loader, the `bas` plugin for VapourSynth must be installed\")\nvs.core.bas.Source(source=filename).set_output()"
 			}
 		},
 		"Avisynth" : {
@@ -392,7 +392,7 @@
 			},
 			"VapourSynth" : {
 				"Log Level": "Information",
-				"Default Script" : "# This default script will load a video file using LWLibavSource.\n# It requires the `lsmas` plugin.\n# See ?data/automation/vapoursynth/aegisub_vs.py for more information.\n\nimport aegisub_vs as a\nimport vapoursynth as vs\n\nclip, videoinfo = a.wrap_lwlibavsource(filename, __aegi_vscache)\nclip.set_output()\n__aegi_timecodes = videoinfo[\"timecodes\"]\n__aegi_keyframes = videoinfo[\"keyframes\"]\n# Uncomment this to automatically generate keyframes at scene changes.\n#__aegi_keyframes = a.get_keyframes(filename, clip)\n\n# Check if the file has an audio track. This requires the `bas` plugin.\n__aegi_hasaudio = 1 if a.check_audio(filename) else 0"
+				"Default Script" : "# This default script will load a video file using LWLibavSource.\n# It requires the `lsmas` plugin.\n# See ?data/automation/vapoursynth/aegisub_vs.py for more information.\n\nimport vapoursynth as vs\nimport time\nimport aegisub_vs as a\na.set_paths(locals())\n\nclip, videoinfo = a.wrap_lwlibavsource(filename)\nclip.set_output()\n__aegi_timecodes = videoinfo[\"timecodes\"]\n__aegi_keyframes = videoinfo[\"keyframes\"]\n\n# Uncomment the first following line to read keyframes from a file when present.\n#__aegi_keyframes = a.try_get_keyframes(filename, __aegi_keyframes)\n\n# Uncomment the following line to automatically generate keyframes at scene changes. This will take some time when first loading a video.\n__aegi_keyframes = a.get_keyframes(filename, clip)\n\n# Check if the file has an audio track. This requires the `bas` plugin.\n__aegi_hasaudio = 1 if a.check_audio(filename) else 0"
 			}
 		}
 	},

@@ -23,7 +23,7 @@
 
 #include <libaegisub/exception.h>
 
-DEFINE_EXCEPTION(VapoursynthError, agi::Exception);
+DEFINE_EXCEPTION(VapourSynthError, agi::Exception);
 
 struct VSAPI;
 struct VSSCRIPTAPI;

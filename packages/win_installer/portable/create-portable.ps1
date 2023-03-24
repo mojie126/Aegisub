@@ -51,11 +51,19 @@ Copy-New-Item $InstallerDir\bin\aegisub.exe  $PortableOutputDir
 
 Write-Output 'Copying - translations'
 Copy-New-Items "$InstallerDir\share\locale\*"  "$PortableOutputDir\locale" -Recurse
+Write-Output 'Copying - dictionaries'
+Copy-New-Item $InstallerDepsDir\dictionaries\en_US.aff  $PortableOutputDir\dictionaries
+Copy-New-Item $InstallerDepsDir\dictionaries\en_US.dic  $PortableOutputDir\dictionaries
 Write-Output 'Copying - codecs'
 Write-Output 'Copying - codecs\Avisynth'
 Copy-New-Item $InstallerDepsDir\AvisynthPlus64\x64\system\DevIL.dll  $PortableOutputDir
 Copy-New-Item $InstallerDepsDir\AvisynthPlus64\x64\AviSynth.dll  $PortableOutputDir
 Copy-New-Item $InstallerDepsDir\AvisynthPlus64\x64\plugins\DirectShowSource.dll  $PortableOutputDir
+Write-Output 'Copying - codecs\VapourSynth'
+Copy-New-Item $InstallerDepsDir\L-SMASH-Works\libvslsmashsource.dll  $PortableOutputDir\vapoursynth
+Copy-New-Item $InstallerDepsDir\bestaudiosource\win64\BestAudioSource.dll  $PortableOutputDir\vapoursynth
+Copy-New-Item $InstallerDepsDir\SCXVid\libscxvid.dll  $PortableOutputDir\vapoursynth
+Copy-New-Item $InstallerDepsDir\WWXD\libwwxd64.dll  $PortableOutputDir\vapoursynth
 Write-Output 'Copying - codecs\VSFilter'
 Copy-New-Item $InstallerDepsDir\VSFilter\x64\VSFilter.dll  $PortableOutputDir\csri
 Write-Output 'Copying - runtimes\MS-CRT'

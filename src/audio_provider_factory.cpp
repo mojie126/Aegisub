@@ -32,7 +32,7 @@ using namespace agi;
 std::unique_ptr<AudioProvider> CreateAvisynthAudioProvider(fs::path const& filename, BackgroundRunner *);
 std::unique_ptr<AudioProvider> CreateFFmpegSourceAudioProvider(fs::path const& filename, BackgroundRunner *);
 std::unique_ptr<AudioProvider> CreateBSAudioProvider(fs::path const& filename, BackgroundRunner *);
-std::unique_ptr<AudioProvider> CreateVapoursynthAudioProvider(fs::path const& filename, BackgroundRunner *);
+std::unique_ptr<AudioProvider> CreateVapourSynthAudioProvider(fs::path const& filename, BackgroundRunner *);
 
 namespace {
 struct factory {
@@ -54,7 +54,7 @@ const factory providers[] = {
 	{"BestSource", CreateBSAudioProvider, false},
 #endif
 #ifdef WITH_VAPOURSYNTH
-	{"Vapoursynth", CreateVapoursynthAudioProvider, false},
+	{"VapourSynth", CreateVapourSynthAudioProvider, false},
 #endif
 };
 }
