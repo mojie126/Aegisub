@@ -38,4 +38,10 @@ else
         install_data('desktop' / dir / 'aegisub.' + ext,
                      install_dir: datadir / 'icons' / 'hicolor' / dir / 'apps')
     endforeach
+
+    if get_option('build_appimage')
+      install_symlink('AppRun', install_dir: '/', pointing_to: bindir.strip('/') / 'aegisub')
+      install_symlink('.DirIcon', install_dir: '/', pointing_to: datadir.strip('/') / 'icons' / 'hicolor' / 'scalable' / 'apps' / 'aegisub.svg')
+      install_symlink('aegisub.desktop', install_dir: '/', pointing_to: datadir.strip('/') / 'applications' / 'aegisub.desktop')
+    endif
 endif

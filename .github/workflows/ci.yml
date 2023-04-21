@@ -49,6 +49,19 @@ jobs:
             buildtype: release,
             args: ''
           }
+          - name: Ubuntu AppImage
+            os: ubuntu-22.04
+            buildtype: release
+            appimage: true
+            # distro ffms is currently broken
+            args: >-
+              --prefix=/usr
+              -Dbuild_appimage=true
+              -Ddefault_library=static
+              --force-fallback-for=ffms2
+              -Davisynth=enabled
+              -Dbestsource=enabled
+              -Dvapoursynth=enabled
           - {
             name: macOS Debug,
             os: macos-latest,
@@ -102,13 +115,13 @@ jobs:
           brew install pulseaudio  # NO OpenAL in github CI
 
       - name: Install dependencies (Linux)
-        if: matrix.config.os == 'ubuntu-latest'
+        if: startsWith(matrix.config.os, 'ubuntu-')
         run: |
           sudo apt-get update
           sudo apt-get install ninja-build build-essential libx11-dev libwxgtk3.0-gtk3-dev libfreetype6-dev pkg-config libfontconfig1-dev libass-dev libasound2-dev libffms2-dev intltool libboost-all-dev
 
       - name: Configure
-        run: meson build ${{ matrix.config.args }} -Dbuildtype=${{ matrix.config.buildtype }}
+        run: meson setup build ${{ matrix.config.args }} -Dbuildtype=${{ matrix.config.buildtype }}
 
       - name: Build
         run: meson compile -C build
@@ -156,4 +169,29 @@ jobs:
         with:
           name: ${{ matrix.config.name }} - installer
           path: build/Aegisub-*.dmg
+          if-no-files-found: error
+
+      # Linux artifacts (AppImage)
+      - name: Generate AppImage
+        if: matrix.config.appimage
+        run: |
+          mkdir -p appimage/appdir
+          meson install -C build --destdir=../appimage/appdir
+
+          cd appimage
+          sudo apt-get install libfuse2
+          curl -L "https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20220822-1/linuxdeploy-x86_64.AppImage" -o linuxdeploy
+          curl -L "https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage" -o appimagetool
+          chmod +x linuxdeploy appimagetool
+
+          ./linuxdeploy --appdir appdir --desktop-file=appdir/aegisub.desktop
+          ./appimagetool appdir
+          # ./appimagetool -g -s appdir --comp xz
+
+      - name: Upload artifacts - Linux AppImage
+        uses: actions/upload-artifact@v3
+        if: matrix.config.appimage
+        with:
+          name: ${{ matrix.config.name }}
+          path: appimage/*.AppImage
           if-no-files-found: error
