@@ -1,6 +1,6 @@
 project('Aegisub', ['c', 'cpp'],
         license: 'BSD-3-Clause',
-        meson_version: '>=0.57.0',
+        meson_version: '>=0.61.0',
         default_options: ['cpp_std=c++14', 'buildtype=debugoptimized'],
         version: '3.2.2')
 
@@ -57,10 +57,14 @@ if get_option('buildtype') == 'release'
 endif
 
 conf = configuration_data()
+conf.set_quoted('P_BIN', bindir)
 conf.set_quoted('P_DATA', dataroot)
 conf.set_quoted('P_LOCALE', localedir)
 if get_option('credit') != ''
     conf.set_quoted('BUILD_CREDIT', get_option('credit'))
+endif
+if get_option('build_appimage')
+    conf.set('APPIMAGE_BUILD', 1)
 endif
 conf.set('WITH_UPDATE_CHECKER', get_option('enable_update_checker'))
 
@@ -98,7 +102,7 @@ deps += dependency('libass', version: '>=0.9.7',
 
 boost_modules = ['chrono', 'filesystem', 'thread', 'locale', 'regex']
 if not get_option('local_boost')
-    boost_dep = dependency('boost', version: '>=1.50.0',
+    boost_dep = dependency('boost', version: '>=1.60.0',
                             modules: boost_modules + ['system'],
                             required: false,
                             static: get_option('default_library') == 'static')

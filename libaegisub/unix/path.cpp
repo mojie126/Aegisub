@@ -75,14 +75,13 @@ void Path::FillPlatformSpecificPaths() {
 	SetToken("?local", home/".aegisub");
 
 #ifdef APPIMAGE_BUILD
-	agi::fs::path data = exe_dir();
-	if (data == "") data = home/".aegisub";
-	SetToken("?data", data);
-	SetToken("?dictionary", Decode("?data/dictionaries"));
+	agi::fs::path exe = exe_dir();
+	agi::fs::path data_from_bin = agi::fs::path(P_DATA).lexically_relative(P_BIN);
+	SetToken("?data", (exe != "" ? exe/data_from_bin : home/".aegisub").make_preferred());
 #else
 	SetToken("?data", P_DATA);
-	SetToken("?dictionary", "/usr/share/hunspell");
 #endif
+	SetToken("?dictionary", "/usr/share/hunspell");
 
 #else
 	agi::fs::path app_support = agi::util::GetApplicationSupportDirectory();
