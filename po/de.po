@@ -7,9 +7,9 @@ msgstr ""
 "Project-Id-Version: Aegisub 3\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-04-30 03:10+0200\n"
-"PO-Revision-Date: 2023-04-30 01:20+0200\n"
+"PO-Revision-Date: 2023-04-30 01:27+0200\n"
 "Last-Translator: Oneric <oneric@nomail>\n"
-"Language-Team: Pantsu ga daisuki <erokawaii@yandex.ru>\n"
+"Language-Team: \n"
 "Language: de_DE\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -204,8 +204,9 @@ msgid "Audio timing"
 msgstr "Audio-Timing"
 
 #: ../packages/desktop/aegisub.appdata.xml.in.in:44
+#, fuzzy
 msgid "Aegisub Group"
-msgstr ""
+msgstr "Aegisub Group"
 
 #: ../packages/desktop/aegisub.desktop.in.in:6
 msgid "Subtitle Editor"
@@ -350,7 +351,7 @@ msgstr "Indiziere"
 #: ../src/audio_provider_bestsource.cpp:60
 #: ../src/video_provider_bestsource.cpp:119
 msgid "Creating cache... This can take a while!"
-msgstr ""
+msgstr "Cache erstellen... könnte etwas dauern!"
 
 #: ../src/audio_renderer_waveform.cpp:152
 msgid "Maximum"
@@ -655,11 +656,11 @@ msgstr "Öffnet die Tonspur der aktuellen Videodatei"
 
 #: ../src/command/audio.cpp:133 ../src/command/audio.cpp:134
 msgid "Reload Audio"
-msgstr ""
+msgstr "Audio neuladen"
 
 #: ../src/command/audio.cpp:135
 msgid "Reload the current audio file"
-msgstr ""
+msgstr "Lädt aktuelle Audiodatei neu"
 
 #: ../src/command/audio.cpp:144
 msgid "&Spectrum Display"
@@ -1522,7 +1523,7 @@ msgstr "Sortiert markierte Untertitel nach ihren Stilnamen"
 
 #: ../src/command/grid.cpp:254 ../src/command/grid.cpp:266
 msgid "Te&xt"
-msgstr ""
+msgstr "Te&xt"
 
 #: ../src/command/grid.cpp:255 ../src/command/grid.cpp:267
 #: ../src/dialog_kara_timing_copy.cpp:475 ../src/dialog_paste_over.cpp:73
@@ -2606,11 +2607,11 @@ msgstr "Untertitel-Provider %s gewählt"
 
 #: ../src/command/video.cpp:241 ../src/command/video.cpp:242
 msgid "Reload active subtitles provider"
-msgstr ""
+msgstr "Aktiven Untertitel-Provider neuladen"
 
 #: ../src/command/video.cpp:243
 msgid "Reloads the current subtitles provider"
-msgstr ""
+msgstr "Lädt den momentanen Untertitel-Provider neu"
 
 #: ../src/command/video.cpp:259
 msgid "&Detach Video"
@@ -2670,13 +2671,15 @@ msgstr ""
 
 #: ../src/command/video.cpp:340 ../src/command/video.cpp:341
 msgid "Copy image to Clipboard (only subtitles)"
-msgstr ""
+msgstr "Bild in Zwischenablage kopieren (nur Untertitel)"
 
 #: ../src/command/video.cpp:342
 msgid ""
 "Copy the currently displayed subtitles to the clipboard, with transparent "
 "background"
 msgstr ""
+"Kopiert momentan angezeigte Untertitel auf transparentem Hintegrund in die "
+"Zwischenablage"
 
 #: ../src/command/video.cpp:351 ../src/command/video.cpp:352
 msgid "Next Frame"
@@ -2760,13 +2763,15 @@ msgstr ""
 
 #: ../src/command/video.cpp:553 ../src/command/video.cpp:554
 msgid "Save PNG snapshot (only subtitles)"
-msgstr ""
+msgstr "Bild als PNG speichern (nur Untertitel)"
 
 #: ../src/command/video.cpp:555
 msgid ""
 "Save the currently displayed subtitles with transparent background to a PNG "
 "file in the video's directory"
 msgstr ""
+"Speichert momentan angezeigte Untertitel auf transparentem Hintegrund als "
+"PNG-Datei im Video-Ordner"
 
 #: ../src/command/video.cpp:565
 msgid "&Jump to..."
@@ -2834,11 +2839,11 @@ msgstr "Öffne einen einfarbigen Videoclip"
 
 #: ../src/command/video.cpp:634 ../src/command/video.cpp:635
 msgid "Reload Video"
-msgstr ""
+msgstr "Video neuladen"
 
 #: ../src/command/video.cpp:636
 msgid "Reload the current video file"
-msgstr ""
+msgstr "Lädt aktuelle Video-Datei neu"
 
 #: ../src/command/video.cpp:646 ../src/command/video.cpp:647
 msgid "Toggle autoscroll of video"
@@ -5546,7 +5551,7 @@ msgstr "Zeilennummer"
 
 #: ../src/grid_column.cpp:130
 msgid " >"
-msgstr ""
+msgstr ">"
 
 #: ../src/grid_column.cpp:131
 msgid "Folds"
@@ -6003,7 +6008,7 @@ msgstr "Leerzeichen überspringen"
 
 #: ../src/preferences.cpp:235
 msgid "Colour Picker"
-msgstr ""
+msgstr "Farbwähler"
 
 #: ../src/preferences.cpp:236
 msgid "Restrict Screen Picker to Window"
@@ -6357,27 +6362,27 @@ msgstr "Qualität"
 
 #: ../src/preferences.cpp:399
 msgid "Compressed"
-msgstr ""
+msgstr "Komprimiert"
 
 #: ../src/preferences.cpp:399
 msgid "Extended"
-msgstr ""
+msgstr "Erweitert"
 
 #: ../src/preferences.cpp:399
 msgid "Linear"
-msgstr ""
+msgstr "Linear"
 
 #: ../src/preferences.cpp:399
 msgid "Logarithmic"
-msgstr ""
+msgstr "Logarithmisch"
 
 #: ../src/preferences.cpp:399
 msgid "Medium"
-msgstr ""
+msgstr "Medium"
 
 #: ../src/preferences.cpp:401
 msgid "Frequency mapping"
-msgstr ""
+msgstr "Frequenzabbildung"
 
 #: ../src/preferences.cpp:403
 msgid "Cache memory max (MB)"
@@ -6413,7 +6418,7 @@ msgstr "Immer alle Tonspuren indexieren"
 
 #: ../src/preferences.cpp:421
 msgid "Downmix to stereo"
-msgstr ""
+msgstr "Downmix auf Stereo"
 
 #: ../src/preferences.cpp:427
 msgid "Max BS cache size (MB)"
@@ -6477,15 +6482,15 @@ msgstr ""
 
 #: ../src/preferences.cpp:492
 msgid "VapourSynth"
-msgstr ""
+msgstr "VapourSynth"
 
 #: ../src/preferences.cpp:497
 msgid "Log Level"
-msgstr ""
+msgstr "Log-Level"
 
 #: ../src/preferences.cpp:499
 msgid "Default Video Script"
-msgstr ""
+msgstr "Standard-Videoskript"
 
 #: ../src/preferences.cpp:501
 msgid ""
@@ -6493,10 +6498,13 @@ msgid ""
 "VapourSynth scripts (i.e. end in .py or .vpy).\n"
 "The filename variable stores the path to the file."
 msgstr ""
+"Dieses Skript wird ausgeführt um Videodateien zu laden,\n"
+"die nicht bereits VapourSynth-Skripte sind (.py- oder .vpy-Endung).\n"
+"Die Variable \"filename\"speichert den Dateipfad."
 
 #: ../src/preferences.cpp:509
 msgid "Default Audio Script"
-msgstr ""
+msgstr "Standard-Audioskript"
 
 #: ../src/preferences.cpp:510
 msgid ""
@@ -6504,6 +6512,9 @@ msgid ""
 "VapourSynth scripts (i.e. end in .py or .vpy).\n"
 "The filename variable stores the path to the file."
 msgstr ""
+"Dieses Skript wird ausgeführt um Audiodateien zu laden,\n"
+"die nicht bereits VapourSynth-Skripte sind (.py- oder .vpy-Endung).\n"
+"Die Variable \"filename\" speichert den Dateipfad."
 
 #: ../src/preferences.cpp:648
 msgid "Hotkeys"
@@ -6939,11 +6950,12 @@ msgstr ""
 
 #: ../src/video_provider_vs.cpp:137
 msgid "Executing VapourSynth Script"
-msgstr ""
+msgstr "VapourSynth-Skript wird ausgeführt"
 
 #: ../src/video_provider_vs.cpp:147
 msgid "Failed to execute script! Press \"Close\" to continue."
 msgstr ""
+"Skriptausführung fehlgeschlagen! Drücken Sie \"Schließen\" um fortzufahren."
 
 #: ../src/visual_tool.cpp:129
 msgid "visual typesetting"
