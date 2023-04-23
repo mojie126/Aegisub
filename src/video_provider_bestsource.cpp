@@ -115,7 +115,7 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 	}
 
 	br->Run([&](agi::ProgressSink *ps) {
-		ps->SetTitle(from_wx(_("Exacting")));
+		ps->SetTitle(from_wx(_("Indexing")));
 		ps->SetMessage(from_wx(_("Creating cache... This can take a while!")));
 		ps->SetIndeterminate();
 		if (bs.GetExactDuration()) {
@@ -126,7 +126,7 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 
 	br->Run([&](agi::ProgressSink *ps) {
 		ps->SetTitle(from_wx(_("Scanning")));
-		ps->SetMessage(from_wx(_("Finding Keyframes and Timecodes...")));
+		ps->SetMessage(from_wx(_("Reading timecodes and frame/sample data")));
 
 		std::vector<int> TimecodesVector;
 		for (int n = 0; n < properties.NumFrames; n++) {
