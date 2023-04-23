@@ -56,7 +56,7 @@ BSAudioProvider::BSAudioProvider(agi::fs::path const& filename, agi::BackgroundR
 {
 	bs.SetMaxCacheSize(OPT_GET("Provider/Audio/BestSource/Max Cache Size")->GetInt() << 20);
 	br->Run([&](agi::ProgressSink *ps) {
-		ps->SetTitle(from_wx(_("Exacting")));
+		ps->SetTitle(from_wx(_("Indexing")));
 		ps->SetMessage(from_wx(_("Creating cache... This can take a while!")));
 		ps->SetIndeterminate();
 		if (bs.GetExactDuration()) {

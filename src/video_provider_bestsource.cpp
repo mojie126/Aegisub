@@ -43,6 +43,7 @@ namespace agi { class BackgroundRunner; }
 #include <libaegisub/make_unique.h>
 #include <libaegisub/background_runner.h>
 #include <libaegisub/log.h>
+#include <libaegisub/format.h>
 
 namespace {
 
@@ -114,7 +115,7 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 	}
 
 	br->Run([&](agi::ProgressSink *ps) {
-		ps->SetTitle(from_wx(_("Exacting")));
+		ps->SetTitle(from_wx(_("Indexing")));
 		ps->SetMessage(from_wx(_("Creating cache... This can take a while!")));
 		ps->SetIndeterminate();
 		if (bs.GetExactDuration()) {
@@ -125,7 +126,7 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 
 	br->Run([&](agi::ProgressSink *ps) {
 		ps->SetTitle(from_wx(_("Scanning")));
-		ps->SetMessage(from_wx(_("Finding Keyframes and Timecodes...")));
+		ps->SetMessage(from_wx(_("Reading timecodes and frame/sample data")));
 
 		std::vector<int> TimecodesVector;
 		for (int n = 0; n < properties.NumFrames; n++) {
@@ -159,7 +160,7 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 	colorspace = colormatrix_description(frame->GetAVFrame());
 }
 catch (VideoException const& err) {
-	throw VideoOpenError("Failed to create BestVideoSource");
+	throw VideoOpenError(agi::format("Failed to create BestVideoSource: %s",  + err.what()));
 }
 
 void BSVideoProvider::GetFrame(int n, VideoFrame &out) {

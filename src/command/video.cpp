@@ -659,8 +659,8 @@ struct video_opt_autoscroll final : public Command {
 
 struct video_pan_reset final : public validator_video_loaded {
 	CMD_NAME("video/pan_reset")
-	STR_MENU("Reset video pan")
-	STR_DISP("Reset video pan")
+	STR_MENU("Reset Video Pan")
+	STR_DISP("Reset Video Pan")
 	STR_HELP("Reset the video pan to the original value")
 
 	void operator()(agi::Context *c) override {
