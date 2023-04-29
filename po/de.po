@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: Aegisub 3\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-04-30 03:10+0200\n"
-"PO-Revision-Date: 2020-07-26 17:57+0200\n"
+"PO-Revision-Date: 2023-04-30 01:20+0200\n"
 "Last-Translator: Oneric <oneric@nomail>\n"
 "Language-Team: Pantsu ga daisuki <erokawaii@yandex.ru>\n"
 "Language: de_DE\n"
@@ -15,7 +15,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Previous-Translator: Shimapan <erokawaii@yandex.ru>\n"
-"X-Generator: Poedit 2.2.1\n"
+"X-Generator: Poedit 3.2.2\n"
 "X-Poedit-SourceCharset: UTF-8\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
@@ -99,7 +99,7 @@ msgstr "Entferne Tags"
 
 #: ../automation/autoload/strip-tags.lua:18
 msgid "Remove all override tags from selected lines"
-msgstr "Entfernte alle Tags der ausgewählten Zeilen"
+msgstr "Entferne alle Tags der ausgewählten Zeilen"
 
 #: ../automation/autoload/strip-tags.lua:28
 msgid "strip tags"
@@ -841,7 +841,7 @@ msgstr "Nach dem Anwenden direkt zur nächsten Zeile wechseln"
 
 #: ../src/command/audio.cpp:483
 msgid "Automatically go to next line on commit"
-msgstr "Nach dem Anwenden, automatisch zur nächsten Zeile wechseln"
+msgstr "Nach dem Anwenden automatisch zur nächsten Zeile wechseln"
 
 #: ../src/command/audio.cpp:498 ../src/command/audio.cpp:499
 #: ../src/command/audio.cpp:500
@@ -911,7 +911,7 @@ msgid ""
 "autoload folder and reload all automation scripts"
 msgstr ""
 "Automatisierungs-Manager öffnen\n"
-"Strg: Autom.-Laden neu prüfen\n"
+"Strg: Autom.-Laden-Ordner neu prüfen\n"
 "Strg+Shift: Zusätzlich alle Skripte neu laden"
 
 #: ../src/command/command.cpp:34
@@ -2097,7 +2097,7 @@ msgstr "Ändere Anfang"
 #: ../src/command/time.cpp:119
 msgid "Change start times of lines to the previous line's end time"
 msgstr ""
-"Setze den Startzeit der Zeilen auf das Ende der jeweiligen Vorgängerzeile"
+"Setze die Startzeit der Zeilen auf das Ende der jeweiligen Vorgängerzeile"
 
 #: ../src/command/time.cpp:129
 msgid "Shift to &Current Frame"
@@ -3913,7 +3913,7 @@ msgstr "Kanji-Timing"
 
 #: ../src/dialog_kara_timing_copy.cpp:574
 msgid "Select source and destination styles first."
-msgstr "Wahlen Sie zuerst Quell- und Zielstile."
+msgstr "Wählen Sie zuerst Quell- und Zielstile."
 
 #: ../src/dialog_kara_timing_copy.cpp:576
 msgid "The source and destination styles must be different."
