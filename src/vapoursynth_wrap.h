@@ -21,13 +21,14 @@
 
 #ifdef WITH_VAPOURSYNTH
 
+#include <mutex>
+
 #include <libaegisub/exception.h>
 
 DEFINE_EXCEPTION(VapourSynthError, agi::Exception);
 
 struct VSAPI;
 struct VSSCRIPTAPI;
-namespace std { class mutex; }
 
 class VapourSynthWrapper {
 	VapourSynthWrapper(VapourSynthWrapper const&);
