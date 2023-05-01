@@ -6500,7 +6500,7 @@ msgid ""
 msgstr ""
 "Dieses Skript wird ausgeführt um Videodateien zu laden,\n"
 "die nicht bereits VapourSynth-Skripte sind (.py- oder .vpy-Endung).\n"
-"Die Variable \"filename\"speichert den Dateipfad."
+"Die Variable \"filename\" speichert den Dateipfad."
 
 #: ../src/preferences.cpp:509
 msgid "Default Audio Script"
