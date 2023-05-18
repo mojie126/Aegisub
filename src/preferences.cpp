@@ -92,7 +92,7 @@ void General_DefaultStyles(wxTreebook *book, Preferences *parent) {
 	instructions->Wrap(400);
 	staticbox->Add(instructions, 0, wxALL, 5);
 	staticbox->AddSpacer(16);
-	
+
 	auto general = new wxFlexGridSizer(2, 5, 5);
 	general->AddGrowableCol(0, 1);
 	staticbox->Add(general, 1, wxEXPAND, 5);
@@ -227,6 +227,9 @@ void Interface(wxTreebook *book, Preferences *parent) {
 
 	auto tl_assistant = p->PageSizer(_("Translation Assistant"));
 	p->OptionAdd(tl_assistant, _("Skip over whitespace"), "Tool/Translation Assistant/Skip Whitespace");
+
+	auto visual_tools = p->PageSizer(_("Visual Tools"));
+	p->OptionAdd(visual_tools, _("Shape handle size"), "Tool/Visual/Shape Handle Size");
 
 	p->SetSizerAndFit(p->sizer);
 }
