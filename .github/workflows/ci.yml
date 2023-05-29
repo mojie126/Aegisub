@@ -120,7 +120,7 @@ jobs:
         if: startsWith(matrix.config.os, 'ubuntu-')
         run: |
           sudo apt-get update
-          sudo apt-get install ninja-build build-essential libx11-dev libwxgtk3.0-gtk3-dev libfreetype6-dev pkg-config libfontconfig1-dev libass-dev libasound2-dev libffms2-dev intltool libboost-all-dev
+          sudo apt-get install ninja-build build-essential libx11-dev libwxgtk3.0-gtk3-dev libfreetype6-dev pkg-config libfontconfig1-dev libass-dev libasound2-dev libffms2-dev intltool libboost-all-dev libhunspell-dev libuchardet-dev libpulse-dev libopenal-dev libjansson-dev
 
       - name: Configure
         run: meson setup build ${{ matrix.config.args }} -Dbuildtype=${{ matrix.config.buildtype }}
@@ -188,7 +188,6 @@ jobs:
 
           ./linuxdeploy --appdir appdir --desktop-file=appdir/aegisub.desktop
           ./appimagetool appdir
-          # ./appimagetool -g -s appdir --comp xz
 
       - name: Upload artifacts - Linux AppImage
         uses: actions/upload-artifact@v3
