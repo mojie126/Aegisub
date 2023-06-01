@@ -50,15 +50,9 @@ using EntryList = typename boost::intrusive::make_list<T, boost::intrusive::cons
 
 struct ExtradataEntry {
 	uint32_t id;
+	int expiration_counter;
 	std::string key;
 	std::string value;
-};
-
-// Both start and end are inclusive
-struct LineFold {
-	int start;
-	int end;
-	bool collapsed;
 };
 
 struct AssFileCommit {
