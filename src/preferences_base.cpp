@@ -156,7 +156,7 @@ wxControl *OptionPage::OptionAdd(wxFlexGridSizer *flex, const wxString &name, co
 	}
 }
 
-wxControl *OptionPage::OptionAddMultiline(wxSizer *sizer, const char *opt_name) {
+wxTextCtrl *OptionPage::OptionAddMultiline(wxSizer *sizer, const char *opt_name) {
 	parent->AddChangeableOption(opt_name);
 	const auto opt = OPT_GET(opt_name);
 

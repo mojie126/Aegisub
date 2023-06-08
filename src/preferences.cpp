@@ -480,22 +480,36 @@ void VapourSynth(wxTreebook *book, Preferences *parent) {
 
 	auto video = p->PageSizer(_("Default Video Script"));
 
+	auto make_default_button = [=](std::string optname, wxTextCtrl *ctrl) {
+		auto showdefault = new wxButton(p, -1, _("Set to Default"));
+		showdefault->Bind(wxEVT_BUTTON, [=](auto e) {
+			ctrl->SetValue(OPT_GET(optname)->GetDefaultString());
+		});
+		return showdefault;
+	};
+
 	auto vhint = new wxStaticText(p, wxID_ANY, _("This script will be executed to load video files that aren't\nVapourSynth scripts (i.e. end in .py or .vpy).\nThe filename variable stores the path to the file."));
 	p->sizer->Fit(p);
 	vhint->Wrap(400);
 	video->Add(vhint, 0, wxALL, 5);
-	video->AddSpacer(16);
+	p->CellSkip(video);
 
-	p->OptionAddMultiline(video, "Provider/Video/VapourSynth/Default Script");
+	auto vdef = p->OptionAddMultiline(video, "Provider/Video/VapourSynth/Default Script");
+	p->CellSkip(video);
+
+	video->Add(make_default_button("Provider/Video/VapourSynth/Default Script", vdef), wxSizerFlags().Right());
 
 	auto audio = p->PageSizer(_("Default Audio Script"));
 	auto ahint = new wxStaticText(p, wxID_ANY, _("This script will be executed to load audio files that aren't\nVapourSynth scripts (i.e. end in .py or .vpy).\nThe filename variable stores the path to the file."));
 	p->sizer->Fit(p);
 	ahint->Wrap(400);
 	audio->Add(ahint, 0, wxALL, 5);
-	audio->AddSpacer(16);
+	p->CellSkip(audio);
 
-	p->OptionAddMultiline(audio, "Provider/Audio/VapourSynth/Default Script");
+	auto adef = p->OptionAddMultiline(audio, "Provider/Audio/VapourSynth/Default Script");
+	p->CellSkip(audio);
+
+	audio->Add(make_default_button("Provider/Audio/VapourSynth/Default Script", adef), wxSizerFlags().Right());
 
 	p->SetSizerAndFit(p->sizer);
 #endif
