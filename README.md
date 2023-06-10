@@ -1,5 +1,7 @@
 ## arch1t3cht's Aegisub "fork"
-Go [here](#branchfeature-list) for the new features.
+Download release builds [here](https://github.com/arch1t3cht/Aegisub/releases), or the latest CI builds [here](https://github.com/arch1t3cht/Aegisub/actions).
+
+The release page also has detailed list of all changes and new features. If you're interested in the technical details or want to compile yourself, read on.
 
 ### Don't we have enough Aegisub forks already??
 We absolutely do, and I'm aware that adding another one [doesn't sound like](https://xkcd.com/927/) a [good idea on paper](https://cdn.discordapp.com/attachments/425357202963038208/1007103606421459004/unknown.png). However,
@@ -50,9 +52,6 @@ This is probably because you're building with wxgtk2. Building with wxgtk3 fixes
 
 The exact way of switching depends on your Linux distribution, but essentially you need to ensure that `wx-config` or the next best variant of it points to wxgtk3. If it points to wxgtk2 by default and deinstalling wxgtk2 isn't an option, you can also temporarily move it out of the path or use a `native-file` in your meson project. Then, fully reconfigure meson using `meson configure --clearcache` and `meson setup --reconfigure`.
 
-#### I get errors like "Option not found" after merging one of these branches
-The changes to `default_config.json` or similar files weren't detected by meson due to missing regen dependencies. You can either merge the `bugfixes` branch or rebuild from scratch.
-
 #### The video is desynced / Frames don't appear at the right time
 This is probably due to the ffms2 seeking bug ([#394](https://github.com/FFMS/ffms2/issues/394)). On Windows, this specific regression shouldn't happen anymore. On Linux, you need to install the latest git version of ffms2 - for example the [`ffms2-git`](https://aur.archlinux.org/packages/ffms2-git) AUR package on Arch linux, or just compile it yourself.
 
@@ -63,11 +62,13 @@ If you're compiling yourself, try adding `--force-fallback-for=zlib` to the meso
 
 
 ### Compilation
+If you're just looking to install Aegisub, you might want to check out the [releases page](https://github.com/arch1t3cht/Aegisub/releases) or the [CI builds](https://github.com/arch1t3cht/Aegisub/actions) first.
+
 For compilation on Windows, see the TSTools documentation below. Also check the [GitHub workflow](https://github.com/arch1t3cht/Aegisub/blob/cibuilds/.github/workflows/ci.yml) for the project arguments.
 
 On Arch Linux, there is an AUR package called [aegisub-arch1t3cht-git](https://aur.archlinux.org/packages/aegisub-arch1t3cht-git). It's not maintained by me but seems to work.
 
-On other distributions or for manual compilation you can use this package or the [TSTools PKGBUILD](https://aur.archlinux.org/packages/aegisub-ttools-meson-git) as a reference, in particular for installing the necessary dependencies if you don't want to compile them yourself.
+On other Linux distributions or for manual compilation you can use this package or the [TSTools PKGBUILD](https://aur.archlinux.org/packages/aegisub-ttools-meson-git) as a reference, in particular for installing the necessary dependencies if you don't want to compile them yourself.
 If all dependencies are installed:
 - Install Meson
 - Clone the repository
@@ -132,7 +133,7 @@ All other dependencies are either stored in the repository or are included as su
 
 Building:
 
-1. Clone Aegisub's repository: `git clone https://github.com/TypesettingTools/Aegisub.git`
+1. Clone Aegisub's repository: `git clone https://github.com/arch1t3cht/Aegisub.git`
 2. From the Visual Studio "x64 Native Tools Command Prompt", generate the build directory: `meson build -Ddefault_library=static` (if building for release, add `--buildtype=release`)
 3. Build with `cd build` and `ninja`
 
