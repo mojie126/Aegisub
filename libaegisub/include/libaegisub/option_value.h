@@ -84,6 +84,12 @@ public:
 	Color const& GetColor() const;
 	bool const& GetBool() const;
 
+	std::string const& GetDefaultString() const;
+	int64_t const& GetDefaultInt() const;
+	double const& GetDefaultDouble() const;
+	Color const& GetDefaultColor() const;
+	bool const& GetDefaultBool() const;
+
 	void SetString(const std::string);
 	void SetInt(const int64_t);
 	void SetDouble(const double);
@@ -95,6 +101,12 @@ public:
 	std::vector<double> const& GetListDouble() const;
 	std::vector<Color> const& GetListColor() const;
 	std::vector<bool> const& GetListBool() const;
+
+	std::vector<std::string> const& GetDefaultListString() const;
+	std::vector<int64_t> const& GetDefaultListInt() const;
+	std::vector<double> const& GetDefaultListDouble() const;
+	std::vector<Color> const& GetDefaultListColor() const;
+	std::vector<bool> const& GetDefaultListBool() const;
 
 	void SetListString(std::vector<std::string>);
 	void SetListInt(std::vector<int64_t>);
@@ -117,6 +129,7 @@ public:
 		: OptionValue(std::move(member_name))                                         \
 		, value(member_value), value_default(member_value) { }                        \
 		type const& GetValue() const { return value; }                                \
+		type const& GetDefault() const { return value_default; }                      \
 		void SetValue(type new_val) { value = std::move(new_val); NotifyChanged(); }  \
 		OptionType GetType() const { return OptionType::type_name; }                  \
 		void Reset() { value = value_default; NotifyChanged(); }                      \
@@ -141,6 +154,7 @@ CONFIG_OPTIONVALUE(Bool, bool)
 		: OptionValue(std::move(name))                                                    \
 		, array(value), array_default(value) { }                                          \
 		std::vector<type> const& GetValue() const { return array; }                       \
+		std::vector<type> const& GetDefault() const { return array_default; }             \
 		void SetValue(std::vector<type> val) { array = std::move(val); NotifyChanged(); } \
 		OptionType GetType() const { return OptionType::List##type_name; }                \
 		void Reset() { array = array_default; NotifyChanged(); }                          \
@@ -156,6 +170,7 @@ CONFIG_OPTIONVALUE_LIST(Bool, bool)
 
 #define CONFIG_OPTIONVALUE_ACCESSORS(ReturnType, Type) \
 	inline ReturnType const& OptionValue::Get##Type() const { return As<OptionValue##Type>(OptionType::Type)->GetValue(); } \
+	inline ReturnType const& OptionValue::GetDefault##Type() const { return As<OptionValue##Type>(OptionType::Type)->GetDefault(); } \
 	inline void OptionValue::Set##Type(ReturnType v) { As<OptionValue##Type>(OptionType::Type)->SetValue(std::move(v)); }
 
 CONFIG_OPTIONVALUE_ACCESSORS(std::string, String)
