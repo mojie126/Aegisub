@@ -28,6 +28,8 @@ other data.
 import os
 import os.path
 import re
+from enum import Enum
+from tkinter.messagebox import askyesno
 from collections import deque
 from typing import Any, Dict, List, Tuple
 
@@ -216,25 +218,36 @@ def save_keyframes(filename: str, keyframes: List[int]):
         f.write("".join(f"{n}\n" for n in keyframes))
 
 
-def try_get_keyframes(filename: str, default: str | List[int]) -> str | List[int]:
-    """
-    Checks if a keyframes file for the given filename is present and, if so,
-    returns it. Otherwise, returns the given list of keyframes.
-    """
-    kffilename = make_keyframes_filename(filename)
-
-    return kffilename if os.path.exists(kffilename) else default
+class GenKeyframesMode(Enum):
+    NEVER = 0
+    ALWAYS = 1
+    ASK = 2
 
 
-def get_keyframes(filename: str, clip: vs.VideoNode, **kwargs: Any) -> str:
+def get_keyframes(filename: str, clip: vs.VideoNode, fallback: str | List[int],
+                  generate: GenKeyframesMode = GenKeyframesMode.ASK, **kwargs: Any) -> str | List[int]:
     """
-    When not already present, creates a keyframe file for the given clip next
+    Looks for a keyframes file for the given filename.
+    If no file was found, this function can generate a keyframe file for the given clip next
     to the given filename using WWXD or Scxvid (see the make_keyframes docstring).
+    Whether or not keyframes are generated depends on the `generate` argument.
+    Depending on the `generate` argument, the function will
+    - always generate keyframes when no file was found
+    - never generate keyframes when no file was found
+        (and return the fallback keyframes instead)
+    - show a dialog to ask the user whether keyframes should be
+      generated or not
     Additional keyword arguments are passed on to make_keyframes.
     """
     kffilename = make_keyframes_filename(filename)
 
     if not os.path.exists(kffilename):
+        if generate == GenKeyframesMode.NEVER:
+            return fallback
+        if generate == GenKeyframesMode.ASK and not askyesno("Generate Keyframes", \
+                "No keyframes file was found for this video file.\nShould Aegisub detect keyframes from the video?\nThis will take a while.", default="no"):
+            return fallback
+
         vs.core.log_message(vs.MESSAGE_TYPE_INFORMATION, "No keyframes file found, detecting keyframes...\n")
         keyframes = make_keyframes(clip, **kwargs)
         save_keyframes(kffilename, keyframes)
