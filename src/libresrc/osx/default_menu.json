@@ -242,6 +242,7 @@
         { "command" : "video/frame/save/subs" },
         { "command" : "video/frame/copy/subs" },
         {},
-        { "command" : "video/copy_coordinates" }
+        { "command" : "video/copy_coordinates" },
+        { "command" : "video/pan_reset" }
     ]
 }
