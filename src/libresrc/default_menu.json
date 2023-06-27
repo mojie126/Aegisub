@@ -218,6 +218,7 @@
         { "command" : "video/frame/save/raw" },
         { "command" : "video/frame/copy/raw" },
         {},
-        { "command" : "video/copy_coordinates" }
+        { "command" : "video/copy_coordinates" },
+        { "command" : "video/pan_reset" }
     ]
 }
