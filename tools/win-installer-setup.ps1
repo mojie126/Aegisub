@@ -126,6 +126,14 @@ if (!(Test-Path VC_redist)) {
 	Invoke-WebRequest https://aka.ms/vs/17/release/VC_redist.x64.exe -OutFile "$redistDir\VC_redist.x64.exe" -UseBasicParsing
 }
 
+# XAudio2 redistributable
+if (!(Test-Path XAudio2_redist)) {
+	New-Item -ItemType Directory XAudio2_redist
+	Invoke-WebRequest https://www.nuget.org/api/v2/package/Microsoft.XAudio2.Redist/1.2.11 -OutFile XAudio2Redist.zip
+	Expand-Archive -LiteralPath XAudio2Redist.zip -DestinationPath XAudio2_redist
+	Remove-Item XAudio2Redist.zip
+}
+
 # dictionaries
 if (!(Test-Path dictionaries)) {
 	New-Item -ItemType Directory dictionaries
