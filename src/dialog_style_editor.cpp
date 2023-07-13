@@ -212,7 +212,7 @@ DialogStyleEditor::DialogStyleEditor(wxWindow *parent, AssStyle *style, agi::Con
 	auto ScaleX = num_text_ctrl(&work->scalex, 0.0, 10000.0, 1, 2);
 	auto ScaleY = num_text_ctrl(&work->scaley, 0.0, 10000.0, 1, 2);
 	auto Angle = num_text_ctrl(&work->angle, -360.0, 360.0, 1.0, 2);
-	auto Spacing = num_text_ctrl(&work->spacing, -1000.0, 1000.0, 0.1, 3);
+	auto Spacing = num_text_ctrl(&work->spacing, 0.0, 1000.0, 0.1, 3);
 	Encoding = new wxComboBox(this, -1, "", wxDefaultPosition, wxDefaultSize, encodingStrings, wxCB_READONLY);
 
 	// Set control tooltips
