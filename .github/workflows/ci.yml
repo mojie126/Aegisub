@@ -29,6 +29,7 @@ jobs:
               -Dharfbuzz:gobject=disabled
               -Dharfbuzz:tests=disabled
               -Dharfbuzz:docs=disabled
+              -Dharfbuzz:icu=disabled
               -Dfribidi:tests=false
               -Dfribidi:docs=false
               -Dlibass:fontconfig=disabled
