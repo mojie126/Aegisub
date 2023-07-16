@@ -284,7 +284,7 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 			vs.GetAPI()->freeMap(result);
 			vs.GetAPI()->freeNode(node);
 			vs.GetScriptAPI()->freeScript(script);
-			throw VideoProviderError(agi::format("Failed to convert to RGB24: %s", error));
+			throw VideoOpenError(agi::format("Failed to convert to RGB24: %s", error));
 		}
 		int err;
 		vs.GetAPI()->freeNode(node);
@@ -292,7 +292,7 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 		vs.GetAPI()->freeMap(result);
 		if (err) {
 			vs.GetScriptAPI()->freeScript(script);
-			throw VideoProviderError("Failed to get resize output node");
+			throw VideoOpenError("Failed to get resize output node");
 		}
 
 		// Finally, try to get the first frame again, so if the filter does crash, it happens before loading finishes
@@ -308,7 +308,7 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 }
 }
 catch (VapourSynthError const& err) {    // for the entire constructor
-	throw VideoProviderError(agi::format("VapourSynth error: %s", err.GetMessage()));
+	throw VideoOpenError(err.GetMessage());
 }
 
 const VSFrame *VapourSynthVideoProvider::GetVSFrame(int n) {

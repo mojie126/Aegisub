@@ -24,6 +24,8 @@
 #include <memory>
 #include <string>
 
+#pragma once
+
 #undef CreateDirectory
 
 namespace agi {

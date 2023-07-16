@@ -17,6 +17,8 @@
 #include <string>
 #include <vector>
 
+#include <libaegisub/fs.h>
+
 namespace {
 template<typename Container>
 std::vector<std::string> GetClasses(Container const& c) {
@@ -49,5 +51,22 @@ auto GetSorted(Container const& c, std::string const& preferred) -> std::vector<
 			sorted.push_back(&provider);
 	}
 	return sorted;
+}
+
+template<typename Container>
+auto RearrangeWithPriority(Container &c, agi::fs::path const& filename) {
+	size_t end_of_hidden = 0;
+	for (size_t i = 0; i < c.size(); i++) {
+		auto provider = c[i];
+		if (provider->hidden) {
+			end_of_hidden = i;
+		} else {
+			if (provider->wants_to_open(filename)) {
+				c.erase(c.begin() + i);
+				c.insert(c.begin() + end_of_hidden + 1, provider);
+				break;
+			}
+		}
+	}
 }
 }

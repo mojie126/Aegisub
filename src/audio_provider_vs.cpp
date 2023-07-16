@@ -86,9 +86,7 @@ VapourSynthAudioProvider::VapourSynthAudioProvider(agi::fs::path const& filename
 	num_samples = vi->numSamples;
 }
 catch (VapourSynthError const& err) {
-	// Unlike the video provider manager, the audio provider factory catches AudioProviderErrors and picks whichever source doesn't throw one.
-	// So just rethrow the Error here with an extra label so the user will see the error message and know the audio wasn't loaded with VS
-	throw VapourSynthError(agi::format("VapourSynth error: %s", err.GetMessage()));
+	throw agi::AudioProviderError(err.GetMessage());
 }
 
 template<typename T>

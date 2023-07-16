@@ -260,10 +260,10 @@ void Project::DoLoadAudio(agi::fs::path const& path, bool quiet) {
 			return;
 		}
 		else
-			return ShowError(_("None of the available audio providers recognised the selected file as containing audio data.\n\nThe following providers were tried:\n") + to_wx(e.GetMessage()));
+			return ShowError(_("None of the available audio providers recognised the selected file as containing audio data:\n\n") + to_wx(e.GetMessage()));
 	}
 	catch (agi::AudioProviderError const& e) {
-		return ShowError(_("None of the available audio providers have a codec available to handle the selected file.\n\nThe following providers were tried:\n") + to_wx(e.GetMessage()));
+		return ShowError(_("None of the available audio providers have a codec available to handle the selected file:\n\n") + to_wx(e.GetMessage()));
 	}
 	catch (agi::Exception const& e) {
 		return ShowError(e.GetMessage());
