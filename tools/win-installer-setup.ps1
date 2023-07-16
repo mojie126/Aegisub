@@ -28,7 +28,7 @@ if (!(Test-Path DependencyControl)) {
 
 # YUtils
 if (!(Test-Path YUtils)) {
-	git clone https://github.com/arch1t3cht/YUtils.git
+	git clone https://github.com/TypesettingTools/YUtils.git
 }
 
 # luajson
