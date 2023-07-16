@@ -18,8 +18,8 @@ elif host_machine.system() == 'darwin'
 else
     conf_pkg.set('AEGISUB_COMMAND', 'aegisub')
 
-    desktop_template = configure_file(input: 'desktop/aegisub.desktop.template.in',
-                                      output: 'aegisub.desktop.template',
+    desktop_template = configure_file(input: 'desktop/aegisub.desktop.in.in',
+                                      output: 'aegisub.desktop.in',
                                       configuration: conf_pkg)
 
     i18n = import('i18n')
@@ -30,6 +30,16 @@ else
                     install: true,
                     install_dir: datadir / 'applications')
 
+	appdata_template = configure_file(input: 'desktop/aegisub.appdata.xml.in.in',
+                                      output: 'aegisub.desktop.appdata.xml.in',
+                                      configuration: conf_pkg)
+	i18n.merge_file(input: appdata_template,
+                    output: 'aegisub.appdata.xml',
+                    type: 'xml',
+                    po_dir: '../po',
+                    install: true,
+                    install_dir: datadir / 'metainfo')
+
     aegisub_logos = ['16x16.png', '22x22.png', '24x24.png', '32x32.png', '48x48.png', '64x64.png', 'scalable.svg']
 
     foreach s: aegisub_logos
@@ -38,4 +48,10 @@ else
         install_data('desktop' / dir / 'aegisub.' + ext,
                      install_dir: datadir / 'icons' / 'hicolor' / dir / 'apps')
     endforeach
+
+    if get_option('build_appimage')
+      install_symlink('AppRun', install_dir: '/', pointing_to: bindir.strip('/') / 'aegisub')
+      install_symlink('.DirIcon', install_dir: '/', pointing_to: datadir.strip('/') / 'icons' / 'hicolor' / 'scalable' / 'apps' / 'aegisub.svg')
+      install_symlink('aegisub.desktop', install_dir: '/', pointing_to: datadir.strip('/') / 'applications' / 'aegisub.desktop')
+    endif
 endif

@@ -216,16 +216,10 @@ namespace Automation4 {
 			wxWindow *ww = config_dialog->CreateWindow(&w); // generate actual dialog contents
 			s->Add(ww, 0, wxALL, 5); // add contents to dialog
 			w.SetSizerAndFit(s);
+			w.SetLayoutAdaptationMode(wxDIALOG_ADAPTATION_MODE_ENABLED);
 			w.CenterOnParent();
 			w.ShowModal();
 		});
-	}
-
-	int ProgressSink::ShowDialog(wxDialog *dialog)
-	{
-		int ret = 0;
-		agi::dispatch::Main().Sync([&] { ret = dialog->ShowModal(); });
-		return ret;
 	}
 
 	BackgroundScriptRunner::BackgroundScriptRunner(wxWindow *parent, std::string const& title)
@@ -322,7 +316,8 @@ namespace Automation4 {
 
 		std::vector<std::future<std::unique_ptr<Script>>> script_futures;
 
-		for (auto tok : agi::Split(path, '|')) {
+		auto path_it = agi::Split(path, '|');
+		for (auto tok : std::set<agi::StringRange>(begin(path_it), end(path_it))) {
 			auto dirname = config::path->Decode(agi::str(tok));
 			if (!agi::fs::DirectoryExists(dirname)) continue;
 

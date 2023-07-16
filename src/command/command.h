@@ -16,6 +16,8 @@
 /// @brief Command base class and main header.
 /// @ingroup command
 
+#pragma once
+
 #include <map>
 #include <string>
 #include <vector>
@@ -100,6 +102,9 @@ DEFINE_EXCEPTION(CommandNotFound, CommandError);
 		virtual wxString StrDisplay(const agi::Context *) const=0;
 		/// Short help string describing what the command does
 		virtual wxString StrHelp() const=0;
+
+		/// Formats the Help text together with the registered hotkey
+		wxString GetTooltip(std::string ht_context) const;
 
 		/// Get this command's type flags
 		/// @return Bitmask of CommandFlags

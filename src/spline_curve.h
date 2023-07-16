@@ -32,6 +32,8 @@
 /// @ingroup visual_ts
 ///
 
+#pragma once
+
 #include "vector2d.h"
 
 #include <vector>
@@ -71,6 +73,7 @@ public:
 
 	Vector2D GetPoint(float t) const;
 	Vector2D& EndPoint();
+	std::vector<Vector2D> AnchorPoints();
 	/// Get point on the curve closest to reference
 	Vector2D GetClosestPoint(Vector2D ref) const;
 	/// Get t value for the closest point to reference

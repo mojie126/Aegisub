@@ -19,6 +19,9 @@
 
 #include <libaegisub/log.h>
 
+#include <boost/algorithm/string/join.hpp>
+#include "include/aegisub/hotkey.h"
+
 #include <wx/intl.h>
 
 namespace cmd {
@@ -30,6 +33,16 @@ namespace cmd {
 		if (it == cmd_map.end())
 			throw CommandNotFound(agi::format(_("'%s' is not a valid command name"), name));
 		return it;
+	}
+
+	wxString Command::GetTooltip(std::string ht_context) const {
+		wxString ret = StrHelp();
+
+		std::vector<std::string> hotkeys = hotkey::get_hotkey_strs(ht_context, name());
+		if (!hotkeys.empty())
+			ret += to_wx(" (" + boost::join(hotkeys, "/") + ")");
+
+		return ret;
 	}
 
 	void reg(std::unique_ptr<Command> cmd) {

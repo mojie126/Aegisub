@@ -35,6 +35,7 @@
 #include "../ass_file.h"
 #include "../audio_controller.h"
 #include "../audio_timing.h"
+#include "../fold_controller.h"
 #include "../frame_main.h"
 #include "../include/aegisub/context.h"
 #include "../libresrc/libresrc.h"
@@ -248,6 +249,54 @@ struct grid_sort_style_selected final : public validate_sel_multiple {
 	}
 };
 
+struct grid_sort_text final : public Command {
+	CMD_NAME("grid/sort/text")
+	STR_MENU("Te&xt")
+	STR_DISP("Text")
+	STR_HELP("Sort all subtitles by their text, including styling tags")
+
+	void operator()(agi::Context *c) override {
+		c->ass->Sort(AssFile::CompText);
+		c->ass->Commit(_("sort"), AssFile::COMMIT_ORDER);
+	}
+};
+
+struct grid_sort_text_selected final : public validate_sel_multiple {
+	CMD_NAME("grid/sort/text/selected")
+	STR_MENU("Te&xt")
+	STR_DISP("Text")
+	STR_HELP("Sort selected subtitles by their text, including styling tags")
+
+	void operator()(agi::Context *c) override {
+		c->ass->Sort(AssFile::CompText, c->selectionController->GetSelectedSet());
+		c->ass->Commit(_("sort"), AssFile::COMMIT_ORDER);
+	}
+};
+
+struct grid_sort_text_stripped final : public Command {
+	CMD_NAME("grid/sort/text_stripped")
+	STR_MENU("Stri&pped Text")
+	STR_DISP("Stripped Text")
+	STR_HELP("Sort all subtitles by their stripped text")
+
+	void operator()(agi::Context *c) override {
+		c->ass->Sort(AssFile::CompTextStripped);
+		c->ass->Commit(_("sort"), AssFile::COMMIT_ORDER);
+	}
+};
+
+struct grid_sort_text_stripped_selected final : public validate_sel_multiple {
+	CMD_NAME("grid/sort/text_stripped/selected")
+	STR_MENU("Stri&pped Text")
+	STR_DISP("Stripped Text")
+	STR_HELP("Sort selected subtitles by their stripped text")
+
+	void operator()(agi::Context *c) override {
+		c->ass->Sort(AssFile::CompTextStripped, c->selectionController->GetSelectedSet());
+		c->ass->Commit(_("sort"), AssFile::COMMIT_ORDER);
+	}
+};
+
 struct grid_tag_cycle_hiding final : public Command {
 	CMD_NAME("grid/tag/cycle_hiding")
 	CMD_ICON(toggle_tag_hiding)
@@ -398,6 +447,123 @@ struct grid_swap final : public Command {
 	}
 };
 
+struct grid_fold_create final : public Command {
+	CMD_NAME("grid/fold/create")
+	STR_MENU("Create new Fold")
+	STR_DISP("Create new Fold")
+	STR_HELP("Create a new fold collapsing the selected lines into a group")
+	CMD_TYPE(COMMAND_VALIDATE)
+
+	bool Validate(const agi::Context *c) override {
+		return c->selectionController->GetSelectedSet().size() >= 2;
+	}
+
+	void operator()(agi::Context *c) override {
+		auto const& sel = c->selectionController->GetSortedSelection();
+		if (sel.size() >= 2) {
+			c->foldController->AddFold(**sel.begin(), **sel.rbegin(), true);
+			c->selectionController->SetSelectionAndActive({ *sel.begin() }, *sel.begin());
+		}
+	}
+};
+
+struct grid_fold_open final : public Command {
+	CMD_NAME("grid/fold/open")
+	STR_MENU("Open Folds")
+	STR_DISP("Open Folds")
+	STR_HELP("Expand the folds under the selected lines")
+	CMD_TYPE(COMMAND_VALIDATE)
+
+	bool Validate(const agi::Context *c) override {
+		return c->foldController->AreFoldsAt(c->selectionController->GetSortedSelection());
+	}
+
+	void operator()(agi::Context *c) override {
+		c->foldController->OpenFoldsAt(c->selectionController->GetSortedSelection());
+	}
+};
+
+struct grid_fold_close final : public Command {
+	CMD_NAME("grid/fold/close")
+	STR_MENU("Close Folds")
+	STR_DISP("Close Folds")
+	STR_HELP("Collapse the folds around the selected lines")
+	CMD_TYPE(COMMAND_VALIDATE)
+
+	bool Validate(const agi::Context *c) override {
+		return c->foldController->AreFoldsAt(c->selectionController->GetSortedSelection());
+	}
+
+	void operator()(agi::Context *c) override {
+		c->foldController->CloseFoldsAt(c->selectionController->GetSortedSelection());
+	}
+};
+
+struct grid_fold_clear final : public Command {
+	CMD_NAME("grid/fold/clear")
+	STR_MENU("Clear Folds")
+	STR_DISP("Clear Folds")
+	STR_HELP("Remove the folds around the selected lines")
+	CMD_TYPE(COMMAND_VALIDATE)
+
+	bool Validate(const agi::Context *c) override {
+		return c->foldController->AreFoldsAt(c->selectionController->GetSortedSelection());
+	}
+
+	void operator()(agi::Context *c) override {
+		c->foldController->ClearFoldsAt(c->selectionController->GetSortedSelection());
+	}
+};
+
+struct grid_fold_toggle final : public Command {
+	CMD_NAME("grid/fold/toggle")
+	STR_MENU("Toggle Folds")
+	STR_DISP("Toggle Folds")
+	STR_HELP("Open or close the folds around the selected lines")
+	CMD_TYPE(COMMAND_VALIDATE)
+
+	bool Validate(const agi::Context *c) override {
+		return c->foldController->AreFoldsAt(c->selectionController->GetSortedSelection());
+	}
+
+	void operator()(agi::Context *c) override {
+		c->foldController->ToggleFoldsAt(c->selectionController->GetSortedSelection());
+	}
+};
+
+struct grid_fold_open_all final : public Command {
+	CMD_NAME("grid/fold/open_all")
+	STR_MENU("Open all Folds")
+	STR_DISP("Open all Folds")
+	STR_HELP("Open all Folds")
+
+	void operator()(agi::Context *c) override {
+		c->foldController->OpenAllFolds();
+	}
+};
+
+struct grid_fold_close_all final : public Command {
+	CMD_NAME("grid/fold/close_all")
+	STR_MENU("Close all Folds")
+	STR_DISP("Close all Folds")
+	STR_HELP("Close all Folds")
+
+	void operator()(agi::Context *c) override {
+		c->foldController->CloseAllFolds();
+	}
+};
+
+struct grid_fold_clear_all final : public Command {
+	CMD_NAME("grid/fold/clear_all")
+	STR_MENU("Clear all Folds")
+	STR_DISP("Clear all Folds")
+	STR_HELP("Remove all Folds")
+
+	void operator()(agi::Context *c) override {
+		c->foldController->ClearAllFolds();
+	}
+};
+
 }
 
 namespace cmd {
@@ -411,15 +577,27 @@ namespace cmd {
 		reg(agi::make_unique<grid_sort_layer>());
 		reg(agi::make_unique<grid_sort_start>());
 		reg(agi::make_unique<grid_sort_style>());
+		reg(agi::make_unique<grid_sort_text>());
+		reg(agi::make_unique<grid_sort_text_stripped>());
 		reg(agi::make_unique<grid_sort_actor_selected>());
 		reg(agi::make_unique<grid_sort_effect_selected>());
 		reg(agi::make_unique<grid_sort_end_selected>());
 		reg(agi::make_unique<grid_sort_layer_selected>());
 		reg(agi::make_unique<grid_sort_start_selected>());
 		reg(agi::make_unique<grid_sort_style_selected>());
+		reg(agi::make_unique<grid_sort_text_selected>());
+		reg(agi::make_unique<grid_sort_text_stripped_selected>());
 		reg(agi::make_unique<grid_move_down>());
 		reg(agi::make_unique<grid_move_up>());
 		reg(agi::make_unique<grid_swap>());
+		reg(agi::make_unique<grid_fold_create>());
+		reg(agi::make_unique<grid_fold_open>());
+		reg(agi::make_unique<grid_fold_close>());
+		reg(agi::make_unique<grid_fold_toggle>());
+		reg(agi::make_unique<grid_fold_clear>());
+		reg(agi::make_unique<grid_fold_open_all>());
+		reg(agi::make_unique<grid_fold_close_all>());
+		reg(agi::make_unique<grid_fold_clear_all>());
 		reg(agi::make_unique<grid_tag_cycle_hiding>());
 		reg(agi::make_unique<grid_tags_hide>());
 		reg(agi::make_unique<grid_tags_show>());

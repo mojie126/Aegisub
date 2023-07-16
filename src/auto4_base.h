@@ -127,12 +127,12 @@ namespace Automation4 {
 		void SetMessage(std::string const& msg) override { impl->SetMessage(msg); }
 		void SetProgress(int64_t cur, int64_t max) override { impl->SetProgress(cur, max); }
 		void Log(std::string const& str) override { impl->Log(str); }
+		void SetStayOpen(bool stayopen) override { impl->SetStayOpen(stayopen); }
 		bool IsCancelled() override { return impl->IsCancelled(); }
 
 		/// Show the passed dialog on the GUI thread, blocking the calling
 		/// thread until it closes
 		void ShowDialog(ScriptDialog *config_dialog);
-		int ShowDialog(wxDialog *dialog);
 		wxWindow *GetParentWindow() const { return bsr->GetParentWindow(); }
 
 		/// Get the current automation trace level

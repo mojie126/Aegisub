@@ -138,7 +138,10 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 	OPT_SUB("Subtitle/Edit Box/Font Size", &SubsTextEditCtrl::SetStyles, this);
 	Subscribe("Normal");
 	Subscribe("Comment");
-	Subscribe("Drawing");
+	Subscribe("Drawing Command");
+	Subscribe("Drawing X");
+	Subscribe("Drawing Y");
+	OPT_SUB("Colour/Subtitle/Syntax/Underline/Drawing Endpoint", &SubsTextEditCtrl::SetStyles, this);
 	Subscribe("Brackets");
 	Subscribe("Slashes");
 	Subscribe("Tags");
@@ -230,7 +233,13 @@ void SubsTextEditCtrl::SetStyles() {
 	namespace ss = agi::ass::SyntaxStyle;
 	SetSyntaxStyle(ss::NORMAL, font, "Normal", default_background);
 	SetSyntaxStyle(ss::COMMENT, font, "Comment", default_background);
-	SetSyntaxStyle(ss::DRAWING, font, "Drawing", default_background);
+	SetSyntaxStyle(ss::DRAWING_CMD, font, "Drawing Command", default_background);
+	SetSyntaxStyle(ss::DRAWING_X, font, "Drawing X", default_background);
+	SetSyntaxStyle(ss::DRAWING_Y, font, "Drawing Y", default_background);
+	SetSyntaxStyle(ss::DRAWING_ENDPOINT_X, font, "Drawing X", default_background);
+	SetSyntaxStyle(ss::DRAWING_ENDPOINT_Y, font, "Drawing Y", default_background);
+	StyleSetUnderline(ss::DRAWING_ENDPOINT_X, OPT_GET("Colour/Subtitle/Syntax/Underline/Drawing Endpoint")->GetBool());
+	StyleSetUnderline(ss::DRAWING_ENDPOINT_Y, OPT_GET("Colour/Subtitle/Syntax/Underline/Drawing Endpoint")->GetBool());
 	SetSyntaxStyle(ss::OVERRIDE, font, "Brackets", default_background);
 	SetSyntaxStyle(ss::PUNCTUATION, font, "Slashes", default_background);
 	SetSyntaxStyle(ss::TAG, font, "Tags", default_background);
@@ -250,7 +259,7 @@ void SubsTextEditCtrl::SetStyles() {
 
 void SubsTextEditCtrl::UpdateStyle() {
 	AssDialogue *diag = context ? context->selectionController->GetActiveLine() : nullptr;
-	bool template_line = diag && diag->Comment && boost::istarts_with(diag->Effect.get(), "template");
+	bool template_line = diag && diag->Comment && (boost::istarts_with(diag->Effect.get(), "template") || boost::istarts_with(diag->Effect.get(), "mixin"));
 
 	tokenized_line = agi::ass::TokenizeDialogueBody(line_text, template_line);
 	agi::ass::SplitWords(line_text, tokenized_line);

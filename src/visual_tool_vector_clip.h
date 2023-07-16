@@ -14,11 +14,27 @@
 //
 // Aegisub Project http://www.aegisub.org/
 
+#pragma once
+
 #include "visual_feature.h"
 #include "visual_tool.h"
 #include "spline.h"
+#include "command/command.h"
 
 class wxToolBar;
+
+/// Button IDs
+enum VisualToolVectorClipMode {
+	VCLIP_DRAG = 0, // Assumed to be at the start
+	VCLIP_LINE,
+	VCLIP_BICUBIC,
+	VCLIP_CONVERT,
+	VCLIP_INSERT,
+	VCLIP_REMOVE,
+	VCLIP_FREEHAND,
+	VCLIP_FREEHAND_SMOOTH,
+	VCLIP_LAST // Leave this at the end and don't use it
+};
 
 /// @class VisualToolVectorClipDraggableFeature
 /// @brief VisualDraggableFeature with information about a feature's location
@@ -33,17 +49,16 @@ struct VisualToolVectorClipDraggableFeature final : public VisualDraggableFeatur
 class VisualToolVectorClip final : public VisualTool<VisualToolVectorClipDraggableFeature> {
 	Spline spline; /// The current spline
 	wxToolBar *toolBar = nullptr; /// The subtoolbar
-	int mode = 0; /// 0-7
+	int mode = VCLIP_DRAG; /// 0-7
 	bool inverse = false; /// is iclip?
+	int featureSize = 0;
 
 	std::set<Feature *> box_added;
 
-	/// @brief Set the mode
-	/// @param mode 0-7
-	void SetMode(int mode);
-
 	void Save();
 	void Commit(wxString message="") override;
+
+	void AddTool(std::string command_name, VisualToolVectorClipMode mode);
 
 	void MakeFeature(size_t idx);
 	void MakeFeatures();
@@ -60,4 +75,7 @@ class VisualToolVectorClip final : public VisualTool<VisualToolVectorClipDraggab
 public:
 	VisualToolVectorClip(VideoDisplay *parent, agi::Context *context);
 	void SetToolbar(wxToolBar *tb) override;
+
+	void SetSubTool(int subtool) override;
+	int GetSubTool() override;
 };

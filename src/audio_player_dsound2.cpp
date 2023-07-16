@@ -317,13 +317,14 @@ void DirectSoundPlayer2Thread::Run()
 
 	// Describe the wave format
 	WAVEFORMATEX waveFormat;
-	waveFormat.wFormatTag = WAVE_FORMAT_PCM;
 	waveFormat.nSamplesPerSec = provider->GetSampleRate();
+	waveFormat.cbSize = 0;
+	waveFormat.wFormatTag = provider->AreSamplesFloat() ? 3 : WAVE_FORMAT_PCM; // Eh fuck it.
 	waveFormat.nChannels = provider->GetChannels();
 	waveFormat.wBitsPerSample = provider->GetBytesPerSample() * 8;
 	waveFormat.nBlockAlign = waveFormat.nChannels * waveFormat.wBitsPerSample / 8;
 	waveFormat.nAvgBytesPerSec = waveFormat.nSamplesPerSec * waveFormat.nBlockAlign;
-	waveFormat.cbSize = sizeof(waveFormat);
+	//waveFormat.cbSize = sizeof(waveFormat);
 
 	// And the buffer itself
 	int aim = waveFormat.nAvgBytesPerSec * (wanted_latency*buffer_length)/1000;
@@ -332,7 +333,7 @@ void DirectSoundPlayer2Thread::Run()
 	DWORD bufSize = mid(min,aim,max); // size of entire playback buffer
 	DSBUFFERDESC desc;
 	desc.dwSize = sizeof(DSBUFFERDESC);
-	desc.dwFlags = DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_GLOBALFOCUS;
+	desc.dwFlags = DSBCAPS_CTRLVOLUME | DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_GLOBALFOCUS;
 	desc.dwBufferBytes = bufSize;
 	desc.dwReserved = 0;
 	desc.lpwfxFormat = &waveFormat;
@@ -461,6 +462,15 @@ stop_playback:
 			goto do_fill_buffer;
 
 		case WAIT_OBJECT_0+3:
+			{
+				LONG invert_volume = (LONG)((this->volume - 1.0) * 5000.0); // Hrmm weirdly it's half?
+				// Look, I would have used a min max but it just errored out for me lol.
+				if (invert_volume > DSBVOLUME_MAX)
+					invert_volume = DSBVOLUME_MAX;
+				else if (invert_volume < DSBVOLUME_MIN / 2)
+					invert_volume = DSBVOLUME_MIN / 2;
+				bfr->SetVolume(invert_volume);
+			}
 			// Change volume
 			// We aren't thread safe right now, filling the buffers grabs volume directly
 			// from the field set by the controlling thread, but it shouldn't be a major
@@ -608,7 +618,7 @@ DWORD DirectSoundPlayer2Thread::FillAndUnlockBuffers(void *buf1, DWORD buf1sz, v
 			buf2sz = 0;
 		}
 
-		provider->GetAudioWithVolume(buf1, input_frame, buf1szf, volume);
+		provider->GetAudio(buf1, input_frame, buf1szf);
 
 		input_frame += buf1szf;
 	}
@@ -621,7 +631,7 @@ DWORD DirectSoundPlayer2Thread::FillAndUnlockBuffers(void *buf1, DWORD buf1sz, v
 			buf2sz = buf2szf * bytes_per_frame;
 		}
 
-		provider->GetAudioWithVolume(buf2, input_frame, buf2szf, volume);
+		provider->GetAudio(buf2, input_frame, buf2szf);
 
 		input_frame += buf2szf;
 	}

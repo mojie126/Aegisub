@@ -92,7 +92,7 @@ void General_DefaultStyles(wxTreebook *book, Preferences *parent) {
 	instructions->Wrap(400);
 	staticbox->Add(instructions, 0, wxALL, 5);
 	staticbox->AddSpacer(16);
-	
+
 	auto general = new wxFlexGridSizer(2, 5, 5);
 	general->AddGrowableCol(0, 1);
 	staticbox->Add(general, 1, wxEXPAND, 5);
@@ -173,7 +173,11 @@ void Video(wxTreebook *book, Preferences *parent) {
 	p->OptionAdd(general, _("Seek video to line start on selection change"), "Video/Subtitle Sync");
 	p->CellSkip(general);
 	p->OptionAdd(general, _("Automatically open audio when opening video"), "Video/Open Audio");
-	p->CellSkip(general);
+	p->OptionAdd(general, _("Default to Video Zoom"), "Video/Default to Video Zoom")
+		->SetToolTip("Reverses the behavior of Ctrl while scrolling the video display. If not set, scrolling will default to UI zoom and Ctrl+scrolling will zoom the video. If set, this will be reversed.");
+	p->OptionAdd(general, _("Disable zooming with scroll bar"), "Video/Disable Scroll Zoom")
+		->SetToolTip("Makes the scroll bar not zoom the video. Useful when using a track pad that often scrolls accidentally.");
+	p->OptionAdd(general, _("Reverse zoom direction"), "Video/Reverse Zoom");
 
 	const wxString czoom_arr[24] = { "12.5%", "25%", "37.5%", "50%", "62.5%", "75%", "87.5%", "100%", "112.5%", "125%", "137.5%", "150%", "162.5%", "175%", "187.5%", "200%", "212.5%", "225%", "237.5%", "250%", "262.5%", "275%", "287.5%", "300%" };
 	wxArrayString choice_zoom(24, czoom_arr);
@@ -228,6 +232,12 @@ void Interface(wxTreebook *book, Preferences *parent) {
 	auto tl_assistant = p->PageSizer(_("Translation Assistant"));
 	p->OptionAdd(tl_assistant, _("Skip over whitespace"), "Tool/Translation Assistant/Skip Whitespace");
 
+	auto visual_tools = p->PageSizer(_("Visual Tools"));
+	p->OptionAdd(visual_tools, _("Shape handle size"), "Tool/Visual/Shape Handle Size");
+
+	auto color_picker = p->PageSizer(_("Colour Picker"));
+	p->OptionAdd(color_picker, _("Restrict Screen Picker to Window"), "Tool/Colour Picker/Restrict to Window");
+
 	p->SetSizerAndFit(p->sizer);
 }
 
@@ -253,7 +263,11 @@ void Interface_Colours(wxTreebook *book, Preferences *parent) {
 	p->OptionAdd(syntax, _("Background"), "Colour/Subtitle/Background");
 	p->OptionAdd(syntax, _("Normal"), "Colour/Subtitle/Syntax/Normal");
 	p->OptionAdd(syntax, _("Comments"), "Colour/Subtitle/Syntax/Comment");
-	p->OptionAdd(syntax, _("Drawings"), "Colour/Subtitle/Syntax/Drawing");
+	p->OptionAdd(syntax, _("Drawing Commands"), "Colour/Subtitle/Syntax/Drawing Command");
+	p->OptionAdd(syntax, _("Drawing X Coords"), "Colour/Subtitle/Syntax/Drawing X");
+	p->OptionAdd(syntax, _("Drawing Y Coords"), "Colour/Subtitle/Syntax/Drawing Y");
+	p->OptionAdd(syntax, _("Underline Spline Endpoints"), "Colour/Subtitle/Syntax/Underline/Drawing Endpoint");
+	p->CellSkip(syntax);
 	p->OptionAdd(syntax, _("Brackets"), "Colour/Subtitle/Syntax/Brackets");
 	p->OptionAdd(syntax, _("Slashes and Parentheses"), "Colour/Subtitle/Syntax/Slashes");
 	p->OptionAdd(syntax, _("Tags"), "Colour/Subtitle/Syntax/Tags");
@@ -282,6 +296,8 @@ void Interface_Colours(wxTreebook *book, Preferences *parent) {
 	p->OptionAdd(grid, _("In frame background"), "Colour/Subtitle Grid/Background/Inframe");
 	p->OptionAdd(grid, _("Comment background"), "Colour/Subtitle Grid/Background/Comment");
 	p->OptionAdd(grid, _("Selected comment background"), "Colour/Subtitle Grid/Background/Selected Comment");
+	p->OptionAdd(grid, _("Open fold background"), "Colour/Subtitle Grid/Background/Open Fold");
+	p->OptionAdd(grid, _("Closed fold background"), "Colour/Subtitle Grid/Background/Closed Fold");
 	p->OptionAdd(grid, _("Header background"), "Colour/Subtitle Grid/Header");
 	p->OptionAdd(grid, _("Left Column"), "Colour/Subtitle Grid/Left Column");
 	p->OptionAdd(grid, _("Active Line Border"), "Colour/Subtitle Grid/Active Border");
@@ -383,12 +399,16 @@ void Advanced_Audio(wxTreebook *book, Preferences *parent) {
 	wxArrayString sq_choice(4, sq_arr);
 	p->OptionChoice(spectrum, _("Quality"), sq_choice, "Audio/Renderer/Spectrum/Quality");
 
+	const wxString sc_arr[5] = { _("Linear"), _("Extended"), _("Medium"), _("Compressed"), _("Logarithmic") };
+	wxArrayString sc_choice(5, sc_arr);
+	p->OptionChoice(spectrum, _("Frequency mapping"), sc_choice, "Audio/Renderer/Spectrum/FreqCurve");
+
 	p->OptionAdd(spectrum, _("Cache memory max (MB)"), "Audio/Renderer/Spectrum/Memory Max", 2, 1024);
 
 #ifdef WITH_AVISYNTH
 	auto avisynth = p->PageSizer("Avisynth");
-	const wxString adm_arr[3] = { "ConvertToMono", "GetLeftChannel", "GetRightChannel" };
-	wxArrayString adm_choice(3, adm_arr);
+	const wxString adm_arr[4] = { "None", "ConvertToMono", "GetLeftChannel", "GetRightChannel" };
+	wxArrayString adm_choice(4, adm_arr);
 	p->OptionChoice(avisynth, _("Avisynth down-mixer"), adm_choice, "Audio/Downmixer");
 	p->OptionAdd(avisynth, _("Force sample rate"), "Provider/Audio/AVS/Sample Rate");
 #endif
@@ -401,7 +421,16 @@ void Advanced_Audio(wxTreebook *book, Preferences *parent) {
 	p->OptionChoice(ffms, _("Audio indexing error handling mode"), error_modes_choice, "Provider/Audio/FFmpegSource/Decode Error Handling");
 
 	p->OptionAdd(ffms, _("Always index all audio tracks"), "Provider/FFmpegSource/Index All Tracks");
+	wxControl* stereo = p->OptionAdd(ffms, _("Downmix to stereo"), "Provider/Audio/FFmpegSource/Downmix");
+	stereo->SetToolTip("Reduces memory usage on surround audio, but may cause audio tracks to sound blank in specific circumstances. This will not affect audio with two channels or less.");
 #endif
+
+#ifdef WITH_BESTSOURCE
+	auto bs = p->PageSizer("BestSource");
+	p->OptionAdd(bs, _("Max BS cache size (MB)"), "Provider/Audio/BestSource/Max Cache Size");
+	p->OptionAdd(bs, _("Use Aegisub's Cache"), "Provider/Audio/BestSource/Aegisub Cache");
+#endif
+
 
 #ifdef WITH_PORTAUDIO
 	auto portaudio = p->PageSizer("Portaudio");
@@ -434,10 +463,9 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 	wxArrayString sp_choice = to_wx(SubtitlesProviderFactory::GetClasses());
 	p->OptionChoice(expert, _("Subtitles provider"), sp_choice, "Subtitle/Provider");
 
+
 #ifdef WITH_AVISYNTH
 	auto avisynth = p->PageSizer("Avisynth");
-	p->OptionAdd(avisynth, _("Allow pre-2.56a Avisynth"), "Provider/Avisynth/Allow Ancient");
-	p->CellSkip(avisynth);
 	p->OptionAdd(avisynth, _("Avisynth memory limit"), "Provider/Avisynth/Memory Max");
 #endif
 
@@ -452,7 +480,60 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 	p->OptionAdd(ffms, _("Enable unsafe seeking"), "Provider/Video/FFmpegSource/Unsafe Seeking");
 #endif
 
+#ifdef WITH_BESTSOURCE
+	auto bs = p->PageSizer("BestSource");
+	p->OptionAdd(bs, _("Max cache size (MB)"), "Provider/Video/BestSource/Max Cache Size");
+	p->OptionAdd(bs, _("Decoder Threads (0 to autodetect)"), "Provider/Video/BestSource/Threads");
+	p->OptionAdd(bs, _("Seek preroll (Frames)"), "Provider/Video/BestSource/Seek Preroll");
+#endif
+
 	p->SetSizerAndFit(p->sizer);
+}
+
+void VapourSynth(wxTreebook *book, Preferences *parent) {
+#ifdef WITH_VAPOURSYNTH
+	auto p = new OptionPage(book, parent, _("VapourSynth"), OptionPage::PAGE_SUB);
+	auto general = p->PageSizer(_("General"));
+
+	const wxString log_levels[] = { "Quiet", "Fatal", "Critical", "Warning", "Information", "Debug" };
+	wxArrayString log_levels_choice(6, log_levels);
+	p->OptionChoice(general, _("Log Level"), log_levels_choice, "Provider/Video/VapourSynth/Log Level");
+
+	auto video = p->PageSizer(_("Default Video Script"));
+
+	auto make_default_button = [=](std::string optname, wxTextCtrl *ctrl) {
+		auto showdefault = new wxButton(p, -1, _("Set to Default"));
+		showdefault->Bind(wxEVT_BUTTON, [=](auto e) {
+			ctrl->SetValue(OPT_GET(optname)->GetDefaultString());
+		});
+		return showdefault;
+	};
+
+	auto vhint = new wxStaticText(p, wxID_ANY, _("This script will be executed to load video files that aren't\nVapourSynth scripts (i.e. end in .py or .vpy).\nThe filename variable stores the path to the file."));
+	p->sizer->Fit(p);
+	vhint->Wrap(400);
+	video->Add(vhint, 0, wxALL, 5);
+	p->CellSkip(video);
+
+	auto vdef = p->OptionAddMultiline(video, "Provider/Video/VapourSynth/Default Script");
+	p->CellSkip(video);
+
+	video->Add(make_default_button("Provider/Video/VapourSynth/Default Script", vdef), wxSizerFlags().Right());
+
+	auto audio = p->PageSizer(_("Default Audio Script"));
+	auto ahint = new wxStaticText(p, wxID_ANY, _("This script will be executed to load audio files that aren't\nVapourSynth scripts (i.e. end in .py or .vpy).\nThe filename variable stores the path to the file."));
+	p->sizer->Fit(p);
+	ahint->Wrap(400);
+	audio->Add(ahint, 0, wxALL, 5);
+	p->CellSkip(audio);
+
+	auto adef = p->OptionAddMultiline(audio, "Provider/Audio/VapourSynth/Default Script");
+	p->CellSkip(audio);
+
+	audio->Add(make_default_button("Provider/Audio/VapourSynth/Default Script", adef), wxSizerFlags().Right());
+
+	p->SetSizerAndFit(p->sizer);
+#endif
 }
 
 /// wxDataViewIconTextRenderer with command name autocompletion
@@ -486,8 +567,11 @@ public:
 	}
 
 	bool SetValue(wxVariant const& var) override {
-		value << var;
-		return true;
+		if (var.GetType() == "wxDataViewIconText") {
+			value << var;
+			return true;
+		}
+		return false;
 	}
 
 	bool Render(wxRect rect, wxDC *dc, int state) override {
@@ -710,6 +794,7 @@ Preferences::Preferences(wxWindow *parent): wxDialog(parent, -1, _("Preferences"
 	Advanced(book, this);
 	Advanced_Audio(book, this);
 	Advanced_Video(book, this);
+	VapourSynth(book, this);
 
 	book->Fit();
 

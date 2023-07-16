@@ -16,11 +16,13 @@
 
 #include "audio_provider_factory.h"
 
+#include "compat.h"
 #include "factory_manager.h"
 #include "options.h"
 #include "utils.h"
 
 #include <libaegisub/audio/provider.h>
+#include <libaegisub/format.h>
 #include <libaegisub/fs.h>
 #include <libaegisub/log.h>
 #include <libaegisub/path.h>
@@ -31,12 +33,15 @@ using namespace agi;
 
 std::unique_ptr<AudioProvider> CreateAvisynthAudioProvider(fs::path const& filename, BackgroundRunner *);
 std::unique_ptr<AudioProvider> CreateFFmpegSourceAudioProvider(fs::path const& filename, BackgroundRunner *);
+std::unique_ptr<AudioProvider> CreateBSAudioProvider(fs::path const& filename, BackgroundRunner *);
+std::unique_ptr<AudioProvider> CreateVapourSynthAudioProvider(fs::path const& filename, BackgroundRunner *);
 
 namespace {
 struct factory {
 	const char *name;
 	std::unique_ptr<AudioProvider> (*create)(fs::path const&, BackgroundRunner *);
 	bool hidden;
+	std::function<bool(agi::fs::path const&)> wants_to_open = [](auto p) { return false; };
 };
 
 const factory providers[] = {
@@ -46,7 +51,13 @@ const factory providers[] = {
 	{"FFmpegSource", CreateFFmpegSourceAudioProvider, false},
 #endif
 #ifdef WITH_AVISYNTH
-	{"Avisynth", CreateAvisynthAudioProvider, false},
+	{"Avisynth", CreateAvisynthAudioProvider, false, [](auto p) { return agi::fs::HasExtension(p, "avs"); }},
+#endif
+#ifdef WITH_BESTSOURCE
+	{"BestSource", CreateBSAudioProvider, false},
+#endif
+#ifdef WITH_VAPOURSYNTH
+	{"VapourSynth", CreateVapourSynthAudioProvider, false, [](auto p) { return agi::fs::HasExtension(p, "py") || agi::fs::HasExtension(p, "vpy"); }},
 #endif
 };
 }
@@ -55,51 +66,75 @@ std::vector<std::string> GetAudioProviderNames() {
 	return ::GetClasses(boost::make_iterator_range(std::begin(providers), std::end(providers)));
 }
 
-std::unique_ptr<agi::AudioProvider> GetAudioProvider(fs::path const& filename,
-                                                     Path const& path_helper,
-                                                     BackgroundRunner *br) {
+std::unique_ptr<agi::AudioProvider> SelectAudioProvider(fs::path const& filename,
+                                                        Path const& path_helper,
+                                                        BackgroundRunner *br) {
 	auto preferred = OPT_GET("Audio/Provider")->GetString();
 	auto sorted = GetSorted(boost::make_iterator_range(std::begin(providers), std::end(providers)), preferred);
 
-	std::unique_ptr<AudioProvider> provider;
-	bool found_file = false;
-	bool found_audio = false;
-	std::string msg_all;     // error messages from all attempted providers
-	std::string msg_partial; // error messages from providers that could partially load the file (knows container, missing codec)
+	RearrangeWithPriority(sorted, filename);
 
-	for (auto const& factory : sorted) {
+	bool found_file = false;
+	std::string errors;
+
+	auto tried_providers = sorted.begin();
+
+	for (; tried_providers < sorted.end(); tried_providers++) {
+		auto factory = *tried_providers;
+		std::string err;
 		try {
-			provider = factory->create(filename, br);
+			auto provider = factory->create(filename, br);
 			if (!provider) continue;
 			LOG_I("audio_provider") << "Using audio provider: " << factory->name;
+			return provider;
+		}
+		catch (AudioDataNotFound const& ex) {
+			found_file = true;
+			err = ex.GetMessage();
+		}
+		catch (AudioProviderError const& ex) {
+			found_file = true;
+			err = ex.GetMessage();
+		}
+
+		errors += std::string(factory->name) + ": " + err + "\n";
+		LOG_D("audio_provider") << factory->name << ": " << err;
+		if (factory->name == preferred)
 			break;
-		}
-		catch (fs::FileNotFound const& err) {
-			LOG_D("audio_provider") << err.GetMessage();
-			msg_all += std::string(factory->name) + ": " + err.GetMessage() + " not found.\n";
-		}
-		catch (AudioDataNotFound const& err) {
-			LOG_D("audio_provider") << err.GetMessage();
-			found_file = true;
-			msg_all += std::string(factory->name) + ": " + err.GetMessage() + "\n";
-		}
-		catch (AudioProviderError const& err) {
-			LOG_D("audio_provider") << err.GetMessage();
-			found_audio = true;
-			found_file = true;
-			std::string thismsg = std::string(factory->name) + ": " + err.GetMessage() + "\n";
-			msg_all += thismsg;
-			msg_partial += thismsg;
-		}
 	}
 
-	if (!provider) {
-		if (found_audio)
-			throw AudioProviderError(msg_partial);
-		if (found_file)
-			throw AudioDataNotFound(msg_all);
-		throw fs::FileNotFound(filename);
+	std::vector<const factory *> remaining_providers(tried_providers + 1, sorted.end());
+
+	if (!remaining_providers.size()) {
+		// No provider could open the file
+		LOG_E("audio_provider") << "Could not open " << filename;
+		std::string msg = "Could not open " + filename.string() + ":\n" + errors;
+
+		if (!found_file) throw AudioDataNotFound(filename.string());
+		throw AudioProviderError(msg);
 	}
+
+	std::vector<std::string> names;
+	for (auto const& f : remaining_providers)
+		names.push_back(f->name);
+
+	int choice = wxGetSingleChoiceIndex(agi::format("Could not open %s with the preferred provider:\n\n%s\nPlease choose a different audio provider to try:", filename.string(), errors), _("Error loading audio"), to_wx(names));
+	if (choice == -1) {
+		throw agi::UserCancelException("audio loading cancelled by user");
+	}
+
+	auto factory = remaining_providers[choice];
+	auto provider = factory->create(filename, br);
+	if (!provider)
+		throw AudioProviderError("Audio provider returned null pointer");
+	LOG_I("audio_provider") << factory->name << ": opened " << filename;
+	return provider;
+}
+
+std::unique_ptr<agi::AudioProvider> GetAudioProvider(fs::path const& filename,
+                                                     Path const& path_helper,
+                                                     BackgroundRunner *br) {
+	std::unique_ptr<agi::AudioProvider> provider = SelectAudioProvider(filename, path_helper, br);
 
 	bool needs_cache = provider->NeedsCache();
 

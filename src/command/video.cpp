@@ -236,6 +236,23 @@ struct video_cycle_subtitles_provider final : public cmd::Command {
 	}
 };
 
+struct video_reload_subtitles_provider final : public cmd::Command {
+	CMD_NAME("video/subtitles_provider/reload")
+		STR_MENU("Reload active subtitles provider")
+		STR_DISP("Reload active subtitles provider")
+		STR_HELP("Reloads the current subtitles provider")
+
+		void operator()(agi::Context* c) override {
+		auto providers = SubtitlesProviderFactory::GetClasses();
+		if (providers.empty()) return;
+
+		auto it = find(begin(providers), end(providers), OPT_GET("Subtitle/Provider")->GetString());
+
+		OPT_SET("Subtitle/Provider")->SetString(*it);
+		c->frame->StatusTimeout(fmt_tl("Subtitles provider set to %s", *it), 5000);
+	}
+};
+
 struct video_detach final : public validator_video_loaded {
 	CMD_NAME("video/detach")
 	CMD_ICON(detach_video_menu)
@@ -287,9 +304,13 @@ struct video_focus_seek final : public validator_video_loaded {
 	}
 };
 
-wxImage get_image(agi::Context *c, bool raw) {
+wxImage get_image(agi::Context *c, bool raw, bool subsonly = false) {
 	auto frame = c->videoController->GetFrameN();
-	return GetImage(*c->project->VideoProvider()->GetFrame(frame, c->project->Timecodes().TimeAtFrame(frame), raw));
+    if (subsonly) {
+        return GetImageWithAlpha(c->project->VideoProvider()->GetSubtitles(c->project->Timecodes().TimeAtFrame(frame)));
+    } else {
+        return GetImage(*c->project->VideoProvider()->GetFrame(frame, c->project->Timecodes().TimeAtFrame(frame), raw));
+    }
 }
 
 struct video_frame_copy final : public validator_video_loaded {
@@ -311,6 +332,17 @@ struct video_frame_copy_raw final : public validator_video_loaded {
 
 	void operator()(agi::Context *c) override {
 		SetClipboard(wxBitmap(get_image(c, true), 24));
+	}
+};
+
+struct video_frame_copy_subs final : public validator_video_loaded {
+	CMD_NAME("video/frame/copy/subs")
+	STR_MENU("Copy image to Clipboard (only subtitles)")
+	STR_DISP("Copy image to Clipboard (only subtitles)")
+	STR_HELP("Copy the currently displayed subtitles to the clipboard, with transparent background")
+
+	void operator()(agi::Context *c) override {
+		SetClipboard(wxBitmap(get_image(c, false, true), 32));
 	}
 };
 
@@ -456,7 +488,7 @@ struct video_frame_prev_large final : public validator_video_loaded {
 	}
 };
 
-static void save_snapshot(agi::Context *c, bool raw) {
+static void save_snapshot(agi::Context *c, bool raw, bool subsonly = false) {
 	auto option = OPT_GET("Path/Screenshot")->GetString();
 	agi::fs::path basepath;
 
@@ -491,7 +523,7 @@ static void save_snapshot(agi::Context *c, bool raw) {
 		path = agi::format("%s_%03d_%d.png", basepath.string(), session_shot_count++, c->videoController->GetFrameN());
 	} while (agi::fs::FileExists(path));
 
-	get_image(c, raw).SaveFile(to_wx(path), wxBITMAP_TYPE_PNG);
+	get_image(c, raw, subsonly).SaveFile(to_wx(path), wxBITMAP_TYPE_PNG);
 }
 
 struct video_frame_save final : public validator_video_loaded {
@@ -513,6 +545,17 @@ struct video_frame_save_raw final : public validator_video_loaded {
 
 	void operator()(agi::Context *c) override {
 		save_snapshot(c, true);
+	}
+};
+
+struct video_frame_save_subs final : public validator_video_loaded {
+	CMD_NAME("video/frame/save/subs")
+	STR_MENU("Save PNG snapshot (only subtitles)")
+	STR_DISP("Save PNG snapshot (only subtitles)")
+	STR_HELP("Save the currently displayed subtitles with transparent background to a PNG file in the video's directory")
+
+	void operator()(agi::Context *c) override {
+		save_snapshot(c, false, true);
 	}
 };
 
@@ -564,7 +607,7 @@ struct video_open final : public Command {
 	STR_HELP("Open a video file")
 
 	void operator()(agi::Context *c) override {
-		auto str = from_wx(_("Video Formats") + " (*.asf,*.avi,*.avs,*.d2v,*.h264,*.hevc,*.m2ts,*.m4v,*.mkv,*.mov,*.mp4,*.mpeg,*.mpg,*.ogm,*.webm,*.wmv,*.ts,*.y4m,*.yuv)|*.asf;*.avi;*.avs;*.d2v;*.h264;*.hevc;*.m2ts;*.m4v;*.mkv;*.mov;*.mp4;*.mpeg;*.mpg;*.ogm;*.webm;*.wmv;*.ts;*.y4m;*.yuv|"
+		auto str = from_wx(_("Video Formats") + " (*.asf,*.avi,*.avs,*.d2v,*.h264,*.hevc,*.m2ts,*.m4v,*.mkv,*.mov,*.mp4,*.mpeg,*.mpg,*.ogm,*.webm,*.wmv,*.ts,*.vpy,*.y4m,*.yuv)|*.asf;*.avi;*.avs;*.d2v;*.h264;*.hevc;*.m2ts;*.m4v;*.mkv;*.mov;*.mp4;*.mpeg;*.mpg;*.ogm;*.webm;*.wmv;*.ts;*.vpy;*.y4m;*.yuv|"
 		         + _("All Files") + " (*.*)|*.*");
 		auto filename = OpenFileSelector(_("Open video file"), "Path/Last/Video", "", "", str, c->parent);
 		if (!filename.empty())
@@ -586,6 +629,17 @@ struct video_open_dummy final : public Command {
 	}
 };
 
+struct video_reload final : public Command {
+	CMD_NAME("video/reload")
+	STR_MENU("Reload Video")
+	STR_DISP("Reload Video")
+	STR_HELP("Reload the current video file")
+
+	void operator()(agi::Context *c) override {
+		c->project->ReloadVideo();
+	}
+};
+
 struct video_opt_autoscroll final : public Command {
 	CMD_NAME("video/opt/autoscroll")
 	CMD_ICON(toggle_video_autoscroll)
@@ -600,6 +654,17 @@ struct video_opt_autoscroll final : public Command {
 
 	void operator()(agi::Context *) override {
 		OPT_SET("Video/Subtitle Sync")->SetBool(!OPT_GET("Video/Subtitle Sync")->GetBool());
+	}
+};
+
+struct video_pan_reset final : public validator_video_loaded {
+	CMD_NAME("video/pan_reset")
+	STR_MENU("Reset Video Pan")
+	STR_DISP("Reset Video Pan")
+	STR_HELP("Reset the video pan to the original value")
+
+	void operator()(agi::Context *c) override {
+		c->videoDisplay->ResetPan();
 	}
 };
 
@@ -658,7 +723,7 @@ public:
 
 	void operator()(agi::Context *c) override {
 		c->videoController->Stop();
-		c->videoDisplay->SetZoom(1.);
+		c->videoDisplay->SetWindowZoom(1.);
 	}
 };
 
@@ -689,7 +754,7 @@ public:
 
 	void operator()(agi::Context *c) override {
 		c->videoController->Stop();
-		c->videoDisplay->SetZoom(2.);
+		c->videoDisplay->SetWindowZoom(2.);
 	}
 };
 
@@ -707,7 +772,7 @@ public:
 
 	void operator()(agi::Context *c) override {
 		c->videoController->Stop();
-		c->videoDisplay->SetZoom(.5);
+		c->videoDisplay->SetWindowZoom(.5);
 	}
 };
 
@@ -719,7 +784,7 @@ struct video_zoom_in final : public validator_video_attached {
 	STR_HELP("Zoom video in")
 
 	void operator()(agi::Context *c) override {
-		c->videoDisplay->SetZoom(c->videoDisplay->GetZoom() + .125);
+		c->videoDisplay->SetWindowZoom(c->videoDisplay->GetZoom() + .125);
 	}
 };
 
@@ -731,7 +796,7 @@ struct video_zoom_out final : public validator_video_attached {
 	STR_HELP("Zoom video out")
 
 	void operator()(agi::Context *c) override {
-		c->videoDisplay->SetZoom(c->videoDisplay->GetZoom() - .125);
+		c->videoDisplay->SetWindowZoom(c->videoDisplay->GetZoom() - .125);
 	}
 };
 }
@@ -746,11 +811,13 @@ namespace cmd {
 		reg(agi::make_unique<video_close>());
 		reg(agi::make_unique<video_copy_coordinates>());
 		reg(agi::make_unique<video_cycle_subtitles_provider>());
+		reg(agi::make_unique<video_reload_subtitles_provider>());
 		reg(agi::make_unique<video_detach>());
 		reg(agi::make_unique<video_details>());
 		reg(agi::make_unique<video_focus_seek>());
 		reg(agi::make_unique<video_frame_copy>());
 		reg(agi::make_unique<video_frame_copy_raw>());
+		reg(agi::make_unique<video_frame_copy_subs>());
 		reg(agi::make_unique<video_frame_next>());
 		reg(agi::make_unique<video_frame_next_boundary>());
 		reg(agi::make_unique<video_frame_next_keyframe>());
@@ -761,12 +828,15 @@ namespace cmd {
 		reg(agi::make_unique<video_frame_prev_large>());
 		reg(agi::make_unique<video_frame_save>());
 		reg(agi::make_unique<video_frame_save_raw>());
+		reg(agi::make_unique<video_frame_save_subs>());
 		reg(agi::make_unique<video_jump>());
 		reg(agi::make_unique<video_jump_end>());
 		reg(agi::make_unique<video_jump_start>());
 		reg(agi::make_unique<video_open>());
 		reg(agi::make_unique<video_open_dummy>());
+		reg(agi::make_unique<video_reload>());
 		reg(agi::make_unique<video_opt_autoscroll>());
+		reg(agi::make_unique<video_pan_reset>());
 		reg(agi::make_unique<video_play>());
 		reg(agi::make_unique<video_play_line>());
 		reg(agi::make_unique<video_show_overscan>());

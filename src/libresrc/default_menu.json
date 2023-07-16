@@ -20,6 +20,10 @@
         {},
         { "command" : "audio/save/clip" },
         {},
+        { "command" : "grid/fold/create" },
+        { "command" : "grid/fold/toggle" },
+        { "command" : "grid/fold/clear" },
+        {},
         { "command" : "edit/line/cut" },
         { "command" : "edit/line/copy" },
         { "command" : "edit/line/paste" },
@@ -86,6 +90,10 @@
         { "command" : "edit/line/recombine" },
         { "command" : "edit/line/split/by_karaoke" },
         {},
+        { "command" : "grid/fold/open_all" },
+        { "command" : "grid/fold/close_all" },
+        { "command" : "grid/fold/clear_all" },
+        {},
         { "submenu" : "main/subtitle/sort lines", "text" : "Sort All Lines" },
         { "submenu" : "main/subtitle/sort selected lines", "text" : "Sort Selected Lines" },
         { "command" : "grid/swap" },
@@ -109,6 +117,8 @@
         { "command" : "grid/sort/style" },
         { "command" : "grid/sort/actor" },
         { "command" : "grid/sort/effect" },
+        { "command" : "grid/sort/text" },
+        { "command" : "grid/sort/text_stripped" },
         { "command" : "grid/sort/layer" }
     ],
     "main/subtitle/sort selected lines" : [
@@ -117,6 +127,8 @@
         { "command" : "grid/sort/style/selected" },
         { "command" : "grid/sort/actor/selected" },
         { "command" : "grid/sort/effect/selected" },
+        { "command" : "grid/sort/text/selected" },
+        { "command" : "grid/sort/text_stripped/selected" },
         { "command" : "grid/sort/layer/selected" }
     ],
     "main/timing" : [
@@ -156,6 +168,7 @@
         { "submenu" : "main/video/set zoom", "text" : "Set &Zoom" },
         { "submenu" : "main/video/override ar", "text" : "Override &AR" },
         { "command" : "video/show_overscan" },
+        { "command" : "video/pan_reset" },
         {},
         { "command" : "video/jump" },
         { "command" : "video/jump/start" },
@@ -217,6 +230,10 @@
         { "command" : "video/frame/save/raw" },
         { "command" : "video/frame/copy/raw" },
         {},
-        { "command" : "video/copy_coordinates" }
+        { "command" : "video/frame/save/subs" },
+        { "command" : "video/frame/copy/subs" },
+        {},
+        { "command" : "video/copy_coordinates" },
+        { "command" : "video/pan_reset" }
     ]
 }

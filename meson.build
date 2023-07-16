@@ -1,13 +1,13 @@
 project('Aegisub', ['c', 'cpp'],
         license: 'BSD-3-Clause',
-        meson_version: '>=0.57.0',
+        meson_version: '>=0.61.0',
         default_options: ['cpp_std=c++14', 'buildtype=debugoptimized'],
         version: '3.2.2')
 
 cmake = import('cmake')
 
 if host_machine.system() == 'windows'
-    add_project_arguments('-DNOMINMAX', '-D_WIN32_WINNT=0x0601', language: 'cpp')
+    add_project_arguments('-DNOMINMAX', language: 'cpp')
 
     if not get_option('csri').disabled()
         add_global_arguments('-DCSRI_NO_EXPORT', language: 'c')
@@ -52,11 +52,19 @@ if get_option('debug') and host_machine.system() != 'windows'
     add_project_arguments('-D_DEBUG', language: 'cpp')
 endif
 
+if get_option('buildtype') == 'release'
+    add_project_arguments('-DNDEBUG', language: 'cpp')
+endif
+
 conf = configuration_data()
+conf.set_quoted('P_BIN', bindir)
 conf.set_quoted('P_DATA', dataroot)
 conf.set_quoted('P_LOCALE', localedir)
 if get_option('credit') != ''
     conf.set_quoted('BUILD_CREDIT', get_option('credit'))
+endif
+if get_option('build_appimage')
+    conf.set('APPIMAGE_BUILD', 1)
 endif
 conf.set('WITH_UPDATE_CHECKER', get_option('enable_update_checker'))
 
@@ -78,10 +86,14 @@ cc = meson.get_compiler('c')
 deps += cc.find_library('m', required: false)
 deps += cc.find_library('dl', required: false)
 
-iconv_dep = cc.find_library('iconv', required: false)
-if not (iconv_dep.found() or cc.has_function('iconv_open'))
-    iconv_sp = subproject('iconv') # this really needs to be replaced with a proper port
-    iconv_dep = iconv_sp.get_variable('libiconv_dep')
+if meson.version().version_compare('>=0.60.0')
+  iconv_dep = dependency('iconv', fallback: ['iconv', 'libiconv_dep'])
+else
+  iconv_dep = cc.find_library('iconv', required: false)
+  if not (iconv_dep.found() or cc.has_function('iconv_open'))
+      iconv_sp = subproject('iconv') # this really needs to be replaced with a proper port
+      iconv_dep = iconv_sp.get_variable('libiconv_dep')
+  endif
 endif
 deps += iconv_dep
 
@@ -90,7 +102,7 @@ deps += dependency('libass', version: '>=0.9.7',
 
 boost_modules = ['chrono', 'filesystem', 'thread', 'locale', 'regex']
 if not get_option('local_boost')
-    boost_dep = dependency('boost', version: '>=1.50.0',
+    boost_dep = dependency('boost', version: '>=1.60.0',
                             modules: boost_modules + ['system'],
                             required: false,
                             static: get_option('default_library') == 'static')
@@ -220,24 +232,86 @@ foreach dep: [
     endif
 endforeach
 
-if host_machine.system() == 'windows' and get_option('avisynth').enabled()
-    conf.set('WITH_AVISYNTH', 1) # bundled separately with installer
+needs_ffmpeg = false
+
+if get_option('bestsource').enabled()
+    conf.set('WITH_BESTSOURCE', 1)
+    bs = subproject('bestsource')
+    deps += bs.get_variable('bestsource_dep')
+    dep_avail += 'BestSource'
+    needs_ffmpeg = true
 endif
 
-if host_machine.system() == 'windows' and not get_option('directsound').disabled()
-    dsound_dep = cc.find_library('dsound', required: get_option('directsound'))
-    winmm_dep = cc.find_library('winmm', required: get_option('directsound'))
-    ole32_dep = cc.find_library('ole32', required: get_option('directsound'))
-    have_dsound_h = cc.has_header('dsound.h')
-    if not have_dsound_h and get_option('directsound').enabled()
-        error('DirectSound enabled but dsound.h not found')
+if needs_ffmpeg
+    conf.set('WITH_FFMPEG', 1)
+    deps += [
+      dependency('libavutil', default_options: ['tests=disabled']),
+      dependency('libswscale', default_options: ['tests=disabled']),
+    ]
+endif
+
+if get_option('avisynth').enabled()
+    conf.set('WITH_AVISYNTH', 1) # bundled separately with installer
+    dep_avail += 'AviSynth'
+
+    avs_opt = cmake.subproject_options()
+    avs_opt.add_cmake_defines({
+        'HEADERS_ONLY': true
+    })
+
+    avs = cmake.subproject('avisynth', options: avs_opt)
+    deps_inc += avs.include_directories('AviSynth-Headers')
+
+    if host_machine.system() == 'windows'
+      deps += cc.find_library('avifil32', required: true)
+    endif
+endif
+
+if get_option('vapoursynth').enabled()
+    conf.set('WITH_VAPOURSYNTH', 1)
+    vs_sub = subproject('vapoursynth')
+    deps_inc += vs_sub.get_variable('vs_inc')
+    dep_avail += 'VapourSynth'
+endif
+
+if host_machine.system() == 'windows'
+    if not get_option('directsound').disabled()
+        dsound_dep = cc.find_library('dsound', required: get_option('directsound'))
+        winmm_dep = cc.find_library('winmm', required: get_option('directsound'))
+        ole32_dep = cc.find_library('ole32', required: get_option('directsound'))
+        have_dsound_h = cc.has_header('dsound.h')
+        if not have_dsound_h and get_option('directsound').enabled()
+            error('DirectSound enabled but dsound.h not found')
+        endif
+
+        dxguid_dep = cc.find_library('dxguid', required: true)
+        if dsound_dep.found() and winmm_dep.found() and ole32_dep.found() and dxguid_dep.found() and have_dsound_h
+            deps += [dsound_dep, winmm_dep, ole32_dep, dxguid_dep]
+            conf.set('WITH_DIRECTSOUND', 1)
+            dep_avail += 'DirectSound'
+        endif
     endif
 
-    dxguid_dep = cc.find_library('dxguid', required: true)
-    if dsound_dep.found() and winmm_dep.found() and ole32_dep.found() and dxguid_dep.found() and have_dsound_h
-        deps += [dsound_dep, winmm_dep, ole32_dep, dxguid_dep]
-        conf.set('WITH_DIRECTSOUND', 1)
-        dep_avail += 'DirectSound'
+    if not get_option('xaudio2').disabled()
+        have_xaudio_h = cc.has_header('xaudio2.h')
+        xaudio2_dep = cc.find_library('xaudio2', required: true)
+        if have_xaudio_h and xaudio2_dep.found()
+            deps += [xaudio2_dep]
+            conf.set('WITH_XAUDIO2', 1)
+            dep_avail += 'XAudio2'
+            # XAudio2 needs Windows 8 or newer, so we tell meson not to define an older windows or else it can break things.
+            add_project_arguments('-D_WIN32_WINNT=0x0602', language: 'cpp')
+        else
+            # Windows 8 not required if XAudio2 fails to be found. revert for compat.
+            add_project_arguments('-D_WIN32_WINNT=0x0601', language: 'cpp')
+        endif
+        
+        if not have_dsound_h and get_option('xaudio2').enabled()
+            error('xaudio2 enabled but xaudio2.h not found')
+        endif
+    else
+        # Windows 8 not required if XAudio2 is disabled. revert for compat.
+        add_project_arguments('-D_WIN32_WINNT=0x0601', language: 'cpp')
     endif
 endif
 
@@ -337,8 +411,18 @@ subdir('tests')
 aegisub_cpp_pch = ['src/include/agi_pre.h']
 aegisub_c_pch = ['src/include/agi_pre_c.h']
 
+link_args = []
+link_depends = []
+if host_machine.system() == 'windows'
+    manifest_file = configure_file(copy: true, input: 'src/res/aegisub.exe.manifest', output: 'aegisub.exe.manifest')
+    link_args += ['/MANIFEST:EMBED', '/MANIFESTINPUT:@0@'.format(manifest_file)]
+    link_depends += manifest_file
+endif
+
 aegisub = executable('aegisub', aegisub_src, version_h, acconf,
                      link_with: [libresrc, libluabins, libaegisub],
+                     link_args: link_args,
+                     link_depends: link_depends,
                      include_directories: [libaegisub_inc, libresrc_inc, version_inc, deps_inc, include_directories('src')],
                      cpp_pch: aegisub_cpp_pch,
                      c_pch: aegisub_c_pch,
@@ -346,13 +430,3 @@ aegisub = executable('aegisub', aegisub_src, version_h, acconf,
                      install_dir: bindir,
                      dependencies: deps,
                      win_subsystem: 'windows')
-
-if host_machine.system() == 'windows'
-    mt_exe = find_program('mt.exe')
-    apply_manifest = find_program(meson.project_source_root() / 'tools/apply-manifest.py')
-    custom_target('apply-manifest',
-                  input: aegisub,
-                  output: 'applied_manifest',
-                  command: [apply_manifest, mt_exe, '@INPUT@'],
-                  build_by_default: true)
-endif

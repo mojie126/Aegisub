@@ -41,17 +41,22 @@
 
 #include <limits>
 
-Spline::Spline(const VisualToolBase &tl)
+Spline::Spline(const VisualToolBase *tl)
 : coord_translator(tl)
 {
 }
 
 Vector2D Spline::ToScript(Vector2D vec) const {
-	return coord_translator.ToScriptCoords(vec) * scale;
+	if (coord_translator)
+		vec = coord_translator->ToScriptCoords(vec);
+	return vec * scale;
 }
 
 Vector2D Spline::FromScript(Vector2D vec) const {
-	return coord_translator.FromScriptCoords(vec / scale);
+	vec = vec / scale;
+	if (coord_translator)
+		vec = coord_translator->FromScriptCoords(vec);
+	return vec;
 }
 
 void Spline::SetScale(int new_scale) {
@@ -71,7 +76,7 @@ std::string Spline::EncodeToAss() const {
 					result += "m ";
 					last = 'm';
 				}
-				result += ToScript(pt.p1).DStr(' ');
+				result += ToScript(pt.p1).Str(' ');
 				break;
 
 			case SplineCurve::LINE:
@@ -79,7 +84,7 @@ std::string Spline::EncodeToAss() const {
 					result += "l ";
 					last = 'l';
 				}
-				result += ToScript(pt.p2).DStr(' ');
+				result += ToScript(pt.p2).Str(' ');
 				break;
 
 			case SplineCurve::BICUBIC:
@@ -87,9 +92,9 @@ std::string Spline::EncodeToAss() const {
 					result += "b ";
 					last = 'b';
 				}
-				result += ToScript(pt.p2).DStr(' ') + " ";
-				result += ToScript(pt.p3).DStr(' ') + " ";
-				result += ToScript(pt.p4).DStr(' ');
+				result += ToScript(pt.p2).Str(' ') + " ";
+				result += ToScript(pt.p3).Str(' ') + " ";
+				result += ToScript(pt.p4).Str(' ');
 				break;
 
 			default: break;

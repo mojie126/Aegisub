@@ -56,6 +56,7 @@ aegisub_src = files(
     'context.cpp',
     'crash_writer.cpp',
     'dialog_about.cpp',
+    'dialog_align.cpp',
     'dialog_attachments.cpp',
     'dialog_automation.cpp',
     'dialog_autosave.cpp',
@@ -89,6 +90,7 @@ aegisub_src = files(
     'export_fixstyle.cpp',
     'export_framerate.cpp',
     'fft.cpp',
+    'fold_controller.cpp',
     'font_file_lister.cpp',
     'frame_main.cpp',
     'gl_text.cpp',
@@ -97,6 +99,7 @@ aegisub_src = files(
     'help_button.cpp',
     'hotkey.cpp',
     'hotkey_data_view_model.cpp',
+    'image_position_picker.cpp',
     'initial_line_state.cpp',
     'main.cpp',
     'menu.cpp',
@@ -141,6 +144,7 @@ aegisub_src = files(
     'utils.cpp',
     'validators.cpp',
     'vector2d.cpp',
+    'vector3d.cpp',
     'version.cpp',
     'video_box.cpp',
     'video_controller.cpp',
@@ -157,6 +161,7 @@ aegisub_src = files(
     'visual_tool_clip.cpp',
     'visual_tool_cross.cpp',
     'visual_tool_drag.cpp',
+    'visual_tool_perspective.cpp',
     'visual_tool_rotatexy.cpp',
     'visual_tool_rotatez.cpp',
     'visual_tool_scale.cpp',
@@ -171,10 +176,8 @@ if host_machine.system() == 'darwin'
     )
 elif host_machine.system() == 'windows'
     aegisub_src += files(
-        'avisynth_wrap.cpp',
         'font_file_lister_gdi.cpp',
         # 'libass_gdi_fontselect.cpp',
-        'video_provider_avs.cpp',
     )
 
     if cc.has_header('wingdi.h')
@@ -214,6 +217,7 @@ elif host_machine.system() == 'windows'
                                                  depends: version_h,
                                                  include_directories: [res_inc, version_inc, wx_inc])
     endif
+    aegisub_src += windows.compile_resources('res/strings.rc')
 endif
 
 if conf.has('WITH_FONTCONFIG')
@@ -232,10 +236,21 @@ opt_src = [
     ['OSS', 'audio_player_oss.cpp'],
     ['DirectSound', ['audio_player_dsound.cpp',
                      'audio_player_dsound2.cpp']],
-
+    ['XAudio2', 'audio_player_xaudio2.cpp'],
     ['FFMS2', ['audio_provider_ffmpegsource.cpp',
                'video_provider_ffmpegsource.cpp',
                'ffmpegsource_common.cpp']],
+    ['BestSource', ['audio_provider_bestsource.cpp',
+                    'video_provider_bestsource.cpp',
+                    'bestsource_common.cpp']],
+    ['VapourSynth', ['vapoursynth_wrap.cpp',
+                     'vapoursynth_common.cpp',
+                     'audio_provider_vs.cpp',
+                     'video_provider_vs.cpp']],
+
+    ['AviSynth', ['avisynth_wrap.cpp',
+                  'audio_provider_avs.cpp',
+                  'video_provider_avs.cpp']],
 
     ['Hunspell', 'spellchecker_hunspell.cpp'],
 ]

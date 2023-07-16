@@ -27,6 +27,8 @@
 //
 // Aegisub Project http://www.aegisub.org/
 
+#pragma once
+
 #include "ass_entry.h"
 
 #include <libaegisub/fs_fwd.h>
@@ -48,6 +50,7 @@ using EntryList = typename boost::intrusive::make_list<T, boost::intrusive::cons
 
 struct ExtradataEntry {
 	uint32_t id;
+	int expiration_counter;
 	std::string key;
 	std::string value;
 };
@@ -81,7 +84,10 @@ struct ProjectProperties {
 class AssFile {
 	/// A set of changes has been committed to the file (AssFile::COMMITType)
 	agi::signal::Signal<int, const AssDialogue*> AnnounceCommit;
+	agi::signal::Signal<int, const AssDialogue*> AnnouncePreCommit;
 	agi::signal::Signal<AssFileCommit> PushState;
+
+	void SetExtradataValue(AssDialogue& line, std::string const& key, std::string const& value, bool del);
 public:
 	/// The lines in the file
 	std::vector<AssInfo> Info;
@@ -133,6 +139,10 @@ public:
 	uint32_t AddExtradata(std::string const& key, std::string const& value);
 	/// Fetch all extradata entries from a list of IDs
 	std::vector<ExtradataEntry> GetExtradata(std::vector<uint32_t> const& id_list) const;
+	/// Set an extradata kex:value pair for a dialogue line, clearing previous values for this key if necessary
+	void SetExtradataValue(AssDialogue& line, std::string const& key, std::string const& value) { SetExtradataValue(line, key, value, false); };
+	/// Delete any extradata values for the given key
+	void DeleteExtradataValue(AssDialogue& line, std::string const& key) { SetExtradataValue(line, key, "", true); };
 	/// Remove unreferenced extradata entries
 	void CleanExtradata();
 
@@ -166,8 +176,11 @@ public:
 		COMMIT_DIAG_FULL   = COMMIT_DIAG_META | COMMIT_DIAG_TIME | COMMIT_DIAG_TEXT,
 		/// Extradata entries were added/modified/removed
 		COMMIT_EXTRADATA   = 0x100,
+		/// Folds were added or removed
+		COMMIT_FOLD        = COMMIT_EXTRADATA,
 	};
 
+	DEFINE_SIGNAL_ADDERS(AnnouncePreCommit, AddPreCommitListener)
 	DEFINE_SIGNAL_ADDERS(AnnounceCommit, AddCommitListener)
 	DEFINE_SIGNAL_ADDERS(PushState, AddUndoManager)
 
@@ -194,6 +207,10 @@ public:
 	static bool CompEffect(AssDialogue const& lft, AssDialogue const& rgt);
 	/// Compare based on layer
 	static bool CompLayer(AssDialogue const& lft, AssDialogue const& rgt);
+	/// Compare based on text
+	static bool CompText(AssDialogue const& lft, AssDialogue const& rgt);
+	/// Compare based on stripped text
+	static bool CompTextStripped(AssDialogue const& lft, AssDialogue const& rgt);
 
 	/// @brief Sort the dialogue lines in this file
 	/// @param comp Comparison function to use. Defaults to sorting by start time.

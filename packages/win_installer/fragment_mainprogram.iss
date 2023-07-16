@@ -1,5 +1,6 @@
 [Components]
 Name: "main"; Description: "Main Files"; Types: full compact custom; Flags: fixed
+Name: "vapoursynth"; Description: "Bundled VapourSynth Plugins"; Types: full
 Name: "macros"; Description: "Automation Scripts"; Types: full
 Name: "macros\bundled"; Description: "Bundled macros"; Types: full
 Name: "macros\demos"; Description: "Example macros/Demos"; Types: full

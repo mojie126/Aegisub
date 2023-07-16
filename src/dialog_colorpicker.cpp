@@ -386,9 +386,21 @@ void ColorPickerScreenDropper::DropFromScreenXY(int x, int y) {
 	wxMemoryDC capdc(capture);
 	capdc.SetPen(*wxTRANSPARENT_PEN);
 #ifndef __WXMAC__
-	wxScreenDC screen;
+	std::unique_ptr<wxDC> screen;
+
+	if (!OPT_GET("Tool/Colour Picker/Restrict to Window")->GetBool()) {
+		screen = agi::make_unique<wxScreenDC>();
+	} else {
+		wxWindow *superparent = GetParent();
+		while (superparent->GetParent() != nullptr) {
+			superparent = superparent->GetParent();
+		}
+		superparent->ScreenToClient(&x, &y);
+
+		screen = agi::make_unique<wxClientDC>(superparent);
+	}
 	capdc.StretchBlit(0, 0, resx * magnification, resy * magnification,
-		&screen, x - resx / 2, y - resy / 2, resx, resy);
+		screen.get(), x - resx / 2, y - resy / 2, resx, resy);
 #else
 	// wxScreenDC doesn't work on recent versions of OS X so do it manually
 
@@ -557,9 +569,10 @@ DialogColorPicker::DialogColorPicker(wxWindow *parent, agi::Color initial_color,
 	wxString modes[] = { _("RGB/R"), _("RGB/G"), _("RGB/B"), _("HSL/L"), _("HSV/H") };
 	colorspace_choice = new wxChoice(this, -1, wxDefaultPosition, wxDefaultSize, 5, modes);
 
-	wxSize colorinput_size = GetTextExtent(" &H10117B& ");
-	colorinput_size.SetHeight(-1);
-	wxSize colorinput_labelsize(40, -1);
+	ass_input = new wxTextCtrl(this, -1);
+	wxSize colorinput_size = ass_input->GetSizeFromTextSize(GetTextExtent(wxS("&H10117B&")));
+	ass_input->SetMinSize(colorinput_size);
+	ass_input->SetSize(colorinput_size);
 
 	wxSizer *rgb_box = new wxStaticBoxSizer(wxHORIZONTAL, this, _("RGB color"));
 	wxSizer *hsl_box = new wxStaticBoxSizer(wxVERTICAL, this, _("HSL color"));
@@ -568,7 +581,7 @@ DialogColorPicker::DialogColorPicker(wxWindow *parent, agi::Color initial_color,
 	for (auto& elem : rgb_input)
 		elem = new wxSpinCtrl(this, -1, "", wxDefaultPosition, colorinput_size, wxSP_ARROW_KEYS, 0, 255);
 
-	ass_input = new wxTextCtrl(this, -1, "", wxDefaultPosition, colorinput_size);
+	// ass_input = new wxTextCtrl(this, -1, "", wxDefaultPosition, colorinput_size);
 	html_input = new wxTextCtrl(this, -1, "", wxDefaultPosition, colorinput_size);
 	alpha_input = new wxSpinCtrl(this, -1, "", wxDefaultPosition, colorinput_size, wxSP_ARROW_KEYS, 0, 255);
 

@@ -30,6 +30,8 @@ DestDir: {app}\automation\include; Source: {#SOURCE_ROOT}\automation\include\uni
 DestDir: {app}\automation\include; Source: {#SOURCE_ROOT}\automation\include\utils.lua; Flags: ignoreversion overwritereadonly uninsremovereadonly; Attribs: readonly; Components: main
 DestDir: {app}\automation\include; Source: {#SOURCE_ROOT}\automation\include\utils-auto4.lua; Flags: ignoreversion overwritereadonly uninsremovereadonly; Attribs: readonly; Components: main
 
+DestDir: {app}\automation\vapoursynth; Source: {#SOURCE_ROOT}\automation\vapoursynth\aegisub_vs.py; Flags: ignoreversion overwritereadonly uninsremovereadonly; Attribs: readonly; Components: main
+
 #ifdef DEPCTRL
 ; DepCtrl
 DestDir: {userappdata}\Aegisub\automation\include\l0; Source: {#DEPS_DIR}\DependencyControl\modules\*; Flags: ignoreversion recursesubdirs createallsubdirs; Components: macros\modules\depctrl

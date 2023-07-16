@@ -2,9 +2,14 @@ name: Meson CI
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
+      - feature
+      - cibuilds
   pull_request:
-    branches: [ master ]
+    branches:
+      - master
+      - feature
 
 jobs:
   build:
@@ -33,6 +38,9 @@ jobs:
               -Dfribidi:tests=false
               -Dfribidi:docs=false
               -Dlibass:fontconfig=disabled
+              -Davisynth=enabled
+              -Dbestsource=enabled
+              -Dvapoursynth=enabled
           #- {
           #  name: Windows MinGW,
           #  os: windows-latest,
@@ -50,25 +58,32 @@ jobs:
             buildtype: release,
             args: ''
           }
-          - {
-            name: macOS Debug,
-            os: macos-latest,
-            buildtype: debugoptimized,
-            args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true
-          }
+          - name: Ubuntu AppImage
+            os: ubuntu-22.04
+            buildtype: release
+            appimage: true
+            # distro ffms is currently broken
+            args: >-
+              --prefix=/usr
+              -Dbuild_appimage=true
+              -Ddefault_library=static
+              --force-fallback-for=ffms2
+              -Davisynth=enabled
+              -Dbestsource=enabled
+              -Dvapoursynth=enabled
           - {
             name: macOS Release,
             os: macos-latest,
             buildtype: release,
-            args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true
+            args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true -Dvapoursynth=enabled --force-fallback-for=ffms2
           }
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: '0'
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.x'
 
@@ -103,13 +118,13 @@ jobs:
           brew install pulseaudio  # NO OpenAL in github CI
 
       - name: Install dependencies (Linux)
-        if: matrix.config.os == 'ubuntu-latest'
+        if: startsWith(matrix.config.os, 'ubuntu-')
         run: |
           sudo apt-get update
-          sudo apt-get install ninja-build build-essential libx11-dev libwxgtk3.0-gtk3-dev libfreetype6-dev pkg-config libfontconfig1-dev libass-dev libasound2-dev libffms2-dev intltool libboost-all-dev
+          sudo apt-get install ninja-build build-essential libx11-dev libwxgtk3.0-gtk3-dev libfreetype6-dev pkg-config libfontconfig1-dev libass-dev libasound2-dev libffms2-dev intltool libboost-all-dev libhunspell-dev libuchardet-dev libpulse-dev libopenal-dev libjansson-dev
 
       - name: Configure
-        run: meson build ${{ matrix.config.args }} -Dbuildtype=${{ matrix.config.buildtype }}
+        run: meson setup build ${{ matrix.config.args }} -Dbuildtype=${{ matrix.config.buildtype }}
 
       - name: Build
         run: meson compile -C build
@@ -120,21 +135,25 @@ jobs:
       # Windows artifacts
       - name: Generate Windows installer
         if: matrix.config.os == 'windows-latest'
-        run: meson compile win-installer -C build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run:
+          meson compile win-installer -C build
 
       - name: Generate Windows portable installer
         if: matrix.config.os == 'windows-latest'
         run: cd build && ninja win-portable
 
       - name: Upload artifacts - win_installer
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: matrix.config.os == 'windows-latest'
         with:
           name: ${{ matrix.config.name }} - installer
           path: build/Aegisub-*.exe
+          if-no-files-found: error
       
       - name: Upload artifacts - portable.zip
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: matrix.config.os == 'windows-latest'
         with:
           name: ${{ matrix.config.name }} - portable
@@ -148,8 +167,33 @@ jobs:
           meson compile osx-build-dmg -C build
 
       - name: Upload artifacts - macOS dmg
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: matrix.config.os == 'macos-latest'
         with:
           name: ${{ matrix.config.name }} - installer
           path: build/Aegisub-*.dmg
+          if-no-files-found: error
+
+      # Linux artifacts (AppImage)
+      - name: Generate AppImage
+        if: matrix.config.appimage
+        run: |
+          mkdir -p appimage/appdir
+          meson install -C build --destdir=../appimage/appdir
+
+          cd appimage
+          sudo apt-get install libfuse2
+          curl -L "https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20220822-1/linuxdeploy-x86_64.AppImage" -o linuxdeploy
+          curl -L "https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage" -o appimagetool
+          chmod +x linuxdeploy appimagetool
+
+          ./linuxdeploy --appdir appdir --desktop-file=appdir/aegisub.desktop
+          ./appimagetool appdir
+
+      - name: Upload artifacts - Linux AppImage
+        uses: actions/upload-artifact@v3
+        if: matrix.config.appimage
+        with:
+          name: ${{ matrix.config.name }}
+          path: appimage/*.AppImage
+          if-no-files-found: error

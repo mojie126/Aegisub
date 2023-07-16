@@ -104,6 +104,7 @@ protected:
 	Vector2D script_res; ///< Script resolution
 	Vector2D video_pos; ///< Top-left corner of the video in the display area
 	Vector2D video_res; ///< Video resolution
+	Vector2D client_size; ///< The size of the display area
 
 	const agi::OptionValue *highlight_color_primary_opt;
 	const agi::OptionValue *highlight_color_secondary_opt;
@@ -127,9 +128,27 @@ protected:
 	void GetLineRotation(AssDialogue *diag, float &rx, float &ry, float &rz);
 	void GetLineShear(AssDialogue *diag, float& fax, float& fay);
 	void GetLineScale(AssDialogue *diag, Vector2D &scale);
+	void GetLineOutline(AssDialogue *diag, Vector2D &outline);
+	void GetLineShadow(AssDialogue *diag, Vector2D &shadow);
+	float GetLineFontSize(AssDialogue *diag);
+	int GetLineAlignment(AssDialogue *diag);
+	/// @brief Compute text extents of the given line without any formatting
+	/// @param diag The dialogue line
+	/// @return The top left and bottom right corners of the line's bounding box respectively.
+	///
+	/// Formatting tags are stripped and \fs tags are respected, but \fscx and \fscy are kept as 100 even if
+	/// they are different in the style.
+	/// For text the top left corner of the bounding box will always be at the origin, but this needn't be
+	/// the case for drawings. The width and height of the bounding box are the shifts used for text alignment.
+	///
+	///	This function works for most common line formats, but can be inaccurate for more complex cases such as lines
+	///	containing both text and drawings.
+	/// Returns a rough estimate when getting the precise extents fails
+	std::pair<Vector2D, Vector2D> GetLineBaseExtents(AssDialogue *diag);
 	void GetLineClip(AssDialogue *diag, Vector2D &p1, Vector2D &p2, bool &inverse);
 	std::string GetLineVectorClip(AssDialogue *diag, int &scale, bool &inverse);
 
+	void RemoveOverride(AssDialogue *line, std::string const& tag);
 	void SetOverride(AssDialogue* line, std::string const& tag, std::string const& value);
 	void SetSelectedOverride(std::string const& tag, std::string const& value);
 
@@ -144,8 +163,11 @@ public:
 	// Stuff called by VideoDisplay
 	virtual void OnMouseEvent(wxMouseEvent &event)=0;
 	virtual void Draw()=0;
+	virtual void SetClientSize(int w, int h);
 	virtual void SetDisplayArea(int x, int y, int w, int h);
 	virtual void SetToolbar(wxToolBar *) { }
+	virtual void SetSubTool(int subtool) { }
+	virtual int GetSubTool() { return 0; }
 	virtual ~VisualToolBase() = default;
 };
 
@@ -164,6 +186,8 @@ private:
 	virtual bool InitializeHold() { return false; }
 	/// @brief Called on every mouse event during a hold
 	virtual void UpdateHold() { }
+	/// @brief Called when the hold ended
+	virtual void EndHold() { }
 
 	/// @brief Called at the beginning of a drag
 	/// @param feature The visual feature clicked on
@@ -172,6 +196,9 @@ private:
 	/// @brief Called on every mouse event during a drag
 	/// @param feature The current feature to process; not necessarily the one clicked on
 	virtual void UpdateDrag(FeatureType *feature) { }
+	/// @brief Called at the end of a drag
+	/// @param feature The current feature to process; not necessarily the one clicked on
+	virtual void EndDrag(FeatureType *feature) { }
 
 protected:
 	std::set<FeatureType *> sel_features; ///< Currently selected visual features

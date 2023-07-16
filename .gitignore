@@ -1,5 +1,6 @@
 /tests/data
 
+automation/vapoursynth/__pycache__
 packages/desktop/aegisub.desktop
 packages/desktop/aegisub.desktop.template
 src/libresrc/bitmap.cpp
@@ -18,6 +19,8 @@ tools/repack-thes-dict.dSYM
 
 # Meson
 build*/
+subprojects/avisynth
+subprojects/bestsource/
 subprojects/boost*/
 subprojects/cairo*
 subprojects/dav1d
@@ -30,6 +33,7 @@ subprojects/glib*
 subprojects/googletest-*
 subprojects/harfbuzz
 subprojects/icu
+subprojects/jansson
 subprojects/libass
 subprojects/libffi*
 subprojects/libpng-*
@@ -42,3 +46,4 @@ subprojects/zlib-*
 subprojects/dirent-*
 subprojects/hunspell-*
 subprojects/uchardet-*
+subprojects/vapoursynth

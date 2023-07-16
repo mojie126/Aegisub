@@ -175,6 +175,8 @@ int AssFile::Commit(wxString const& desc, int type, int amend_id, AssDialogue *s
 			event.Row = i++;
 	}
 
+	AnnouncePreCommit(type, single_line);
+
 	PushState({desc, &amend_id, single_line});
 
 	AnnounceCommit(type, single_line);
@@ -199,6 +201,12 @@ bool AssFile::CompEffect(AssDialogue const& lft, AssDialogue const& rgt) {
 }
 bool AssFile::CompLayer(AssDialogue const& lft, AssDialogue const& rgt) {
 	return lft.Layer < rgt.Layer;
+}
+bool AssFile::CompText(AssDialogue const& lft, AssDialogue const& rgt) {
+	return lft.Text < rgt.Text;
+}
+bool AssFile::CompTextStripped(AssDialogue const& lft, AssDialogue const& rgt) {
+	return lft.GetStrippedText() < rgt.GetStrippedText();
 }
 
 void AssFile::Sort(CompFunc comp, std::set<AssDialogue*> const& limit) {
@@ -234,8 +242,41 @@ uint32_t AssFile::AddExtradata(std::string const& key, std::string const& value)
 			return data.id;
 		}
 	}
-	Extradata.push_back(ExtradataEntry{next_extradata_id, key, value});
+	Extradata.push_back(ExtradataEntry{next_extradata_id, 0, key, value});
 	return next_extradata_id++; // return old value, then post-increment
+}
+
+void AssFile::SetExtradataValue(AssDialogue& line, std::string const& key, std::string const& value, bool del) {
+	std::vector<uint32_t> id_list = line.ExtradataIds;
+	std::vector<bool> to_erase(id_list.size());
+	bool dirty = false;
+	bool found = false;
+
+	std::vector<ExtradataEntry> entry_list = GetExtradata(id_list);
+	for (int i = entry_list.size() - 1; i >= 0; i--) {
+		if (entry_list[i].key == key) {
+			if (!del && entry_list[i].value == value) {
+				found = true;
+			} else {
+				to_erase[i] = true;
+				dirty = true;
+			}
+		}
+	}
+
+	// The key is already set, we don't need to change anything
+	if (found && !dirty)
+		return;
+
+	for (int i = id_list.size() - 1; i >= 0; i--) {
+		if (to_erase[i])
+			id_list.erase(id_list.begin() + i, id_list.begin() + i + 1);
+	}
+
+	if (!del && !found)
+		id_list.push_back(AddExtradata(key, value));
+
+	line.ExtradataIds = id_list;
 }
 
 namespace {
@@ -299,10 +340,16 @@ void AssFile::CleanExtradata() {
 		}
 	}
 
+	for (ExtradataEntry &e : Extradata) {
+		if (ids_used.count(e.id))
+			e.expiration_counter = 0;
+		else
+			e.expiration_counter++;
+	}
 	if (ids_used.size() != Extradata.size()) {
 		// Erase all no-longer-used extradata entries
 		Extradata.erase(std::remove_if(begin(Extradata), end(Extradata), [&](ExtradataEntry const& e) {
-			return !ids_used.count(e.id);
+			return e.expiration_counter >= 10;
 		}), end(Extradata));
 	}
 }

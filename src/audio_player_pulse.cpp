@@ -48,7 +48,7 @@
 
 namespace {
 class PulseAudioPlayer final : public AudioPlayer {
-	float volume = 1.f;
+	pa_cvolume volume;
 	bool is_playing = false;
 
 	volatile unsigned long start_frame = 0;
@@ -56,6 +56,7 @@ class PulseAudioPlayer final : public AudioPlayer {
 	volatile unsigned long end_frame = 0;
 
 	unsigned long bpf = 0; // bytes per frame
+	bool fallback_mono16 = false;	// whether to convert to 16 bit mono. FIXME: more flexible conversion
 
 	wxSemaphore context_notify{0, 1};
 	wxSemaphore stream_notify{0, 1};
@@ -73,6 +74,7 @@ class PulseAudioPlayer final : public AudioPlayer {
 
 	int paerror = 0;
 
+	static void pa_setvolume_success(pa_context *c, int success, PulseAudioPlayer *thread);
 	/// Called by PA to notify about other context-related stuff
 	static void pa_context_notify(pa_context *c, PulseAudioPlayer *thread);
 	/// Called by PA when a stream operation completes
@@ -82,6 +84,8 @@ class PulseAudioPlayer final : public AudioPlayer {
 	/// Called by PA to notify about other stream-related stuff
 	static void pa_stream_notify(pa_stream *p, PulseAudioPlayer *thread);
 
+	/// Find the sample format and set fallback_mono16 if necessary
+	pa_sample_format_t GetSampleFormat(const agi::AudioProvider *provider);
 public:
 	PulseAudioPlayer(agi::AudioProvider *provider);
 	~PulseAudioPlayer();
@@ -94,8 +98,34 @@ public:
 	int64_t GetCurrentPosition();
 	void SetEndPosition(int64_t pos);
 
-	void SetVolume(double vol) { volume = vol; }
+	void SetVolume(double vol);
 };
+
+pa_sample_format_t PulseAudioPlayer::GetSampleFormat(const agi::AudioProvider *provider) {
+	if (provider->AreSamplesFloat()) {
+		switch (provider->GetBytesPerSample()) {
+			case 4:
+				return PA_SAMPLE_FLOAT32LE;
+			default:
+				fallback_mono16 = true;
+				return PA_SAMPLE_S16LE;
+		}
+	} else {
+		switch (provider->GetBytesPerSample()) {
+			case 1:
+				return PA_SAMPLE_U8;
+			case 2:
+				return PA_SAMPLE_S16LE;
+			case 3:
+				return PA_SAMPLE_S24LE;
+			case 4:
+				return PA_SAMPLE_S32LE;
+			default:
+				fallback_mono16 = true;
+				return PA_SAMPLE_S16LE;
+		}
+	}
+}
 
 PulseAudioPlayer::PulseAudioPlayer(agi::AudioProvider *provider) : AudioPlayer(provider) {
 	// Initialise a mainloop
@@ -133,13 +163,14 @@ PulseAudioPlayer::PulseAudioPlayer(agi::AudioProvider *provider) : AudioPlayer(p
 	}
 
 	// Set up stream
-	bpf = provider->GetChannels() * provider->GetBytesPerSample();
 	pa_sample_spec ss;
-	ss.format = PA_SAMPLE_S16LE; // FIXME
+	ss.format = GetSampleFormat(provider);
+	bpf = fallback_mono16 ? sizeof(int16_t) : provider->GetChannels() * provider->GetBytesPerSample();
 	ss.rate = provider->GetSampleRate();
-	ss.channels = provider->GetChannels();
+	ss.channels = fallback_mono16 ? 1 : provider->GetChannels();
 	pa_channel_map map;
 	pa_channel_map_init_auto(&map, ss.channels, PA_CHANNEL_MAP_DEFAULT);
+	pa_cvolume_init(&volume);
 
 	stream = pa_stream_new(context, "Sound", &ss, &map);
 	if (!stream) {
@@ -269,6 +300,11 @@ int64_t PulseAudioPlayer::GetCurrentPosition()
 	return start_frame + playtime * provider->GetSampleRate() / (1000*1000);
 }
 
+void PulseAudioPlayer::SetVolume(double vol) {
+	pa_cvolume_set(&volume, fallback_mono16 ? 1 : provider->GetChannels(), pa_sw_volume_from_linear(vol));
+	pa_context_set_sink_input_volume(context, pa_stream_get_index(stream), &volume, nullptr, nullptr);
+}
+
 /// @brief Called by PA to notify about other context-related stuff
 void PulseAudioPlayer::pa_context_notify(pa_context *c, PulseAudioPlayer *thread)
 {
@@ -308,7 +344,11 @@ void PulseAudioPlayer::pa_stream_write(pa_stream *p, size_t length, PulseAudioPl
 	unsigned long maxframes = thread->end_frame - thread->cur_frame;
 	if (frames > maxframes) frames = maxframes;
 	void *buf = malloc(frames * bpf);
-	thread->provider->GetAudioWithVolume(buf, thread->cur_frame, frames, thread->volume);
+	if (thread->fallback_mono16) {
+		thread->provider->GetInt16MonoAudio(reinterpret_cast<int16_t *>(buf), thread->cur_frame, frames);
+	} else {
+		thread->provider->GetAudio(buf, thread->cur_frame, frames);
+	}
 	::pa_stream_write(p, buf, frames*bpf, free, 0, PA_SEEK_RELATIVE);
 	thread->cur_frame += frames;
 }

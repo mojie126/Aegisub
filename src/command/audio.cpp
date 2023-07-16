@@ -80,7 +80,7 @@ struct audio_open final : public Command {
 	STR_HELP("Open an audio file")
 
 	void operator()(agi::Context *c) override {
-		auto str = from_wx(_("Audio Formats") + " (*.aac,*.ac3,*.ape,*.dts,*.eac3,*.flac,*.m4a,*.mka,*.mp3,*.mp4,*.ogg,*.opus,*.w64,*.wav,*.wma)|*.aac;*.ac3;*.ape;*.dts;*.eac3;*.flac;*.m4a;*.mka;*.mp3;*.mp4;*.ogg;*.opus;*.w64;*.wav;*.wma|"
+		auto str = from_wx(_("Audio Formats") + " (*.aac,*.ac3,*.ape,*.avs,*.dts,*.eac3,*.flac,*.m4a,*.mka,*.mp3,*.mp4,*.ogg,*.opus,*.vpy,*.w64,*.wav,*.wma)|*.aac;*.ac3;*.ape;*.avs;*.dts;*.eac3;*.flac;*.m4a;*.mka;*.mp3;*.mp4;*.ogg;*.opus;*.vpy;*.w64;*.wav;*.wma|"
 					+ _("Video Formats") + " (*.asf,*.avi,*.avs,*.d2v,*.m2ts,*.m4v,*.mkv,*.mov,*.mp4,*.mpeg,*.mpg,*.ogm,*.webm,*.wmv,*.ts)|*.asf;*.avi;*.avs;*.d2v;*.m2ts;*.m4v;*.mkv;*.mov;*.mp4;*.mpeg;*.mpg;*.ogm;*.webm;*.wmv;*.ts|"
 					+ _("All Files") + " (*.*)|*.*");
 		auto filename = OpenFileSelector(_("Open Audio File"), "Path/Last/Audio", "", "", str, c->parent);
@@ -125,6 +125,17 @@ struct audio_open_video final : public Command {
 
 	void operator()(agi::Context *c) override {
 		c->project->LoadAudio(c->project->VideoName());
+	}
+};
+
+struct audio_reload final : public Command {
+	CMD_NAME("audio/reload")
+	STR_MENU("Reload Audio")
+	STR_DISP("Reload Audio")
+	STR_HELP("Reload the current audio file")
+
+	void operator()(agi::Context *c) override {
+		c->project->ReloadAudio();
 	}
 };
 
@@ -549,6 +560,7 @@ namespace cmd {
 		reg(agi::make_unique<audio_open_blank>());
 		reg(agi::make_unique<audio_open_noise>());
 		reg(agi::make_unique<audio_open_video>());
+		reg(agi::make_unique<audio_reload>());
 		reg(agi::make_unique<audio_play_after>());
 		reg(agi::make_unique<audio_play_before>());
 		reg(agi::make_unique<audio_play_begin>());

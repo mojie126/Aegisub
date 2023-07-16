@@ -64,6 +64,32 @@ static const PaHostApiTypeId pa_host_api_priority[] = {
 };
 static const size_t pa_host_api_priority_count = sizeof(pa_host_api_priority) / sizeof(pa_host_api_priority[0]);
 
+PaSampleFormat PortAudioPlayer::GetSampleFormat(agi::AudioProvider *provider) {
+	if (provider->AreSamplesFloat()) {
+		switch (provider->GetBytesPerSample()) {
+			case 4:
+				return paFloat32;
+			default:
+				fallback_mono16 = true;
+				return paInt16;
+		}
+	} else {
+		switch (provider->GetBytesPerSample()) {
+			case 1:
+				return paUInt8;
+			case 2:
+				return paInt16;
+			case 3:
+				return paInt24;
+			case 4:
+				return paInt32;
+			default:
+				fallback_mono16 = true;
+				return paInt16;
+		}
+	}
+}
+
 PortAudioPlayer::PortAudioPlayer(agi::AudioProvider *provider) : AudioPlayer(provider) {
 	PaError err = Pa_Initialize();
 
@@ -140,8 +166,8 @@ void PortAudioPlayer::OpenStream() {
 		const PaDeviceInfo *device_info = Pa_GetDeviceInfo((*device_ids)[i]);
 		PaStreamParameters pa_output_p;
 		pa_output_p.device = (*device_ids)[i];
-		pa_output_p.channelCount = provider->GetChannels();
-		pa_output_p.sampleFormat = paInt16;
+		pa_output_p.sampleFormat = GetSampleFormat(provider);
+		pa_output_p.channelCount = fallback_mono16 ? 1 : provider->GetChannels();
 		pa_output_p.suggestedLatency = device_info->defaultLowOutputLatency;
 		pa_output_p.hostApiSpecificStreamInfo = nullptr;
 
@@ -222,7 +248,11 @@ int PortAudioPlayer::paCallback(const void *inputBuffer, void *outputBuffer,
 
 	// Play something
 	if (lenAvailable > 0) {
-		player->provider->GetAudioWithVolume(outputBuffer, player->current, lenAvailable, player->GetVolume());
+		if (player->fallback_mono16) {
+			player->provider->GetInt16MonoAudioWithVolume(reinterpret_cast<int16_t*>(outputBuffer), player->current, lenAvailable, player->GetVolume());
+		} else {
+			player->provider->GetAudioWithVolume(outputBuffer, player->current, lenAvailable, player->GetVolume());
+		}
 
 		// Set play position
 		player->current += lenAvailable;

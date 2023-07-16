@@ -76,8 +76,9 @@ wxString PrettySize(int bytes) {
 	return agi::wxformat(fmt, size) + " " + suffix[i];
 }
 
-std::string float_to_string(double val) {
-	std::string s = agi::format("%.3f", val);
+std::string float_to_string(double val, int precision) {
+	std::string fmt = "%." + std::to_string(precision) + "f";
+	std::string s = agi::format(fmt, val);
 	size_t pos = s.find_last_not_of("0");
 	if (pos != s.find(".")) ++pos;
 	s.erase(begin(s) + pos, end(s));
@@ -214,9 +215,15 @@ void AddFullScreenButton(wxWindow *) { }
 void SetFloatOnParent(wxWindow *) { }
 
 // OS X implementation in retina_helper.mm
-RetinaHelper::RetinaHelper(wxWindow *) { }
+RetinaHelper::RetinaHelper(wxWindow* w) { window = w; }
 RetinaHelper::~RetinaHelper() { }
-int RetinaHelper::GetScaleFactor() const { return 1; }
+int RetinaHelper::GetScaleFactor() const {
+#ifdef __WXGTK__
+	return int(window->GetContentScaleFactor());
+#else
+	return 1;
+#endif
+}
 #endif
 
 wxString FontFace(std::string opt_prefix) {

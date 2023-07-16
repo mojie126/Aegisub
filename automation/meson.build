@@ -41,3 +41,7 @@ install_data(
     'include/aegisub/unicode.moon',
     'include/aegisub/util.moon',
     install_dir: automation_dir / 'include' / 'aegisub')
+
+install_data(
+    'vapoursynth/aegisub_vs.py',
+    install_dir: automation_dir / 'vapoursynth')
