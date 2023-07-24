@@ -51,6 +51,11 @@
 #include <wx/stattext.h>
 #include <wx/stc/stc.h>
 
+// Define macros for wxWidgets 3.1
+#ifndef wxSTC_KEYMOD_SHIFT
+#define wxSTC_KEYMOD_SHIFT wxSTC_SCMOD_SHIFT
+#endif
+
 static void add_hotkey(wxSizer *sizer, wxWindow *parent, const char *command, wxString const& text) {
 	sizer->Add(new wxStaticText(parent, -1, text));
 	sizer->Add(new wxStaticText(parent, -1, to_wx(hotkey::get_hotkey_str_first("Translation Assistant", command))));
@@ -97,7 +102,7 @@ DialogTranslation::DialogTranslation(agi::Context *c)
 		translated_text->SetMarginWidth(1, 0);
 		translated_text->SetFocus();
 		translated_text->Bind(wxEVT_CHAR_HOOK, &DialogTranslation::OnKeyDown, this);
-		translated_text->CmdKeyAssign(wxSTC_KEY_RETURN, wxSTC_SCMOD_SHIFT, wxSTC_CMD_NEWLINE);
+		translated_text->CmdKeyAssign(wxSTC_KEY_RETURN, wxSTC_KEYMOD_SHIFT, wxSTC_CMD_NEWLINE);
 
 		wxSizer *translated_box = new wxStaticBoxSizer(wxVERTICAL, this, _("Translation"));
 		translated_box->Add(translated_text, 1, wxEXPAND, 0);
