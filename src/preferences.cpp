@@ -228,6 +228,11 @@ void Interface(wxTreebook *book, Preferences *parent) {
 	auto tl_assistant = p->PageSizer(_("Translation Assistant"));
 	p->OptionAdd(tl_assistant, _("Skip over whitespace"), "Tool/Translation Assistant/Skip Whitespace");
 
+#if defined(__WXMSW__) && wxVERSION_NUMBER >= 3300
+	auto dark_mode = p->PageSizer(_("Dark Mode"));
+	p->OptionAdd(dark_mode, _("Enable experimental dark mode (restart required)"), "App/Dark Mode");
+#endif
+
 	p->SetSizerAndFit(p->sizer);
 }
 
