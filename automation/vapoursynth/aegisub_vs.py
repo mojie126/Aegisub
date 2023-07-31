@@ -29,9 +29,8 @@ import os
 import os.path
 import re
 from enum import Enum
-from tkinter.messagebox import askyesno
 from collections import deque
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Callable
 
 import vapoursynth as vs
 core = vs.core
@@ -224,8 +223,15 @@ class GenKeyframesMode(Enum):
     ASK = 2
 
 
+def ask_gen_keyframes(_: str) -> bool:
+    from tkinter.messagebox import askyesno
+    return askyesno("Generate Keyframes", \
+                    "No keyframes file was found for this video file.\nShould Aegisub detect keyframes from the video?\nThis will take a while.", default="no")
+
+
 def get_keyframes(filename: str, clip: vs.VideoNode, fallback: str | List[int],
-                  generate: GenKeyframesMode = GenKeyframesMode.ASK, **kwargs: Any) -> str | List[int]:
+                  generate: GenKeyframesMode = GenKeyframesMode.ASK,
+                  ask_callback: Callable = ask_gen_keyframes, **kwargs: Any) -> str | List[int]:
     """
     Looks for a keyframes file for the given filename.
     If no file was found, this function can generate a keyframe file for the given clip next
@@ -244,8 +250,7 @@ def get_keyframes(filename: str, clip: vs.VideoNode, fallback: str | List[int],
     if not os.path.exists(kffilename):
         if generate == GenKeyframesMode.NEVER:
             return fallback
-        if generate == GenKeyframesMode.ASK and not askyesno("Generate Keyframes", \
-                "No keyframes file was found for this video file.\nShould Aegisub detect keyframes from the video?\nThis will take a while.", default="no"):
+        if generate == GenKeyframesMode.ASK and not ask_callback(filename):
             return fallback
 
         vs.core.log_message(vs.MESSAGE_TYPE_INFORMATION, "No keyframes file found, detecting keyframes...\n")
