@@ -345,7 +345,7 @@ subdir('tests')
 aegisub_cpp_pch = ['src/include/agi_pre.h']
 aegisub_c_pch = ['src/include/agi_pre_c.h']
 
-aegisub = executable('aegisub', aegisub_src, version_h, acconf,
+aegisub = executable('aegisub', aegisub_src, version_h, acconf, resrc,
                      link_with: [libresrc, libluabins, libaegisub],
                      include_directories: [libaegisub_inc, libresrc_inc, version_inc, deps_inc, include_directories('src')],
                      cpp_pch: aegisub_cpp_pch,
