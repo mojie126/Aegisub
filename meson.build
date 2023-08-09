@@ -8,6 +8,7 @@ cmake = import('cmake')
 
 if host_machine.system() == 'windows'
     add_project_arguments('-DNOMINMAX', language: 'cpp')
+    add_project_arguments('-DUNICODE', language: 'cpp')
 
     if not get_option('csri').disabled()
         add_global_arguments('-DCSRI_NO_EXPORT', language: 'c')
@@ -146,22 +147,33 @@ else
     opt_var = cmake.subproject_options()
     opt_var.add_cmake_defines({
         'wxBUILD_INSTALL': false,
-        'wxBUILD_PRECOMP': false,       # otherwise breaks project generation w/ meson
+        'wxBUILD_PRECOMP': 'OFF',       # otherwise breaks project generation w/ meson
         'wxBUILD_SHARED': build_shared,
 
         'wxUSE_WEBVIEW': false,         # breaks build on linux
+        'wxUSE_REGEX': 'builtin',
         'CMAKE_BUILD_TYPE': build_type,
         'wxUSE_IMAGE': true,
         'wxBUILD_MONOLITHIC': true      # otherwise breaks project generation w/ meson
     })
 
-    wx = cmake.subproject('wxWidgets', options: opt_var)
+    if get_option('wx_version').version_compare('>=3.3.0')
+        wx = cmake.subproject('wxWidgets-master', options: opt_var)
+    else
+        wx = cmake.subproject('wxWidgets', options: opt_var)
+    endif
 
     deps += [
         wx.dependency('wxmono'),
         wx.dependency('wxregex'),
         wx.dependency('wxscintilla')
     ]
+
+    if get_option('wx_version').version_compare('>=3.3.0')
+        deps += [
+            wx.dependency('wxlexilla')
+        ]
+    endif
 
     if host_machine.system() == 'windows' or host_machine.system() == 'darwin'
         deps += [
@@ -316,7 +328,7 @@ if host_machine.system() == 'windows'
 endif
 
 if host_machine.system() == 'darwin'
-    frameworks_dep = dependency('appleframeworks', modules : ['CoreText', 'CoreFoundation', 'AppKit', 'Carbon', 'IOKit'])
+    frameworks_dep = dependency('appleframeworks', modules : ['CoreText', 'CoreFoundation', 'AppKit', 'Carbon', 'IOKit', 'QuartzCore'])
     deps += frameworks_dep
 endif
 

@@ -238,6 +238,11 @@ void Interface(wxTreebook *book, Preferences *parent) {
 	auto color_picker = p->PageSizer(_("Colour Picker"));
 	p->OptionAdd(color_picker, _("Restrict Screen Picker to Window"), "Tool/Colour Picker/Restrict to Window");
 
+#if defined(__WXMSW__) && wxVERSION_NUMBER >= 3300
+	auto dark_mode = p->PageSizer(_("Dark Mode"));
+	p->OptionAdd(dark_mode, _("Enable experimental dark mode (restart required)"), "App/Dark Mode");
+#endif
+
 	p->SetSizerAndFit(p->sizer);
 }
 

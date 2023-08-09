@@ -56,6 +56,17 @@
 #include <wx/menu.h>
 #include <wx/settings.h>
 
+// Define macros for wxWidgets 3.1
+#ifndef wxSTC_KEYMOD_CTRL
+#define wxSTC_KEYMOD_CTRL wxSTC_SCMOD_CTRL
+#endif
+#ifndef wxSTC_KEYMOD_SHIFT
+#define wxSTC_KEYMOD_SHIFT wxSTC_SCMOD_SHIFT
+#endif
+#ifndef wxSTC_KEYMOD_NORM
+#define wxSTC_KEYMOD_NORM wxSTC_SCMOD_NORM
+#endif
+
 // Maximum number of languages (locales)
 // It should be above 100 (at least 242) and probably not more than 1000
 #define LANGS_MAX 1000
@@ -95,17 +106,17 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 	SetStyles();
 
 	// Set hotkeys
-	CmdKeyClear(wxSTC_KEY_RETURN,wxSTC_SCMOD_CTRL);
-	CmdKeyClear(wxSTC_KEY_RETURN,wxSTC_SCMOD_SHIFT);
-	CmdKeyClear(wxSTC_KEY_RETURN,wxSTC_SCMOD_NORM);
-	CmdKeyClear(wxSTC_KEY_TAB,wxSTC_SCMOD_NORM);
-	CmdKeyClear(wxSTC_KEY_TAB,wxSTC_SCMOD_SHIFT);
-	CmdKeyClear('D',wxSTC_SCMOD_CTRL);
-	CmdKeyClear('L',wxSTC_SCMOD_CTRL);
-	CmdKeyClear('L',wxSTC_SCMOD_CTRL | wxSTC_SCMOD_SHIFT);
-	CmdKeyClear('T',wxSTC_SCMOD_CTRL);
-	CmdKeyClear('T',wxSTC_SCMOD_CTRL | wxSTC_SCMOD_SHIFT);
-	CmdKeyClear('U',wxSTC_SCMOD_CTRL);
+	CmdKeyClear(wxSTC_KEY_RETURN,wxSTC_KEYMOD_CTRL);
+	CmdKeyClear(wxSTC_KEY_RETURN,wxSTC_KEYMOD_SHIFT);
+	CmdKeyClear(wxSTC_KEY_RETURN,wxSTC_KEYMOD_NORM);
+	CmdKeyClear(wxSTC_KEY_TAB,wxSTC_KEYMOD_NORM);
+	CmdKeyClear(wxSTC_KEY_TAB,wxSTC_KEYMOD_SHIFT);
+	CmdKeyClear('D',wxSTC_KEYMOD_CTRL);
+	CmdKeyClear('L',wxSTC_KEYMOD_CTRL);
+	CmdKeyClear('L',wxSTC_KEYMOD_CTRL | wxSTC_KEYMOD_SHIFT);
+	CmdKeyClear('T',wxSTC_KEYMOD_CTRL);
+	CmdKeyClear('T',wxSTC_KEYMOD_CTRL | wxSTC_KEYMOD_SHIFT);
+	CmdKeyClear('U',wxSTC_KEYMOD_CTRL);
 
 	using std::bind;
 
