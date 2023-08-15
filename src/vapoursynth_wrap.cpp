@@ -71,7 +71,7 @@ VapourSynthWrapper::VapourSynthWrapper() {
 #endif
 
 		if (!hLib)
-			throw VapourSynthError("Could not load " VSSCRIPT_SO);
+			throw VapourSynthError("Could not load " VSSCRIPT_SO ". Make sure VapourSynth is installed correctly.");
 
 #ifdef _WIN32
 		FUNC* getVSScriptAPI = (FUNC*)GetProcAddress(hLib, "getVSScriptAPI");
@@ -89,7 +89,7 @@ VapourSynthWrapper::VapourSynthWrapper() {
 		setlocale(LC_ALL, oldlocale.c_str());
 
 		if (!scriptapi)
-			throw VapourSynthError("Failed to get VapourSynth ScriptAPI");
+			throw VapourSynthError("Failed to get VapourSynth ScriptAPI. Make sure VapourSynth is installed correctly.");
 
 		api = scriptapi->getVSAPI(VAPOURSYNTH_API_VERSION);
 
