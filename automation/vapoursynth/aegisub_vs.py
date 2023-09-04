@@ -172,7 +172,6 @@ def make_keyframes(clip: vs.VideoNode, use_scxvid: bool = False,
                    **kwargs: Any) -> List[int]:
     """
     Generates a list of keyframes from a clip, using either WWXD or Scxvid.
-    Will be slightly more efficient with the `akarin` plugin installed.
 
     :param clip:             Clip to process.
     :param use_scxvid:       Whether to use Scxvid. If False, the function uses WWXD.
