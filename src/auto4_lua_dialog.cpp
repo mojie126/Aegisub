@@ -326,6 +326,12 @@ namespace Automation4 {
 			{
 				lua_getfield(L, -1, "items");
 				read_string_array(L, items);
+
+#ifdef __WXMAC__
+				if (std::find(items.begin(), items.end(), value) == items.end()) {
+					items.insert(items.begin(), value);
+				}
+#endif
 			}
 
 			bool CanSerialiseValue() const override { return true; }
