@@ -23,7 +23,6 @@
 #include <boost/range/algorithm.hpp>
 
 #include <libaegisub/charset_conv.h>
-#include <iconv.h>
 
 #include "charset_6937.h"
 
