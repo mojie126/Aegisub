@@ -69,6 +69,11 @@ std::vector<std::string> VideoProviderFactory::GetClasses() {
 
 std::unique_ptr<VideoProvider> VideoProviderFactory::GetProvider(agi::fs::path const& filename, std::string const& colormatrix, agi::BackgroundRunner *br) {
 	auto preferred = OPT_GET("Video/Provider")->GetString();
+
+	if (!std::any_of(std::begin(providers), std::end(providers), [&](factory provider) { return provider.name == preferred; })) {
+		preferred = OPT_GET("Audio/Provider")->GetDefaultString();
+	}
+
 	auto sorted = GetSorted(boost::make_iterator_range(std::begin(providers), std::end(providers)), preferred);
 
 	RearrangeWithPriority(sorted, filename);
@@ -89,9 +94,12 @@ std::unique_ptr<VideoProvider> VideoProviderFactory::GetProvider(agi::fs::path c
 		std::string err;
 		try {
 			auto provider = factory->create(filename, colormatrix, br);
-			if (!provider) continue;
-			LOG_I("manager/video/provider") << factory->name << ": opened " << filename;
-			return finalize_provider(std::move(provider));
+			if (!provider) {
+				err = "Failed to create provider."; 	// Some generic error message here
+			} else {
+				LOG_I("manager/video/provider") << factory->name << ": opened " << filename;
+				return finalize_provider(std::move(provider));
+			}
 		}
 		catch (VideoNotSupported const& ex) {
 			found = true;

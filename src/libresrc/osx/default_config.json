@@ -66,7 +66,7 @@
 		"Next Line on Commit" : true,
 		"Player" : "",
 		"Plays When Stepping Video" : false,
-		"Provider" : "ffmpegsource",
+		"Provider" : "FFmpegSource",
 		"Renderer" : {
 			"Spectrum" : {
 				"Cutoff" : 0,
@@ -660,7 +660,7 @@
 		"Last Script Resolution Mismatch Choice" : 2,
 		"Open Audio" : true,
 		"Overscan Mask" : false,
-		"Provider" : "ffmpegsource",
+		"Provider" : "FFmpegSource",
 		"Script Resolution Mismatch" : 1,
 		"Slider" : {
 			"Fast Jump Step" : 10,
