@@ -106,4 +106,13 @@ echo "---- Fixing libraries ----"
 sudo python3 "${SRC_DIR}/tools/osx-fix-libs.py" "${PKG_DIR}/Contents/MacOS/aegisub" || exit $?
 
 echo
+echo "---- Resigning ----"
+# After bundling and rewriting dylib paths we need to resign everything.
+if codesign -d "${PKG_DIR}/Contents/MacOS/aegisub"; then
+  for fname in "${PKG_DIR}/Contents/MacOS/"*; do
+    codesign -s ${AEGISUB_BUNDLE_SIGNATURE:--} -vf "${fname}"
+  done
+fi
+
+echo
 echo "Done creating \"${PKG_DIR}\""

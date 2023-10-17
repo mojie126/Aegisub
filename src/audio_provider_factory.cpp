@@ -70,6 +70,11 @@ std::unique_ptr<agi::AudioProvider> SelectAudioProvider(fs::path const& filename
                                                         Path const& path_helper,
                                                         BackgroundRunner *br) {
 	auto preferred = OPT_GET("Audio/Provider")->GetString();
+
+	if (!std::any_of(std::begin(providers), std::end(providers), [&](factory provider) { return provider.name == preferred; })) {
+		preferred = OPT_GET("Audio/Provider")->GetDefaultString();
+	}
+
 	auto sorted = GetSorted(boost::make_iterator_range(std::begin(providers), std::end(providers)), preferred);
 
 	RearrangeWithPriority(sorted, filename);
@@ -84,9 +89,12 @@ std::unique_ptr<agi::AudioProvider> SelectAudioProvider(fs::path const& filename
 		std::string err;
 		try {
 			auto provider = factory->create(filename, br);
-			if (!provider) continue;
-			LOG_I("audio_provider") << "Using audio provider: " << factory->name;
-			return provider;
+			if (!provider) {
+				err = "Failed to create provider."; 	// Some generic error message here
+			} else {
+				LOG_I("audio_provider") << "Using audio provider: " << factory->name;
+				return provider;
+			}
 		}
 		catch (AudioDataNotFound const& ex) {
 			found_file = true;

@@ -53,6 +53,7 @@
 // Allocate storage for and initialise static members
 namespace {
 	int avs_refcount = 0;
+	bool failed = false;
 #ifdef _WIN32
 	HINSTANCE hLib = nullptr;
 #else
@@ -66,8 +67,8 @@ const AVS_Linkage *AVS_linkage = nullptr;
 
 typedef IScriptEnvironment* __stdcall FUNC(int);
 
-AviSynthWrapper::AviSynthWrapper() {
-	if (!avs_refcount){
+AviSynthWrapper::AviSynthWrapper() try {
+	if (!avs_refcount++) {
 #ifdef _WIN32
 #define CONCATENATE(x, y) x ## y
 #define _Lstr(x) CONCATENATE(L, x)
@@ -94,8 +95,6 @@ AviSynthWrapper::AviSynthWrapper() {
 		if (!env)
 			throw AvisynthError("Failed to create a new avisynth script environment. Avisynth is too old?");
 
-		avs_refcount++;
-
 		AVS_linkage = env->GetAVSLinkage();
 
 		// Set memory limit
@@ -103,6 +102,9 @@ AviSynthWrapper::AviSynthWrapper() {
 		if (memoryMax)
 			env->SetMemoryMax(memoryMax);
 	}
+} catch (AvisynthError const&) {
+	avs_refcount--;
+	throw;
 }
 
 AviSynthWrapper::~AviSynthWrapper() {
