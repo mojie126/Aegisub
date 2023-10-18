@@ -354,6 +354,7 @@
 			"Log Level" : "quiet"
 		},
 		"VapourSynth" : {
+			"Autoload User Plugins": true,
 			"Cache" : {
 				"Files" : 500,
 				"Size" : 1000

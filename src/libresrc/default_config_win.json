@@ -2,7 +2,9 @@
 	"Audio" : {
 		"Player" : "DirectSound"
 	},
-	"Subtitle" : {
-		"Provider" : "CSRI/xy-vsfilter_aegisub"
+	"Provider" : {
+		"VapourSynth" : {
+			"Autoload User Plugins": false
+		}
 	}
 }

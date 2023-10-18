@@ -9,9 +9,15 @@ resrc = [
                   output: ['bitmap.cpp', 'bitmap.h'])
 ]
 
-conf_platform_json = configure_file(input: 'default_config_platform.json.in',
-                                    output: '@BASENAME@',
-                                    configuration: conf_platform)
+if host_machine.system() == 'windows'
+  conf_platform_json = configure_file(input: 'default_config_win.json',
+                                      output: 'default_config_platform.json',
+                                      copy: true)
+else
+  conf_platform_json = configure_file(input: 'default_config_platform.json.in',
+                                      output: '@BASENAME@',
+                                      configuration: conf_platform)
+endif
 
 if host_machine.system() == 'darwin'
     resmanifest = 'manifest_osx.respack'

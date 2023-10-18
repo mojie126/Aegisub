@@ -58,7 +58,11 @@ VapourSynthAudioProvider::VapourSynthAudioProvider(agi::fs::path const& filename
 
 	VSCleanCache();
 
-	script = vs.GetScriptAPI()->createScript(nullptr);
+	VSCore *core = vs.GetAPI()->createCore(OPT_GET("Provider/VapourSynth/Autoload User Plugins")->GetBool() ? 0 : VSCoreCreationFlags::ccfDisableAutoLoading);
+	if (core == nullptr) {
+		throw VapourSynthError("Error creating core");
+	}
+	script = vs.GetScriptAPI()->createScript(core);
 	if (script == nullptr) {
 		throw VapourSynthError("Error creating script API");
 	}
