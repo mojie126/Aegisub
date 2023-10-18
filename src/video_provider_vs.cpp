@@ -123,7 +123,7 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 	VSCleanCache();
 
 	int err1, err2;
-	VSCore *core = vs.GetAPI()->createCore(0);
+	VSCore *core = vs.GetAPI()->createCore(OPT_GET("Provider/VapourSynth/Autoload User Plugins")->GetBool() ? 0 : VSCoreCreationFlags::ccfDisableAutoLoading);
 	if (core == nullptr) {
 		throw VapourSynthError("Error creating core");
 	}
