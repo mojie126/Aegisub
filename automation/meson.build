@@ -1,4 +1,5 @@
 subdir('include')
+subdir('vapoursynth')
 
 automation_dir = dataroot / 'automation'
 
