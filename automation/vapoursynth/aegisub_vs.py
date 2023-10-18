@@ -22,6 +22,9 @@ Aegisub using the following variables:
     - __aegi_hasaudio: int: If nonzero, Aegisub will try to load an audio track
       from the same file.
 
+The script can control the progress dialog shown by Aegisub with certain log
+messages. Check the functions defined below for more information.
+
 This module provides some utility functions to obtain timecodes, keyframes, and
 other data.
 """
@@ -39,6 +42,28 @@ aegi_vscache: str = ""
 aegi_vsplugins: str = ""
 
 plugin_extension = ".dll" if os.name == "nt" else ".so"
+
+def progress_set_message(message: str):
+    """
+    Sets the message of Aegisub's progress dialog.
+    """
+    vs.core.log_message(vs.MESSAGE_TYPE_DEBUG, f"__aegi_set_message,{message}")
+
+
+def progress_set_progress(percent: float):
+    """
+    Sets the progress shown in Aegisub's progress dialog to
+    the given percentage.
+    """
+    vs.core.log_message(vs.MESSAGE_TYPE_DEBUG, f"__aegi_set_progress,{percent}")
+
+
+def progress_set_indeterminate():
+    """
+    Sets Aegisub's progress dialog to show indeterminate progress.
+    """
+    vs.core.log_message(vs.MESSAGE_TYPE_DEBUG, f"__aegi_set_indeterminate,")
+
 
 def set_paths(vars: dict):
     """
@@ -157,6 +182,9 @@ def wrap_lwlibavsource(filename: str, cachedir: str | None = None, **kwargs: Any
         pass
     cachefile = os.path.join(cachedir, make_lwi_cache_filename(filename))
 
+    progress_set_message("Loading video file")
+    progress_set_indeterminate()
+
     ensure_plugin("lsmas", "libvslsmashsource", "To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin for VapourSynth must be installed")
 
     if b"-Dcachedir" not in core.lsmas.Version()["config"]: # type: ignore
@@ -164,6 +192,7 @@ def wrap_lwlibavsource(filename: str, cachedir: str | None = None, **kwargs: Any
 
     clip = core.lsmas.LWLibavSource(source=filename, cachefile=cachefile, **kwargs)
 
+    progress_set_message("Getting timecodes and keyframes from the index file")
     return clip, info_from_lwindex(cachefile)
 
 
@@ -181,6 +210,9 @@ def make_keyframes(clip: vs.VideoNode, use_scxvid: bool = False,
     The remaining keyword arguments are passed on to the respective filter.
     """
 
+    progress_set_message("Generating keyframes")
+    progress_set_progress(1)
+
     clip = core.resize.Bilinear(clip, width=resize_h * clip.width // clip.height, height=resize_h, format=resize_format)
 
     if use_scxvid:
@@ -196,12 +228,12 @@ def make_keyframes(clip: vs.VideoNode, use_scxvid: bool = False,
         nonlocal done
         keyframes[n] = f.props._SceneChangePrev if use_scxvid else f.props.Scenechange # type: ignore
         done += 1
-        if done % (clip.num_frames // 25) == 0:
-            vs.core.log_message(vs.MESSAGE_TYPE_INFORMATION, "Detecting keyframes... {}% done.\n".format(100 * done // clip.num_frames))
+        if done % (clip.num_frames // 200) == 0:
+            progress_set_progress(100 * done / clip.num_frames)
         return f
 
     deque(clip.std.ModifyFrame(clip, _cb).frames(close=True), 0)
-    vs.core.log_message(vs.MESSAGE_TYPE_INFORMATION, "Done detecting keyframes.\n")
+    progress_set_progress(100)
     return [n for n in range(clip.num_frames) if keyframes[n]]
 
 
@@ -224,8 +256,12 @@ class GenKeyframesMode(Enum):
 
 def ask_gen_keyframes(_: str) -> bool:
     from tkinter.messagebox import askyesno
-    return askyesno("Generate Keyframes", \
+    progress_set_message("Asking whether to generate keyframes")
+    progress_set_indeterminate()
+    result = askyesno("Generate Keyframes", \
                     "No keyframes file was found for this video file.\nShould Aegisub detect keyframes from the video?\nThis will take a while.", default="no")
+    progress_set_message("")
+    return result
 
 
 def get_keyframes(filename: str, clip: vs.VideoNode, fallback: str | List[int],
@@ -244,6 +280,9 @@ def get_keyframes(filename: str, clip: vs.VideoNode, fallback: str | List[int],
       generated or not
     Additional keyword arguments are passed on to make_keyframes.
     """
+    progress_set_message("Looking for keyframes")
+    progress_set_indeterminate()
+
     kffilename = make_keyframes_filename(filename)
 
     if not os.path.exists(kffilename):
@@ -252,7 +291,6 @@ def get_keyframes(filename: str, clip: vs.VideoNode, fallback: str | List[int],
         if generate == GenKeyframesMode.ASK and not ask_callback(filename):
             return fallback
 
-        vs.core.log_message(vs.MESSAGE_TYPE_INFORMATION, "No keyframes file found, detecting keyframes...\n")
         keyframes = make_keyframes(clip, **kwargs)
         save_keyframes(kffilename, keyframes)
 
@@ -266,6 +304,8 @@ def check_audio(filename: str, **kwargs: Any) -> bool:
     won't crash if it's not installed.
     Additional keyword arguments are passed on to BestAudioSource.
     """
+    progress_set_message("Checking if the file has an audio track")
+    progress_set_indeterminate()
     try:
         ensure_plugin("bas", "BestAudioSource", "")
         vs.core.bas.Source(source=filename, **kwargs)

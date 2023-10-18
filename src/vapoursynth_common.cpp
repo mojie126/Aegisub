@@ -21,8 +21,10 @@
 #include "options.h"
 #include "utils.h"
 #include <libaegisub/background_runner.h>
+#include <libaegisub/format.h>
 #include <libaegisub/fs.h>
 #include <libaegisub/path.h>
+#include <libaegisub/util.h>
 
 #include <boost/algorithm/string/replace.hpp>
 
@@ -67,6 +69,30 @@ int OpenScriptOrVideo(const VSAPI *api, const VSSCRIPTAPI *sapi, VSScript *scrip
 }
 
 void VSLogToProgressSink(int msgType, const char *msg, void *userData) {
+	auto sink = reinterpret_cast<agi::ProgressSink *>(userData);
+
+	std::string msgStr(msg);
+	int commaPos = msgStr.find(',');
+	if (commaPos) {
+		std::string command = msgStr.substr(0, commaPos);
+		std::string tail = msgStr.substr(commaPos + 1, msgStr.length());
+
+		// We don't allow setting the title since that should stay as "Executing VapourSynth Script".
+		if (command == "__aegi_set_message") {
+			sink->SetMessage(tail);
+		} else if (command == "__aegi_set_progress") {
+			double percent;
+			if (!agi::util::try_parse(tail, &percent)) {
+				msgType = 2;
+				msgStr = agi::format("Warning: Invalid argument to __aegi_set_progress: %s\n", tail);
+			} else {
+				sink->SetProgress(percent, 100);
+			}
+		} else if (command == "__aegi_set_indeterminate") {
+			sink->SetIndeterminate();
+		}
+	}
+
 	int loglevel = 0;
 	std::string loglevel_str = OPT_GET("Provider/Video/VapourSynth/Log Level")->GetString();
 	if (loglevel_str == "Quiet")
@@ -85,7 +111,7 @@ void VSLogToProgressSink(int msgType, const char *msg, void *userData) {
 	if (msgType < loglevel)
 		return;
 
-	reinterpret_cast<agi::ProgressSink *>(userData)->Log(msg);
+	sink->Log(msgStr);
 }
 
 void VSCleanCache() {
