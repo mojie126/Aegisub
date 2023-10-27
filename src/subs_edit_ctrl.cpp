@@ -99,6 +99,8 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 , thesaurus(agi::make_unique<Thesaurus>())
 , context(context)
 {
+	osx::ime::inject(this);
+
 	// Set properties
 	SetWrapMode(wxSTC_WRAP_WORD);
 	SetMarginWidth(1,0);
@@ -204,6 +206,7 @@ void SubsTextEditCtrl::OnLoseFocus(wxFocusEvent &event) {
 }
 
 void SubsTextEditCtrl::OnKeyDown(wxKeyEvent &event) {
+	if (osx::ime::process_key_event(this, event)) return;
 	event.Skip();
 
 	// Workaround for wxSTC eating tabs.
@@ -267,6 +270,10 @@ void SubsTextEditCtrl::SetStyles() {
 	// Misspelling indicator
 	IndicatorSetStyle(0,wxSTC_INDIC_SQUIGGLE);
 	IndicatorSetForeground(0,wxColour(255,0,0));
+
+	// IME pending text indicator
+	IndicatorSetStyle(1, wxSTC_INDIC_PLAIN);
+	IndicatorSetUnder(1, true);
 }
 
 void SubsTextEditCtrl::UpdateStyle() {
@@ -331,6 +338,7 @@ void SubsTextEditCtrl::UpdateCallTip() {
 }
 
 void SubsTextEditCtrl::SetTextTo(std::string const& text) {
+	osx::ime::invalidate(this);
 	SetEvtHandlerEnabled(false);
 	Freeze();
 
