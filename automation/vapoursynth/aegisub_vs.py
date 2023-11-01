@@ -127,12 +127,14 @@ streaminfo_re = re.compile(r"Codec=(?P<Codec>[0-9]+),TimeBase=(?P<TimeBase>[0-9\
 class LWIndexFrame:
     pts: int
     key: int
+    index: int
 
     def __init__(self, raw: list[str]):
         match1 = lwindex_re1.match(raw[0])
         match2 = lwindex_re2.match(raw[1])
         if not match1 or not match2:
             raise ValueError("Invalid lwindex format")
+        self.index = int(match1.group("Index"))
         self.pts = int(match1.group("PTS"))
         self.key = int(match2.group("Key"))
 
@@ -150,11 +152,13 @@ def info_from_lwindex(indexfile: str) -> Dict[str, List[int]]:
     with open(indexfile, encoding="latin1") as f:
         index = f.read().splitlines()
 
-    indexstart, indexend = index.index("</StreamInfo>") + 1, index.index("</LibavReaderIndex>")
+    # The picture list starts after the last </StreamInfo> tag
+    indexstart, indexend = (len(index) - index[::-1].index("</StreamInfo>")), index.index("</LibavReaderIndex>")
     frames = [LWIndexFrame(index[i:i+2]) for i in range(indexstart, indexend, 2)]
+    frames = [f for f in frames if f.index == 0]    # select the first stream
     frames.sort(key=int)
 
-    streaminfo = streaminfo_re.match(index[indexstart - 2])
+    streaminfo = streaminfo_re.match(index[index.index("<StreamInfo=0,0>") + 1]) # info of first stream
     if not streaminfo:
         raise ValueError("Invalid lwindex format")
 
