@@ -209,7 +209,7 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 		}
 	}
 
-	if (numtc != -1) {
+	if (numtc != -1 && vi->numFrames > 1) {
 		const int64_t *tcs = vs.GetAPI()->mapGetIntArray(clipinfo, tc_key, &err1);
 		const char *tcs_path = vs.GetAPI()->mapGetData(clipinfo, tc_key, 0, &err2);
 		if (err1 && err2)
