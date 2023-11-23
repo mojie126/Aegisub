@@ -123,6 +123,7 @@ def make_keyframes_filename(filename: str) -> str:
 lwindex_re1 = re.compile(r"Index=(?P<Index>-?[0-9]+),POS=(?P<POS>-?[0-9]+),PTS=(?P<PTS>-?[0-9]+),DTS=(?P<DTS>-?[0-9]+),EDI=(?P<EDI>-?[0-9]+)")
 lwindex_re2 = re.compile(r"Key=(?P<Key>-?[0-9]+),Pic=(?P<Pic>-?[0-9]+),POC=(?P<POC>-?[0-9]+),Repeat=(?P<Repeat>-?[0-9]+),Field=(?P<Field>-?[0-9]+)")
 streaminfo_re = re.compile(r"Codec=(?P<Codec>[0-9]+),TimeBase=(?P<TimeBase>[0-9\/]+),Width=(?P<Width>[0-9]+),Height=(?P<Height>[0-9]+),Format=(?P<Format>[0-9a-zA-Z]+),ColorSpace=(?P<ColorSpace>[0-9]+)")
+videoindex_re = re.compile(r"<ActiveVideoStreamIndex>(?P<VideoStreamIndex>[0-9+]+)</ActiveVideoStreamIndex>")
 
 class LWIndexFrame:
     pts: int
@@ -152,13 +153,19 @@ def info_from_lwindex(indexfile: str) -> Dict[str, List[int]]:
     with open(indexfile, encoding="latin1") as f:
         index = f.read().splitlines()
 
+    videoindex_str = next(l for l in index if l.startswith("<ActiveVideoStreamIndex>"))
+    videoindex_match = videoindex_re.match(videoindex_str)
+    if not videoindex_match:
+        raise ValueError("Invalid lwindex format: Invalid ActiveVideoStreamIndex line")
+    videoindex = int(videoindex_match.group("VideoStreamIndex"))
+
     # The picture list starts after the last </StreamInfo> tag
     indexstart, indexend = (len(index) - index[::-1].index("</StreamInfo>")), index.index("</LibavReaderIndex>")
     frames = [LWIndexFrame(index[i:i+2]) for i in range(indexstart, indexend, 2)]
-    frames = [f for f in frames if f.index == 0]    # select the first stream
+    frames = [f for f in frames if f.index == videoindex]    # select the first stream
     frames.sort(key=int)
 
-    streaminfo = streaminfo_re.match(index[index.index("<StreamInfo=0,0>") + 1]) # info of first stream
+    streaminfo = streaminfo_re.match(index[index.index(f"<StreamInfo={videoindex},0>") + 1]) # info of first stream
     if not streaminfo:
         raise ValueError("Invalid lwindex format")
 
