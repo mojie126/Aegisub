@@ -61,7 +61,7 @@ void HunspellSpellChecker::AddWord(std::string const& word) {
 	if (!hunspell) return;
 
 	// Add it to the in-memory dictionary
-	hunspell->add(conv->Convert(word).c_str());
+	hunspell->add(conv->Convert(word));
 
 	// Add the word
 	if (customWords.insert(word).second)
@@ -72,7 +72,7 @@ void HunspellSpellChecker::RemoveWord(std::string const& word) {
 	if (!hunspell) return;
 
 	// Remove it from the in-memory dictionary
-	hunspell->remove(conv->Convert(word).c_str());
+	hunspell->remove(conv->Convert(word));
 
 	auto word_iter = customWords.find(word);
 	if (word_iter != customWords.end()) {
@@ -195,7 +195,7 @@ void HunspellSpellChecker::OnLanguageChanged() {
 
 	for (auto const& word : customWords) {
 		try {
-			hunspell->add(conv->Convert(word).c_str());
+			hunspell->add(conv->Convert(word));
 		}
 		catch (agi::charset::ConvError const&) {
 			// Normally this shouldn't happen, but some versions of Aegisub
