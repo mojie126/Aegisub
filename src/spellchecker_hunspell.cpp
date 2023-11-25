@@ -117,7 +117,7 @@ void HunspellSpellChecker::WriteUserDictionary() {
 bool HunspellSpellChecker::CheckWord(std::string_view word) {
 	if (!hunspell) return true;
 	try {
-		return hunspell->spell(conv->Convert(word)) == 1;
+		return hunspell->spell(conv->Convert(word));
 	}
 	catch (agi::charset::ConvError const&) {
 		return false;
