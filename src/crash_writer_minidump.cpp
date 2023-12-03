@@ -26,11 +26,12 @@
 #include <atomic>
 #include <boost/filesystem/fstream.hpp>
 #include <condition_variable>
+#include <fstream>
 #include <mutex>
 #include <thread>
 
-#include <DbgHelp.h>
 #include <Windows.h>
+#include <DbgHelp.h>
 
 extern EXCEPTION_POINTERS *wxGlobalSEInformation;
 
