@@ -1,4 +1,4 @@
-﻿diff --git a/include/dav1d/dav1d.h b/include/dav1d/dav1d.h
+diff --git a/include/dav1d/dav1d.h b/include/dav1d/dav1d.h
 index e8f0705..ff48ea0 100644
 --- a/include/dav1d/dav1d.h
 +++ b/include/dav1d/dav1d.h
