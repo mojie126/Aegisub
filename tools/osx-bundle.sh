@@ -64,8 +64,8 @@ else
   mkdir -p "${BUILD_DIR}/dictionaries"
   if ! test -f "${BUILD_DIR}/dictionaries/en_US.aff"; then
       echo "Specified dictionary directory ${DICT_DIR} not found. Downloading dictionaries:"
-      curl -L "https://downloads.sourceforge.net/project/openofficeorg.mirror/contrib/dictionaries/en_US.zip" -o "${BUILD_DIR}/dictionaries/en_US.zip"
-      unzip "${BUILD_DIR}/dictionaries/en_US.zip" -d "${BUILD_DIR}/dictionaries"
+      curl -L "https://raw.githubusercontent.com/TypesettingTools/Aegisub-dictionaries/master/dicts/en_US.aff" -o "${BUILD_DIR}/dictionaries/en_US.aff"
+      curl -L "https://raw.githubusercontent.com/TypesettingTools/Aegisub-dictionaries/master/dicts/en_US.dic" -o "${BUILD_DIR}/dictionaries/en_US.dic"
   fi
   cp -v "${BUILD_DIR}/dictionaries/en_US.aff" "${PKG_DIR}/Contents/SharedSupport/dictionaries"
   cp -v "${BUILD_DIR}/dictionaries/en_US.dic" "${PKG_DIR}/Contents/SharedSupport/dictionaries"

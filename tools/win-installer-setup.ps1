@@ -137,10 +137,8 @@ if (!(Test-Path XAudio2_redist)) {
 # dictionaries
 if (!(Test-Path dictionaries)) {
 	New-Item -ItemType Directory dictionaries
-	[Net.ServicePointManager]::SecurityProtocol = "Tls12" 	# Needed since otherwise downloading fails in some places like on the GitHub CI: https://stackoverflow.com/a/66614041/4730656
-	Invoke-WebRequest https://downloads.sourceforge.net/project/openofficeorg.mirror/contrib/dictionaries/en_US.zip -UserAgent "Wget" -OutFile en_US.zip -UseBasicParsing
-	Expand-Archive -LiteralPath en_US.zip -DestinationPath dictionaries
-	Remove-Item en_US.zip
+	Invoke-WebRequest https://raw.githubusercontent.com/TypesettingTools/Aegisub-dictionaries/master/dicts/en_US.aff -OutFile dictionaries/en_US.aff -UseBasicParsing
+	Invoke-WebRequest https://raw.githubusercontent.com/TypesettingTools/Aegisub-dictionaries/master/dicts/en_US.dic -OutFile dictionaries/en_US.dic -UseBasicParsing
 }
 
 # localization
