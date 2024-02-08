@@ -204,10 +204,10 @@ struct GridColumnStartTime final : GridColumnTime {
 	}
 
 	int Width(const agi::Context *c, WidthHelper &helper) const override {
+		agi::Time max_time = max_value(&AssDialogue::Start, c->ass->Events);
 		if (!by_frame)
-			return helper(wxS("0:00:00.00"));
-		int frame = c->videoController->FrameAtTime(max_value(&AssDialogue::Start, c->ass->Events), agi::vfr::START);
-		return helper(std::to_wstring(frame));
+			return helper(max_time.GetAssFormatted());
+		return helper(std::to_wstring(c->videoController->FrameAtTime(max_time, agi::vfr::START)));
 	}
 };
 
@@ -222,10 +222,10 @@ struct GridColumnEndTime final : GridColumnTime {
 	}
 
 	int Width(const agi::Context *c, WidthHelper &helper) const override {
+		agi::Time max_time = max_value(&AssDialogue::End, c->ass->Events);
 		if (!by_frame)
-			return helper(wxS("0:00:00.00"));
-		int frame = c->videoController->FrameAtTime(max_value(&AssDialogue::End, c->ass->Events), agi::vfr::END);
-		return helper(std::to_wstring(frame));
+			return helper(max_time.GetAssFormatted());
+		return helper(std::to_wstring(c->videoController->FrameAtTime(max_time, agi::vfr::END)));
 	}
 };
 

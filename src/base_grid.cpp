@@ -134,14 +134,10 @@ void BaseGrid::OnSubtitlesCommit(int type) {
 	if (type == AssFile::COMMIT_NEW || type & AssFile::COMMIT_ORDER || type & AssFile::COMMIT_DIAG_ADDREM || type & AssFile::COMMIT_FOLD)
 		UpdateMaps();
 
-	if (type & AssFile::COMMIT_DIAG_META) {
+	if (type & AssFile::COMMIT_DIAG_META || type & AssFile::COMMIT_DIAG_TIME) {
 		SetColumnWidths();
 		Refresh(false);
-		return;
-	}
-	if (type & AssFile::COMMIT_DIAG_TIME)
-		Refresh(false);
-	else if (type & AssFile::COMMIT_DIAG_TEXT) {
+	} else if (type & AssFile::COMMIT_DIAG_TEXT) {
 		for (auto const& rect : text_refresh_rects)
 			RefreshRect(rect, false);
 	}
