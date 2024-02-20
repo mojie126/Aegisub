@@ -198,25 +198,25 @@ namespace {
 		}
 	}
 
-	std::shared_ptr<VideoFrame> check_VideoFrame(lua_State *L) {
+	std::shared_ptr<VideoFrame> *check_VideoFrame(lua_State *L) {
 		auto framePtr = static_cast<std::shared_ptr<VideoFrame>*>(luaL_checkudata(L, 1, "VideoFrame"));
-		return *framePtr;
+		return framePtr;
 	}
 
 	int FrameWidth(lua_State *L) {
-		std::shared_ptr<VideoFrame> frame = check_VideoFrame(L);
+		std::shared_ptr<VideoFrame> frame = *check_VideoFrame(L);
 		push_value(L, frame->width);
 		return 1;
 	}
 
 	int FrameHeight(lua_State *L) {
-		std::shared_ptr<VideoFrame> frame = check_VideoFrame(L);
+		std::shared_ptr<VideoFrame> frame = *check_VideoFrame(L);
 		push_value(L, frame->height);
 		return 1;
 	}
 
 	int FramePixel(lua_State *L) {
-		std::shared_ptr<VideoFrame> frame = check_VideoFrame(L);
+		std::shared_ptr<VideoFrame> frame = *check_VideoFrame(L);
 		size_t x = lua_tointeger(L, -2);
 		size_t y = lua_tointeger(L, -1);
 		lua_pop(L, 2);
@@ -227,16 +227,17 @@ namespace {
 
 			size_t pos = y * frame->pitch + x * 4;
 			// VideoFrame is stored as BGRA, but we want to return RGB
-			int pixelValue = frame->data[pos+2] * 65536 + frame->data[pos+1] * 256 + frame->data[pos];
-			push_value(L, pixelValue);
+			push_value(L, frame->data[pos+2]);
+			push_value(L, frame->data[pos+1]);
+			push_value(L, frame->data[pos]);
 		} else {
 			lua_pushnil(L);
 		}
-		return 1;
+		return 3;
 	}
 
 	int FramePixelFormatted(lua_State *L) {
-		std::shared_ptr<VideoFrame> frame = check_VideoFrame(L);
+		std::shared_ptr<VideoFrame> frame = *check_VideoFrame(L);
 		size_t x = lua_tointeger(L, -2);
 		size_t y = lua_tointeger(L, -1);
 		lua_pop(L, 2);
@@ -255,9 +256,19 @@ namespace {
 		return 1;
 	}
 
-	int FrameDestory(lua_State *L) {
-		std::shared_ptr<VideoFrame> frame = check_VideoFrame(L);
-		frame.~shared_ptr<VideoFrame>();
+	int FrameData(lua_State *L) {
+		std::shared_ptr<VideoFrame> frame = *check_VideoFrame(L);
+
+		push_value(L, frame->data.data());
+		push_value(L, frame->pitch);
+		push_value(L, frame->flipped);
+
+		return 3;
+	}
+
+	int FrameDestroy(lua_State *L) {
+		std::shared_ptr<VideoFrame> *frame = check_VideoFrame(L);
+		frame->~shared_ptr<VideoFrame>();
 		return 0;
 	}
 
@@ -279,7 +290,8 @@ namespace {
 			{"height", FrameHeight},
 			{"getPixel", FramePixel},
 			{"getPixelFormatted", FramePixelFormatted},
-			{"__gc", FrameDestory},
+			{"data", FrameData},
+			{"__gc", FrameDestroy},
 			{NULL, NULL}
 		};
 
