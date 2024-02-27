@@ -43,7 +43,9 @@ int OpenScriptOrVideo(const VSAPI *api, const VSSCRIPTAPI *sapi, VSScript *scrip
 			throw VapourSynthError("Failed to create VSMap for script info");
 
 		SetStringVar(api, map, "filename", filename.string());
-		SetStringVar(api, map, "__aegi_vscache", config::path->Decode("?local/vscache").string());
+		auto vscache = config::path->Decode("?local/vscache");
+		agi::fs::CreateDirectory(vscache);
+		SetStringVar(api, map, "__aegi_vscache", vscache.string());
 #ifdef WIN32
 		SetStringVar(api, map, "__aegi_vsplugins", config::path->Decode("?data/vapoursynth").string());
 #else
