@@ -308,15 +308,15 @@ def get_keyframes(filename: str, clip: vs.VideoNode, fallback: str | List[int],
 def check_audio(filename: str, **kwargs: Any) -> bool:
     """
     Checks whether the given file has an audio track by trying to open it with
-    BestAudioSource. Requires the `bas` plugin to return correct results, but
+    BestSource. Requires the `bs` plugin to return correct results, but
     won't crash if it's not installed.
-    Additional keyword arguments are passed on to BestAudioSource.
+    Additional keyword arguments are passed on to BestSource.
     """
     progress_set_message("Checking if the file has an audio track")
     progress_set_indeterminate()
     try:
-        ensure_plugin("bas", "BestAudioSource", "")
-        vs.core.bas.Source(source=filename, **kwargs)
+        ensure_plugin("bs", "BestSource", "")
+        vs.core.bs.AudioSource(source=filename, **kwargs)
         return True
     except AttributeError:
         pass
