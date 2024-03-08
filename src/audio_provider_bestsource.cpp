@@ -52,7 +52,7 @@ public:
 /// @param filename The filename to open
 BSAudioProvider::BSAudioProvider(agi::fs::path const& filename, agi::BackgroundRunner *br) try
 : bsopts()
-, bs(filename.string(), -1, -1, GetBSCacheFile(filename), &bsopts)
+, bs(filename.string(), -1, -1, 0, GetBSCacheFile(filename), &bsopts)
 {
 	bs.SetMaxCacheSize(OPT_GET("Provider/Audio/BestSource/Max Cache Size")->GetInt() << 20);
 	br->Run([&](agi::ProgressSink *ps) {
