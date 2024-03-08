@@ -75,15 +75,15 @@ if (!(Test-Path L-SMASH-Works)) {
 	Remove-Item release-x86_64-cachedir-cwd.zip
 }
 
-# bestaudiosource
-if (!(Test-Path bestaudiosource)) {
-	$basDir = New-Item -ItemType Directory bestaudiosource
-	Set-Location $basDir
-	$basReleases = Invoke-WebRequest "https://api.github.com/repos/vapoursynth/bestaudiosource/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
-	$basUrl = $basReleases.assets[0].browser_download_url
-	Invoke-WebRequest $basUrl -OutFile bas-r1.7z -UseBasicParsing
-	7z x bas-r1.7z
-	Remove-Item bas-r1.7z
+# BestSource
+if (!(Test-Path BestSource)) {
+	$bsDir = New-Item -ItemType Directory BestSource
+	Set-Location $bsDir
+	$basReleases = Invoke-WebRequest "https://api.github.com/repos/vapoursynth/bestsource/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
+	$bsUrl = $basReleases.assets[0].browser_download_url
+	Invoke-WebRequest $bsUrl -OutFile bestsource.7z -UseBasicParsing
+	7z x bestsource.7z
+	Remove-Item bestsource.7z
 	Set-Location $DepsDir
 }
 
