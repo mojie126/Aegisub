@@ -258,7 +258,7 @@ DialogStyleEditor::DialogStyleEditor(wxWindow *parent, AssStyle *style, agi::Con
 			break;
 		}
 	}
-	if (!found) Encoding->Select(0);
+	if (!found) Encoding->Select(2);
 
 	// Style name sizer
 	NameSizer->Add(StyleName, 1, wxALL, 0);
@@ -474,8 +474,10 @@ void DialogStyleEditor::UpdateWorkStyle() {
 
 	work->font = from_wx(FontName->GetValue());
 
+	wxString encoding_selection = Encoding->GetValue();
+	wxString encoding_num = encoding_selection.substr(0, 1) + encoding_selection.substr(1).BeforeFirst('-');	// Have to account for -1
 	long templ = 0;
-	Encoding->GetValue().BeforeFirst('-').ToLong(&templ);
+	encoding_num.ToLong(&templ);
 	work->encoding = templ;
 
 	work->borderstyle = OutlineType->IsChecked() ? 3 : 1;
