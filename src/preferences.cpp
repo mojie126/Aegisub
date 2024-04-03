@@ -490,6 +490,7 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 	p->OptionAdd(bs, _("Max cache size (MB)"), "Provider/Video/BestSource/Max Cache Size");
 	p->OptionAdd(bs, _("Decoder Threads (0 to autodetect)"), "Provider/Video/BestSource/Threads");
 	p->OptionAdd(bs, _("Seek preroll (Frames)"), "Provider/Video/BestSource/Seek Preroll");
+	p->OptionAdd(bs, _("Apply RFF"), "Provider/Video/BestSource/Apply RFF");
 #endif
 
 	p->SetSizerAndFit(p->sizer);

@@ -55,7 +55,7 @@ namespace {
 		{"Avisynth", CreateAvisynthVideoProvider, false, [](auto p) { return agi::fs::HasExtension(p, "avs"); }},
 #endif
 #ifdef WITH_BESTSOURCE
-		{"BestSource (SLOW)", CreateBSVideoProvider, false},
+		{"BestSource", CreateBSVideoProvider, false},
 #endif
 #ifdef WITH_VAPOURSYNTH
 		{"VapourSynth", CreateVapourSynthVideoProvider, false, [](auto p) { return agi::fs::HasExtension(p, "py") || agi::fs::HasExtension(p, "vpy"); }},
