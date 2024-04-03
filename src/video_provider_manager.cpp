@@ -50,7 +50,7 @@ namespace {
 		{"Avisynth", CreateAvisynthVideoProvider, false},
 #endif
 #ifdef WITH_BESTSOURCE
-		{"BestSource (SLOW)", CreateBSVideoProvider, false},
+		{"BestSource", CreateBSVideoProvider, false},
 #endif
 	};
 }

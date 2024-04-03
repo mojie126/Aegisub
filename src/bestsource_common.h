@@ -21,9 +21,27 @@
 
 #ifdef WITH_BESTSOURCE
 
-#include <libaegisub/fs_fwd.h>
+namespace std { class string_view; }
 
-std::string GetBSCacheFile(agi::fs::path const& filename);
-void BSCleanCache();
+#include <bsshared.h>
+
+#include <libaegisub/fs_fwd.h>
+#include <libaegisub/background_runner.h>
+
+namespace provider_bs {
+
+// X11 memes
+#undef None
+
+enum class TrackSelection : int {
+	None = -1,
+	NoTracks = -2,
+};
+
+std::pair<TrackSelection, bool> SelectTrack(agi::fs::path const& filename, bool audio);
+std::string GetCacheFile(agi::fs::path const& filename);
+void CleanBSCache();
+
+}
 
 #endif /* WITH_BESTSOURCE */

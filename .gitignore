@@ -30,7 +30,6 @@ subprojects/glib*
 subprojects/googletest-*
 subprojects/harfbuzz
 subprojects/icu
-subprojects/jansson
 subprojects/libass
 subprojects/libffi*
 subprojects/libpng-*
@@ -43,3 +42,4 @@ subprojects/zlib-*
 subprojects/dirent-*
 subprojects/hunspell-*
 subprojects/uchardet-*
+subprojects/xxhash

@@ -21,7 +21,13 @@
 
 #ifdef WITH_BESTSOURCE
 #include "bestsource_common.h"
+#include "tracklist.h"
 
+extern "C" {
+#include <libavutil/avutil.h>
+}
+
+#include "format.h"
 #include "options.h"
 #include "utils.h"
 
@@ -31,26 +37,70 @@
 #include <boost/crc.hpp>
 #include <boost/filesystem/path.hpp>
 
+namespace provider_bs {
 
-std::string GetBSCacheFile(agi::fs::path const& filename) {
-	// BS can store all its index data in a single file, but we make a separate index file
-	// for each video file to ensure that the old index is invalidated if the file is modified.
-	// While BS does check the filesize of the files, it doesn't check the modification time.
-	uintmax_t len = agi::fs::Size(filename);
+std::pair<TrackSelection, bool> SelectTrack(agi::fs::path const& filename, bool audio) {
+	std::map<std::string, std::string> opts;
+	BestTrackList tracklist(filename.string(), &opts);
+
+	int n = tracklist.GetNumTracks();
+	AVMediaType type = audio ? AVMEDIA_TYPE_AUDIO : AVMEDIA_TYPE_VIDEO;
+
+	std::vector<int> TrackNumbers;
+	wxArrayString Choices;
+	bool has_audio = false;
+
+	for (int i = 0; i < n; i++) {
+		BestTrackList::TrackInfo info = tracklist.GetTrackInfo(i);
+		has_audio = has_audio || (info.MediaType == AVMEDIA_TYPE_AUDIO);
+
+		if (info.MediaType == type) {
+			TrackNumbers.push_back(i);
+			Choices.Add(agi::wxformat(_("Track %02d: %s"), i, info.CodecString));
+		}
+	}
+
+	TrackSelection result;
+
+	if (TrackNumbers.empty()) {
+		result = TrackSelection::NoTracks;
+	} else if (TrackNumbers.size() == 1) {
+		result = static_cast<TrackSelection>(TrackNumbers[0]);
+	} else {
+		int Choice = wxGetSingleChoiceIndex(
+			audio ? _("Multiple video tracks detected, please choose the one you wish to load:") : _("Multiple audio tracks detected, please choose the one you wish to load:"),
+			audio ? _("Choose video track") : _("Choose audio track"),
+			Choices);
+
+		if (Choice >= 0)
+			result = static_cast<TrackSelection>(TrackNumbers[Choice]) ;
+		else
+			result = TrackSelection::None;
+	}
+
+	return std::make_pair(result, has_audio);
+}
+
+std::string GetCacheFile(agi::fs::path const& filename) {
 	boost::crc_32_type hash;
 	hash.process_bytes(filename.string().c_str(), filename.string().size());
 
-	auto result = config::path->Decode("?local/bsindex/" + filename.filename().string() + "_" + std::to_string(hash.checksum()) + "_" + std::to_string(len) + "_" + std::to_string(agi::fs::ModifiedTime(filename)) + ".json");
+	auto result = config::path->Decode("?local/bsindex/" + filename.filename().string() + "_" + std::to_string(hash.checksum()) + "_" + std::to_string(agi::fs::ModifiedTime(filename)));
 	agi::fs::CreateDirectory(result.parent_path());
 
 	return result.string();
 }
 
-void BSCleanCache() {
+void CleanBSCache() {
 	CleanCache(config::path->Decode("?local/bsindex/"),
-		"*.json",
+		"*.bsindex",
 		OPT_GET("Provider/BestSource/Cache/Size")->GetInt(),
 		OPT_GET("Provider/BestSource/Cache/Files")->GetInt());
+
+	// Delete old cache files: TODO remove this after a while
+	CleanCache(config::path->Decode("?local/bsindex/"),
+		"*.json", 0, 0);
+}
 }
 
 #endif // WITH_BESTSOURCE

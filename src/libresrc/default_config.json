@@ -367,6 +367,7 @@
 			"BestSource" : {
 				"Max Cache Size" : 1024,
 				"Threads" : 0,
+				"Apply RFF": true,
 				"Seek Preroll" : 12
 			}
 		}
