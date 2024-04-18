@@ -161,7 +161,7 @@ jobs:
       - name: Configure
         run: |
           meson setup build ${{ matrix.config.args }} -Dbuildtype=${{ matrix.config.buildtype }}
-          meson configure
+          meson configure build
 
       - name: Build
         run: meson compile -C build
