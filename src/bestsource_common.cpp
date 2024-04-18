@@ -68,8 +68,8 @@ std::pair<TrackSelection, bool> SelectTrack(agi::fs::path const& filename, bool 
 		result = static_cast<TrackSelection>(TrackNumbers[0]);
 	} else {
 		int Choice = wxGetSingleChoiceIndex(
-			audio ? _("Multiple video tracks detected, please choose the one you wish to load:") : _("Multiple audio tracks detected, please choose the one you wish to load:"),
-			audio ? _("Choose video track") : _("Choose audio track"),
+			audio ? _("Multiple audio tracks detected, please choose the one you wish to load:") : _("Multiple video tracks detected, please choose the one you wish to load:"),
+			audio ? _("Choose audio track") : _("Choose video track"),
 			Choices);
 
 		if (Choice >= 0)
