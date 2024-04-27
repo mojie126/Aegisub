@@ -65,6 +65,10 @@ if ($exactGitTag -match $semVerMatch) {
       $version['RESOURCE_BASE_VERSION'] = $Matches[1..3]
       $version['INSTALLER_VERSION'] = ($Matches[1..3] -join '.')
       break;
+    } else {
+      $version['TAGGED_RELEASE'] = 0
+      $version['RESOURCE_BASE_VERSION'] = 3, 2, 3
+      $version['INSTALLER_VERSION'] = "3.2.3"
     }
   }
 }

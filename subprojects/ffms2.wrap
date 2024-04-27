@@ -1,5 +1,5 @@
 [wrap-git]
-url = https://github.com/arch1t3cht/ffms2.git
+url = https://github.com/FFMS/ffms2.git
 revision = head
 patch_directory = ffms2
 
