@@ -137,6 +137,11 @@ std::string colormatrix_description(int cs, int cr) {
 			return str + ".601";
 		case AGI_CS_SMPTE240M:
 			return str + ".240M";
+		case AGI_CS_BT2020_NCL:
+		case AGI_CS_BT2020_CL:
+		case AGI_CS_CHROMATICITY_DERIVED_NCL:
+		case AGI_CS_CHROMATICITY_DERIVED_CL:
+			return str + ".2020";
 		default:
 			throw VideoOpenError("Unknown video color space");
 	}
