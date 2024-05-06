@@ -5,7 +5,6 @@ deps = []
 opts = ['tests=disabled', 'libdav1d=enabled', 'ffnvcodec=enabled', 'cuda=enabled', 'cuvid=enabled']
 
 deps += dependency('zlib')
-deps += dependency('ffnvcodec')
 deps += dependency('libavformat', version: '>=60', default_options: opts)
 deps += dependency('libavcodec', version: '>=60', default_options: opts)
 deps += dependency('libswscale', default_options: opts)
