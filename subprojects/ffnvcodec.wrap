@@ -2,6 +2,3 @@
 url = https://github.com/FFmpeg/nv-codec-headers.git
 revision = n12.2.72.0
 patch_directory = ffnvcodec
-
-[provide]
-ffnvcodec = ffnvcodec_dep
