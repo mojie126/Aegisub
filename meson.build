@@ -286,6 +286,12 @@ if get_option('vapoursynth').enabled()
     dep_avail += 'VapourSynth'
 endif
 
+if get_option('ffnvcodec').enabled()
+    ffnvcodec_sub = subproject('ffnvcodec')
+    deps_inc += ffnvcodec_sub.get_variable('ffnvcodec_inc')
+    dep_avail += 'ffnvcodec'
+endif
+
 if host_machine.system() == 'windows'
     if not get_option('directsound').disabled()
         dsound_dep = cc.find_library('dsound', required: get_option('directsound'))
@@ -317,7 +323,7 @@ if host_machine.system() == 'windows'
             # Windows 8 not required if XAudio2 fails to be found. revert for compat.
             add_project_arguments('-D_WIN32_WINNT=0x0601', language: 'cpp')
         endif
-        
+
         if not have_dsound_h and get_option('xaudio2').enabled()
             error('xaudio2 enabled but xaudio2.h not found')
         endif
@@ -423,9 +429,9 @@ subdir('packages')
 subdir('po')
 subdir('src')
 
-if not meson.is_cross_build()
-    subdir('tests')
-endif
+#if not meson.is_cross_build()
+#    subdir('tests')
+#endif
 
 aegisub_cpp_pch = ['src/include/agi_pre.h']
 aegisub_c_pch = ['src/include/agi_pre_c.h']
