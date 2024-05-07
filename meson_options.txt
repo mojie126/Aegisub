@@ -10,7 +10,6 @@ option('ffms2', type: 'feature', description: 'FFMS2 video source')
 option('avisynth', type: 'feature', description: 'AviSynth video source')
 option('bestsource', type: 'feature', description: 'BestSource video source')
 option('vapoursynth', type: 'feature', description: 'VapourSynth video source')
-option('ffnvcodec', type: 'feature', description: 'FFmpeg version of Nvidia Codec SDK headers')
 
 option('fftw3', type: 'feature', description: 'FFTW3 support')
 option('hunspell', type: 'feature', description: 'Hunspell spell checker')

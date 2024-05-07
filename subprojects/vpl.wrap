@@ -1,0 +1,7 @@
+[wrap-git]
+url = https://github.com/intel/libvpl.git
+revision = head
+patch_directory = vpl
+
+[provide]
+vpl = vpl_dep
