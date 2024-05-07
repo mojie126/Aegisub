@@ -71,6 +71,9 @@ conf.set('WITH_UPDATE_CHECKER', get_option('enable_update_checker'))
 
 deps = []
 deps_inc = []
+dep_avail = []
+deps += dependency('ffnvcodec')
+deps += dependency('vpl')
 
 if host_machine.system() == 'darwin'
     add_languages('objc', 'objcpp')
@@ -203,7 +206,6 @@ endif
 deps += dependency('icu-uc', version: '>=4.8.1.1')
 deps += dependency('icu-i18n', version: '>=4.8.1.1')
 
-dep_avail = []
 foreach dep: [
     # audio, in order of precedence
     ['libpulse', [], 'PulseAudio', [], []],
@@ -284,12 +286,6 @@ if get_option('vapoursynth').enabled()
     vs_sub = subproject('vapoursynth')
     deps_inc += vs_sub.get_variable('vs_inc')
     dep_avail += 'VapourSynth'
-endif
-
-if get_option('ffnvcodec').enabled()
-    ffnvcodec_sub = subproject('ffnvcodec')
-    deps_inc += ffnvcodec_sub.get_variable('ffnvcodec_inc')
-    dep_avail += 'ffnvcodec'
 endif
 
 if host_machine.system() == 'windows'

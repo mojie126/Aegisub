@@ -32,7 +32,6 @@ jobs:
                             -Davisynth=enabled
                             -Dbestsource=enabled
                             -Dvapoursynth=enabled
-                            -Dffnvcodec=enabled
 #                    -   name: Windows MSVC Release (wx master)
 #                        os: windows-latest
 #                        msvc: true
@@ -54,7 +53,6 @@ jobs:
 #                            -Davisynth=enabled
 #                            -Dbestsource=enabled
 #                            -Dvapoursynth=enabled
-#                            -Dffnvcodec=enabled
 #                            -Dwx_version='3.3.0'
 #                    - {
 #                        name: Ubuntu Debug,

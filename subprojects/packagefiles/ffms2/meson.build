@@ -2,7 +2,7 @@ project('ffms2', 'cpp', version: '2.40.0')
 
 deps = []
 
-opts = ['tests=disabled', 'libdav1d=enabled', 'ffnvcodec=enabled', 'cuda=enabled', 'cuvid=enabled']
+opts = ['tests=disabled', 'libdav1d=enabled', 'libvpl=enabled', 'ffnvcodec=enabled', 'cuda=enabled', 'cuvid=enabled']
 
 deps += dependency('zlib')
 deps += dependency('libavformat', version: '>=60', default_options: opts)
