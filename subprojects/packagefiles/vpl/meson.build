@@ -13,6 +13,8 @@ libvpl_sources = [
 	'libvpl/src/mfx_dispatcher_vpl_log.cpp',
 	'libvpl/src/mfx_dispatcher_vpl_lowlatency.cpp',
 	'libvpl/src/mfx_dispatcher_vpl_msdk.cpp',
+	'libvpl/src/mfx_config_interface/mfx_config_interface.cpp',
+	'libvpl/src/mfx_config_interface/mfx_config_interface_string_api.cpp'
 ]
 
 libvpl_headers = [
@@ -42,7 +44,7 @@ libvpl_preview_headers = [
 	'api/vpl/preview/legacy/mfxvideo++.h'
 ]
 
-libvpl_inc = include_directories(['libvpl', 'api'])
+libvpl_inc = include_directories(['libvpl', 'api', 'libvpl/src', 'api/vpl', 'libvpl/src/mfx_config_interface'])
 
 vpl = library(
 	'vpl',
@@ -59,13 +61,12 @@ vpl_dep = declare_dependency(
 )
 
 install_headers(
-	libvpl_headers,
-	subdir : 'vpl'
+	libvpl_headers
 )
 
 install_headers(
 	libvpl_preview_headers,
-	subdir : 'vpl/preview'
+	subdir : 'preview/legacy'
 )
 
 pkg = import('pkgconfig')
