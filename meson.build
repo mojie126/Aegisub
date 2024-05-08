@@ -73,7 +73,7 @@ deps = []
 deps_inc = []
 dep_avail = []
 deps += dependency('ffnvcodec')
-deps += dependency('vpl')
+#deps += dependency('vpl')
 
 if host_machine.system() == 'darwin'
     add_languages('objc', 'objcpp')
