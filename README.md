@@ -1,6 +1,8 @@
 ## 硬件加速可用版本
 * 支持CUDA、D3D11VA、DXVA2硬件加速解码，优先级为书写顺序
 * 暂未支持硬件像素格式直接渲染到界面，意在先降低CPU使用率
+* 支持HDR视频载入，展示效果就是不支持HDR的效果
+  ![HDR](docs/image/1.png "HDR视频直接展示")
 
 ## arch1t3cht's Aegisub "fork"
 Download release builds [here](https://github.com/arch1t3cht/Aegisub/releases), or the latest CI builds [here](https://github.com/arch1t3cht/Aegisub/actions?query=branch%3Afeature+event%3Apush).
