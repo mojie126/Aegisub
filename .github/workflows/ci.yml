@@ -87,11 +87,23 @@ jobs:
 #                    }
 
         steps:
-            -   uses: actions/checkout@v3
+            -   name: set current date
+                id: set_date
+                run: |
+                    date=$(date +'%Y-%m')
+                    echo "date=$date" >> $GITHUB_OUTPUT
+                shell: bash
+            -   name: cache AssRocket mingw32 deps
+                uses: actions/cache@v4
+                with:
+                    path: D:/a/Aegisub/Aegisub/build
+                    key: AssRocket-mingw32-deps-${{ steps.set_date.outputs.date }}
+                    restore-keys: AssRocket-mingw32-deps-
+            -   uses: actions/checkout@v4
                 with:
                     fetch-depth: '0'
 
-            -   uses: actions/setup-python@v4
+            -   uses: actions/setup-python@v5
                 with:
                     python-version: '3.x'
 
@@ -167,7 +179,7 @@ jobs:
                 run: meson compile win-portable -C build -j(Get-WmiObject -Class Win32_Processor).NumberOfLogicalProcessors
 
             -   name: Upload artifacts - win_installer
-                uses: actions/upload-artifact@v3
+                uses: actions/upload-artifact@v4
                 if: matrix.config.os == 'windows-latest'
                 with:
                     name: ${{ matrix.config.name }} - installer
@@ -175,7 +187,7 @@ jobs:
                     if-no-files-found: error
 
             -   name: Upload artifacts - portable.zip
-                uses: actions/upload-artifact@v3
+                uses: actions/upload-artifact@v4
                 if: matrix.config.os == 'windows-latest'
                 with:
                     name: ${{ matrix.config.name }} - portable
@@ -189,7 +201,7 @@ jobs:
 #                    meson compile osx-build-dmg -C build
 #
 #            -   name: Upload artifacts - macOS dmg
-#                uses: actions/upload-artifact@v3
+#                uses: actions/upload-artifact
 #                if: matrix.config.os == 'macos-latest'
 #                with:
 #                    name: ${{ matrix.config.name }} - installer
@@ -213,7 +225,7 @@ jobs:
 #                    ./appimagetool appdir
 #
 #            -   name: Upload artifacts - Linux AppImage
-#                uses: actions/upload-artifact@v3
+#                uses: actions/upload-artifact
 #                if: matrix.config.appimage
 #                with:
 #                    name: ${{ matrix.config.name }}
