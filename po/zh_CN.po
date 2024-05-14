@@ -19,7 +19,7 @@ msgstr ""
 
 #: ../automation/autoload/cleantags-autoload.lua:31
 msgid "Clean Tags"
-msgstr "*清除特效标签"
+msgstr "*整理特效标签"
 
 #: ../automation/autoload/cleantags-autoload.lua:32
 msgid "Clean subtitle lines by re-arranging ASS tags and override blocks within the lines"
