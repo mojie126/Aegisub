@@ -174,9 +174,9 @@ void Video(wxTreebook *book, Preferences *parent) {
 	p->CellSkip(general);
 	p->OptionAdd(general, _("Automatically open audio when opening video"), "Video/Open Audio");
 	p->OptionAdd(general, _("Default to Video Zoom"), "Video/Default to Video Zoom")
-		->SetToolTip("Reverses the behavior of Ctrl while scrolling the video display. If not set, scrolling will default to UI zoom and Ctrl+scrolling will zoom the video. If set, this will be reversed.");
+		->SetToolTip(_("Reverses the behavior of Ctrl while scrolling the video display. If not set, scrolling will default to UI zoom and Ctrl+scrolling will zoom the video. If set, this will be reversed."));
 	p->OptionAdd(general, _("Disable zooming with scroll bar"), "Video/Disable Scroll Zoom")
-		->SetToolTip("Makes the scroll bar not zoom the video. Useful when using a track pad that often scrolls accidentally.");
+		->SetToolTip(_("Makes the scroll bar not zoom the video. Useful when using a track pad that often scrolls accidentally."));
 	p->OptionAdd(general, _("Reverse zoom direction"), "Video/Reverse Zoom");
 
 	const wxString czoom_arr[24] = { "12.5%", "25%", "37.5%", "50%", "62.5%", "75%", "87.5%", "100%", "112.5%", "125%", "137.5%", "150%", "162.5%", "175%", "187.5%", "200%", "212.5%", "225%", "237.5%", "250%", "262.5%", "275%", "287.5%", "300%" };
@@ -412,7 +412,7 @@ void Advanced_Audio(wxTreebook *book, Preferences *parent) {
 
 #ifdef WITH_AVISYNTH
 	auto avisynth = p->PageSizer("Avisynth");
-	const wxString adm_arr[4] = { "None", "ConvertToMono", "GetLeftChannel", "GetRightChannel" };
+	const wxString adm_arr[4] = { _("None"), _("ConvertToMono"), _("GetLeftChannel"), _("GetRightChannel") };
 	wxArrayString adm_choice(4, adm_arr);
 	p->OptionChoice(avisynth, _("Avisynth down-mixer"), adm_choice, "Audio/Downmixer");
 	p->OptionAdd(avisynth, _("Force sample rate"), "Provider/Audio/AVS/Sample Rate");
@@ -427,7 +427,7 @@ void Advanced_Audio(wxTreebook *book, Preferences *parent) {
 
 	p->OptionAdd(ffms, _("Always index all audio tracks"), "Provider/FFmpegSource/Index All Tracks");
 	wxControl* stereo = p->OptionAdd(ffms, _("Downmix to stereo"), "Provider/Audio/FFmpegSource/Downmix");
-	stereo->SetToolTip("Reduces memory usage on surround audio, but may cause audio tracks to sound blank in specific circumstances. This will not affect audio with two channels or less.");
+	stereo->SetToolTip(_("Reduces memory usage on surround audio, but may cause audio tracks to sound blank in specific circumstances. This will not affect audio with two channels or less."));
 #endif
 
 #ifdef WITH_BESTSOURCE
@@ -477,7 +477,7 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 #ifdef WITH_FFMS2
 	auto ffms = p->PageSizer("FFmpegSource");
 
-	const wxString log_levels[] = { "Quiet", "Panic", "Fatal", "Error", "Warning", "Info", "Verbose", "Debug" };
+	const wxString log_levels[] = { _("Quiet"), _("Panic"), _("Fatal"), _("Error"), _("Warning"), _("Info"), _("Verbose"), _("Debug") };
 	wxArrayString log_levels_choice(8, log_levels);
 	p->OptionChoice(ffms, _("Debug log verbosity"), log_levels_choice, "Provider/FFmpegSource/Log Level");
 
@@ -506,7 +506,7 @@ void VapourSynth(wxTreebook *book, Preferences *parent) {
 	auto p = new OptionPage(book, parent, _("VapourSynth"), OptionPage::PAGE_SUB);
 	auto general = p->PageSizer(_("General"));
 
-	const wxString log_levels[] = { "Quiet", "Fatal", "Critical", "Warning", "Information", "Debug" };
+	const wxString log_levels[] = { _("Quiet"), _("Fatal"), _("Critical"), _("Warning"), _("Information"), _("Debug") };
 	wxArrayString log_levels_choice(6, log_levels);
 	p->OptionChoice(general, _("Log level"), log_levels_choice, "Provider/Video/VapourSynth/Log Level");
 	p->CellSkip(general);
@@ -693,15 +693,15 @@ Interface_Hotkeys::Interface_Hotkeys(wxTreebook *book, Preferences *parent)
 	dvc = new wxDataViewCtrl(this, -1);
 	dvc->AssociateModel(model.get());
 #ifndef __APPLE__
-	dvc->AppendColumn(new wxDataViewColumn("Hotkey", new HotkeyRenderer, 0, 125, wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE));
-	dvc->AppendColumn(new wxDataViewColumn("Command", new CommandRenderer, 1, 250, wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE));
+	dvc->AppendColumn(new wxDataViewColumn(_("Hotkey"), new HotkeyRenderer, 0, 125, wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE));
+	dvc->AppendColumn(new wxDataViewColumn(_("Command"), new CommandRenderer, 1, 250, wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE));
 #else
 	auto col = new wxDataViewColumn("Hotkey", new wxDataViewTextRenderer("string", wxDATAVIEW_CELL_EDITABLE), 0, 150, wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE);
 	col->SetMinWidth(150);
 	dvc->AppendColumn(col);
 	dvc->AppendColumn(new wxDataViewColumn("Command", new wxDataViewIconTextRenderer("wxDataViewIconText", wxDATAVIEW_CELL_EDITABLE), 1, 250, wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE));
 #endif
-	dvc->AppendTextColumn("Description", 2, wxDATAVIEW_CELL_INERT, 300, wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE);
+	dvc->AppendTextColumn(_("Description"), 2, wxDATAVIEW_CELL_INERT, 300, wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE);
 
 	wxSizer *buttons = new wxBoxSizer(wxHORIZONTAL);
 	buttons->Add(quick_search, wxSizerFlags(1).Expand().Border());
