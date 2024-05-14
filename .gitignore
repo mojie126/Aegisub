@@ -25,7 +25,7 @@ subprojects/boost*/
 subprojects/cairo*
 subprojects/dav1d
 subprojects/ffmpeg
-subprojects/ffms2
+#subprojects/ffms2
 subprojects/ffnvcodec
 subprojects/fontconfig*
 subprojects/freetype2
