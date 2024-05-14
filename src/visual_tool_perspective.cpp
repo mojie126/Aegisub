@@ -201,7 +201,7 @@ void VisualToolPerspective::SetSubTool(int subtool) {
 		default:
 			throw agi::InternalError("Invalid perspective subtool");
 	}
-	wxString orgmodehelp = orgmode->StrDisplay(c) + wxString(". Click to cycle.\n") + orgmode->GetTooltip("Video");
+	wxString orgmodehelp = orgmode->StrDisplay(c) + wxString(_(". Click to cycle.\n")) + orgmode->GetTooltip("Video");
 	toolBar->SetToolShortHelp(BUTTON_ID_BASE + PERSP_ORGMODE, orgmodehelp);
 	toolBar->SetToolLongHelp(BUTTON_ID_BASE + PERSP_ORGMODE, orgmodehelp);
 	toolBar->SetToolNormalBitmap(BUTTON_ID_BASE + PERSP_ORGMODE, orgmode->Icon(OPT_GET("App/Toolbar Icon Size")->GetInt()));
