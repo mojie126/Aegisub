@@ -481,6 +481,11 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 	wxArrayString log_levels_choice(8, log_levels);
 	p->OptionChoice(ffms, _("Debug log verbosity"), log_levels_choice, "Provider/FFmpegSource/Log Level");
 
+	// 硬件加速选项
+	const wxString h_wx_string[] = {"cuda", "d3d11va", "dxva2", "none"};
+	const wxArrayString h_wx_string_choice(4, h_wx_string);
+	p->OptionChoice(ffms, _("H/W acceleration"), h_wx_string_choice, "Provider/Video/FFmpegSource/HW hw_name");
+
 	p->OptionAdd(ffms, _("Decoding threads"), "Provider/Video/FFmpegSource/Decoding Threads", -1);
 	p->OptionAdd(ffms, _("Enable unsafe seeking"), "Provider/Video/FFmpegSource/Unsafe Seeking");
 #endif

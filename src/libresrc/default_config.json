@@ -384,6 +384,7 @@
 				"Size" : 32
 			},
 			"FFmpegSource" : {
+				"HW hw_name" : "cuda",
 				"Decoding Threads" : -1,
 				"Unsafe Seeking" : false
 			},
