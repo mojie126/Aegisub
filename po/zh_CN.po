@@ -6940,9 +6940,6 @@ msgstr "恐慌"
 msgid "Fatal"
 msgstr "致命"
 
-msgid "Error"
-msgstr "错误"
-
 msgid "Warning"
 msgstr "警告"
 
@@ -6966,6 +6963,3 @@ msgstr "热键"
 
 msgid "Command"
 msgstr "指令"
-
-msgid "Description"
-msgstr "描述"
