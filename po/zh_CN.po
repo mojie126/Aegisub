@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: Aegisub 3.2\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-04-30 03:10+0200\n"
-"PO-Revision-Date: 2024-05-15 12:30+0800\n"
+"PO-Revision-Date: 2024-05-15 02:18+0800\n"
 "Last-Translator: ComputerFan <diannaomi97@gmail.com>\n"
 "Language-Team: Vmoe Fansub <vmoe@vmoe.info>\n"
 "Language: zh_CN\n"
@@ -14,7 +14,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Poedit 3.2.5\n"
+"X-Generator: Poedit 3.3.2\n"
 "X-Poedit-SourceCharset: UTF-8\n"
 
 #: ../automation/autoload/cleantags-autoload.lua:31
@@ -2976,6 +2976,7 @@ msgstr ""
 "简体中文版汉化：Vmoe字幕组\n"
 "    原始翻译：芥末 & song_5007 & ……\n"
 "    电脑迷 修订更新翻译\n"
+"    Chongzi 修订更新翻译\n"
 
 #: ../src/dialog_about.cpp:124
 msgid ""
@@ -5597,8 +5598,8 @@ msgstr "切换视频缩放"
 #: ../src/preferences.cpp:177
 msgid "Reverses the behavior of Ctrl while scrolling the video display. If not set, scrolling will default to UI zoom and Ctrl+scrolling will zoom the video. If set, this will be reversed."
 msgstr ""
-"滚轮缩放视频时反转Ctrl键的行为。如果不勾选，滚动滚轮将默认为UI缩放，\n"
-"按住Ctrl+滚轮时将缩放视频大小而不缩放UI。如果勾选，则作用相反。"
+"滚轮缩放视频时反转Ctrl键的行为。如果不勾选，滚动滚轮将默认为UI缩\n"
+"放，按住Ctrl+滚轮时将缩放视频大小而不缩放UI。如果勾选则作用相反。"
 
 #: ../src/preferences.cpp:178
 msgid "Disable zooming with scroll bar"
@@ -6834,6 +6835,67 @@ msgstr "将会在您的电脑上安装Aegisub {#BUILD_GIT_VERSION_STRING} 。%n%
 msgid "Update Checker:"
 msgstr "自动更新："
 
+#: ../src/preferences.cpp:487
+msgid "H/W acceleration"
+msgstr "硬件加速设备"
+
+msgid "Apply RFF"
+msgstr "应用RFF标志"
+
+msgid "None"
+msgstr "不混合"
+
+msgid "ConvertToMono"
+msgstr "转为单声道"
+
+msgid "GetLeftChannel"
+msgstr "获取左声道"
+
+msgid "GetRightChannel"
+msgstr "获取右声道"
+
+msgid "Reduces memory usage on surround audio, but may cause audio tracks to sound blank in specific circumstances. This will not affect audio with two channels or less."
+msgstr "减少环绕声音频的内存使用量，但在特定情况下可能会导致音轨听起来空白。这不会影响两个或更少声道的音频。"
+
+msgid ". Click to cycle.\n"
+msgstr "（点击切换模式）\n"
+
+msgid "Search"
+msgstr "搜索"
+
+msgid "Quiet"
+msgstr "安静"
+
+msgid "Panic"
+msgstr "恐慌"
+
+msgid "Fatal"
+msgstr "致命"
+
+msgid "Warning"
+msgstr "警告"
+
+msgid "Info"
+msgstr "信息"
+
+msgid "Verbose"
+msgstr "详细"
+
+msgid "Debug"
+msgstr "调试"
+
+msgid "Critical"
+msgstr "严重"
+
+msgid "Information"
+msgstr "信息"
+
+msgid "Hotkey"
+msgstr "热键"
+
+msgid "Command"
+msgstr "指令"
+
 #~ msgid "    Subtitle format handler: %s"
 #~ msgstr "    字幕格式处理器： %s"
 
@@ -6902,64 +6964,3 @@ msgstr "自动更新："
 
 #~ msgid "You already have timecodes loaded. Would you like to replace them with timecodes from the video file?"
 #~ msgstr "您已经加载过时间码。是否要用视频文件中的时间码替换？"
-
-#: ../src/preferences.cpp:487
-msgid "H/W acceleration"
-msgstr "硬件加速设备"
-
-msgid "Apply RFF"
-msgstr "应用RFF"
-
-msgid "None"
-msgstr "不混合"
-
-msgid "ConvertToMono"
-msgstr "转换为单声道"
-
-msgid "GetLeftChannel"
-msgstr "获取左频道"
-
-msgid "GetRightChannel"
-msgstr "获取右频道"
-
-msgid "Reduces memory usage on surround audio, but may cause audio tracks to sound blank in specific circumstances. This will not affect audio with two channels or less."
-msgstr "减少环绕声音频的内存使用量，但在特定情况下可能会导致音轨听起来空白。这不会影响两个或更少声道的音频。"
-
-msgid ". Click to cycle.\n"
-msgstr "。点击循环。\n"
-
-msgid "Search"
-msgstr "搜索"
-
-msgid "Quiet"
-msgstr "安静"
-
-msgid "Panic"
-msgstr "恐慌"
-
-msgid "Fatal"
-msgstr "致命"
-
-msgid "Warning"
-msgstr "警告"
-
-msgid "Info"
-msgstr "信息"
-
-msgid "Verbose"
-msgstr "详细"
-
-msgid "Debug"
-msgstr "调试"
-
-msgid "Critical"
-msgstr "危急"
-
-msgid "Information"
-msgstr "信息"
-
-msgid "Hotkey"
-msgstr "热键"
-
-msgid "Command"
-msgstr "指令"
