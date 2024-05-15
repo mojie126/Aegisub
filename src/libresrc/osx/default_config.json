@@ -29,7 +29,7 @@
 		},
 		"Cache" : {
 			"HD" : {
-				"Location" : "default",
+				"Location" : "default"
 			},
 			"Type" : 1
 		},
@@ -459,16 +459,16 @@
 			"Translate Alignments" : true
 		},
 		"MicroDVD": {
-			"Default Style Catalog": "Default",
+			"Default Style Catalog": "Default"
 		},
 		"SRT": {
-			"Default Style Catalog": "Default",
+			"Default Style Catalog": "Default"
 		},
 		"TTXT": {
-			"Default Style Catalog": "Default",
+			"Default Style Catalog": "Default"
 		},
 		"TXT": {
-			"Default Style Catalog": "Default",
+			"Default Style Catalog": "Default"
 		}
 	},
 

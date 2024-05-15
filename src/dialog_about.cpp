@@ -51,6 +51,7 @@ void ShowAboutDialog(wxWindow *parent) {
 	wxString aboutString = wxString("Aegisub ") + GetAegisubShortVersionString() + ".\n"
 		"Copyright (c) 2005-2019 Rodrigo Braz Monteiro, Niels Martin Hansen, Thomas Goyne et al.\n\n"
 		"Programmers:\n"
+		"    mojie126\n"
 		"    Alysson Souza e Silva\n"
 		"    Amar Takhar\n"
 		"    Charlie Jiang\n"

@@ -99,13 +99,14 @@ public:
 LogWindow::LogWindow(agi::Context *c)
 : wxDialog(c->parent, -1, _("Log window"), wxDefaultPosition, wxDefaultSize, wxCAPTION | wxCLOSE_BOX | wxRESIZE_BORDER)
 {
-	wxTextCtrl *text_ctrl = new wxTextCtrl(this, -1, "", wxDefaultPosition, wxSize(700,300), wxTE_MULTILINE|wxTE_READONLY);
-	text_ctrl->SetDefaultStyle(wxTextAttr(wxNullColour, wxNullColour, wxFont(8, wxFONTFAMILY_MODERN, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL)));
+	const auto text_ctrl = new wxTextCtrl(this, -1, "", wxDefaultPosition, wxSize(FromDIP(1400), FromDIP(500)), wxTE_MULTILINE | wxTE_READONLY);
+	text_ctrl->SetDefaultStyle(wxTextAttr(wxNullColour, wxNullColour, wxFont(FromDIP(8), wxFONTFAMILY_MODERN, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL)));
 
 	wxSizer *sizer = new wxBoxSizer(wxVERTICAL);
 	sizer->Add(text_ctrl, wxSizerFlags(1).Expand().Border());
-	sizer->Add(new wxButton(this, wxID_OK), wxSizerFlags(0).Border().Right());
+	// sizer->Add(new wxButton(this, wxID_OK), wxSizerFlags(0).Border().Right());
 	SetSizerAndFit(sizer);
+	CenterOnParent();
 
 	agi::log::log->Subscribe(std::unique_ptr<agi::log::Emitter>(emit_log = new EmitLog(text_ctrl)));
 }
