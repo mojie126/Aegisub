@@ -22,16 +22,26 @@
 
 wxBitmap libresrc_getimage(const unsigned char *buff, size_t size, double scale, int dir) {
 	wxMemoryInputStream mem(buff, size);
-	if (dir != wxLayout_RightToLeft)
-#if wxCHECK_VERSION(3, 1, 0)
-	// Since wxWidgets 3.1.0, there is an undocumented third parameter in the ctor of wxBitmap from wxImage
-	// This "scale" parameter sets the logical scale factor of the created wxBitmap
-		return wxBitmap(wxImage(mem), wxBITMAP_SCREEN_DEPTH, scale);
-	return wxBitmap(wxImage(mem).Mirror(), wxBITMAP_SCREEN_DEPTH, scale);
-#else
-		return wxBitmap(wxImage(mem));
-	return wxBitmap(wxImage(mem).Mirror());
-#endif
+	const auto wx_image = wxImage(mem);
+	wxBitmap wx_bitmap;
+	if (dir != wxLayout_RightToLeft) {
+		wx_bitmap = wxBitmap(wx_image, wxBITMAP_SCREEN_DEPTH, scale);
+		wx_bitmap.SetSize(wx_image.GetWidth() / 2, wx_image.GetHeight() / 2);
+		wx_bitmap.SetSize(wx_image.GetWidth() / 2, wx_image.GetHeight() / 2);
+		return wx_bitmap;
+	}
+	wx_bitmap = wxBitmap(wx_image.Mirror(), wxBITMAP_SCREEN_DEPTH, scale);
+	wx_bitmap.SetSize(wx_image.GetWidth() / 2, wx_image.GetHeight() / 2);
+	return wx_bitmap;
+// #if wxCHECK_VERSION(3, 1, 0)
+// 	// Since wxWidgets 3.1.0, there is an undocumented third parameter in the ctor of wxBitmap from wxImage
+// 	// This "scale" parameter sets the logical scale factor of the created wxBitmap
+// 		return wxBitmap(wxImage(mem), wxBITMAP_SCREEN_DEPTH, scale);
+// 	return wxBitmap(wxImage(mem).Mirror(), wxBITMAP_SCREEN_DEPTH, scale);
+// #else
+// 		return wxBitmap(wxImage(mem));
+// 	return wxBitmap(wxImage(mem).Mirror());
+// #endif
 }
 
 wxIcon libresrc_geticon(const unsigned char *buff, size_t size) {
