@@ -352,7 +352,7 @@
 				"Aegisub Cache" : true
 			},
 			"VapourSynth" : {
-				"Default Script" : "# This default script will load an audio file using BestSource.\n# It requires the `bs` plugin.\n\nimport vapoursynth as vs\nimport aegisub_vs as a\na.set_paths(locals())\n\na.ensure_plugin(\"bs\", \"BestSource\", \"To use Aegisub's default audio loader, the `bs` plugin for VapourSynth must be installed\")\nvs.core.bs.AudioSource(source=filename).set_output()"
+				"Default Script" : "# This default script will load an audio file using BestSource.\n# It requires the `bs` plugin.\n\nimport vapoursynth as vs\nimport aegisub_vs as a\na.set_paths(locals())\n\na.ensure_plugin(\"bs\", \"BestSource\", \"To use Aegisub's default audio loader, the `bs` plugin for VapourSynth must be installed\")\nvs.core.bas.Source(source=filename).set_output()"
 			}
 		},
 		"Avisynth" : {
@@ -384,7 +384,8 @@
 				"Size" : 32
 			},
 			"FFmpegSource" : {
-				"HW hw_name" : "cuda",
+				"ABB" : 0,
+				"HW hw_name" : "dxva2",
 				"Decoding Threads" : -1,
 				"Unsafe Seeking" : false
 			},

@@ -481,6 +481,9 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 	wxArrayString log_levels_choice(8, log_levels);
 	p->OptionChoice(ffms, _("Debug log verbosity"), log_levels_choice, "Provider/FFmpegSource/Log Level");
 
+	// 添加黑边
+	p->OptionAdd(ffms, _("Add black borders"), "Provider/Video/FFmpegSource/ABB", 0);
+
 	// 硬件加速选项
 	const wxString h_wx_string[] = {"cuda", "d3d11va", "dxva2", "none"};
 	const wxArrayString h_wx_string_choice(4, h_wx_string);
