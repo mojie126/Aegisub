@@ -248,7 +248,8 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 		SeekMode = FFMS_SEEK_NORMAL;
 
 	const auto hw_name = OPT_GET("Provider/Video/FFmpegSource/HW hw_name")->GetString().c_str();
-	VideoSource = FFMS_CreateVideoSource(filename.string().c_str(), TrackNumber, Index, Threads, SeekMode, &ErrInfo, hw_name);
+	const auto padding = OPT_GET("Provider/Video/FFmpegSource/ABB")->GetInt();
+	VideoSource = FFMS_CreateVideoSource(filename.string().c_str(), TrackNumber, Index, Threads, SeekMode, &ErrInfo, hw_name, padding);
 	if (!VideoSource)
 		throw VideoOpenError(std::string("Failed to open video track: ") + ErrInfo.Buffer);
 

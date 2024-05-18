@@ -22,6 +22,7 @@ eyedropper_cursor CURSOR "../bitmaps/windows/eyedropper.cur"
 // We supply the manifest ourselves
 #define wxUSE_NO_MANIFEST         0
 #define wxUSE_DPI_AWARE_MANIFEST  2
+//#define wxUSE_NO_MANIFEST         1
 #include "wx/msw/wx.rc"
 
 #include "git_version.h"
