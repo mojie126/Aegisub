@@ -39,6 +39,7 @@ jobs:
               -Dfribidi:tests=false
               -Dfribidi:docs=false
               -Dlibass:fontconfig=disabled
+              -Dffmpeg:libdav1d=enabled
               -Davisynth=enabled
               -Dbestsource=enabled
               -Dvapoursynth=enabled
@@ -60,6 +61,7 @@ jobs:
               -Dfribidi:tests=false
               -Dfribidi:docs=false
               -Dlibass:fontconfig=disabled
+              -Dffmpeg:libdav1d=enabled
               -Davisynth=enabled
               -Dbestsource=enabled
               -Dvapoursynth=enabled
@@ -91,6 +93,7 @@ jobs:
               -Dbuild_appimage=true
               -Ddefault_library=static
               --force-fallback-for=ffms2
+              -Dffmpeg:libdav1d=enabled
               -Davisynth=enabled
               -Dbestsource=enabled
               -Dvapoursynth=enabled
