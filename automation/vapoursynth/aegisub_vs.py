@@ -236,7 +236,7 @@ def make_keyframes(clip: vs.VideoNode, use_scxvid: bool = False,
         nonlocal done
         keyframes[n] = f.props._SceneChangePrev if use_scxvid else f.props.Scenechange # type: ignore
         done += 1
-        if done % (clip.num_frames // 200) == 0:
+        if done % max(1, clip.num_frames // 200) == 0:
             progress_set_progress(100 * done / clip.num_frames)
         return f
 
