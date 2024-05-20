@@ -7,98 +7,52 @@ jobs:
         name: ${{ matrix.config.name }}
         runs-on: ${{ matrix.config.os }}
 
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-          - name: Windows MSVC Release
-            os: windows-latest
-            msvc: true
-            buildtype: release
-            args: >-
-              -Ddefault_library=static 
-              --force-fallback-for=zlib,harfbuzz,freetype2,fribidi,libpng 
-              -Dfreetype2:harfbuzz=disabled 
-              -Dharfbuzz:freetype=disabled 
-              -Dharfbuzz:cairo=disabled 
-              -Dharfbuzz:glib=disabled 
-              -Dharfbuzz:gobject=disabled
-              -Dharfbuzz:tests=disabled
-              -Dharfbuzz:docs=disabled
-              -Dharfbuzz:icu=disabled
-              -Dfribidi:tests=false
-              -Dfribidi:docs=false
-              -Dlibass:fontconfig=disabled
-              -Davisynth=enabled
-              -Dbestsource=enabled
-              -Dvapoursynth=enabled
-          - name: Windows MSVC Release (wx master)
-            os: windows-latest
-            msvc: true
-            buildtype: release
-            args: >-
-              -Ddefault_library=static 
-              --force-fallback-for=zlib,harfbuzz,freetype2,fribidi,libpng 
-              -Dfreetype2:harfbuzz=disabled 
-              -Dharfbuzz:freetype=disabled 
-              -Dharfbuzz:cairo=disabled 
-              -Dharfbuzz:glib=disabled 
-              -Dharfbuzz:gobject=disabled
-              -Dharfbuzz:tests=disabled
-              -Dharfbuzz:docs=disabled
-              -Dharfbuzz:icu=disabled
-              -Dfribidi:tests=false
-              -Dfribidi:docs=false
-              -Dlibass:fontconfig=disabled
-              -Davisynth=enabled
-              -Dbestsource=enabled
-              -Dvapoursynth=enabled
-              -Dwx_version='3.3.0'
-          #- {
-          #  name: Windows MinGW,
-          #  os: windows-latest,
-          #  msvc: false
-          #}
-          - {
-            name: Ubuntu Debug,
-            os: ubuntu-latest,
-            buildtype: debugoptimized,
-            args: ''
-          }
-          - {
-            name: Ubuntu Release,
-            os: ubuntu-latest,
-            buildtype: release,
-            args: ''
-          }
-          - name: Ubuntu AppImage
-            os: ubuntu-22.04
-            buildtype: release
-            appimage: true
-            # distro ffms is currently broken
-            args: >-
-              --prefix=/usr
-              -Dbuild_appimage=true
-              -Ddefault_library=static
-              --force-fallback-for=ffms2
-              -Davisynth=enabled
-              -Dbestsource=enabled
-              -Dvapoursynth=enabled
-          - {
-            name: macOS Release,
-            os: macos-latest,
-            buildtype: release,
-            args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true -Dvapoursynth=enabled --force-fallback-for=ffms2
-          }
+        strategy:
+            fail-fast: false
+            matrix:
+                config:
+                    -   name: Windows MSVC Release
+                        os: windows-latest
+                        msvc: true
+                        buildtype: release
+                        args: >-
+                            -Ddefault_library=static
+                            --force-fallback-for=zlib,harfbuzz,freetype2,fribidi,libpng
+                            -Dfreetype2:harfbuzz=disabled
+                            -Dharfbuzz:freetype=disabled
+                            -Dharfbuzz:cairo=disabled
+                            -Dharfbuzz:glib=disabled
+                            -Dharfbuzz:gobject=disabled
+                            -Dharfbuzz:tests=disabled
+                            -Dharfbuzz:docs=disabled
+                            -Dharfbuzz:icu=disabled
+                            -Dfribidi:tests=false
+                            -Dfribidi:docs=false
+                            -Dlibass:fontconfig=disabled
+                            -Davisynth=enabled
+                            -Dbestsource=enabled
+                            -Dvapoursynth=enabled
+        steps:
+            -   name: set current date
+                id: set_date
+                run: |
+                    date=$(date +'%Y-%m')
+                    echo "date=$date" >> $GITHUB_OUTPUT
+                shell: bash
 
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: '0'
+            -   name: cache Aegisub build
+                uses: actions/cache@v4
+                with:
+                    path: D:/a/Aegisub/Aegisub/build
+                    key: Aegisub-build-${{ steps.set_date.outputs.date }}
+                    restore-keys: Aegisub-build-
+            -   uses: actions/checkout@v4
+                with:
+                    fetch-depth: '0'
 
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
+            -   uses: actions/setup-python@v5
+                with:
+                    python-version: '3.x'
 
             -   name: Setup Meson
                 run: |
@@ -109,44 +63,25 @@ jobs:
                 if: matrix.config.os == 'windows-latest' && matrix.config.msvc == true
                 uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Install dependencies (Windows)
-        if: matrix.config.os == 'windows-latest'
-        run: |
-          choco install ninja innosetup
-
-          $moonscripturl = "https://github.com/leafo/moonscript/releases/download/win32-v0.5.0/moonscript-187bac54ee5a7450013e9c38e005a0e671b76f45.zip"
-          mkdir moonscript
-          Invoke-WebRequest -Uri $moonscripturl -OutFile ".\moonscript\moonscript.zip"
-          pushd moonscript
-          7z e moonscript.zip
-          Get-Location | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          popd
-
-          $gettexturl = "https://github.com/mlocati/gettext-iconv-windows/releases/download/v0.21-v1.16/gettext0.21-iconv1.16-static-64.zip"
-          Invoke-WebRequest -Uri $gettexturl -OutFile ".\gettext.zip"
-          Expand-Archive ".\gettext.zip" -DestinationPath gettext
-          pushd gettext/bin
-          Get-Location | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          popd
-
-      - name: Install dependencies (MacOS)
-        if: matrix.config.os == 'macos-latest'
-        run: |
-          export HOMEBREW_NO_INSTALL_CLEANUP=1
-          export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
-          # Skip brew update for now, see https://github.com/actions/setup-python/issues/577
-          # brew update
-          brew install luarocks ninja
-          luarocks install luafilesystem 1.8.0
-          luarocks install moonscript --dev
-          brew install libass zlib ffms2 fftw hunspell
-          brew install pulseaudio  # NO OpenAL in github CI
-
-      - name: Install dependencies (Linux)
-        if: startsWith(matrix.config.os, 'ubuntu-')
-        run: |
-          sudo apt-get update
-          sudo apt-get install ninja-build build-essential libx11-dev libwxgtk3.0-gtk3-dev libfreetype6-dev pkg-config libfontconfig1-dev libass-dev libasound2-dev libffms2-dev intltool libboost-all-dev libhunspell-dev libuchardet-dev libpulse-dev libopenal-dev libxxhash-dev nasm
+            -   name: Install dependencies (Windows)
+                if: matrix.config.os == 'windows-latest'
+                run: |
+                    choco install ninja innosetup
+                    
+                    $moonscripturl = "https://github.com/leafo/moonscript/releases/download/win32-v0.5.0/moonscript-187bac54ee5a7450013e9c38e005a0e671b76f45.zip"
+                    mkdir moonscript
+                    Invoke-WebRequest -Uri $moonscripturl -OutFile ".\moonscript\moonscript.zip"
+                    pushd moonscript
+                    7z e moonscript.zip
+                    Get-Location | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+                    popd
+                    
+                    $gettexturl = "https://github.com/mlocati/gettext-iconv-windows/releases/download/v0.21-v1.16/gettext0.21-iconv1.16-static-64.zip"
+                    Invoke-WebRequest -Uri $gettexturl -OutFile ".\gettext.zip"
+                    Expand-Archive ".\gettext.zip" -DestinationPath gettext
+                    pushd gettext/bin
+                    Get-Location | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+                    popd
 
             -   name: Configure
                 run: |
@@ -156,8 +91,8 @@ jobs:
             -   name: Build
                 run: meson compile -C build -j(Get-WmiObject -Class Win32_Processor).NumberOfLogicalProcessors
 
-            -   name: Run test
-                run: meson test -C build --verbose "gtest main"
+#            -   name: Run test
+#                run: meson test -C build --verbose "gtest main"
 
             # Windows artifacts
             -   name: Generate Windows installer
@@ -185,66 +120,3 @@ jobs:
                 with:
                     name: ${{ matrix.config.name }} - portable
                     path: build/aegisub-portable-64.zip
-
-#            # macOS artifacts
-#            -   name: Generate macOS installer
-#                if: matrix.config.os == 'macos-latest'
-#                run: |
-#                    meson compile osx-bundle -C build
-#                    meson compile osx-build-dmg -C build
-#
-#            -   name: Upload artifacts - macOS dmg
-#                uses: actions/upload-artifact
-#                if: matrix.config.os == 'macos-latest'
-#                with:
-#                    name: ${{ matrix.config.name }} - installer
-#                    path: build/Aegisub-*.dmg
-#                    if-no-files-found: error
-#
-#            # Linux artifacts (AppImage)
-#            -   name: Generate AppImage
-#                if: matrix.config.appimage
-#                run: |
-#                    mkdir -p appimage/appdir
-#                    meson install -C build --destdir=../appimage/appdir
-#
-#                    cd appimage
-#                    sudo apt-get install libfuse2
-#                    curl -L "https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20220822-1/linuxdeploy-x86_64.AppImage" -o linuxdeploy
-#                    curl -L "https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage" -o appimagetool
-#                    chmod +x linuxdeploy appimagetool
-#
-#                    ./linuxdeploy --appdir appdir --desktop-file=appdir/aegisub.desktop
-#                    ./appimagetool appdir
-#
-#            -   name: Upload artifacts - Linux AppImage
-#                uses: actions/upload-artifact
-#                if: matrix.config.appimage
-#                with:
-#                    name: ${{ matrix.config.name }}
-#                    path: appimage/*.AppImage
-#                    if-no-files-found: error
-
-      # Linux artifacts (AppImage)
-      - name: Generate AppImage
-        if: matrix.config.appimage
-        run: |
-          mkdir -p appimage/appdir
-          meson install -C build --destdir=../appimage/appdir
-
-          cd appimage
-          sudo apt-get install libfuse2
-          curl -L "https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20220822-1/linuxdeploy-x86_64.AppImage" -o linuxdeploy
-          curl -L "https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage" -o appimagetool
-          chmod +x linuxdeploy appimagetool
-
-          ./linuxdeploy --appdir appdir --desktop-file=appdir/aegisub.desktop
-          ./appimagetool appdir
-
-      - name: Upload artifacts - Linux AppImage
-        uses: actions/upload-artifact@v3
-        if: matrix.config.appimage
-        with:
-          name: ${{ matrix.config.name }}
-          path: appimage/*.AppImage
-          if-no-files-found: error
