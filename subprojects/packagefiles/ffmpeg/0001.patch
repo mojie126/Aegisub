@@ -1,0 +1,13 @@
+diff --git a/meson.build b/meson.build
+index e25bb29..adbe83c 100644
+--- a/meson.build
++++ b/meson.build
+@@ -70,7 +70,7 @@ project('FFmpeg', 'c',
+ #   bits of logic
+ ffmpeg_toplevel_builddir = meson.current_build_dir()
+-ffmpeg_toplevel_inc = include_directories('.')
++ffmpeg_toplevel_inc = include_directories(['.', '../ffnvcodec/include'])
+ common_incs = [ffmpeg_toplevel_inc]
+
+ python3 = import('python').find_installation()
+
