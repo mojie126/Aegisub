@@ -76,11 +76,11 @@ jobs:
           }
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: '0'
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
@@ -200,7 +200,7 @@ jobs:
           ./appimagetool appdir
 
       - name: Upload artifacts - Linux AppImage
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: matrix.config.appimage
         with:
           name: ${{ matrix.config.name }}
