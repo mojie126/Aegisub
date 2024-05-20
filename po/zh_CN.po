@@ -6899,6 +6899,9 @@ msgstr "指令"
 msgid "Add black borders"
 msgstr "添加黑边"
 
+msgid "Does not take effect when using hardware acceleration."
+msgstr "使用硬件加速时不生效。"
+
 #~ msgid "    Subtitle format handler: %s"
 #~ msgstr "    字幕格式处理器： %s"
 
