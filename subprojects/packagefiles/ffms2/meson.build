@@ -5,7 +5,8 @@ deps = []
 opts = [
     'tests=disabled', 'libdav1d=enabled',
     'libvpl=enabled', 'h264_qsv_decoder=enabled', 'hevc_qsv_decoder=enabled', 'vc1_qsv_decoder=enabled', 'av1_qsv_decoder=enabled',
-    'ffnvcodec=enabled', 'cuda=enabled', 'cuvid=enabled', 'ff_cuda_llvm=enabled', 'av1_cuvid_decoder=enabled'
+    'ffnvcodec=enabled', 'cuda=enabled', 'cuvid=enabled', 'ff_cuda_llvm=enabled', 'av1_cuvid_decoder=enabled',
+    'filters=disabled', 'pad_filter=enabled', 'format_filter=enabled', 'lut3d_filter=enabled'
 ]
 
 deps += dependency('zlib')
@@ -13,6 +14,7 @@ deps += dependency('libavformat', version : '>=60', default_options : opts)
 deps += dependency('libavcodec', version : '>=60', default_options : opts)
 deps += dependency('libswscale', default_options : opts)
 deps += dependency('libavutil', default_options : opts)
+deps += dependency('libavfilter', default_options : opts)
 deps += dependency('libswresample', default_options : opts)
 
 args = ['-D_FILE_OFFSET_BITNS=64', '-DFFMS_EXPORTS', '-D__STDC_CONSTANT_MACROS']

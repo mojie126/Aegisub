@@ -10,4 +10,5 @@ libavformat = libavformat_dep
 libavcodec = libavcodec_dep
 libswscale = libswscale_dep
 libavutil = libavutil_dep
+libavfilter = libavfilter_dep
 libswresample = libswresample_dep
