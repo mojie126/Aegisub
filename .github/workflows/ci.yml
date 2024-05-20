@@ -29,6 +29,7 @@ jobs:
               -Dfribidi:tests=false
               -Dfribidi:docs=false
               -Dlibass:fontconfig=disabled
+              -Dffmpeg:libdav1d=enabled
               -Davisynth=enabled
               -Dbestsource=enabled
               -Dvapoursynth=enabled
@@ -50,6 +51,7 @@ jobs:
               -Dfribidi:tests=false
               -Dfribidi:docs=false
               -Dlibass:fontconfig=disabled
+              -Dffmpeg:libdav1d=enabled
               -Davisynth=enabled
               -Dbestsource=enabled
               -Dvapoursynth=enabled
@@ -81,22 +83,23 @@ jobs:
               -Dbuild_appimage=true
               -Ddefault_library=static
               --force-fallback-for=ffms2
+              -Dffmpeg:libdav1d=enabled
               -Davisynth=enabled
               -Dbestsource=enabled
               -Dvapoursynth=enabled
           - {
             name: macOS Release,
-            os: macos-latest,
+            os: macos-13,
             buildtype: release,
             args: -Ddefault_library=static -Dbuild_osx_bundle=true -Dlocal_boost=true -Dvapoursynth=enabled --force-fallback-for=ffms2
           }
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: '0'
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
@@ -132,15 +135,15 @@ jobs:
           popd
 
       - name: Install dependencies (MacOS)
-        if: matrix.config.os == 'macos-latest'
+        if: startsWith(matrix.config.os, 'macos-')
         run: |
           export HOMEBREW_NO_INSTALL_CLEANUP=1
           export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
           # Skip brew update for now, see https://github.com/actions/setup-python/issues/577
           # brew update
           brew install luarocks ninja
-          luarocks install luafilesystem 1.8.0
-          luarocks install moonscript --dev
+          sudo luarocks install luafilesystem 1.8.0
+          sudo luarocks install moonscript --dev
           brew install libass zlib ffms2 fftw hunspell
           brew install pulseaudio  # NO OpenAL in github CI
 
@@ -220,7 +223,7 @@ jobs:
           ./appimagetool appdir
 
       - name: Upload artifacts - Linux AppImage
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: matrix.config.appimage
         with:
           name: ${{ matrix.config.name }}
