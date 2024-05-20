@@ -16,12 +16,12 @@ jobs:
                         msvc: true
                         buildtype: release
                         args: >-
-                            -Ddefault_library=static 
-                            --force-fallback-for=zlib,harfbuzz,freetype2,fribidi,libpng 
-                            -Dfreetype2:harfbuzz=disabled 
-                            -Dharfbuzz:freetype=disabled 
-                            -Dharfbuzz:cairo=disabled 
-                            -Dharfbuzz:glib=disabled 
+                            -Ddefault_library=static
+                            --force-fallback-for=zlib,harfbuzz,freetype2,fribidi,libpng
+                            -Dfreetype2:harfbuzz=disabled
+                            -Dharfbuzz:freetype=disabled
+                            -Dharfbuzz:cairo=disabled
+                            -Dharfbuzz:glib=disabled
                             -Dharfbuzz:gobject=disabled
                             -Dharfbuzz:tests=disabled
                             -Dharfbuzz:docs=disabled
