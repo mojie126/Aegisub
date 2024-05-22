@@ -6202,7 +6202,7 @@ msgstr "搜寻预滚缓存（帧数）"
 
 #: ../src/preferences.cpp:492
 msgid "VapourSynth"
-msgstr "VS"
+msgstr "VapourSynth"
 
 #: ../src/preferences.cpp:505
 msgid "Log level"
