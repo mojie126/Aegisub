@@ -122,8 +122,9 @@ def make_keyframes_filename(filename: str) -> str:
 
 lwindex_re1 = re.compile(r"Index=(?P<Index>-?[0-9]+),POS=(?P<POS>-?[0-9]+),PTS=(?P<PTS>-?[0-9]+),DTS=(?P<DTS>-?[0-9]+),EDI=(?P<EDI>-?[0-9]+)")
 lwindex_re2 = re.compile(r"Key=(?P<Key>-?[0-9]+),Pic=(?P<Pic>-?[0-9]+),POC=(?P<POC>-?[0-9]+),Repeat=(?P<Repeat>-?[0-9]+),Field=(?P<Field>-?[0-9]+)")
-streaminfo_re = re.compile(r"Codec=(?P<Codec>[0-9]+),TimeBase=(?P<TimeBase>[0-9\/]+),Width=(?P<Width>[0-9]+),Height=(?P<Height>[0-9]+),Format=(?P<Format>[0-9a-zA-Z]+),ColorSpace=(?P<ColorSpace>[0-9]+)")
+streaminfo_re = re.compile(r"Codec=(?P<Codec>[0-9]+),TimeBase=(?P<TimeBase>[0-9/]+),Width=(?P<Width>[0-9]+),Height=(?P<Height>[0-9]+),Format=(?P<Format>[0-9a-zA-Z]+),ColorSpace=(?P<ColorSpace>[0-9]+)")
 videoindex_re = re.compile(r"<ActiveVideoStreamIndex>(?P<VideoStreamIndex>[0-9+]+)</ActiveVideoStreamIndex>")
+
 
 class LWIndexFrame:
     pts: int
@@ -193,12 +194,13 @@ def wrap_lwlibavsource(filename: str, cachedir: str | None = None, **kwargs: Any
     progress_set_message("Loading video file")
     progress_set_indeterminate()
 
-    ensure_plugin("lsmas", "libvslsmashsource", "To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin for VapourSynth must be installed")
+    ensure_plugin("lsmas", "LSMASHSource", "To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin for VapourSynth must be installed")
 
-    if b"-Dcachedir" not in core.lsmas.Version()["config"]: # type: ignore
-        raise vs.Error("To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin must support the `cachedir` option for LWLibavSource.")
+    # type: ignore
+    # if b"-Dcachedir" not in core.lsmas.Version()["config"]:
+    #     raise vs.Error("To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin must support the `cachedir` option for LWLibavSource.")
 
-    clip = core.lsmas.LWLibavSource(source=filename, cachefile=cachefile, **kwargs)
+    clip = core.lsmas.LWLibavSource(source=filename, cachefile=cachefile, cachedir=".", prefer_hw=3, **kwargs)
 
     progress_set_message("Getting timecodes and keyframes from the index file")
     return clip, info_from_lwindex(cachefile)
@@ -266,8 +268,7 @@ def ask_gen_keyframes(_: str) -> bool:
     from tkinter.messagebox import askyesno
     progress_set_message("Asking whether to generate keyframes")
     progress_set_indeterminate()
-    result = askyesno("Generate Keyframes", \
-                    "No keyframes file was found for this video file.\nShould Aegisub detect keyframes from the video?\nThis will take a while.", default="no")
+    result = askyesno("Generate Keyframes", "No keyframes file was found for this video file.\nShould Aegisub detect keyframes from the video?\nThis will take a while.", default="no")
     progress_set_message("")
     return result
 
