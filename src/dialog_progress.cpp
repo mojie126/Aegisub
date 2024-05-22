@@ -145,7 +145,7 @@ DialogProgress::DialogProgress(wxWindow *parent, wxString const& title_text, wxS
 	sizer->Add(cancel_button, wxSizerFlags().Center().Border());
 	sizer->Add(log_output, wxSizerFlags().Expand().Border(wxALL & ~wxTOP));
 	sizer->Hide(log_output);
-	sizer->SetMinSize(wxWindow::FromDIP(200, parent), wxWindow::FromDIP(-1, parent));
+	sizer->SetMinSize(wxWindow::FromDIP(350, parent), wxWindow::FromDIP(-1, parent));
 
 	SetSizerAndFit(sizer);
 	CenterOnParent();
