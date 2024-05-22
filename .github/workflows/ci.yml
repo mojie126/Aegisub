@@ -29,6 +29,7 @@ jobs:
                             -Dfribidi:tests=false
                             -Dfribidi:docs=false
                             -Dlibass:fontconfig=disabled
+                            -Dffmpeg:libdav1d=enabled
                             -Davisynth=enabled
                             -Dbestsource=enabled
                             -Dvapoursynth=enabled

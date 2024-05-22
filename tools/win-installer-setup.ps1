@@ -27,7 +27,7 @@ if (Test-Path 'Env:GITHUB_TOKEN') {
 if (!(Test-Path DependencyControl)) {
 	git clone https://github.com/TypesettingTools/DependencyControl.git
 	Set-Location DependencyControl
-	git checkout v0.6.3-alpha
+	git checkout v0.6.4-alpha
 	Set-Location $DepsDir
 }
 
@@ -73,6 +73,17 @@ if (!(Test-Path L-SMASH-Works)) {
 	Invoke-WebRequest $lsmasUrl -OutFile release-x86_64-cachedir-cwd.zip -UseBasicParsing
 	Expand-Archive -LiteralPath release-x86_64-cachedir-cwd.zip -DestinationPath L-SMASH-Works
 	Remove-Item release-x86_64-cachedir-cwd.zip
+}
+if (!(Test-Path L-SMASH-Works-new)) {
+	$newLSMASHDir = New-Item -ItemType Directory L-SMASH-Works-new
+	Set-Location $newLSMASHDir
+	$lsmasReleases = Invoke-WebRequest "https://api.github.com/repos/HomeOfAviSynthPlusEvolution/L-SMASH-Works/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
+	$lsmasUrl = "https://github.com/HomeOfAviSynthPlusEvolution/L-SMASH-Works/releases/download/" +
+			$lsmasReleases.tag_name + "/L-SMASH-Works-r" + $lsmasReleases.tag_name + ".7z"
+	Invoke-WebRequest $lsmasUrl -OutFile L-SMASH-Works-new.7z -UseBasicParsing
+	7z x L-SMASH-Works-new.7z
+	Remove-Item L-SMASH-Works-new.7z
+	Set-Location $DepsDir
 }
 
 # BestSource

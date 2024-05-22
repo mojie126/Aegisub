@@ -6902,6 +6902,12 @@ msgstr "添加黑边"
 msgid "Does not take effect when using hardware acceleration."
 msgstr "使用硬件加速时不生效。"
 
+msgid "Decoding the full track to ensure perfect frame accuracy. This will take a while!"
+msgstr "解码全轨道，确保完美的帧精度。这需要一段时间！"
+
+msgid "BestSource had to fall back to linear decoding. Seeking through the video will be very slow now. You may want to try a different video provider, but note that those are not guaranteed to be frame-exact."
+msgstr "BestSource 不得不回退到线性解码。现在通过视频搜索会非常缓慢。您可能想尝试其他视频提供商，但请注意，这些视频提供商不能保证帧准确无误。"
+
 #~ msgid "    Subtitle format handler: %s"
 #~ msgstr "    字幕格式处理器： %s"
 

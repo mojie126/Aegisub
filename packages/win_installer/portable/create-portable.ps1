@@ -10,20 +10,20 @@ param (
 function Copy-New-Item {
     $SourceFilePath = $args[0]
     $DestinationFilePath = $args[1]
-  
+
     If (-not (Test-Path $DestinationFilePath)) {
         New-Item -ItemType Directory -Path $DestinationFilePath -Force
-    } 
+    }
     Copy-Item -Path $SourceFilePath -Destination $DestinationFilePath
 }
 
 function Copy-New-Items {
     $SourceFilePath = $args[0]
     $DestinationFilePath = $args[1]
-  
+
     If (-not (Test-Path $DestinationFilePath)) {
         New-Item -ItemType Directory -Path $DestinationFilePath -Force
-    } 
+    }
     Copy-Item -Path $SourceFilePath -Destination $DestinationFilePath -Recurse
 }
 
@@ -61,7 +61,8 @@ Copy-New-Item $InstallerDepsDir\AvisynthPlus64\x64\Output\AviSynth.dll  $Portabl
 Copy-New-Item $InstallerDepsDir\AvisynthPlus64\x64\Output\plugins\DirectShowSource.dll  $PortableOutputDir
 Write-Output 'Copying - codecs\VapourSynth'
 Copy-New-Item $InstallerDepsDir\L-SMASH-Works\libvslsmashsource.dll  $PortableOutputDir\vapoursynth
-Copy-New-Item $InstallerDepsDir\bestaudiosource\win64\BestAudioSource.dll  $PortableOutputDir\vapoursynth
+Copy-New-Item $InstallerDepsDir\L-SMASH-Works-new\x64\LSMASHSource.dll  $PortableOutputDir\vapoursynth
+Copy-New-Item $InstallerDepsDir\BestSource\BestSource.dll  $PortableOutputDir\vapoursynth
 Copy-New-Item $InstallerDepsDir\SCXVid\libscxvid.dll  $PortableOutputDir\vapoursynth
 Copy-New-Item $InstallerDepsDir\WWXD\libwwxd64.dll  $PortableOutputDir\vapoursynth
 Write-Output 'Copying - codecs\VSFilter'
