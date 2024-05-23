@@ -178,7 +178,7 @@ def info_from_lwindex(indexfile: str) -> Dict[str, List[int]]:
     }
 
 
-def wrap_lwlibavsource(filename: str, cachedir: str | None = None, **kwargs: Any) -> Tuple[vs.VideoNode, Dict[str, List[int]]]:
+def wrap_lwlibavsource(filename: str, padding: str, cachedir: str | None = None, **kwargs: Any) -> Tuple[vs.VideoNode, Dict[str, List[int]]]:
     """
     Given a path to a video file and a directory to store index files in
     (usually __aegi_vscache), will open the video with LWLibavSource and read
@@ -201,6 +201,7 @@ def wrap_lwlibavsource(filename: str, cachedir: str | None = None, **kwargs: Any
     #     raise vs.Error("To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin must support the `cachedir` option for LWLibavSource.")
 
     clip = core.lsmas.LWLibavSource(source=filename, cachefile=cachefile, cachedir=".", prefer_hw=3, **kwargs)
+    clip = core.std.AddBorders(clip, left=0, right=0, top=padding, bottom=padding)
 
     progress_set_message("Getting timecodes and keyframes from the index file")
     return clip, info_from_lwindex(cachefile)
