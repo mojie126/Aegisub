@@ -482,8 +482,10 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 	p->OptionChoice(ffms, _("Debug log verbosity"), log_levels_choice, "Provider/FFmpegSource/Log Level");
 
 	// 添加黑边
-        p->OptionAdd(ffms, _("Add black borders"), "Provider/Video/FFmpegSource/ABB", 0)->SetToolTip(
-                _("Does not take effect when using hardware acceleration."));
+	p->OptionAdd(ffms, _("Add black borders"), "Provider/Video/FFmpegSource/ABB", 0)
+		->SetToolTip(
+			_("Does not take effect when using hardware acceleration.")
+		);
 
 	// 硬件加速选项
 	const wxString h_wx_string[] = {"cuda", "d3d11va", "dxva2", "none"};
@@ -501,6 +503,11 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 	p->OptionAdd(bs, _("Seek preroll (Frames)"), "Provider/Video/BestSource/Seek Preroll");
 	p->OptionAdd(bs, _("Apply RFF"), "Provider/Video/BestSource/Apply RFF");
 #endif
+
+	#ifdef WITH_VAPOURSYNTH
+	const auto vs = p->PageSizer("VapourSynth");
+	p->OptionAdd(vs, _("Add black borders"), "Provider/Video/VapourSynth/ABB", 0);
+	#endif
 
 	p->SetSizerAndFit(p->sizer);
 }

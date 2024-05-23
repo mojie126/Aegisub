@@ -204,7 +204,7 @@ begin
 
   except
     Log('An exception occurred while trying to uninstall a legacy version');
-	
+
   finally
     shortcut_list.Free;
     file_list.Free;
@@ -301,8 +301,8 @@ begin
     // This moving is done to help Windows' link tracking code be able to fix shortcuts
     page.SetText('Moving EXE file to new name', 'Aegisub.exe');
     page.SetProgress(itemsdone, totalitems);
-    Log('Rename Aegisub.exe to aegisub32.exe');
-    RenameFile(InstallFolder+'Aegisub.exe', InstallFolder+'aegisub32.exe');
+    //Log('Rename Aegisub.exe to aegisub32.exe');
+    //RenameFile(InstallFolder+'Aegisub.exe', InstallFolder+'aegisub32.exe');
     itemsdone := itemsdone + 1;
 
     for i := 0 to locale_list.Count-1 do
