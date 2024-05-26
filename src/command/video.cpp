@@ -63,9 +63,11 @@
 #include <wx/textdlg.h>
 
 extern "C" {
-	#include <libavcodec/avcodec.h>
 	#include <libavformat/avformat.h>
-	#include <libavutil/imgutils.h>
+	#include <libavcodec/avcodec.h>
+	#include <libavfilter/avfilter.h>
+	#include <libavfilter/buffersink.h>
+	#include <libavfilter/buffersrc.h>
 	#include <libavutil/opt.h>
 }
 
@@ -566,16 +568,20 @@ struct video_frame_save_subs final : public validator_video_loaded {
 	}
 };
 
-bool extract_video_segment(const char *input_filename, const char *output_filename, int start_frame, int end_frame) {
+bool extract_video_segment(const char *input_filename, const char *output_filename, const int start_frame, const int end_frame) {
 	AVFormatContext *input_format_context = nullptr;
 	AVFormatContext *output_format_context = nullptr;
 	AVCodecContext *decoder_context = nullptr;
 	AVCodecContext *encoder_context = nullptr;
-	AVStream *input_stream = nullptr;
-	AVStream *output_stream = nullptr;
+	const AVStream *input_stream = nullptr;
+	const AVStream *output_stream = nullptr;
 	AVPacket packet;
 	AVFrame *frame = av_frame_alloc();
 	AVFrame *filtered_frame = av_frame_alloc();
+	AVFilterContext *buffersink_ctx = nullptr;
+	AVFilterContext *buffersrc_ctx = nullptr;
+	bool use_pad_filter = false;
+	// av_log_set_level(AV_LOG_DEBUG);
 
 	if (!frame || !filtered_frame) {
 		std::cerr << "Could not allocate frame." << std::endl;
@@ -594,7 +600,7 @@ bool extract_video_segment(const char *input_filename, const char *output_filena
 	}
 
 	// Find the video stream
-	int video_stream_index = av_find_best_stream(input_format_context, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
+	const int video_stream_index = av_find_best_stream(input_format_context, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
 	if (video_stream_index < 0) {
 		std::cerr << "Could not find video stream in the input file." << std::endl;
 		return false;
@@ -635,7 +641,6 @@ bool extract_video_segment(const char *input_filename, const char *output_filena
 	}
 
 	// Find encoder
-	// const AVCodec *encoder = avcodec_find_encoder(decoder_context->codec_id);
 	const AVCodec *encoder = avcodec_find_encoder_by_name("libx264");
 	if (!encoder) {
 		std::cerr << "Necessary encoder not found." << std::endl;
@@ -649,10 +654,104 @@ bool extract_video_segment(const char *input_filename, const char *output_filena
 		return false;
 	}
 
-	encoder_context->height = decoder_context->height;
+	const auto video_provider = OPT_GET("Video/Provider")->GetString();
+	int padding = 0;
+	if (video_provider == "FFmpegSource") {
+		const auto hw_name = OPT_GET("Provider/Video/FFmpegSource/HW hw_name")->GetString();
+		if (hw_name == "none") {
+			padding = OPT_GET("Provider/Video/FFmpegSource/ABB")->GetInt();
+		}
+	} else if (video_provider == "VapourSynth") {
+		padding = OPT_GET("Provider/Video/VapourSynth/ABB")->GetInt();
+	}
+
+	// 配置过滤器
+	if (padding != 0) {
+		use_pad_filter = true;
+		AVFilterGraph *filter_graph = avfilter_graph_alloc();
+
+		if (!filter_graph) {
+			std::cerr << "Could not allocate filter." << std::endl;
+			return false;
+		}
+
+		// 创建 buffer 滤镜，用于作为输入
+		const AVFilter *buffersrc = avfilter_get_by_name("buffer");
+		const AVFilter *buffersink = avfilter_get_by_name("buffersink");
+		char args[512];
+		snprintf(
+			args, sizeof(args),
+			"video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
+			decoder_context->width, decoder_context->height, decoder_context->pix_fmt,
+			input_stream->time_base.num, input_stream->time_base.den,
+			decoder_context->sample_aspect_ratio.num, decoder_context->sample_aspect_ratio.den
+		);
+
+		// 创建 buffer 滤镜
+		if (avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in", args, nullptr, filter_graph) < 0) {
+			std::cerr << "Failed to create buffer filter." << std::endl;
+			return false;
+		}
+
+		// 创建 buffer sink 滤镜，用于作为输出
+		if (avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out", nullptr, nullptr, filter_graph) < 0) {
+			std::cerr << "Failed to create buffer sink filter." << std::endl;
+			return false;
+		}
+
+		// 设置 buffer sink 的像素格式
+		constexpr AVPixelFormat pix_fmts[] = {
+			AV_PIX_FMT_BGRA,
+			AV_PIX_FMT_RGBA,
+			AV_PIX_FMT_NV12,
+			AV_PIX_FMT_P010LE,
+			AV_PIX_FMT_YUV420P,
+			AV_PIX_FMT_YUV420P10LE,
+			AV_PIX_FMT_NONE
+		};
+		if (av_opt_set_int_list(buffersink_ctx, "pix_fmts", pix_fmts, AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN) < 0) {
+			std::cerr << "Failed to set output pixel format." << std::endl;
+			return false;
+		}
+
+		AVFilterInOut *outputs = avfilter_inout_alloc();
+		AVFilterInOut *inputs = avfilter_inout_alloc();
+
+		outputs->name = av_strdup("in");
+		outputs->filter_ctx = buffersrc_ctx;
+		outputs->pad_idx = 0;
+		outputs->next = nullptr;
+
+		inputs->name = av_strdup("out");
+		inputs->filter_ctx = buffersink_ctx;
+		inputs->pad_idx = 0;
+		inputs->next = nullptr;
+
+		char filter_spec[512];
+		snprintf(
+			filter_spec, sizeof(filter_spec), "pad=width=%d:height=%d:x=0:y=%d:color=black",
+			decoder_context->width, decoder_context->height + padding * 2, padding
+		);
+
+		if (avfilter_graph_parse_ptr(filter_graph, filter_spec, &inputs, &outputs, nullptr) < 0) {
+			std::cerr << "Could not parse filter graph." << std::endl;
+			return false;
+		}
+
+		// 配置滤镜图表
+		if (avfilter_graph_config(filter_graph, nullptr) < 0) {
+			std::cerr << "Failed to configure filter." << std::endl;
+			return false;
+		}
+
+		encoder_context->height = decoder_context->height + padding * 2;
+	} else {
+		encoder_context->height = decoder_context->height;
+	}
+
 	encoder_context->width = decoder_context->width;
-	encoder_context->sample_aspect_ratio = decoder_context->sample_aspect_ratio;
 	encoder_context->pix_fmt = decoder_context->pix_fmt;
+	encoder_context->sample_aspect_ratio = decoder_context->sample_aspect_ratio;
 	encoder_context->time_base = input_stream->time_base;
 
 	if (output_format_context->oformat->flags & AVFMT_GLOBALHEADER) {
@@ -695,6 +794,18 @@ bool extract_video_segment(const char *input_filename, const char *output_filena
 
 			if (avcodec_receive_frame(decoder_context, frame) >= 0) {
 				if (current_frame >= start_frame && current_frame <= end_frame) {
+					if (use_pad_filter) {
+						// 向滤镜添加帧
+						if (av_buffersrc_add_frame(buffersrc_ctx, frame) < 0) {
+							std::cerr << "Failed to add frame to filter graph." << std::endl;
+							break;
+						}
+						// 取出经过滤镜的帧
+						if (av_buffersink_get_frame(buffersink_ctx, frame) < 0) {
+							std::cerr << "Failed to get frame from filter graph." << std::endl;
+							break;
+						}
+					}
 					// Encode the frame
 					if (avcodec_send_frame(encoder_context, frame) < 0) {
 						std::cerr << "Error sending a frame for encoding." << std::endl;
@@ -783,7 +894,6 @@ void export_clip(agi::Context *c) {
 	std::string path;
 	path = agi::format("%s[%ld-%ld].mp4", basepath.string(), getStartFrame(c), getEndFrame(c));
 
-	// todo 输入文件还没搞定，无法进行导出
 	extract_video_segment(c->project->VideoName().string().c_str(), path.c_str(), getStartFrame(c), getEndFrame(c));
 }
 
