@@ -29,6 +29,8 @@
 //
 // Aegisub Project http://www.aegisub.org/
 
+#include "dialog_progress.h"
+
 #include "command.h"
 
 #include "../ass_dialogue.h"
@@ -568,7 +570,7 @@ struct video_frame_save_subs final : public validator_video_loaded {
 	}
 };
 
-bool extract_video_segment(const char *input_filename, const char *output_filename, const int start_frame, const int end_frame) {
+bool extract_video_segment(agi::ProgressSink *ps, const char *input_filename, const char *output_filename, const int start_frame, const int end_frame) {
 	AVFormatContext *input_format_context = nullptr;
 	AVFormatContext *output_format_context = nullptr;
 	AVCodecContext *decoder_context = nullptr;
@@ -831,9 +833,10 @@ bool extract_video_segment(const char *input_filename, const char *output_filena
 				}
 
 				current_frame++;
-				if (current_frame > end_frame) {
-					break;
-				}
+				ps->SetMessage(std::string(agi::wxformat(_("Exporting video clips, frame: [%ld ~ %ld], please later"), start_frame, end_frame).mb_str()));
+				ps->SetProgress(current_frame, end_frame);
+				if (ps->IsCancelled()) break;
+				if (current_frame > end_frame) break;
 			}
 		}
 
@@ -854,6 +857,7 @@ bool extract_video_segment(const char *input_filename, const char *output_filena
 	avformat_free_context(output_format_context);
 	av_frame_free(&frame);
 	av_frame_free(&filtered_frame);
+	if (ps->IsCancelled()) return false;
 	return true;
 }
 
@@ -891,11 +895,19 @@ void export_clip(agi::Context *c) {
 	c->videoSlider->SetFocus();
 
 	// Get full path
-	std::string path;
-	path = agi::format("%s_[%ld-%ld].mp4", basepath.string(), getStartFrame(), getEndFrame());
+	const std::string path = agi::format("%s_[%ld-%ld].mp4", basepath.string(), getStartFrame(), getEndFrame());
 
 	if (getOnOK()) {
-		extract_video_segment(c->project->VideoName().string().c_str(), path.c_str(), getStartFrame(), getEndFrame());
+		DialogProgress progress(nullptr, _("Export the clip"), wxEmptyString);
+		try {
+			progress.Run(
+				[&](agi::ProgressSink *ps) {
+					extract_video_segment(ps, c->project->VideoName().string().c_str(), path.c_str(), getStartFrame(), getEndFrame());
+				}
+			);
+		} catch (agi::Exception &err) {
+			std::cerr << err.GetMessage() << std::endl;
+		}
 	}
 }
 
