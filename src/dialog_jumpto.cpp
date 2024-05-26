@@ -45,6 +45,7 @@
 
 long sFrame;
 long eFrame;
+bool onOK = false;
 
 namespace {
 	struct DialogJumpTo {
@@ -144,6 +145,8 @@ namespace {
 		/// Enter/OK button handler
 		void OnOK(wxCommandEvent &event);
 
+		void OnCANCEL(wxCommandEvent &event);
+
 		/// Update target time on target frame changed
 		void OnEditStartFrame(wxCommandEvent &event);
 
@@ -159,7 +162,7 @@ namespace {
 		: d(c->parent, -1, _("Export the clip"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxWANTS_CHARS)
 		, c(c)
 		, startFrame(c->videoController->GetFrameN())
-		, endFrame(c->videoController->GetFrameN() + 100) {
+		, endFrame(c->videoController->GetFrameN() + 100 > c->project->VideoProvider()->GetFrameCount() - 1 ? c->project->VideoProvider()->GetFrameCount() - 1 : c->videoController->GetFrameN() + 100) {
 		d.SetIcon(GETICON(jumpto_button_16));
 
 		const auto StartFrame = new wxStaticText(&d, -1, _("Start Frame: "));
@@ -170,7 +173,7 @@ namespace {
 		editEndFrame = new wxTextCtrl(&d, -1, "", wxDefaultPosition, wxSize(-1, -1),wxTE_PROCESS_ENTER, IntValidator(static_cast<int>(endFrame)));
 		editEndFrame->SetMaxLength(std::to_string(c->project->VideoProvider()->GetFrameCount() - 1).size());
 
-		auto TimesSizer = new wxGridSizer(2, 5, 5);
+		const auto TimesSizer = new wxGridSizer(2, 5, 5);
 
 		TimesSizer->Add(StartFrame, 1, wxALIGN_CENTER_VERTICAL);
 		TimesSizer->Add(editStartFrame, wxEXPAND);
@@ -190,6 +193,7 @@ namespace {
 		d.Bind(wxEVT_INIT_DIALOG, &DialogJumpFrameTo::OnInitDialog, this);
 		d.Bind(wxEVT_TEXT_ENTER, &DialogJumpFrameTo::OnOK, this);
 		d.Bind(wxEVT_BUTTON, &DialogJumpFrameTo::OnOK, this, wxID_OK);
+		d.Bind(wxEVT_BUTTON, &DialogJumpFrameTo::OnCANCEL, this, wxID_CANCEL);
 		editStartFrame->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditStartFrame, this);
 		editEndFrame->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditEndFrame, this);
 	}
@@ -205,6 +209,12 @@ namespace {
 
 	void DialogJumpFrameTo::OnOK(wxCommandEvent &) {
 		d.EndModal(0);
+		onOK = true;
+	}
+
+	void DialogJumpFrameTo::OnCANCEL(wxCommandEvent &) {
+		d.EndModal(0);
+		onOK = false;
 	}
 
 	void DialogJumpFrameTo::OnEditStartFrame(wxCommandEvent &event) {
@@ -225,12 +235,16 @@ void ShowJumpToDialog(agi::Context *c) {
 	DialogJumpTo(c).d.ShowModal();
 }
 
-long getStartFrame(agi::Context *c) {
+long getStartFrame() {
 	return sFrame;
 }
 
-long getEndFrame(agi::Context *c) {
+long getEndFrame() {
 	return eFrame;
+}
+
+bool getOnOK() {
+	return onOK;
 }
 
 void ShowJumpFrameToDialog(agi::Context *c) {
