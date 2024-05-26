@@ -1,0 +1,37 @@
+diff --git a/version.py b/version.py
+index e3b3d8f8..94726d78 100755
+--- a/version.py
++++ b/version.py
+@@ -40,7 +40,7 @@ if __name__ == '__main__':
+ 
+     if args.build:
+         print(api_version)
+-        exit()
++        sys.exit()
+ 
+     ver = 0
+     head_commit = 'x'
+@@ -84,19 +84,19 @@ if __name__ == '__main__':
+        if is_git and not have_git:
+          print('Warning: git repository but git command not available!', file=sys.stderr)
+        print('0.{0}.999'.format(api_version))
+-       exit(-1)
++       sys.exit(-1)
+ 
+     if args.revision:
+        print(ver)
+-       exit()
++       sys.exit()
+ 
+     if args.commit_hash:
+        print(head_commit)
+-       exit()
++       sys.exit()
+ 
+     if args.package_version:
+        print('0.{0}.{1}'.format(api_version, ver))
+-       exit()
++       sys.exit()
+ 
+     # print everything
+     print('0.{0}.{1} {2}'.format(api_version, ver, head_commit))

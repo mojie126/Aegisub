@@ -3,13 +3,12 @@ project('ffms2', 'cpp', version : '2.40.0')
 deps = []
 
 opts = [
-    'tests=disabled', 'libdav1d=enabled',
-    'libvpl=enabled', 'h264_qsv_decoder=enabled', 'hevc_qsv_decoder=enabled', 'vc1_qsv_decoder=enabled', 'av1_qsv_decoder=enabled',
-    'ffnvcodec=enabled', 'cuda=enabled', 'cuvid=enabled', 'ff_cuda_llvm=enabled', 'av1_cuvid_decoder=enabled',
-    'filters=disabled', 'pad_filter=enabled', 'format_filter=enabled', 'lut3d_filter=enabled'
+	'gpl=enabled', 'programs=enabled', 'tests=disabled',
+	'libx264=enabled', 'libdav1d=enabled', 'libvpl=enabled', 'ffnvcodec=enabled', 'cuda=enabled', 'cuvid=enabled'
 ]
 
 deps += dependency('zlib')
+deps += dependency('x264', default_options : ['thread=false'])
 deps += dependency('libavformat', version : '>=60', default_options : opts)
 deps += dependency('libavcodec', version : '>=60', default_options : opts)
 deps += dependency('libswscale', default_options : opts)
@@ -21,33 +20,33 @@ args = ['-D_FILE_OFFSET_BITNS=64', '-DFFMS_EXPORTS', '-D__STDC_CONSTANT_MACROS']
 usage_args = []
 
 if get_option('default_library') == 'static'
-    usage_args += '-DFFMS_STATIC'
+	usage_args += '-DFFMS_STATIC'
 endif
 
 ffms2_sources = [
-    'src/core/audiosource.cpp',
-    'src/core/ffms.cpp',
-    'src/core/filehandle.cpp',
-    'src/core/indexing.cpp',
-    'src/core/track.cpp',
-    'src/core/utils.cpp',
-    'src/core/videosource.cpp',
-    'src/core/videoutils.cpp',
-    'src/core/zipfile.cpp',
+	'src/core/audiosource.cpp',
+	'src/core/ffms.cpp',
+	'src/core/filehandle.cpp',
+	'src/core/indexing.cpp',
+	'src/core/track.cpp',
+	'src/core/utils.cpp',
+	'src/core/videosource.cpp',
+	'src/core/videoutils.cpp',
+	'src/core/zipfile.cpp',
 ]
 
 deps_inc = include_directories('include')
 
 ffms2 = library(
-    'ffms2',
-    ffms2_sources,
-    include_directories : deps_inc,
-    dependencies : deps,
-    cpp_args : args + usage_args
+	'ffms2',
+	ffms2_sources,
+	include_directories : deps_inc,
+	dependencies : deps,
+	cpp_args : args + usage_args
 )
 
 ffms2_dep = declare_dependency(
-    link_with : ffms2,
-    include_directories : deps_inc,
-    compile_args : usage_args
+	link_with : ffms2,
+	include_directories : deps_inc,
+	compile_args : usage_args
 )

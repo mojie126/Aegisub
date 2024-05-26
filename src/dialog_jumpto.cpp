@@ -43,92 +43,196 @@
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
 
+long sFrame;
+long eFrame;
+
 namespace {
-struct DialogJumpTo {
-	wxDialog d;
-	agi::Context *c;       ///< Project context
-	long jumpframe;        ///< Target frame to jump to
-	TimeEdit *JumpTime;    ///< Target time edit control
-	wxTextCtrl *JumpFrame; ///< Target frame edit control
+	struct DialogJumpTo {
+		wxDialog d;
+		agi::Context *c; ///< Project context
+		long jumpframe; ///< Target frame to jump to
+		TimeEdit *JumpTime; ///< Target time edit control
+		wxTextCtrl *JumpFrame; ///< Target frame edit control
 
-	/// Enter/OK button handler
-	void OnOK(wxCommandEvent &event);
-	/// Update target frame on target time changed
-	void OnEditTime(wxCommandEvent &event);
-	/// Update target time on target frame changed
-	void OnEditFrame(wxCommandEvent &event);
-	/// Dialog initializer to set default focus and selection
-	void OnInitDialog(wxInitDialogEvent&);
+		/// Enter/OK button handler
+		void OnOK(wxCommandEvent &event);
 
-	DialogJumpTo(agi::Context *c);
-};
+		/// Update target frame on target time changed
+		void OnEditTime(wxCommandEvent &event);
 
-DialogJumpTo::DialogJumpTo(agi::Context *c)
-: d(c->parent, -1, _("Jump to"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxWANTS_CHARS)
-, c(c)
-, jumpframe(c->videoController->GetFrameN())
-{
-	d.SetIcon(GETICON(jumpto_button_16));
+		/// Update target time on target frame changed
+		void OnEditFrame(wxCommandEvent &event);
 
-	auto LabelFrame = new wxStaticText(&d, -1, _("Frame: "));
-	auto LabelTime = new wxStaticText(&d, -1, _("Time: "));
+		/// Dialog initializer to set default focus and selection
+		void OnInitDialog(wxInitDialogEvent &);
 
-	JumpFrame = new wxTextCtrl(&d,-1,"",wxDefaultPosition,wxSize(-1,-1),wxTE_PROCESS_ENTER, IntValidator((int)jumpframe));
-	JumpFrame->SetMaxLength(std::to_string(c->project->VideoProvider()->GetFrameCount() - 1).size());
-	JumpTime = new TimeEdit(&d, -1, c, agi::Time(c->videoController->TimeAtFrame(jumpframe)).GetAssFormatted(), wxSize(-1,-1));
+		explicit DialogJumpTo(agi::Context *c);
+	};
 
-	auto TimesSizer = new wxGridSizer(2, 5, 5);
+	DialogJumpTo::DialogJumpTo(agi::Context *c)
+		: d(c->parent, -1, _("Jump to"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxWANTS_CHARS)
+		, c(c)
+		, jumpframe(c->videoController->GetFrameN()) {
+		d.SetIcon(GETICON(jumpto_button_16));
 
-	TimesSizer->Add(LabelFrame, 1, wxALIGN_CENTER_VERTICAL);
-	TimesSizer->Add(JumpFrame, wxEXPAND);
+		auto LabelFrame = new wxStaticText(&d, -1, _("Frame: "));
+		auto LabelTime = new wxStaticText(&d, -1, _("Time: "));
 
-	TimesSizer->Add(LabelTime, 1, wxALIGN_CENTER_VERTICAL);
-	TimesSizer->Add(JumpTime, wxEXPAND);
+		JumpFrame = new wxTextCtrl(&d, -1, "", wxDefaultPosition, wxSize(-1, -1),wxTE_PROCESS_ENTER, IntValidator((int) jumpframe));
+		JumpFrame->SetMaxLength(std::to_string(c->project->VideoProvider()->GetFrameCount() - 1).size());
+		JumpTime = new TimeEdit(&d, -1, c, agi::Time(c->videoController->TimeAtFrame(jumpframe)).GetAssFormatted(), wxSize(-1, -1));
 
-	auto ButtonSizer = d.CreateStdDialogButtonSizer(wxOK | wxCANCEL);
+		auto TimesSizer = new wxGridSizer(2, 5, 5);
 
-	// General layout
-	auto MainSizer = new wxBoxSizer(wxVERTICAL);
-	MainSizer->Add(TimesSizer, 0, wxALL | wxALIGN_CENTER, 5);
-	MainSizer->Add(ButtonSizer, 0, wxEXPAND | wxLEFT | wxBOTTOM | wxRIGHT, 5);
-	d.SetSizerAndFit(MainSizer);
-	d.CenterOnParent();
+		TimesSizer->Add(LabelFrame, 1, wxALIGN_CENTER_VERTICAL);
+		TimesSizer->Add(JumpFrame, wxEXPAND);
 
-	d.Bind(wxEVT_INIT_DIALOG, &DialogJumpTo::OnInitDialog, this);
-	d.Bind(wxEVT_TEXT_ENTER, &DialogJumpTo::OnOK, this);
-	d.Bind(wxEVT_BUTTON, &DialogJumpTo::OnOK, this, wxID_OK);
-	JumpTime->Bind(wxEVT_TEXT, &DialogJumpTo::OnEditTime, this);
-	JumpFrame->Bind(wxEVT_TEXT, &DialogJumpTo::OnEditFrame, this);
-}
+		TimesSizer->Add(LabelTime, 1, wxALIGN_CENTER_VERTICAL);
+		TimesSizer->Add(JumpTime, wxEXPAND);
 
-void DialogJumpTo::OnInitDialog(wxInitDialogEvent&) {
-	d.TransferDataToWindow();
-	d.UpdateWindowUI(wxUPDATE_UI_RECURSE);
+		auto ButtonSizer = d.CreateStdDialogButtonSizer(wxOK | wxCANCEL);
 
-	// This can't simply be done in the constructor as the value hasn't been set yet
-	JumpFrame->SetFocus();
-	JumpFrame->SelectAll();
-}
+		// General layout
+		auto MainSizer = new wxBoxSizer(wxVERTICAL);
+		MainSizer->Add(TimesSizer, 0, wxALL | wxALIGN_CENTER, 5);
+		MainSizer->Add(ButtonSizer, 0, wxEXPAND | wxLEFT | wxBOTTOM | wxRIGHT, 5);
+		d.SetSizerAndFit(MainSizer);
+		d.CenterOnParent();
 
-void DialogJumpTo::OnOK(wxCommandEvent &) {
-	d.EndModal(0);
-	c->videoController->JumpToFrame(jumpframe);
-}
-
-void DialogJumpTo::OnEditTime (wxCommandEvent &) {
-	long newframe = c->videoController->FrameAtTime(JumpTime->GetTime());
-	if (jumpframe != newframe) {
-		jumpframe = newframe;
-		JumpFrame->ChangeValue(fmt_wx("%d", jumpframe));
+		d.Bind(wxEVT_INIT_DIALOG, &DialogJumpTo::OnInitDialog, this);
+		d.Bind(wxEVT_TEXT_ENTER, &DialogJumpTo::OnOK, this);
+		d.Bind(wxEVT_BUTTON, &DialogJumpTo::OnOK, this, wxID_OK);
+		JumpTime->Bind(wxEVT_TEXT, &DialogJumpTo::OnEditTime, this);
+		JumpFrame->Bind(wxEVT_TEXT, &DialogJumpTo::OnEditFrame, this);
 	}
-}
 
-void DialogJumpTo::OnEditFrame (wxCommandEvent &event) {
-	JumpFrame->GetValue().ToLong(&jumpframe);
-	JumpTime->SetTime(c->videoController->TimeAtFrame(jumpframe));
-}
+	void DialogJumpTo::OnInitDialog(wxInitDialogEvent &) {
+		d.TransferDataToWindow();
+		d.UpdateWindowUI(wxUPDATE_UI_RECURSE);
+
+		// This can't simply be done in the constructor as the value hasn't been set yet
+		JumpFrame->SetFocus();
+		JumpFrame->SelectAll();
+	}
+
+	void DialogJumpTo::OnOK(wxCommandEvent &) {
+		d.EndModal(0);
+		c->videoController->JumpToFrame(jumpframe);
+	}
+
+	void DialogJumpTo::OnEditTime(wxCommandEvent &) {
+		long newframe = c->videoController->FrameAtTime(JumpTime->GetTime());
+		if (jumpframe != newframe) {
+			jumpframe = newframe;
+			JumpFrame->ChangeValue(fmt_wx("%d", jumpframe));
+		}
+	}
+
+	void DialogJumpTo::OnEditFrame(wxCommandEvent &event) {
+		JumpFrame->GetValue().ToLong(&jumpframe);
+		JumpTime->SetTime(c->videoController->TimeAtFrame(jumpframe));
+	}
+
+	struct DialogJumpFrameTo {
+		wxDialog d;
+		agi::Context *c; ///< Project context
+		long startFrame; ///< Target frame to jump to
+		wxTextCtrl *editStartFrame; ///< Target frame edit control
+		long endFrame; ///< Target frame to jump to
+		wxTextCtrl *editEndFrame; ///< Target frame edit control
+
+		/// Enter/OK button handler
+		void OnOK(wxCommandEvent &event);
+
+		/// Update target time on target frame changed
+		void OnEditStartFrame(wxCommandEvent &event);
+
+		void OnEditEndFrame(wxCommandEvent &event);
+
+		/// Dialog initializer to set default focus and selection
+		void OnInitDialog(wxInitDialogEvent &);
+
+		explicit DialogJumpFrameTo(agi::Context *c);
+	};
+
+	DialogJumpFrameTo::DialogJumpFrameTo(agi::Context *c)
+		: d(c->parent, -1, _("Export the clip"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxWANTS_CHARS)
+		, c(c)
+		, startFrame(c->videoController->GetFrameN())
+		, endFrame(c->videoController->GetFrameN() + 100) {
+		d.SetIcon(GETICON(jumpto_button_16));
+
+		const auto StartFrame = new wxStaticText(&d, -1, _("Start Frame: "));
+		const auto EndFrame = new wxStaticText(&d, -1, _("End Frame: "));
+
+		editStartFrame = new wxTextCtrl(&d, -1, "", wxDefaultPosition, wxSize(-1, -1),wxTE_PROCESS_ENTER, IntValidator(static_cast<int>(startFrame)));
+		editStartFrame->SetMaxLength(std::to_string(c->project->VideoProvider()->GetFrameCount() - 1).size());
+		editEndFrame = new wxTextCtrl(&d, -1, "", wxDefaultPosition, wxSize(-1, -1),wxTE_PROCESS_ENTER, IntValidator(static_cast<int>(endFrame)));
+		editEndFrame->SetMaxLength(std::to_string(c->project->VideoProvider()->GetFrameCount() - 1).size());
+
+		auto TimesSizer = new wxGridSizer(2, 5, 5);
+
+		TimesSizer->Add(StartFrame, 1, wxALIGN_CENTER_VERTICAL);
+		TimesSizer->Add(editStartFrame, wxEXPAND);
+
+		TimesSizer->Add(EndFrame, 1, wxALIGN_CENTER_VERTICAL);
+		TimesSizer->Add(editEndFrame, wxEXPAND);
+
+		const auto ButtonSizer = d.CreateStdDialogButtonSizer(wxOK | wxCANCEL);
+
+		// General layout
+		const auto MainSizer = new wxBoxSizer(wxVERTICAL);
+		MainSizer->Add(TimesSizer, 0, wxALL | wxALIGN_CENTER, 5);
+		MainSizer->Add(ButtonSizer, 0, wxEXPAND | wxLEFT | wxBOTTOM | wxRIGHT, 5);
+		d.SetSizerAndFit(MainSizer);
+		d.CenterOnParent();
+
+		d.Bind(wxEVT_INIT_DIALOG, &DialogJumpFrameTo::OnInitDialog, this);
+		d.Bind(wxEVT_TEXT_ENTER, &DialogJumpFrameTo::OnOK, this);
+		d.Bind(wxEVT_BUTTON, &DialogJumpFrameTo::OnOK, this, wxID_OK);
+		editStartFrame->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditStartFrame, this);
+		editEndFrame->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditEndFrame, this);
+	}
+
+	void DialogJumpFrameTo::OnInitDialog(wxInitDialogEvent &) {
+		d.TransferDataToWindow();
+		d.UpdateWindowUI(wxUPDATE_UI_RECURSE);
+
+		// This can't simply be done in the constructor as the value hasn't been set yet
+		editStartFrame->SetFocus();
+		editStartFrame->SelectAll();
+	}
+
+	void DialogJumpFrameTo::OnOK(wxCommandEvent &) {
+		d.EndModal(0);
+	}
+
+	void DialogJumpFrameTo::OnEditStartFrame(wxCommandEvent &event) {
+		editStartFrame->GetValue().ToLong(&startFrame);
+		sFrame = startFrame = wxAtol(editStartFrame->GetValue());
+	}
+
+	void DialogJumpFrameTo::OnEditEndFrame(wxCommandEvent &event) {
+		editEndFrame->GetValue().ToLong(&endFrame);
+		eFrame = endFrame = wxAtol(editEndFrame->GetValue());
+		if (endFrame <= startFrame) {
+			wxMessageBox(_("The end frame cannot be less than or equal to the start frame"),_("Error"), wxICON_ERROR);
+		}
+	}
 }
 
 void ShowJumpToDialog(agi::Context *c) {
 	DialogJumpTo(c).d.ShowModal();
+}
+
+long getStartFrame(agi::Context *c) {
+	return sFrame;
+}
+
+long getEndFrame(agi::Context *c) {
+	return eFrame;
+}
+
+void ShowJumpFrameToDialog(agi::Context *c) {
+	DialogJumpFrameTo(c).d.ShowModal();
 }

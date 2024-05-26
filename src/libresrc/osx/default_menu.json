@@ -233,6 +233,8 @@
         { "command" : "app/log" }
     ],
     "video_context" : [
+        {"command" :  "video/frame/save/export"},
+        {},
         { "command" : "video/frame/save" },
         { "command" : "video/frame/copy" },
         {},

@@ -1,0 +1,9 @@
+[wrap-git]
+directory = x264
+url = https://gitlab.freedesktop.org/gstreamer/meson-ports/x264.git
+revision = meson
+depth = 1
+diff_files = x264/0001.patch, x264/0002.patch
+
+[provide]
+x264 = libx264_dep

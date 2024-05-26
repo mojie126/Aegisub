@@ -62,6 +62,13 @@
 #include <wx/msgdlg.h>
 #include <wx/textdlg.h>
 
+extern "C" {
+	#include <libavcodec/avcodec.h>
+	#include <libavformat/avformat.h>
+	#include <libavutil/imgutils.h>
+	#include <libavutil/opt.h>
+}
+
 namespace {
 	using cmd::Command;
 
@@ -559,6 +566,238 @@ struct video_frame_save_subs final : public validator_video_loaded {
 	}
 };
 
+bool extract_video_segment(const char *input_filename, const char *output_filename, int start_frame, int end_frame) {
+	AVFormatContext *input_format_context = nullptr;
+	AVFormatContext *output_format_context = nullptr;
+	AVCodecContext *decoder_context = nullptr;
+	AVCodecContext *encoder_context = nullptr;
+	AVStream *input_stream = nullptr;
+	AVStream *output_stream = nullptr;
+	AVPacket packet;
+	AVFrame *frame = av_frame_alloc();
+	AVFrame *filtered_frame = av_frame_alloc();
+
+	if (!frame || !filtered_frame) {
+		std::cerr << "Could not allocate frame." << std::endl;
+		return false;
+	}
+
+	// Open input file and find stream info
+	if (avformat_open_input(&input_format_context, input_filename, nullptr, nullptr) < 0) {
+		std::cerr << "Could not open input file." << std::endl;
+		return false;
+	}
+
+	if (avformat_find_stream_info(input_format_context, nullptr) < 0) {
+		std::cerr << "Could not find stream info." << std::endl;
+		return false;
+	}
+
+	// Find the video stream
+	int video_stream_index = av_find_best_stream(input_format_context, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
+	if (video_stream_index < 0) {
+		std::cerr << "Could not find video stream in the input file." << std::endl;
+		return false;
+	}
+
+	input_stream = input_format_context->streams[video_stream_index];
+	const AVCodec *decoder = avcodec_find_decoder(input_stream->codecpar->codec_id);
+	// const AVCodec *decoder = avcodec_find_decoder_by_name("hevc");
+	if (!decoder) {
+		std::cerr << "Could not find decoder." << std::endl;
+		return false;
+	}
+
+	// Initialize the decoder context
+	decoder_context = avcodec_alloc_context3(decoder);
+	if (avcodec_parameters_to_context(decoder_context, input_stream->codecpar) < 0) {
+		std::cerr << "Could not copy codec parameters." << std::endl;
+		return false;
+	}
+
+	if (avcodec_open2(decoder_context, decoder, nullptr) < 0) {
+		std::cerr << "Could not open decoder." << std::endl;
+		return false;
+	}
+
+	// Allocate the output context
+	avformat_alloc_output_context2(&output_format_context, nullptr, nullptr, output_filename);
+	if (!output_format_context) {
+		std::cerr << "Could not create output context." << std::endl;
+		return false;
+	}
+
+	// Create the output stream
+	output_stream = avformat_new_stream(output_format_context, nullptr);
+	if (!output_stream) {
+		std::cerr << "Failed allocating output stream." << std::endl;
+		return false;
+	}
+
+	// Find encoder
+	// const AVCodec *encoder = avcodec_find_encoder(decoder_context->codec_id);
+	const AVCodec *encoder = avcodec_find_encoder_by_name("libx264");
+	if (!encoder) {
+		std::cerr << "Necessary encoder not found." << std::endl;
+		return false;
+	}
+
+	// Initialize the encoder context
+	encoder_context = avcodec_alloc_context3(encoder);
+	if (!encoder_context) {
+		std::cerr << "Could not allocate video codec context." << std::endl;
+		return false;
+	}
+
+	encoder_context->height = decoder_context->height;
+	encoder_context->width = decoder_context->width;
+	encoder_context->sample_aspect_ratio = decoder_context->sample_aspect_ratio;
+	encoder_context->pix_fmt = decoder_context->pix_fmt;
+	encoder_context->time_base = input_stream->time_base;
+
+	if (output_format_context->oformat->flags & AVFMT_GLOBALHEADER) {
+		encoder_context->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+	}
+
+	if (avcodec_open2(encoder_context, encoder, nullptr) < 0) {
+		std::cerr << "Could not open encoder." << std::endl;
+		return false;
+	}
+
+	if (avcodec_parameters_from_context(output_stream->codecpar, encoder_context) < 0) {
+		std::cerr << "Could not initialize stream codec parameters." << std::endl;
+		return false;
+	}
+
+	// Open the output file
+	if (!(output_format_context->oformat->flags & AVFMT_NOFILE)) {
+		if (avio_open(&output_format_context->pb, output_filename, AVIO_FLAG_WRITE) < 0) {
+			std::cerr << "Could not open output file." << std::endl;
+			return false;
+		}
+	}
+
+	// Write the stream header
+	if (avformat_write_header(output_format_context, nullptr) < 0) {
+		std::cerr << "Error occurred when opening output file." << std::endl;
+		return false;
+	}
+
+	int current_frame = 0;
+
+	// Read frames from the file
+	while (av_read_frame(input_format_context, &packet) >= 0) {
+		if (packet.stream_index == video_stream_index) {
+			if (avcodec_send_packet(decoder_context, &packet) < 0) {
+				std::cerr << "Error sending a packet for decoding." << std::endl;
+				break;
+			}
+
+			if (avcodec_receive_frame(decoder_context, frame) >= 0) {
+				if (current_frame >= start_frame && current_frame <= end_frame) {
+					// Encode the frame
+					if (avcodec_send_frame(encoder_context, frame) < 0) {
+						std::cerr << "Error sending a frame for encoding." << std::endl;
+						break;
+					}
+
+					AVPacket out_packet;
+					av_init_packet(&out_packet);
+					out_packet.data = nullptr;
+					out_packet.size = 0;
+
+					if (avcodec_receive_packet(encoder_context, &out_packet) >= 0) {
+						av_packet_rescale_ts(&out_packet, encoder_context->time_base, output_stream->time_base);
+						out_packet.stream_index = output_stream->index;
+
+						if (av_interleaved_write_frame(output_format_context, &out_packet) < 0) {
+							std::cerr << "Error muxing packet." << std::endl;
+							break;
+						}
+
+						av_packet_unref(&out_packet);
+					}
+				}
+
+				current_frame++;
+				if (current_frame > end_frame) {
+					break;
+				}
+			}
+		}
+
+		av_packet_unref(&packet);
+	}
+
+	// Write the trailer
+	av_write_trailer(output_format_context);
+
+	// Clean up
+	avcodec_free_context(&decoder_context);
+	avcodec_free_context(&encoder_context);
+	avformat_close_input(&input_format_context);
+
+	if (output_format_context && !(output_format_context->oformat->flags & AVFMT_NOFILE)) {
+		avio_closep(&output_format_context->pb);
+	}
+	avformat_free_context(output_format_context);
+	av_frame_free(&frame);
+	av_frame_free(&filtered_frame);
+	return true;
+}
+
+void export_clip(agi::Context *c) {
+	auto option = OPT_GET("Path/Screenshot")->GetString();
+	agi::fs::path basepath;
+
+	auto videoname = c->project->VideoName();
+	bool is_dummy = boost::starts_with(videoname.string(), "?dummy");
+
+	// Is it a path specifier and not an actual fixed path?
+	if (option[0] == '?') {
+		// If dummy video is loaded, we can't save to the video location
+		if (boost::starts_with(option, "?video") && is_dummy) {
+			// So try the script location instead
+			option = "?script";
+		}
+		// Find out where the ?specifier points to
+		basepath = c->path->Decode(option);
+		// If where ever that is isn't defined, we can't save there
+		if ((basepath == "\\") || (basepath == "/")) {
+			// So save to the current user's home dir instead
+			basepath = std::string(wxGetHomeDir());
+		}
+	}
+	// Actual fixed (possibly relative) path, decode it
+	else
+		basepath = c->path->MakeAbsolute(option, "?user/");
+
+	basepath /= is_dummy ? "dummy" : videoname.stem();
+
+	// 设置帧到帧
+	c->videoController->Stop();
+	ShowJumpFrameToDialog(c);
+	c->videoSlider->SetFocus();
+
+	// Get full path
+	std::string path;
+	path = agi::format("%s[%ld-%ld].mp4", basepath.string(), getStartFrame(c), getEndFrame(c));
+
+	// todo 输入文件还没搞定，无法进行导出
+	extract_video_segment(c->project->VideoName().string().c_str(), path.c_str(), getStartFrame(c), getEndFrame(c));
+}
+
+struct video_frame_export final : public validator_video_loaded {
+	CMD_NAME("video/frame/save/export")
+	STR_MENU("Export the clip")
+	STR_DISP("Export the clip")
+	STR_HELP("Export video clips from frame to frame at a specified time")
+
+	void operator()(agi::Context *c) override {
+		export_clip(c);
+	}
+};
+
 struct video_jump final : public validator_video_loaded {
 	CMD_NAME("video/jump")
 	CMD_ICON(jumpto_button)
@@ -829,6 +1068,7 @@ namespace cmd {
 		reg(agi::make_unique<video_frame_save>());
 		reg(agi::make_unique<video_frame_save_raw>());
 		reg(agi::make_unique<video_frame_save_subs>());
+		reg(agi::make_unique<video_frame_export>());
 		reg(agi::make_unique<video_jump>());
 		reg(agi::make_unique<video_jump_end>());
 		reg(agi::make_unique<video_jump_start>());

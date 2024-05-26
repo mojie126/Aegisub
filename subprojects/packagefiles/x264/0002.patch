@@ -1,0 +1,28 @@
+diff --git a/meson.build b/meson.build
+index 4cd117cd..dfcbe890 100644
+--- a/meson.build
++++ b/meson.build
+@@ -107,9 +107,9 @@ endif
+ if ['windows', 'cygwin'].contains(host_system)
+   msvc_version = cc.get_define('_MSC_VER')
+   # cl, intel-cl, intel-llvm-cl, etc.
+-  if cc.get_argument_syntax() == 'msvc'
+-    configinc += include_directories('extras')
+-  endif
++#  if cc.get_argument_syntax() == 'msvc'
++#    configinc += include_directories('extras')
++#  endif
+   if cc.get_id() == 'intel-cl'
+     if not msvc_version.version_compare('>= 1400')
+       error('Windows Intel Compiler support requires Visual Studio 2005 or newer')
+@@ -796,6 +796,10 @@ configure_file(output : 'x264_config.h',
+   install_dir: get_option('includedir'))
+ install_headers('x264.h')
+
++x264_h = configuration_data()
++x264_h.set('X264_BUILD ', meson.project_version().split('.')[1])
++configure_file(output : 'x264_check.h', configuration : x264_h, install_dir: get_option('includedir'))
++
+ # Depth-agnostic sources
+ sources = [
+   'common/osdep.c',
