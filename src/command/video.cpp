@@ -892,9 +892,11 @@ void export_clip(agi::Context *c) {
 
 	// Get full path
 	std::string path;
-	path = agi::format("%s[%ld-%ld].mp4", basepath.string(), getStartFrame(c), getEndFrame(c));
+	path = agi::format("%s_[%ld-%ld].mp4", basepath.string(), getStartFrame(), getEndFrame());
 
-	extract_video_segment(c->project->VideoName().string().c_str(), path.c_str(), getStartFrame(c), getEndFrame(c));
+	if (getOnOK()) {
+		extract_video_segment(c->project->VideoName().string().c_str(), path.c_str(), getStartFrame(), getEndFrame());
+	}
 }
 
 struct video_frame_export final : public validator_video_loaded {
