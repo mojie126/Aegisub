@@ -6908,6 +6908,21 @@ msgstr "解码全轨道，确保完美的帧精度。这需要一段时间！"
 msgid "BestSource had to fall back to linear decoding. Seeking through the video will be very slow now. You may want to try a different video provider, but note that those are not guaranteed to be frame-exact."
 msgstr "BestSource 不得不回退到线性解码。现在通过视频搜索会非常缓慢。您可能想尝试其他视频提供商，但请注意，这些视频提供商不能保证帧准确无误。"
 
+msgid "Export the clip"
+msgstr "导出视频片段"
+
+msgid "Export video clips from frame to frame at a specified time"
+msgstr "导出指定帧到帧之间的视频片段"
+
+msgid "Start Frame: "
+msgstr "起始帧："
+
+msgid "End Frame: "
+msgstr "结束帧："
+
+msgid "The end frame cannot be less than or equal to the start frame"
+msgstr "结束帧不能小于或等于起始帧"
+
 #~ msgid "    Subtitle format handler: %s"
 #~ msgstr "    字幕格式处理器： %s"
 

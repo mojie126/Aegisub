@@ -1,5 +1,5 @@
 diff --git a/meson.build b/meson.build
-index eebbc8ec87..1845fe59bf 100644
+index eebbc8ec87..2ed734db41 100644
 --- a/meson.build
 +++ b/meson.build
 @@ -69,7 +69,7 @@ project('FFmpeg', 'c',
@@ -11,3 +11,12 @@ index eebbc8ec87..1845fe59bf 100644
  common_incs = [ffmpeg_toplevel_inc]
  
  python3 = import('python').find_installation()
+@@ -2259,7 +2259,7 @@ endif
+ # Manual check for libx264
+ if conf.get('libx264') == 1
+   if is_msvc
+-    if not cc.links(cpp_cond.format('x264.h', 'X264_BUILD >= 122'), name: 'libx264 version')
++    if not cc.links(cpp_cond.format(ffmpeg_toplevel_builddir / '../x264/x264_check.h', 'X264_BUILD >= 122'), name: 'libx264 version')
+       warning('libx264 version must be >= 1.22')
+       conf.set('libx264', 0)
+     endif
