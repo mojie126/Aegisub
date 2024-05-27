@@ -6926,6 +6926,9 @@ msgstr "结束帧不能小于或等于起始帧"
 msgid "Exporting video clips, frame: [%ld ~ %ld], please later"
 msgstr "正在导出视频片段 [%ld ~ %ld]，请稍后..."
 
+msgid "Export image sequence"
+msgstr "导出为图片序列"
+
 #~ msgid "    Subtitle format handler: %s"
 #~ msgstr "    字幕格式处理器： %s"
 
