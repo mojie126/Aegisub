@@ -741,7 +741,7 @@ namespace {
 			char filter_spec[512];
 			if (output_images) {
 				snprintf(
-					filter_spec, sizeof(filter_spec), "format=yuv420p, pad=width=%d:height=%d:x=0:y=%d:color=black",
+					filter_spec, sizeof(filter_spec), "format=yuvj420p, pad=width=%d:height=%d:x=0:y=%d:color=black",
 					decoder_context->width, decoder_context->height + padding * 2, padding
 				);
 			} else {
@@ -832,7 +832,7 @@ namespace {
 							if (image_filename.back() != '/') image_filename += '/';
 							while (!wxDirExists(image_filename) && !wxDir(image_filename).IsOpened())
 								wxMkdir(image_filename);
-							image_filename += agi::wxformat(std::string(img_path) + "_[%05d].jpg", current_frame);
+							image_filename += agi::wxformat(std::string(img_path) + "_[%ld-%ld]_%05d.jpg", getStartFrame(), getEndFrame(), current_frame);
 
 							const AVCodec *jpgCodec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
 							AVCodecContext *jpgCodecContext = avcodec_alloc_context3(jpgCodec);

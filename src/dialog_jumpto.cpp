@@ -27,9 +27,11 @@
 //
 // Aegisub Project http://www.aegisub.org/
 
+#include <ass_dialogue.h>
 #include <ass_file.h>
 #include <dialog_manager.h>
 #include <initial_line_state.h>
+#include <selection_controller.h>
 
 #include "async_video_provider.h"
 #include "format.h"
@@ -168,14 +170,28 @@ namespace {
 	DialogJumpFrameTo::DialogJumpFrameTo(agi::Context *c)
 		: d(c->parent, -1, _("Export the clip"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxWANTS_CHARS)
 		, c(c)
-		, startFrame(c->videoController->GetFrameN())
-		, endFrame(c->videoController->GetFrameN() + 100 > c->project->VideoProvider()->GetFrameCount() - 1 ? c->project->VideoProvider()->GetFrameCount() - 1 : c->videoController->GetFrameN() + 100)
+		, startFrame(LONG_MAX)
+		, endFrame(LONG_MIN)
 		, output_img(true) {
 		d.SetIcon(GETICON(jumpto_button_16));
 
 		const auto StartFrame = new wxStaticText(&d, -1, _("Start Frame: "));
 		const auto EndFrame = new wxStaticText(&d, -1, _("End Frame: "));
 		const auto OutputImg = new wxStaticText(&d, -1, _("Export image sequence"));
+
+		for (const auto line : c->selectionController->GetSelectedSet()) {
+			// 获取当前行的开始帧和结束帧
+			const int currentStartFrame = c->videoController->FrameAtTime(line->Start, agi::vfr::START);
+			const int currentEndFrame = c->videoController->FrameAtTime(line->End, agi::vfr::END);
+
+			// 更新最小开始帧和最大结束帧
+			if (currentStartFrame < startFrame) {
+				startFrame = currentStartFrame;
+			}
+			if (currentEndFrame > endFrame) {
+				endFrame = currentEndFrame;
+			}
+		}
 
 		editStartFrame = new wxTextCtrl(&d, -1, "", wxDefaultPosition, wxSize(-1, -1),wxTE_PROCESS_ENTER, IntValidator(static_cast<int>(startFrame)));
 		editStartFrame->SetMaxLength(std::to_string(c->project->VideoProvider()->GetFrameCount() - 1).size());
