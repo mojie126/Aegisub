@@ -68,6 +68,7 @@ void ShowJumpFrameToDialog(agi::Context *c);
 long getStartFrame();
 long getEndFrame();
 bool getOnOK();
+bool getOutputImg();
 void ShowKanjiTimerDialog(agi::Context *c);
 void ShowLogWindow(agi::Context *c);
 void ShowPreferences(wxWindow *parent);

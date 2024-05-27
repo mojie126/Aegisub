@@ -27,6 +27,10 @@
 //
 // Aegisub Project http://www.aegisub.org/
 
+#include <ass_file.h>
+#include <dialog_manager.h>
+#include <initial_line_state.h>
+
 #include "async_video_provider.h"
 #include "format.h"
 #include "include/aegisub/context.h"
@@ -46,6 +50,7 @@
 long sFrame;
 long eFrame;
 bool onOK = false;
+bool outputImage;
 
 namespace {
 	struct DialogJumpTo {
@@ -141,6 +146,8 @@ namespace {
 		wxTextCtrl *editStartFrame; ///< Target frame edit control
 		long endFrame; ///< Target frame to jump to
 		wxTextCtrl *editEndFrame; ///< Target frame edit control
+		bool output_img;
+		wxCheckBox *editOutputImg;
 
 		/// Enter/OK button handler
 		void OnOK(wxCommandEvent &event);
@@ -162,16 +169,20 @@ namespace {
 		: d(c->parent, -1, _("Export the clip"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxWANTS_CHARS)
 		, c(c)
 		, startFrame(c->videoController->GetFrameN())
-		, endFrame(c->videoController->GetFrameN() + 100 > c->project->VideoProvider()->GetFrameCount() - 1 ? c->project->VideoProvider()->GetFrameCount() - 1 : c->videoController->GetFrameN() + 100) {
+		, endFrame(c->videoController->GetFrameN() + 100 > c->project->VideoProvider()->GetFrameCount() - 1 ? c->project->VideoProvider()->GetFrameCount() - 1 : c->videoController->GetFrameN() + 100)
+		, output_img(true) {
 		d.SetIcon(GETICON(jumpto_button_16));
 
 		const auto StartFrame = new wxStaticText(&d, -1, _("Start Frame: "));
 		const auto EndFrame = new wxStaticText(&d, -1, _("End Frame: "));
+		const auto OutputImg = new wxStaticText(&d, -1, _("Export image sequence"));
 
 		editStartFrame = new wxTextCtrl(&d, -1, "", wxDefaultPosition, wxSize(-1, -1),wxTE_PROCESS_ENTER, IntValidator(static_cast<int>(startFrame)));
 		editStartFrame->SetMaxLength(std::to_string(c->project->VideoProvider()->GetFrameCount() - 1).size());
 		editEndFrame = new wxTextCtrl(&d, -1, "", wxDefaultPosition, wxSize(-1, -1),wxTE_PROCESS_ENTER, IntValidator(static_cast<int>(endFrame)));
 		editEndFrame->SetMaxLength(std::to_string(c->project->VideoProvider()->GetFrameCount() - 1).size());
+		editOutputImg = new wxCheckBox(&d, -1, "", wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator);
+		editOutputImg->SetValue(true);
 
 		const auto TimesSizer = new wxGridSizer(2, 5, 5);
 
@@ -180,6 +191,9 @@ namespace {
 
 		TimesSizer->Add(EndFrame, 1, wxALIGN_CENTER_VERTICAL);
 		TimesSizer->Add(editEndFrame, wxEXPAND);
+
+		TimesSizer->Add(OutputImg, 1, wxALIGN_CENTER_VERTICAL);
+		TimesSizer->Add(editOutputImg, wxEXPAND);
 
 		const auto ButtonSizer = d.CreateStdDialogButtonSizer(wxOK | wxCANCEL);
 
@@ -203,13 +217,14 @@ namespace {
 		d.UpdateWindowUI(wxUPDATE_UI_RECURSE);
 
 		// This can't simply be done in the constructor as the value hasn't been set yet
-		editStartFrame->SetFocus();
-		editStartFrame->SelectAll();
+		editEndFrame->SetFocus();
+		editEndFrame->SelectAll();
 	}
 
 	void DialogJumpFrameTo::OnOK(wxCommandEvent &) {
 		d.EndModal(0);
 		onOK = true;
+		outputImage = output_img = editOutputImg->GetValue();
 	}
 
 	void DialogJumpFrameTo::OnCANCEL(wxCommandEvent &) {
@@ -245,6 +260,10 @@ long getEndFrame() {
 
 bool getOnOK() {
 	return onOK;
+}
+
+bool getOutputImg() {
+	return outputImage;
 }
 
 void ShowJumpFrameToDialog(agi::Context *c) {

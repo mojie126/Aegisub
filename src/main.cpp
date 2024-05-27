@@ -305,7 +305,7 @@ bool AegisubApp::OnInit() {
 		StartupLog("Possibly perform automatic updates check");
 		if (OPT_GET("App/First Start")->GetBool()) {
 			OPT_SET("App/First Start")->SetBool(false);
-#ifdef WITH_UPDATE_CHECKER
+			#ifdef WITH_UPDATE_CHECKER
 			int result = wxMessageBox(_("Do you want Aegisub to check for updates whenever it starts? You can still do it manually via the Help menu."),_("Check for updates?"), wxYES_NO | wxCENTER);
 			OPT_SET("App/Auto/Check For Updates")->SetBool(result == wxYES);
 			try {
@@ -314,12 +314,12 @@ bool AegisubApp::OnInit() {
 			catch (agi::fs::FileSystemError const& e) {
 				wxMessageBox(to_wx(e.GetMessage()), "Error saving config file", wxOK | wxICON_ERROR | wxCENTER);
 			}
-#endif
+			#endif
 		}
 
-#ifdef WITH_UPDATE_CHECKER
+		#ifdef WITH_UPDATE_CHECKER
 		PerformVersionCheck(false);
-#endif
+		#endif
 
 		// Get parameter subs
 		StartupLog("Parse command line");
