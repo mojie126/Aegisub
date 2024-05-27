@@ -618,7 +618,6 @@ namespace {
 
 		input_stream = input_format_context->streams[video_stream_index];
 		const AVCodec *decoder = avcodec_find_decoder(input_stream->codecpar->codec_id);
-		// const AVCodec *decoder = avcodec_find_decoder_by_name("hevc");
 		if (!decoder) {
 			std::cerr << "Could not find decoder." << std::endl;
 			return false;
@@ -678,7 +677,7 @@ namespace {
 		}
 
 		// 配置过滤器
-		if (padding != 0) {
+		if (padding != 0 || output_images) {
 			use_pad_filter = true;
 			AVFilterGraph *filter_graph = avfilter_graph_alloc();
 
