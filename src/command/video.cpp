@@ -578,14 +578,27 @@ namespace {
 		}
 	};
 
-	bool extract_video_segment(agi::ProgressSink *ps, const char *input_filename, const char *output_filename, const int start_frame, const int end_frame, bool output_images, const char *img_path) {
+	bool wxMkdir_p(const wxString &path, const int perm = 0777) {
+		const wxString parent = wxPathOnly(path);
+		if (!parent.empty() && !wxDirExists(parent)) {
+			if (!wxMkdir_p(parent, perm)) {
+				return false;
+			}
+		}
+		return wxMkdir(path, perm);
+	}
+
+	bool extract_video_segment(
+		const agi::Context *c, agi::ProgressSink *ps, const char *input_filename, const char *output_filename,
+		long start_frame, long end_frame,
+		const int start_time, const int end_time, const bool output_images, const char *img_path
+	) {
 		AVFormatContext *input_format_context = nullptr;
 		AVFormatContext *output_format_context = nullptr;
 		AVCodecContext *decoder_context = nullptr;
 		AVCodecContext *encoder_context = nullptr;
 		const AVStream *input_stream = nullptr;
 		const AVStream *output_stream = nullptr;
-		AVPacket packet;
 		AVFrame *frame = av_frame_alloc();
 		AVFrame *filtered_frame = av_frame_alloc();
 		AVFilterContext *buffersink_ctx = nullptr;
@@ -718,6 +731,7 @@ namespace {
 				AV_PIX_FMT_P010LE,
 				AV_PIX_FMT_YUV420P,
 				AV_PIX_FMT_YUV420P10LE,
+				AV_PIX_FMT_YUVJ420P,
 				AV_PIX_FMT_NONE
 			};
 			if (av_opt_set_int_list(buffersink_ctx, "pix_fmts", pix_fmts, AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN) < 0) {
@@ -762,6 +776,9 @@ namespace {
 				return false;
 			}
 
+			avfilter_inout_free(&inputs);
+			avfilter_inout_free(&outputs);
+
 			encoder_context->height = decoder_context->height + padding * 2;
 		} else {
 			encoder_context->height = decoder_context->height;
@@ -771,6 +788,8 @@ namespace {
 		encoder_context->pix_fmt = decoder_context->pix_fmt;
 		encoder_context->sample_aspect_ratio = decoder_context->sample_aspect_ratio;
 		encoder_context->time_base = input_stream->time_base;
+		encoder_context->framerate = input_stream->avg_frame_rate;
+		encoder_context->qmin = encoder_context->qmax = 1;
 
 		if (avcodec_open2(encoder_context, encoder, nullptr) < 0) {
 			std::cerr << "Could not open encoder." << std::endl;
@@ -796,58 +815,81 @@ namespace {
 			}
 
 			// Write the stream header
-			if (avformat_write_header(output_format_context, nullptr) < 0) {
+			AVDictionary *opts = nullptr;
+			av_dict_set(&opts, "fps_mod", "passthrough", 0);
+			if (avformat_write_header(output_format_context, &opts) < 0) {
 				std::cerr << "Error occurred when opening output file." << std::endl;
 				return false;
 			}
+			av_dict_free(&opts);
 		}
 
 		int current_frame = 0;
+		AVCodecContext *jpgCodecContext = nullptr;
+		AVPacket *jpgPacket = av_packet_alloc();
+		AVPacket *out_packet = av_packet_alloc();
+		AVPacket *packet = av_packet_alloc();
+		packet->data = nullptr;
+		packet->size = 0;
+		if (output_images) {
+			while (!wxDirExists(output_filename) && !wxDir(output_filename).IsOpened())
+				wxMkdir_p(output_filename);
+			const AVCodec *jpgCodec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
+			jpgCodecContext = avcodec_alloc_context3(jpgCodec);
+			if (!jpgCodecContext) {
+				std::cerr << "Could not allocate jpg codec context." << std::endl;
+				return false;
+			}
+			jpgCodecContext->pix_fmt = AV_PIX_FMT_YUVJ420P;
+			if (use_pad_filter)
+				jpgCodecContext->height = decoder_context->height + padding * 2;
+			else
+				jpgCodecContext->height = decoder_context->height;
+			jpgCodecContext->width = decoder_context->width;
+			jpgCodecContext->sample_aspect_ratio = decoder_context->sample_aspect_ratio;
+			jpgCodecContext->time_base = input_stream->time_base;
+			jpgCodecContext->framerate = input_stream->avg_frame_rate;
+			jpgCodecContext->qmin = jpgCodecContext->qmax = 1;
+			if (avcodec_open2(jpgCodecContext, jpgCodec, nullptr) < 0) {
+				std::cerr << "Could not open mjpeg encoder." << std::endl;
+				return false;
+			}
+
+			jpgPacket->data = nullptr;
+			jpgPacket->size = 0;
+		} else {
+			out_packet->data = nullptr;
+			out_packet->size = 0;
+		}
 
 		// Read frames from the file
-		while (av_read_frame(input_format_context, &packet) >= 0) {
-			if (packet.stream_index == video_stream_index) {
-				if (avcodec_send_packet(decoder_context, &packet) < 0) {
+		while (av_read_frame(input_format_context, packet) >= 0) {
+			if (packet->stream_index == video_stream_index) {
+				if (avcodec_send_packet(decoder_context, packet) < 0) {
 					std::cerr << "Error sending a packet for decoding." << std::endl;
 					break;
 				}
 
 				if (avcodec_receive_frame(decoder_context, frame) >= 0) {
-					if (current_frame >= start_frame && current_frame <= end_frame) {
-						if (use_pad_filter) {
-							// 向滤镜添加帧
-							if (av_buffersrc_add_frame(buffersrc_ctx, frame) < 0) {
-								std::cerr << "Failed to add frame to filter graph." << std::endl;
-								break;
-							}
-							// 取出经过滤镜的帧
-							if (av_buffersink_get_frame(buffersink_ctx, frame) < 0) {
-								std::cerr << "Failed to get frame from filter graph." << std::endl;
-								break;
-							}
+					if (use_pad_filter) {
+						// 向滤镜添加帧
+						if (av_buffersrc_add_frame(buffersrc_ctx, frame) < 0) {
+							std::cerr << "Failed to add frame to filter graph." << std::endl;
+							break;
 						}
+						// 取出经过滤镜的帧
+						if (av_buffersink_get_frame(buffersink_ctx, frame) < 0) {
+							std::cerr << "Failed to get frame from filter graph." << std::endl;
+							break;
+						}
+					}
+
+					if (current_frame >= start_frame && current_frame <= end_frame) {
 						if (output_images) {
 							std::string image_filename = output_filename;
 							// 确保路径以斜杠结束
 							if (image_filename.back() != '/') image_filename += '/';
-							while (!wxDirExists(image_filename) && !wxDir(image_filename).IsOpened())
-								wxMkdir(image_filename);
 							image_filename += agi::wxformat(std::string(img_path) + "_[%ld-%ld]_%05d.jpg", getStartFrame(), getEndFrame(), current_frame);
-
-							const AVCodec *jpgCodec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
-							AVCodecContext *jpgCodecContext = avcodec_alloc_context3(jpgCodec);
-							jpgCodecContext->pix_fmt = AV_PIX_FMT_YUVJ420P;
-							jpgCodecContext->width = frame->width;
-							jpgCodecContext->height = frame->height;
-							jpgCodecContext->time_base = input_stream->time_base;
-							if (avcodec_open2(jpgCodecContext, jpgCodec, nullptr) < 0) {
-								std::cerr << "Could not open encoder." << std::endl;
-								break;
-							}
-
-							AVPacket *jpgPacket = av_packet_alloc();
-							jpgPacket->data = nullptr;
-							jpgPacket->size = 0;
 
 							int ret = avcodec_send_frame(jpgCodecContext, frame);
 							if (ret < 0) {
@@ -865,39 +907,52 @@ namespace {
 
 							av_packet_unref(jpgPacket);
 						} else {
-							// Encode the frame
-							if (avcodec_send_frame(encoder_context, frame) < 0) {
-								std::cerr << "Error sending a frame for encoding." << std::endl;
+							// 发送帧到编码器
+							int ret = avcodec_send_frame(encoder_context, frame);
+							if (ret < 0) {
+								std::cerr << "Error sending a frame for encoding: " << ret << std::endl;
 								break;
 							}
 
-							AVPacket *out_packet = av_packet_alloc();
-							out_packet->data = nullptr;
-							out_packet->size = 0;
-
-							if (avcodec_receive_packet(encoder_context, out_packet) >= 0) {
-								av_packet_rescale_ts(out_packet, encoder_context->time_base, output_stream->time_base);
-								out_packet->stream_index = output_stream->index;
-
-								if (av_interleaved_write_frame(output_format_context, out_packet) < 0) {
-									std::cerr << "Error muxing packet." << std::endl;
+							// 接收并写入编码的包
+							while (true) {
+								ret = avcodec_receive_packet(encoder_context, packet);
+								if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+									break;
+								}
+								if (ret < 0) {
+									std::cerr << "Error receiving encoded packet: " << ret << std::endl;
 									break;
 								}
 
-								av_packet_unref(out_packet);
+								// 缩放时间戳
+								av_packet_rescale_ts(packet, encoder_context->time_base, output_format_context->streams[0]->time_base);
+								packet->stream_index = output_format_context->streams[0]->index;
+
+								// 写入包到输出文件
+								ret = av_interleaved_write_frame(output_format_context, packet);
+								if (ret < 0) {
+									std::cerr << "Error writing frame: " << ret << std::endl;
+									break;
+								}
+
+								av_packet_unref(packet);
+							}
+
+							if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
+								std::cerr << "Error during encoding or writing: " << ret << std::endl;
+								break;
 							}
 						}
+						current_frame++;
+						ps->SetMessage(std::string(agi::wxformat(_("Exporting video clips, frame: [%ld ~ %ld], please later"), start_frame, end_frame).mb_str()));
+						ps->SetProgress(current_frame, end_frame);
+						if (ps->IsCancelled()) break;
+						if (current_frame > end_frame) break;
 					}
-
-					current_frame++;
-					ps->SetMessage(std::string(agi::wxformat(_("Exporting video clips, frame: [%ld ~ %ld], please later"), start_frame, end_frame).mb_str()));
-					ps->SetProgress(current_frame, end_frame);
-					if (ps->IsCancelled()) break;
-					if (current_frame > end_frame) break;
 				}
 			}
-
-			av_packet_unref(&packet);
+			av_packet_unref(packet);
 		}
 
 		if (!output_images) {
@@ -906,8 +961,12 @@ namespace {
 		}
 
 		// Clean up
+		av_packet_free(&jpgPacket);
+		av_packet_free(&out_packet);
+		av_packet_free(&packet);
 		avcodec_free_context(&decoder_context);
 		avcodec_free_context(&encoder_context);
+		avcodec_free_context(&jpgCodecContext);
 		avformat_close_input(&input_format_context);
 
 		if (output_format_context && !(output_format_context->oformat->flags & AVFMT_NOFILE)) {
@@ -969,7 +1028,11 @@ namespace {
 			try {
 				progress.Run(
 					[&](agi::ProgressSink *ps) {
-						extract_video_segment(ps, c->project->VideoName().string().c_str(), path.c_str(), getStartFrame(), getEndFrame(), getOutputImg(), img_path.c_str());
+						extract_video_segment(
+							c, ps, c->project->VideoName().string().c_str(), path.c_str(),
+							getStartFrame(), getEndFrame(),
+							getStartTime(), getEndTime(), getOutputImg(), img_path.c_str()
+						);
 					}
 				);
 			} catch (agi::Exception &err) {
