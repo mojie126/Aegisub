@@ -51,6 +51,8 @@
 
 long sFrame;
 long eFrame;
+int startTime;
+int endTime;
 bool onOK = false;
 bool outputImage;
 
@@ -187,9 +189,11 @@ namespace {
 			// 更新最小开始帧和最大结束帧
 			if (currentStartFrame < startFrame) {
 				startFrame = currentStartFrame;
+				startTime = line->Start;
 			}
 			if (currentEndFrame > endFrame) {
 				endFrame = currentEndFrame;
+				endTime = line->End;
 			}
 		}
 
@@ -199,6 +203,7 @@ namespace {
 		editEndFrame->SetMaxLength(std::to_string(c->project->VideoProvider()->GetFrameCount() - 1).size());
 		editOutputImg = new wxCheckBox(&d, -1, "", wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator);
 		editOutputImg->SetValue(true);
+		editOutputImg->Disable();
 
 		const auto TimesSizer = new wxGridSizer(2, 5, 5);
 
@@ -272,6 +277,14 @@ long getStartFrame() {
 
 long getEndFrame() {
 	return eFrame;
+}
+
+int getStartTime() {
+	return startTime;
+}
+
+int getEndTime() {
+	return endTime;
 }
 
 bool getOnOK() {

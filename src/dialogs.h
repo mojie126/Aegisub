@@ -67,6 +67,8 @@ void ShowJumpToDialog(agi::Context *c);
 void ShowJumpFrameToDialog(agi::Context *c);
 long getStartFrame();
 long getEndFrame();
+int getStartTime();
+int getEndTime();
 bool getOnOK();
 bool getOutputImg();
 void ShowKanjiTimerDialog(agi::Context *c);
