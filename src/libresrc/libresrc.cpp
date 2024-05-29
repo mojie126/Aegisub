@@ -19,19 +19,43 @@
 #include <wx/image.h>
 #include <wx/intl.h>
 #include <wx/mstream.h>
+#include <wx/app.h>
+
+// 检查操作系统版本
+bool IsWindows10OrGreater() {
+	OSVERSIONINFOEXW osvi = {sizeof(osvi), 10, 0, 0, 0, {}, 0, 0};
+	DWORDLONG const dwlConditionMask = VerSetConditionMask(
+		VerSetConditionMask(
+			VerSetConditionMask(
+				0, VER_MAJORVERSION, VER_GREATER_EQUAL
+			),
+			VER_MINORVERSION, VER_GREATER_EQUAL
+		),
+		VER_SERVICEPACKMAJOR, VER_GREATER_EQUAL
+	);
+
+	return VerifyVersionInfoW(&osvi, VER_MAJORVERSION | VER_MINORVERSION | VER_SERVICEPACKMAJOR, dwlConditionMask) != FALSE;
+}
 
 wxBitmap libresrc_getimage(const unsigned char *buff, size_t size, double scale, int dir) {
 	wxMemoryInputStream mem(buff, size);
 	#if wxCHECK_VERSION(3, 1, 5)
 	const auto wx_image = wxImage(mem);
 	wxBitmap wx_bitmap;
+	// 检查 Windows 版本
+	float scaleFactor = 1;
+	if (IsWindows10OrGreater())
+		// 计算缩放比例
+		scaleFactor = static_cast<float>(static_cast<double>(GetDpiForSystem()) / 96.0);
 	if (dir != wxLayout_RightToLeft) {
 		wx_bitmap = wxBitmap(wx_image, wxBITMAP_SCREEN_DEPTH, scale);
-		wx_bitmap.GetGDIImageData()->SetSize(wx_image.GetWidth() / 2, wx_image.GetHeight() / 2);
+		if (scaleFactor > 1)
+			wx_bitmap.GetGDIImageData()->SetSize(wx_image.GetWidth() / 2, wx_image.GetHeight() / 2);
 		return wx_bitmap;
 	}
 	wx_bitmap = wxBitmap(wx_image.Mirror(), wxBITMAP_SCREEN_DEPTH, scale);
-	wx_bitmap.GetGDIImageData()->SetSize(wx_image.GetWidth() / 2, wx_image.GetHeight() / 2);
+	if (scaleFactor > 1)
+		wx_bitmap.GetGDIImageData()->SetSize(wx_image.GetWidth() / 2, wx_image.GetHeight() / 2);
 	return wx_bitmap;
 	#else
 	if (dir != wxLayout_RightToLeft)
