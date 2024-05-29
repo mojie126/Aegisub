@@ -749,8 +749,8 @@ namespace {
 		// Seek to the start time in milliseconds
 		// const auto start_pts = static_cast<int64_t>(floor(start_time / (av_q2d(input_stream->time_base) * AV_TIME_BASE)));
 		// const auto end_pts = static_cast<int64_t>(ceil(end_time / (av_q2d(input_stream->time_base) * AV_TIME_BASE)));
-		const int64_t start_pts = av_rescale_q(start_time, {1, 1000}, input_stream->time_base);
-		const int64_t end_pts = av_rescale_q(end_time, {1, 1000}, input_stream->time_base);
+		const int64_t start_pts = av_rescale_q(start_time, input_stream->time_base, input_stream->time_base);
+		const int64_t end_pts = av_rescale_q(end_time, input_stream->time_base, input_stream->time_base);
 		if (avformat_seek_file(input_format_context, video_stream_index, INT64_MIN, start_pts, INT64_MAX, 0) < 0) {
 			std::cerr << "Error seeking to the specified start time." << std::endl;
 			return false;
