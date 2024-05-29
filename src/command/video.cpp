@@ -748,9 +748,12 @@ namespace {
 		clip_export_path = wxString(clip_export_path.c_str(), wxConvUTF8).ToStdString();
 		if (clip_export_path.empty()) {
 			output_path = agi::wxformat("%s [%ld-%ld]", output_filename, start_frame, end_frame);
-			_mkdir(output_path.c_str());
+			// _mkdir(output_path.c_str());
+			boost::filesystem::create_directories(from_wx(output_path));
 		} else {
 			output_path = clip_export_path;
+			// _mkdir(output_path.c_str());
+			boost::filesystem::create_directories(from_wx(output_path));
 			wxString filename;
 			const wxDir dir(output_path);
 			bool cont = dir.GetFirst(&filename, wxEmptyString, wxDIR_FILES);
@@ -828,7 +831,7 @@ namespace {
 						av_packet_unref(jpgPacket);
 					}
 					current_frame++;
-					ps->SetMessage(std::string(agi::wxformat(_("Exporting video clips, frame: [%ld ~ %ld], total: %d, please later"), start_frame, end_frame, duration_frame).mb_str()));
+					ps->SetMessage(from_wx(agi::wxformat(_("Exporting video clips, frame: [%ld ~ %ld], total: %d, please later"), start_frame, end_frame, duration_frame)));
 					ps->SetProgress(current_frame, duration_frame);
 					if (ps->IsCancelled()) break;
 					if (current_frame > duration_frame) break;
