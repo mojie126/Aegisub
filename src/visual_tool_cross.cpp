@@ -80,7 +80,7 @@ void VisualToolCross::Draw() {
 	std::string mouse_text = Text(ToScriptCoords(shift_down ? video_res - mouse_pos : mouse_pos));
 
 	int tw, th;
-	gl_text->SetFont("Verdana", 12, true, false);
+	gl_text->SetFont("Verdana", wxWindow::FromDIP(12, parent), true, false);
 	gl_text->SetColour(agi::Color(255, 255, 255, 255));
 	gl_text->GetExtent(mouse_text, tw, th);
 
