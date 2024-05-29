@@ -61,6 +61,7 @@
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/split.hpp>
+#include <boost/filesystem.hpp>
 
 #include <wx/dir.h>
 #include <wx/msgdlg.h>
@@ -72,8 +73,9 @@ extern "C" {
 	#include <libavfilter/avfilter.h>
 	#include <libavfilter/buffersink.h>
 	#include <libavfilter/buffersrc.h>
-	#include <libavutil/opt.h>
 	#include <libavutil/imgutils.h>
+	#include <libavutil/time.h>
+	#include <libavutil/opt.h>
 }
 
 namespace {
@@ -578,35 +580,24 @@ namespace {
 		}
 	};
 
-	bool wxMkdir_p(const wxString &path, const int perm = 0777) {
-		const wxString parent = wxPathOnly(path);
-		if (!parent.empty() && !wxDirExists(parent)) {
-			if (!wxMkdir_p(parent, perm)) {
-				return false;
-			}
-		}
-		return wxMkdir(path, perm);
-	}
-
 	bool extract_video_segment(
 		const agi::Context *c, agi::ProgressSink *ps, const char *input_filename, const char *output_filename,
 		long start_frame, long end_frame,
 		const int start_time, const int end_time, const bool output_images, const char *img_path
 	) {
 		AVFormatContext *input_format_context = nullptr;
-		AVFormatContext *output_format_context = nullptr;
 		AVCodecContext *decoder_context = nullptr;
-		AVCodecContext *encoder_context = nullptr;
+		AVCodecContext *jpgCodecContext = nullptr;
 		const AVStream *input_stream = nullptr;
-		const AVStream *output_stream = nullptr;
-		AVFrame *frame = av_frame_alloc();
-		AVFrame *filtered_frame = av_frame_alloc();
 		AVFilterContext *buffersink_ctx = nullptr;
 		AVFilterContext *buffersrc_ctx = nullptr;
-		bool use_pad_filter = false;
+		AVFrame *frame = av_frame_alloc();
+		AVPacket *jpgPacket = av_packet_alloc();
+		AVPacket *packet = av_packet_alloc();
+		AVFilterGraph *filter_graph = avfilter_graph_alloc();
 		// av_log_set_level(AV_LOG_DEBUG);
 
-		if (!frame || !filtered_frame) {
+		if (!frame) {
 			std::cerr << "Could not allocate frame." << std::endl;
 			return false;
 		}
@@ -638,6 +629,10 @@ namespace {
 
 		// Initialize the decoder context
 		decoder_context = avcodec_alloc_context3(decoder);
+		if (!decoder_context) {
+			std::cerr << "Could not allocate decodec context." << std::endl;
+			return false;
+		}
 		if (avcodec_parameters_to_context(decoder_context, input_stream->codecpar) < 0) {
 			std::cerr << "Could not copy codec parameters." << std::endl;
 			return false;
@@ -648,33 +643,10 @@ namespace {
 			return false;
 		}
 
-		if (!output_images) {
-			// Allocate the output context
-			avformat_alloc_output_context2(&output_format_context, nullptr, nullptr, output_filename);
-			if (!output_format_context) {
-				std::cerr << "Could not create output context." << std::endl;
-				return false;
-			}
-
-			// Create the output stream
-			output_stream = avformat_new_stream(output_format_context, nullptr);
-			if (!output_stream) {
-				std::cerr << "Failed allocating output stream." << std::endl;
-				return false;
-			}
-		}
-
-		// Find encoder
-		const AVCodec *encoder = avcodec_find_encoder_by_name("libx264");
-		if (!encoder) {
-			std::cerr << "Necessary encoder not found." << std::endl;
-			return false;
-		}
-
-		// Initialize the encoder context
-		encoder_context = avcodec_alloc_context3(encoder);
-		if (!encoder_context) {
-			std::cerr << "Could not allocate video codec context." << std::endl;
+		const AVCodec *jpgCodec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
+		jpgCodecContext = avcodec_alloc_context3(jpgCodec);
+		if (!jpgCodecContext) {
+			std::cerr << "Could not allocate jpg codec context." << std::endl;
 			return false;
 		}
 
@@ -690,291 +662,174 @@ namespace {
 		}
 
 		// 配置过滤器
-		if (padding != 0 || output_images) {
-			use_pad_filter = true;
-			AVFilterGraph *filter_graph = avfilter_graph_alloc();
-
-			if (!filter_graph) {
-				std::cerr << "Could not allocate filter." << std::endl;
-				return false;
-			}
-
-			// 创建 buffer 滤镜，用于作为输入
-			const AVFilter *buffersrc = avfilter_get_by_name("buffer");
-			const AVFilter *buffersink = avfilter_get_by_name("buffersink");
-			char args[512];
-			snprintf(
-				args, sizeof(args),
-				"video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
-				decoder_context->width, decoder_context->height, decoder_context->pix_fmt,
-				input_stream->time_base.num, input_stream->time_base.den,
-				decoder_context->sample_aspect_ratio.num, decoder_context->sample_aspect_ratio.den
-			);
-
-			// 创建 buffer 滤镜
-			if (avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in", args, nullptr, filter_graph) < 0) {
-				std::cerr << "Failed to create buffer filter." << std::endl;
-				return false;
-			}
-
-			// 创建 buffer sink 滤镜，用于作为输出
-			if (avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out", nullptr, nullptr, filter_graph) < 0) {
-				std::cerr << "Failed to create buffer sink filter." << std::endl;
-				return false;
-			}
-
-			// 设置 buffer sink 的像素格式
-			constexpr AVPixelFormat pix_fmts[] = {
-				AV_PIX_FMT_BGRA,
-				AV_PIX_FMT_RGBA,
-				AV_PIX_FMT_NV12,
-				AV_PIX_FMT_P010LE,
-				AV_PIX_FMT_YUV420P,
-				AV_PIX_FMT_YUV420P10LE,
-				AV_PIX_FMT_YUVJ420P,
-				AV_PIX_FMT_NONE
-			};
-			if (av_opt_set_int_list(buffersink_ctx, "pix_fmts", pix_fmts, AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN) < 0) {
-				std::cerr << "Failed to set output pixel format." << std::endl;
-				return false;
-			}
-
-			AVFilterInOut *outputs = avfilter_inout_alloc();
-			AVFilterInOut *inputs = avfilter_inout_alloc();
-
-			outputs->name = av_strdup("in");
-			outputs->filter_ctx = buffersrc_ctx;
-			outputs->pad_idx = 0;
-			outputs->next = nullptr;
-
-			inputs->name = av_strdup("out");
-			inputs->filter_ctx = buffersink_ctx;
-			inputs->pad_idx = 0;
-			inputs->next = nullptr;
-
-			char filter_spec[512];
-			if (output_images) {
-				snprintf(
-					filter_spec, sizeof(filter_spec), "format=yuvj420p, pad=width=%d:height=%d:x=0:y=%d:color=black",
-					decoder_context->width, decoder_context->height + padding * 2, padding
-				);
-			} else {
-				snprintf(
-					filter_spec, sizeof(filter_spec), "pad=width=%d:height=%d:x=0:y=%d:color=black",
-					decoder_context->width, decoder_context->height + padding * 2, padding
-				);
-			}
-
-			if (avfilter_graph_parse_ptr(filter_graph, filter_spec, &inputs, &outputs, nullptr) < 0) {
-				std::cerr << "Could not parse filter graph." << std::endl;
-				return false;
-			}
-
-			// 配置滤镜图表
-			if (avfilter_graph_config(filter_graph, nullptr) < 0) {
-				std::cerr << "Failed to configure filter." << std::endl;
-				return false;
-			}
-
-			avfilter_inout_free(&inputs);
-			avfilter_inout_free(&outputs);
-
-			encoder_context->height = decoder_context->height + padding * 2;
-		} else {
-			encoder_context->height = decoder_context->height;
-		}
-
-		encoder_context->width = decoder_context->width;
-		encoder_context->pix_fmt = decoder_context->pix_fmt;
-		encoder_context->sample_aspect_ratio = decoder_context->sample_aspect_ratio;
-		encoder_context->time_base = input_stream->time_base;
-		encoder_context->framerate = input_stream->avg_frame_rate;
-		encoder_context->qmin = encoder_context->qmax = 1;
-
-		if (avcodec_open2(encoder_context, encoder, nullptr) < 0) {
-			std::cerr << "Could not open encoder." << std::endl;
+		if (!filter_graph) {
+			std::cerr << "Could not allocate filter." << std::endl;
 			return false;
 		}
 
-		if (!output_images) {
-			if (output_format_context->oformat->flags & AVFMT_GLOBALHEADER) {
-				encoder_context->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-			}
+		// 创建 buffer 滤镜，用于作为输入
+		const AVFilter *buffersrc = avfilter_get_by_name("buffer");
+		const AVFilter *buffersink = avfilter_get_by_name("buffersink");
+		char args[512];
+		snprintf(
+			args, sizeof(args),
+			"video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
+			decoder_context->width, decoder_context->height, decoder_context->pix_fmt,
+			input_stream->time_base.num, input_stream->time_base.den,
+			decoder_context->sample_aspect_ratio.num, decoder_context->sample_aspect_ratio.den
+		);
 
-			if (avcodec_parameters_from_context(output_stream->codecpar, encoder_context) < 0) {
-				std::cerr << "Could not initialize stream codec parameters." << std::endl;
-				return false;
-			}
-
-			// Open the output file
-			if (!(output_format_context->oformat->flags & AVFMT_NOFILE)) {
-				if (avio_open(&output_format_context->pb, output_filename, AVIO_FLAG_WRITE) < 0) {
-					std::cerr << "Could not open output file." << std::endl;
-					return false;
-				}
-			}
-
-			// Write the stream header
-			AVDictionary *opts = nullptr;
-			av_dict_set(&opts, "fps_mod", "passthrough", 0);
-			if (avformat_write_header(output_format_context, &opts) < 0) {
-				std::cerr << "Error occurred when opening output file." << std::endl;
-				return false;
-			}
-			av_dict_free(&opts);
+		// 创建 buffer 滤镜
+		if (avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in", args, nullptr, filter_graph) < 0) {
+			std::cerr << "Failed to create buffer filter." << std::endl;
+			return false;
 		}
 
-		int current_frame = 0;
-		AVCodecContext *jpgCodecContext = nullptr;
-		AVPacket *jpgPacket = av_packet_alloc();
-		AVPacket *out_packet = av_packet_alloc();
-		AVPacket *packet = av_packet_alloc();
-		packet->data = nullptr;
-		packet->size = 0;
-		if (output_images) {
-			while (!wxDirExists(output_filename) && !wxDir(output_filename).IsOpened())
-				wxMkdir_p(output_filename);
-			const AVCodec *jpgCodec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
-			jpgCodecContext = avcodec_alloc_context3(jpgCodec);
-			if (!jpgCodecContext) {
-				std::cerr << "Could not allocate jpg codec context." << std::endl;
-				return false;
-			}
-			jpgCodecContext->pix_fmt = AV_PIX_FMT_YUVJ420P;
-			if (use_pad_filter)
-				jpgCodecContext->height = decoder_context->height + padding * 2;
-			else
-				jpgCodecContext->height = decoder_context->height;
-			jpgCodecContext->width = decoder_context->width;
-			jpgCodecContext->sample_aspect_ratio = decoder_context->sample_aspect_ratio;
-			jpgCodecContext->time_base = input_stream->time_base;
-			jpgCodecContext->framerate = input_stream->avg_frame_rate;
-			jpgCodecContext->qmin = jpgCodecContext->qmax = 1;
-			if (avcodec_open2(jpgCodecContext, jpgCodec, nullptr) < 0) {
-				std::cerr << "Could not open mjpeg encoder." << std::endl;
-				return false;
-			}
+		// 创建 buffer sink 滤镜，用于作为输出
+		if (avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out", nullptr, nullptr, filter_graph) < 0) {
+			std::cerr << "Failed to create buffer sink filter." << std::endl;
+			return false;
+		}
 
-			jpgPacket->data = nullptr;
-			jpgPacket->size = 0;
+		AVFilterInOut *outputs = avfilter_inout_alloc();
+		AVFilterInOut *inputs = avfilter_inout_alloc();
+
+		outputs->name = av_strdup("in");
+		outputs->filter_ctx = buffersrc_ctx;
+		outputs->pad_idx = 0;
+		outputs->next = nullptr;
+
+		inputs->name = av_strdup("out");
+		inputs->filter_ctx = buffersink_ctx;
+		inputs->pad_idx = 0;
+		inputs->next = nullptr;
+
+		char filter_spec[512];
+		if (padding != 0) {
+			jpgCodecContext->height = decoder_context->height + padding * 2;
+			snprintf(
+				filter_spec, sizeof(filter_spec), "format=yuv420p, pad=width=%d:height=%d:x=0:y=%d:color=black",
+				decoder_context->width, decoder_context->height + padding * 2, padding
+			);
 		} else {
-			out_packet->data = nullptr;
-			out_packet->size = 0;
+			jpgCodecContext->height = decoder_context->height;
+			snprintf(
+				filter_spec, sizeof(filter_spec), "format=yuv420p"
+			);
 		}
+
+		if (avfilter_graph_parse_ptr(filter_graph, filter_spec, &inputs, &outputs, nullptr) < 0) {
+			std::cerr << "Could not parse filter graph." << std::endl;
+			return false;
+		}
+
+		// 配置滤镜图表
+		if (avfilter_graph_config(filter_graph, nullptr) < 0) {
+			std::cerr << "Failed to configure filter." << std::endl;
+			return false;
+		}
+
+		avfilter_inout_free(&inputs);
+		avfilter_inout_free(&outputs);
+
+		jpgCodecContext->pix_fmt = AV_PIX_FMT_YUVJ420P;
+		jpgCodecContext->width = decoder_context->width;
+		jpgCodecContext->sample_aspect_ratio = decoder_context->sample_aspect_ratio;
+		jpgCodecContext->time_base = input_stream->time_base;
+		jpgCodecContext->qmin = jpgCodecContext->qmax = 1;
+		if (avcodec_open2(jpgCodecContext, jpgCodec, nullptr) < 0) {
+			std::cerr << "Could not open mjpeg encoder." << std::endl;
+			return false;
+		}
+
+		int current_frame = 1;
+		const std::string output_path{agi::wxformat("%s [%ld-%ld]", output_filename, start_frame, end_frame)};
+		_mkdir(output_path.c_str());
+
+		// Seek to the start time in milliseconds
+		// const auto start_pts = static_cast<int64_t>(floor(start_time / (av_q2d(input_stream->time_base) * AV_TIME_BASE)));
+		// const auto end_pts = static_cast<int64_t>(ceil(end_time / (av_q2d(input_stream->time_base) * AV_TIME_BASE)));
+		const int64_t start_pts = av_rescale_q(start_time, {1, 1000}, input_stream->time_base);
+		const int64_t end_pts = av_rescale_q(end_time, {1, 1000}, input_stream->time_base);
+		if (avformat_seek_file(input_format_context, video_stream_index, INT64_MIN, start_pts, INT64_MAX, 0) < 0) {
+			std::cerr << "Error seeking to the specified start time." << std::endl;
+			return false;
+		}
+
+		// Flush decoder after seeking
+		avcodec_flush_buffers(decoder_context);
+		av_packet_unref(packet);
+		bool seeking = true;
+		int duration_frame = end_frame - start_frame + 1;
 
 		// Read frames from the file
 		while (av_read_frame(input_format_context, packet) >= 0) {
 			if (packet->stream_index == video_stream_index) {
+				if (seeking) {
+					// 丢弃非关键帧，确保从关键帧开始解码以避免花屏
+					if (!(packet->flags & AV_PKT_FLAG_KEY)) {
+						av_packet_unref(packet);
+						continue;
+					}
+					if (packet->pts >= start_pts) {
+						seeking = false;
+					} else {
+						av_packet_unref(packet);
+						continue;
+					}
+				}
+
 				if (avcodec_send_packet(decoder_context, packet) < 0) {
 					std::cerr << "Error sending a packet for decoding." << std::endl;
 					break;
 				}
 
 				if (avcodec_receive_frame(decoder_context, frame) >= 0) {
-					if (use_pad_filter) {
-						// 向滤镜添加帧
-						if (av_buffersrc_add_frame(buffersrc_ctx, frame) < 0) {
-							std::cerr << "Failed to add frame to filter graph." << std::endl;
-							break;
-						}
-						// 取出经过滤镜的帧
-						if (av_buffersink_get_frame(buffersink_ctx, frame) < 0) {
-							std::cerr << "Failed to get frame from filter graph." << std::endl;
-							break;
-						}
+					// 向滤镜添加帧
+					if (av_buffersrc_add_frame(buffersrc_ctx, frame) < 0) {
+						std::cerr << "Failed to add frame to filter graph." << std::endl;
+						break;
+					}
+					// 取出经过滤镜的帧
+					if (av_buffersink_get_frame(buffersink_ctx, frame) < 0) {
+						std::cerr << "Failed to get frame from filter graph." << std::endl;
+						break;
 					}
 
-					if (current_frame >= start_frame && current_frame <= end_frame) {
-						if (output_images) {
-							std::string image_filename = output_filename;
-							// 确保路径以斜杠结束
-							if (image_filename.back() != '/') image_filename += '/';
-							image_filename += agi::wxformat(std::string(img_path) + "_[%ld-%ld]_%05d.jpg", getStartFrame(), getEndFrame(), current_frame);
+					std::string image_filename{output_path + "/" + agi::wxformat(std::string(img_path) + "_[%ld-%ld]_%05d.jpg", getStartFrame(), getEndFrame(), current_frame)};
 
-							int ret = avcodec_send_frame(jpgCodecContext, frame);
-							if (ret < 0) {
-								std::cerr << "Error encoding video frame: " << ret << std::endl;
-								break;
-							}
-							ret = avcodec_receive_packet(jpgCodecContext, jpgPacket);
-							if (ret >= 0) {
-								FILE *file = fopen(image_filename.c_str(), "wb");
-								if (file != nullptr) {
-									fwrite(jpgPacket->data, 1, jpgPacket->size, file);
-									fclose(file);
-								}
-							}
-
-							av_packet_unref(jpgPacket);
-						} else {
-							// 发送帧到编码器
-							int ret = avcodec_send_frame(encoder_context, frame);
-							if (ret < 0) {
-								std::cerr << "Error sending a frame for encoding: " << ret << std::endl;
-								break;
-							}
-
-							// 接收并写入编码的包
-							while (true) {
-								ret = avcodec_receive_packet(encoder_context, packet);
-								if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-									break;
-								}
-								if (ret < 0) {
-									std::cerr << "Error receiving encoded packet: " << ret << std::endl;
-									break;
-								}
-
-								// 缩放时间戳
-								av_packet_rescale_ts(packet, encoder_context->time_base, output_format_context->streams[0]->time_base);
-								packet->stream_index = output_format_context->streams[0]->index;
-
-								// 写入包到输出文件
-								ret = av_interleaved_write_frame(output_format_context, packet);
-								if (ret < 0) {
-									std::cerr << "Error writing frame: " << ret << std::endl;
-									break;
-								}
-
-								av_packet_unref(packet);
-							}
-
-							if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
-								std::cerr << "Error during encoding or writing: " << ret << std::endl;
-								break;
-							}
-						}
-						current_frame++;
-						ps->SetMessage(std::string(agi::wxformat(_("Exporting video clips, frame: [%ld ~ %ld], please later"), start_frame, end_frame).mb_str()));
-						ps->SetProgress(current_frame, end_frame);
-						if (ps->IsCancelled()) break;
-						if (current_frame > end_frame) break;
+					int ret = avcodec_send_frame(jpgCodecContext, frame);
+					if (ret < 0) {
+						std::cerr << "Error encoding jpg frame: " << ret << std::endl;
+						break;
 					}
+					ret = avcodec_receive_packet(jpgCodecContext, jpgPacket);
+					if (ret >= 0) {
+						FILE *file = fopen(image_filename.c_str(), "wb");
+						if (file != nullptr) {
+							fwrite(jpgPacket->data, 1, jpgPacket->size, file);
+							fclose(file);
+						}
+						av_packet_unref(jpgPacket);
+					}
+					current_frame++;
+					ps->SetMessage(std::string(agi::wxformat(_("Exporting video clips, frame: [%ld ~ %ld], total: %d, please later"), start_frame, end_frame, duration_frame).mb_str()));
+					ps->SetProgress(current_frame, duration_frame);
+					if (ps->IsCancelled()) break;
+					if (current_frame > duration_frame) break;
 				}
 			}
 			av_packet_unref(packet);
 		}
 
-		if (!output_images) {
-			// Write the trailer
-			av_write_trailer(output_format_context);
-		}
-
 		// Clean up
 		av_packet_free(&jpgPacket);
-		av_packet_free(&out_packet);
 		av_packet_free(&packet);
 		avcodec_free_context(&decoder_context);
-		avcodec_free_context(&encoder_context);
 		avcodec_free_context(&jpgCodecContext);
 		avformat_close_input(&input_format_context);
-
-		if (output_format_context && !(output_format_context->oformat->flags & AVFMT_NOFILE)) {
-			avio_closep(&output_format_context->pb);
-		}
-		avformat_free_context(output_format_context);
 		av_frame_free(&frame);
-		av_frame_free(&filtered_frame);
+		avfilter_graph_free(&filter_graph);
 		if (ps->IsCancelled()) return false;
 		return true;
 	}
