@@ -129,12 +129,12 @@ DialogProgress::DialogProgress(wxWindow *parent, wxString const& title_text, wxS
 	gauge = new wxGauge(this, -1, 300, wxDefaultPosition, wxSize(300,20));
 	text = new wxStaticText(this, -1, message, wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE | wxST_NO_AUTORESIZE);
 	cancel_button = new wxButton(this, wxID_CANCEL);
-	log_output = new wxTextCtrl(this, -1, "", wxDefaultPosition, wxSize(600, 240), wxTE_MULTILINE | wxTE_READONLY);
+	log_output = new wxTextCtrl(this, -1, "", wxDefaultPosition, wxSize(FromDIP(600), FromDIP(240)), wxTE_MULTILINE | wxTE_READONLY);
 
 	// make the title a slightly larger font
 	wxFont title_font = title->GetFont();
-	int fontsize = title_font.GetPointSize();
-	title_font.SetPointSize(fontsize * 1.375);
+	const int fontsize = title_font.GetPointSize();
+	title_font.SetPointSize(fontsize);
 	title_font.SetWeight(wxFONTWEIGHT_BOLD);
 	title->SetFont(title_font);
 
@@ -145,7 +145,7 @@ DialogProgress::DialogProgress(wxWindow *parent, wxString const& title_text, wxS
 	sizer->Add(cancel_button, wxSizerFlags().Center().Border());
 	sizer->Add(log_output, wxSizerFlags().Expand().Border(wxALL & ~wxTOP));
 	sizer->Hide(log_output);
-	sizer->SetMinSize(wxWindow::FromDIP(350, parent), wxWindow::FromDIP(-1, parent));
+	sizer->SetMinSize(wxWindow::FromDIP(420, parent), wxWindow::FromDIP(-1, parent));
 
 	SetSizerAndFit(sizer);
 	CenterOnParent();
