@@ -315,7 +315,8 @@
 			"Timecodes" : "",
 			"Video" : ""
 		},
-		"Screenshot" : "?video"
+		"Screenshot" : "?video",
+		"ClipExport" : ""
 	},
 
 
