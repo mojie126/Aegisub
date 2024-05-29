@@ -6923,8 +6923,8 @@ msgstr "结束帧："
 msgid "The end frame cannot be less than or equal to the start frame"
 msgstr "结束帧不能小于或等于起始帧"
 
-msgid "Exporting video clips, frame: [%ld ~ %ld], please later"
-msgstr "正在导出视频片段 [%ld ~ %ld]，请稍后..."
+msgid "Exporting video clips, frame: [%ld ~ %ld], total: %d, please later"
+msgstr "正在导出视频片段 [%ld ~ %ld]，总计：%d，请稍后..."
 
 msgid "Export image sequence"
 msgstr "导出为图片序列"
