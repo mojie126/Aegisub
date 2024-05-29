@@ -743,8 +743,23 @@ namespace {
 		}
 
 		int current_frame = 1;
-		const std::string output_path{agi::wxformat("%s [%ld-%ld]", output_filename, start_frame, end_frame)};
-		_mkdir(output_path.c_str());
+		std::string output_path;
+		auto clip_export_path = OPT_GET("Path/ClipExport")->GetString();
+		clip_export_path = wxString(clip_export_path.c_str(), wxConvUTF8).ToStdString();
+		if (clip_export_path.empty()) {
+			output_path = agi::wxformat("%s [%ld-%ld]", output_filename, start_frame, end_frame);
+			_mkdir(output_path.c_str());
+		} else {
+			output_path = clip_export_path;
+			wxString filename;
+			const wxDir dir(output_path);
+			bool cont = dir.GetFirst(&filename, wxEmptyString, wxDIR_FILES);
+			while (cont) {
+				const std::string _tmp_file{output_path + wxFileName::GetPathSeparator() + filename};
+				wxRemoveFile(_tmp_file);
+				cont = dir.GetNext(&filename);
+			}
+		}
 
 		// Seek to the start time in milliseconds
 		// const auto start_pts = static_cast<int64_t>(floor(start_time / (av_q2d(input_stream->time_base) * AV_TIME_BASE)));
@@ -873,7 +888,12 @@ namespace {
 		if (!getOutputImg()) {
 			path = agi::format("%s_[%ld-%ld].mp4", basepath.string(), getStartFrame(), getEndFrame());
 		} else {
-			path = agi::format("%s", basepath.string());
+			auto clip_export_path = OPT_GET("Path/ClipExport")->GetString();
+			clip_export_path = wxString(clip_export_path.c_str(), wxConvUTF8).ToStdString();
+			if (clip_export_path.empty())
+				path = agi::format("%s", basepath.string());
+			else
+				path = agi::format("%s", clip_export_path);
 			const wxFileName fName(videoname.c_str());
 			img_path = fName.GetName();
 		}
