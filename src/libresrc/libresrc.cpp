@@ -22,16 +22,16 @@
 
 wxBitmap libresrc_getimage(const unsigned char *buff, size_t size, double scale, int dir) {
 	wxMemoryInputStream mem(buff, size);
-	#if wxCHECK_VERSION(9, 9, 9)
+	#if wxCHECK_VERSION(3, 1, 5)
 	const auto wx_image = wxImage(mem);
 	wxBitmap wx_bitmap;
 	if (dir != wxLayout_RightToLeft) {
-		wx_bitmap = wxBitmap(wx_image);
-		wx_bitmap.SetSize(wx_image.GetWidth() / 2, wx_image.GetHeight() / 2);
+		wx_bitmap = wxBitmap(wx_image, wxBITMAP_SCREEN_DEPTH, scale);
+		wx_bitmap.GetGDIImageData()->SetSize(wx_image.GetWidth() / 2, wx_image.GetHeight() / 2);
 		return wx_bitmap;
 	}
-	wx_bitmap = wxBitmap(wx_image.Mirror());
-	wx_bitmap.SetSize(wx_image.GetWidth() / 2, wx_image.GetHeight() / 2);
+	wx_bitmap = wxBitmap(wx_image.Mirror(), wxBITMAP_SCREEN_DEPTH, scale);
+	wx_bitmap.GetGDIImageData()->SetSize(wx_image.GetWidth() / 2, wx_image.GetHeight() / 2);
 	return wx_bitmap;
 	#else
 	if (dir != wxLayout_RightToLeft)
