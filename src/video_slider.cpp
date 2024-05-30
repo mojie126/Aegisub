@@ -57,8 +57,8 @@ VideoSlider::VideoSlider (wxWindow* parent, agi::Context *c)
 	c->project->AddKeyframesListener(&VideoSlider::KeyframesChanged, this),
 }))
 {
-	SetClientSize(20,25);
-	SetMinSize(wxSize(20, 25));
+	SetClientSize(FromDIP(20), FromDIP(25));
+	SetMinSize(FromDIP(wxSize(20, 25)));
 	SetBackgroundStyle(wxBG_STYLE_PAINT);
 
 	c->videoSlider = this;
@@ -155,6 +155,7 @@ void VideoSlider::OnMouse(wxMouseEvent &event) {
 			SetValue(val + (event.GetWheelRotation() > 0 ? -1 : 1));
 			c->videoController->JumpToFrame(val);
 		}
+
 	}
 }
 
