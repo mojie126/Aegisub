@@ -767,9 +767,9 @@ namespace {
 		// Seek to the start time in milliseconds
 		// const auto start_pts = static_cast<int64_t>(floor(start_time / (av_q2d(input_stream->time_base) * AV_TIME_BASE)));
 		// const auto end_pts = static_cast<int64_t>(ceil(end_time / (av_q2d(input_stream->time_base) * AV_TIME_BASE)));
-		const int64_t start_pts = av_rescale_q(start_time, input_stream->time_base, input_stream->time_base);
-		const int64_t end_pts = av_rescale_q(end_time, input_stream->time_base, input_stream->time_base);
-		if (avformat_seek_file(input_format_context, video_stream_index, INT64_MIN, start_pts, INT64_MAX, 0) < 0) {
+		// const int64_t start_pts = av_rescale_q(start_time, input_stream->time_base, input_stream->time_base);
+		// const int64_t end_pts = av_rescale_q(end_time, input_stream->time_base, input_stream->time_base);
+		if (avformat_seek_file(input_format_context, video_stream_index, INT64_MIN, start_time, INT64_MAX, 0) < 0) {
 			std::cerr << "Error seeking to the specified start time." << std::endl;
 			return false;
 		}
@@ -777,32 +777,21 @@ namespace {
 		// Flush decoder after seeking
 		avcodec_flush_buffers(decoder_context);
 		av_packet_unref(packet);
-		bool seeking = true;
 		int duration_frame = end_frame - start_frame + 1;
 
 		// Read frames from the file
 		while (av_read_frame(input_format_context, packet) >= 0) {
 			if (packet->stream_index == video_stream_index) {
-				if (seeking) {
-					// 丢弃非关键帧，确保从关键帧开始解码以避免花屏
-					if (!(packet->flags & AV_PKT_FLAG_KEY)) {
-						av_packet_unref(packet);
-						continue;
-					}
-					if (packet->pts >= start_pts) {
-						seeking = false;
-					} else {
-						av_packet_unref(packet);
-						continue;
-					}
-				}
-
 				if (avcodec_send_packet(decoder_context, packet) < 0) {
 					std::cerr << "Error sending a packet for decoding." << std::endl;
 					break;
 				}
 
 				if (avcodec_receive_frame(decoder_context, frame) >= 0) {
+					// 关键，这里是与motion插件保持起始帧一致的关键
+					if (frame->pts < start_time) {
+						continue;
+					}
 					// 向滤镜添加帧
 					if (av_buffersrc_add_frame(buffersrc_ctx, frame) < 0) {
 						std::cerr << "Failed to add frame to filter graph." << std::endl;
