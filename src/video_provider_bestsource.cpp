@@ -22,8 +22,6 @@
 #ifdef WITH_BESTSOURCE
 #include "include/aegisub/video_provider.h"
 
-namespace std { class string_view; }
-
 #include "bestsource_common.h"
 
 #include "videosource.h"
