@@ -44,9 +44,13 @@ jobs:
             -   name: cache Aegisub build
                 uses: actions/cache@v4
                 with:
-                    path: D:/a/Aegisub/Aegisub/build
+                    path: D:\a\Aegisub\Aegisub\build
                     key: Aegisub-build-${{ steps.set_date.outputs.date }}
                     restore-keys: Aegisub-build-
+            -   name: delete git_version.h
+                run: |
+                    rm -f /d/Aegisub/Aegisub/build/git_version.h
+                shell: bash
             -   uses: actions/checkout@v4
                 with:
                     fetch-depth: '0'
