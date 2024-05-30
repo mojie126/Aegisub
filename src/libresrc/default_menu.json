@@ -18,6 +18,7 @@
         { "command" : "time/continuous/end", "text" : "&Make times continuous (change end)" },
         { "command" : "edit/line/recombine" },
         {},
+        { "command" : "video/save/clip" },
         { "command" : "audio/save/clip" },
         {},
         { "command" : "grid/fold/create" },
