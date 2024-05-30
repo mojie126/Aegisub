@@ -919,6 +919,22 @@ namespace {
 		}
 	};
 
+	struct video_save_clip final : validator_video_loaded {
+		CMD_NAME("video/save/clip")
+		STR_MENU("Create video clip")
+		STR_DISP("Create video clip")
+		STR_HELP("Export video clips from frame to frame at a specified time of the selected line")
+		CMD_TYPE(COMMAND_VALIDATE)
+
+		bool Validate(const agi::Context *c) override {
+			return c->project->VideoProvider() && !c->selectionController->GetSelectedSet().empty();
+		}
+
+		void operator()(agi::Context *c) override {
+			export_clip(c);
+		}
+	};
+
 	struct video_jump final : public validator_video_loaded {
 		CMD_NAME("video/jump")
 		CMD_ICON(jumpto_button)
@@ -1192,6 +1208,7 @@ namespace cmd {
 		reg(agi::make_unique<video_frame_save_raw>());
 		reg(agi::make_unique<video_frame_save_subs>());
 		reg(agi::make_unique<video_frame_export>());
+		reg(agi::make_unique<video_save_clip>());
 		reg(agi::make_unique<video_jump>());
 		reg(agi::make_unique<video_jump_end>());
 		reg(agi::make_unique<video_jump_start>());
