@@ -2,6 +2,9 @@ name: Aegisub CI
 
 on: [ workflow_dispatch ]
 
+env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
     build:
         name: ${{ matrix.config.name }}
@@ -37,23 +40,28 @@ jobs:
             -   name: set current date
                 id: set_date
                 run: |
-                    date=$(date +'%Y-%m')
+                    date=$(TZ='Asia/Shanghai' date +'%Y-%m')
                     echo "date=$date" >> $GITHUB_OUTPUT
-                shell: bash
-
-            -   name: cache Aegisub build
-                uses: actions/cache@v4
-                with:
-                    path: D:\a\Aegisub\Aegisub\build
-                    key: Aegisub-build-${{ steps.set_date.outputs.date }}
-                    restore-keys: Aegisub-build-
-            -   name: delete git_version.h
-                run: |
-                    rm -f /d/Aegisub/Aegisub/build/git_version.h
                 shell: bash
             -   uses: actions/checkout@v4
                 with:
                     fetch-depth: '0'
+
+            -   name: cache Aegisub build
+                id: Aegisub_cache
+                uses: actions/cache@v4
+                with:
+                    path: |
+                        D:\a\Aegisub\Aegisub\build
+                        D:\a\Aegisub\Aegisub\subprojects
+                    key: Aegisub-build-${{ steps.set_date.outputs.date }}
+                    restore-keys: Aegisub-build-
+
+            -   name: delete git_version.h
+                run: |
+                    ls -lah /d/a/Aegisub/Aegisub/subprojects
+                    rm -f /d/a/Aegisub/Aegisub/build/git_version.h
+                shell: bash
 
             -   uses: actions/setup-python@v5
                 with:
@@ -89,6 +97,7 @@ jobs:
                     popd
 
             -   name: Configure
+                if: steps.Aegisub_cache.outputs.cache-hit != 'true'
                 run: |
                     meson setup build ${{ matrix.config.args }} -Dbuildtype=${{ matrix.config.buildtype }}
                     meson configure build
@@ -96,14 +105,12 @@ jobs:
             -   name: Build
                 run: meson compile -C build -j(Get-WmiObject -Class Win32_Processor).NumberOfLogicalProcessors
 
-#            -   name: Run test
-#                run: meson test -C build --verbose "gtest main"
+            #            -   name: Run test
+            #                run: meson test -C build --verbose "gtest main"
 
             # Windows artifacts
             -   name: Generate Windows installer
                 if: matrix.config.os == 'windows-latest'
-                env:
-                    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                 run:
                     meson compile win-installer -C build -j(Get-WmiObject -Class Win32_Processor).NumberOfLogicalProcessors
 
@@ -125,3 +132,19 @@ jobs:
                 with:
                     name: ${{ matrix.config.name }} - portable
                     path: build/aegisub-portable-64.zip
+
+            -   name: set release tag
+                id: set_tag
+                run: |
+                    mv build/Aegisub-*.exe build/aegisub-install-64.exe
+                    date=$(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M')
+                    echo "date=$date" >> $GITHUB_OUTPUT
+                shell: bash
+
+            -   name: create Release
+                uses: ncipollo/release-action@v1.14.0
+                with:
+                    allowUpdates: true
+                    artifacts: "build/aegisub-portable-64.zip,build/aegisub-install-64.exe"
+                    tag: ${{ steps.set_tag.outputs.date }}
+                    draft: true
