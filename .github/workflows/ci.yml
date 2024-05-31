@@ -4,6 +4,7 @@ on: [ workflow_dispatch ]
 
 env:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    TZ: Asia/Shanghai
 
 jobs:
     build:
@@ -105,8 +106,8 @@ jobs:
             -   name: Build
                 run: meson compile -C build -j(Get-WmiObject -Class Win32_Processor).NumberOfLogicalProcessors
 
-            #            -   name: Run test
-            #                run: meson test -C build --verbose "gtest main"
+#            -   name: Run test
+#                run: meson test -C build --verbose "gtest main"
 
             # Windows artifacts
             -   name: Generate Windows installer
@@ -118,21 +119,6 @@ jobs:
                 if: matrix.config.os == 'windows-latest'
                 run: meson compile win-portable -C build -j(Get-WmiObject -Class Win32_Processor).NumberOfLogicalProcessors
 
-            -   name: Upload artifacts - win_installer
-                uses: actions/upload-artifact@v4
-                if: matrix.config.os == 'windows-latest'
-                with:
-                    name: ${{ matrix.config.name }} - installer
-                    path: build/Aegisub-*.exe
-                    if-no-files-found: error
-
-            -   name: Upload artifacts - portable.zip
-                uses: actions/upload-artifact@v4
-                if: matrix.config.os == 'windows-latest'
-                with:
-                    name: ${{ matrix.config.name }} - portable
-                    path: build/aegisub-portable-64.zip
-
             -   name: set release tag
                 id: set_tag
                 run: |
@@ -140,6 +126,21 @@ jobs:
                     date=$(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M')
                     echo "date=$date" >> $GITHUB_OUTPUT
                 shell: bash
+
+#            -   name: Upload artifacts - win_installer
+#                uses: actions/upload-artifact@v4
+#                if: matrix.config.os == 'windows-latest'
+#                with:
+#                    name: ${{ matrix.config.name }} - installer
+#                    path: build/aegisub-install-64.exe
+#                    if-no-files-found: error
+#
+#            -   name: Upload artifacts - portable.zip
+#                uses: actions/upload-artifact@v4
+#                if: matrix.config.os == 'windows-latest'
+#                with:
+#                    name: ${{ matrix.config.name }} - portable
+#                    path: build/aegisub-portable-64.zip
 
             -   name: create Release
                 uses: ncipollo/release-action@v1.14.0
