@@ -440,6 +440,8 @@ if host_machine.system() == 'windows'
     link_depends += manifest_file
 endif
 
+deps += dependency('mimalloc_static')
+
 aegisub = executable('aegisub', aegisub_src, version_h, acconf, resrc,
                      link_with: [libresrc, libluabins, libaegisub],
                      link_args: link_args,
