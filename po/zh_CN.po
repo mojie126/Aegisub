@@ -4549,7 +4549,7 @@ msgstr "无法解析样式"
 #, c-format
 msgid "Are you sure you want to delete this style?"
 msgid_plural "Are you sure you want to delete these %d styles?"
-msgstr[0] "您确定要删除这%d个样式？"
+msgstr[0] "你确定要删除这%d个样式？"
 
 #: ../src/dialog_style_manager.cpp:274
 msgid "Catalog of available storages"
@@ -4615,7 +4615,7 @@ msgstr "无效字符"
 #: ../src/dialog_style_manager.cpp:491
 #, c-format
 msgid "Are you sure you want to delete the storage \"%s\" from the catalog?"
-msgstr "您确定要将样式库“%s”从目录中删除吗？"
+msgstr "你确定要将样式库“%s”从目录中删除吗？"
 
 #: ../src/dialog_style_manager.cpp:492
 msgid "Confirm delete"
@@ -4678,7 +4678,7 @@ msgstr "样式导入"
 
 #: ../src/dialog_style_manager.cpp:840
 msgid "Are you sure? This cannot be undone!"
-msgstr "您确定吗？这些操作将无法恢复！"
+msgstr "你确定吗？这些操作将无法恢复！"
 
 #: ../src/dialog_style_manager.cpp:840
 msgid "Sort styles"
@@ -5132,11 +5132,11 @@ msgstr "轨道 %02d: %s"
 
 #: ../src/ffmpegsource_common.cpp:131
 msgid "Multiple audio tracks detected, please choose the one you wish to load:"
-msgstr "发现多条音频流，请选择您希望装载的那个："
+msgstr "发现多条音频流，请选择你希望装载的那个："
 
 #: ../src/ffmpegsource_common.cpp:131
 msgid "Multiple video tracks detected, please choose the one you wish to load:"
-msgstr "发现多条视频流，请选择您希望装载的那个："
+msgstr "发现多条视频流，请选择你希望装载的那个："
 
 #: ../src/ffmpegsource_common.cpp:132
 msgid "Choose audio track"
@@ -5334,7 +5334,7 @@ msgstr "检查更新吗？"
 
 #: ../src/main.cpp:303
 msgid "Do you want Aegisub to check for updates whenever it starts? You can still do it manually via the Help menu."
-msgstr "您想让Aegisub启动时检查更新吗？您也可以通过帮助菜单手动进行。"
+msgstr "你想让Aegisub启动时检查更新吗？你也可以通过帮助菜单手动进行。"
 
 #: ../src/main.cpp:420 ../src/main.cpp:423
 msgid "Program error"
@@ -5347,7 +5347,7 @@ msgid ""
 "\n"
 "Error Message: %s"
 msgstr ""
-"发生了一个意外错误。请保存您的文件并重启Aegisub。\n"
+"发生了一个意外错误。请保存你的文件并重启Aegisub。\n"
 "\n"
 "错误信息： %s"
 
@@ -5445,7 +5445,7 @@ msgid ""
 msgstr ""
 "所选的样式库将会在新建文件或者导入不同格式的文件时被自动加载。\n"
 "\n"
-"您可以在样式管理器中设置样式库。"
+"你可以在样式管理器中设置样式库。"
 
 #: ../src/preferences.cpp:115
 msgid "New files"
@@ -6026,7 +6026,7 @@ msgstr "高级"
 msgid "Changing these settings might result in bugs and/or crashes.  Do not touch these unless you know what you're doing."
 msgstr ""
 "修改这些设置可能导致出错，甚至异常崩溃， \n"
-"除非您知道自己在做什么，否则请不要修改这些设置。"
+"除非你知道自己在做什么，否则请不要修改这些设置。"
 
 #: ../src/preferences.cpp:379 ../src/preferences.cpp:455
 msgid "Expert"
@@ -6252,7 +6252,7 @@ msgstr "热键"
 
 #: ../src/preferences.cpp:746
 msgid "Are you sure that you want to restore the defaults? All your settings will be overridden."
-msgstr "您确定要恢复默认吗？您的所有设置都将被覆盖。"
+msgstr "你确定要恢复默认吗？你的所有设置都将被覆盖。"
 
 #: ../src/preferences.cpp:746
 msgid "Restore defaults?"
@@ -6284,7 +6284,7 @@ msgstr "字体大小"
 
 #: ../src/project.cpp:187
 msgid "Do you want to load/unload the associated files?"
-msgstr "您要加载/卸载相关文件吗？"
+msgstr "你要加载/卸载相关文件吗？"
 
 #: ../src/project.cpp:198
 #, c-format
@@ -6371,7 +6371,7 @@ msgstr "没有找到匹配项。"
 #: ../src/subs_controller.cpp:246
 #, c-format
 msgid "Do you want to save changes to %s?"
-msgstr "您想保存更改到 %s 吗？"
+msgstr "你想保存更改到 %s 吗？"
 
 #: ../src/subs_controller.cpp:246
 msgid "Unsaved changes"
@@ -6829,7 +6829,7 @@ msgstr "正在安装运行库…"
 
 #: packages/win_installer/fragment_strings.iss:1
 msgid "This will install Aegisub {#BUILD_GIT_VERSION_STRING} on your computer.%n%nAegisub is covered by the GNU General Public License version 2. This means you may use the application for any purpose without charge, but that no warranties of any kind are given either.%n%nSee the Aegisub website for information on obtaining the source code."
-msgstr "将会在您的电脑上安装Aegisub {#BUILD_GIT_VERSION_STRING} 。%n%nAegisub适用于GNU通用公共许可证第二版(GPLv2)，这意味着您可以将该应用程序用于任何目的而不需要支付费用，但同时也不会得到任何形式的担保。%n%n您可以到Aegisub官网获取源代码信息。"
+msgstr "将会在你的电脑上安装Aegisub {#BUILD_GIT_VERSION_STRING} 。%n%nAegisub适用于GNU通用公共许可证第二版(GPLv2)，这意味着你可以将该应用程序用于任何目的而不需要支付费用，但同时也不会得到任何形式的担保。%n%n你可以到Aegisub官网获取源代码信息。"
 
 #: packages/win_installer/fragment_strings.iss:1
 msgid "Update Checker:"
@@ -6938,6 +6938,12 @@ msgstr "创建音频剪辑"
 msgid "Export video clips from frame to frame at a specified time of the selected line"
 msgstr "导出所选行的视频关键帧图片序列"
 
+msgid "Turn off subtitles and related resources"
+msgstr "关闭字幕及相关资源"
+
+msgid "Close Subtitles"
+msgstr "关闭字幕"
+
 #~ msgid "    Subtitle format handler: %s"
 #~ msgstr "    字幕格式处理器： %s"
 
@@ -6963,7 +6969,7 @@ msgstr "导出所选行的视频关键帧图片序列"
 #~ msgstr "允许使用2.56a之前版本的Avisynth"
 
 #~ msgid "Are you sure you want to delete these %d styles?"
-#~ msgstr "您确定要删除这个 %d 样式？"
+#~ msgstr "你确定要删除这个 %d 样式？"
 
 #~ msgid "Below Normal (recommended)"
 #~ msgstr "低于正常（推荐）"
@@ -6993,7 +6999,7 @@ msgstr "导出所选行的视频关键帧图片序列"
 #~ msgstr "读取到磁盘缓存"
 
 #~ msgid "Removes all but the absolutely required fields from the Script Info section. You might want to run this on files that you plan to distribute in original form."
-#~ msgstr "移除字幕脚本属性中所有不必要的信息。您可以将其用于要以原始形式分发的文件。"
+#~ msgstr "移除字幕脚本属性中所有不必要的信息。你可以将其用于要以原始形式分发的文件。"
 
 #~ msgid "Selection was set to %u lines"
 #~ msgstr "所选被设为 %u 行"
@@ -7005,4 +7011,4 @@ msgstr "导出所选行的视频关键帧图片序列"
 #~ msgstr "访问Aegisub的论坛"
 
 #~ msgid "You already have timecodes loaded. Would you like to replace them with timecodes from the video file?"
-#~ msgstr "您已经加载过时间码。是否要用视频文件中的时间码替换？"
+#~ msgstr "你已经加载过时间码。是否要用视频文件中的时间码替换？"
