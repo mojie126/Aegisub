@@ -41,7 +41,7 @@ jobs:
             -   name: set current date
                 id: set_date
                 run: |
-                    date=$(TZ='Asia/Shanghai' date +'%Y-%m')
+                    date=$(date -d '+8 hour' +'%Y-%m')
                     echo "date=$date" >> $GITHUB_OUTPUT
                 shell: bash
             -   uses: actions/checkout@v4
@@ -123,7 +123,7 @@ jobs:
                 id: set_tag
                 run: |
                     mv build/Aegisub-*.exe build/aegisub-install-64.exe
-                    date=$(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M')
+                    date=$(date -d '+8 hour' +'%Y-%m-%d %H:%M')
                     echo "date=$date" >> $GITHUB_OUTPUT
                 shell: bash
 
