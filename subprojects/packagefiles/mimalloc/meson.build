@@ -40,8 +40,7 @@ mimalloc_static = static_library(
 		'/DNDEBUG',
 		'-MD',
 		'/Zc:__cplusplus',
-		'-DMI_STATIC_LIB',
-		'-DMI_MALLOC=1'
+		'-DMI_STATIC_LIB'
 	],
 	c_args : [
 		'/DWIN32',
@@ -52,8 +51,7 @@ mimalloc_static = static_library(
 		'/DNDEBUG',
 		'-MD',
 		'/Zc:__cplusplus',
-		'-DMI_STATIC_LIB',
-		'-DMI_MALLOC=1'
+		'-DMI_STATIC_LIB'
 	],
 	pic : false
 )
