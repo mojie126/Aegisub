@@ -72,6 +72,8 @@ conf.set('WITH_UPDATE_CHECKER', get_option('enable_update_checker'))
 deps = []
 deps_inc = []
 dep_avail = []
+add_project_arguments('-DMI_MALLOC=1', language: ['cpp', 'c'])
+deps += dependency('mimalloc_static')
 deps += dependency('ffnvcodec')
 #deps += dependency('vpl')
 
@@ -439,8 +441,6 @@ if host_machine.system() == 'windows'
     link_args += ['/MANIFEST:EMBED', '/MANIFESTINPUT:@0@'.format(manifest_file)]
     link_depends += manifest_file
 endif
-
-deps += dependency('mimalloc_static')
 
 aegisub = executable('aegisub', aegisub_src, version_h, acconf, resrc,
                      link_with: [libresrc, libluabins, libaegisub],
