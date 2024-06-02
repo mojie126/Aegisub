@@ -1,3 +1,3 @@
-project('vapoursynth', 'cpp', version : 'R67')
+project('vapoursynth', 'cpp', version : 'R68')
 
 vs_inc = include_directories('include')

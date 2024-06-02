@@ -1,4 +1,4 @@
-project('uchardet', 'cpp', version: '0.0.7', meson_version: '>=0.57.0')
+project('uchardet', 'cpp', version: '0.0.8', meson_version: '>=0.57.0')
 
 inc = include_directories('src')
 
