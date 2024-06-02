@@ -22,8 +22,6 @@
 #ifdef WITH_BESTSOURCE
 #include "include/aegisub/video_provider.h"
 
-namespace std { class string_view; }
-
 #include "bestsource_common.h"
 
 #include "videosource.h"
@@ -130,7 +128,7 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 		ps->SetTitle(from_wx(_("Indexing")));
 		ps->SetMessage(from_wx(_("Decoding the full track to ensure perfect frame accuracy. This will take a while!")));
 		try {
-			bs = agi::make_unique<BestVideoSource>(filename.string(), "", 0, static_cast<int>(track_info.first), false, OPT_GET("Provider/Video/BestSource/Threads")->GetInt(), provider_bs::GetCacheFile(filename), &bsopts, [=](int Track, int64_t Current, int64_t Total) {
+			bs = agi::make_unique<BestVideoSource>(filename.string(), "", 0, static_cast<int>(track_info.first), false, OPT_GET("Provider/Video/BestSource/Threads")->GetInt(), 1, provider_bs::GetCacheFile(filename), &bsopts, [=](int Track, int64_t Current, int64_t Total) {
 				ps->SetProgress(Current, Total);
 				return !ps->IsCancelled();
 			});
