@@ -29,6 +29,8 @@
 //
 // Aegisub Project http://www.aegisub.org/
 
+#include <project.h>
+
 #include "command.h"
 
 #include "../compat.h"
@@ -61,6 +63,18 @@ struct tool_assdraw final : public Command {
 
 	void operator()(agi::Context *) override {
 		wxExecute("\"" + config::path->Decode("?data/ASSDraw3.exe").string() + "\"");
+	}
+};
+
+struct close_subtitles final : public Command {
+	CMD_NAME("tool/close_subtitles")
+	STR_MENU("Close Subtitles")
+	STR_DISP("Close Subtitles")
+	STR_HELP("Turn off subtitles and related resources")
+
+	void operator()(agi::Context *c) override {
+		c->videoController->Stop();
+		c->project->CloseSubtitles();
 	}
 };
 
@@ -278,6 +292,7 @@ struct tool_translation_assistant_insert final : public tool_translation_assista
 
 namespace cmd {
 	void init_tool() {
+		reg(agi::make_unique<close_subtitles>());
 		reg(agi::make_unique<tool_export>());
 		reg(agi::make_unique<tool_font_collector>());
 		reg(agi::make_unique<tool_line_select>());

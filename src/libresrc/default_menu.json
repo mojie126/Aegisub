@@ -52,6 +52,7 @@
         { "command" : "subtitle/save" },
         { "command" : "subtitle/save/as" },
         { "command" : "tool/export" },
+        { "command" : "tool/close_subtitles" },
         { "recent" : "Subtitle" },
         {},
         { "command" : "subtitle/properties" },
