@@ -21,8 +21,6 @@
 
 #ifdef WITH_BESTSOURCE
 
-namespace std { class string_view; }
-
 #include <bsshared.h>
 
 #include <libaegisub/fs_fwd.h>
