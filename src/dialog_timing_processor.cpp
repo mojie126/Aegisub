@@ -246,6 +246,7 @@ DialogTimingProcessor::DialogTimingProcessor(agi::Context *c)
 	// Button sizer
 	auto ButtonSizer = d.CreateStdDialogButtonSizer(wxOK | wxCANCEL | wxHELP);
 	ApplyButton = ButtonSizer->GetAffirmativeButton();
+	ButtonSizer->GetHelpButton()->SetLabel(_("Help"));
 	ButtonSizer->GetHelpButton()->Bind(wxEVT_BUTTON, bind(&HelpButton::OpenPage, "Timing Processor"));
 
 	// Right Sizer

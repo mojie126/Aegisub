@@ -195,7 +195,9 @@ DialogResample::DialogResample(agi::Context *c, ResampleSettings &settings)
 	main_sizer->Add(dest_res_box, wxSizerFlags().Expand().Border());
 	main_sizer->Add(ar_mode, wxSizerFlags().Expand().Border());
 	main_sizer->Add(margin_box, wxSizerFlags(1).Expand().Border());
-	main_sizer->Add(d.CreateStdDialogButtonSizer(wxOK | wxCANCEL | wxHELP), wxSizerFlags().Expand().Border(wxALL & ~wxTOP));
+	const auto btn = d.CreateStdDialogButtonSizer(wxOK | wxCANCEL | wxHELP);
+	btn->GetHelpButton()->SetLabel(_("Help"));
+	main_sizer->Add(btn, wxSizerFlags().Expand().Border(wxALL & ~wxTOP));
 	d.SetSizerAndFit(main_sizer);
 	d.CenterOnParent();
 

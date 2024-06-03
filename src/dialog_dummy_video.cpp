@@ -124,6 +124,7 @@ DialogDummyVideo::DialogDummyVideo(wxWindow *parent)
 	AddCtrl("", length_display = new wxStaticText(&d, -1, ""));
 
 	auto btn_sizer = d.CreateStdDialogButtonSizer(wxOK | wxCANCEL | wxHELP);
+	btn_sizer->GetHelpButton()->SetLabel(_("Help"));
 	btn_sizer->GetHelpButton()->Bind(wxEVT_BUTTON, std::bind(&HelpButton::OpenPage, "Dummy Video"));
 
 	auto main_sizer = new wxBoxSizer(wxVERTICAL);

@@ -704,6 +704,7 @@ DialogColorPicker::DialogColorPicker(wxWindow *parent, agi::Color initial_color,
 	colorspace_choice->Bind(wxEVT_CHOICE, &DialogColorPicker::OnChangeMode, this);
 
 	button_sizer->GetHelpButton()->Bind(wxEVT_BUTTON, bind(&HelpButton::OpenPage, "Colour Picker"));
+	button_sizer->GetHelpButton()->SetLabel(_("Help"));
 }
 
 template<int N, class Control>

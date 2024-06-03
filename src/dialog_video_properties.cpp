@@ -66,7 +66,9 @@ int prompt(wxWindow *parent, bool ar_changed, int sx, int sy, int vx, int vy) {
 		rb = new wxRadioBox(&d, -1, "", wxDefaultPosition, wxDefaultSize, 2, choices, 1);
 	}
 	sizer->Add(rb, wxSizerFlags().Border(wxALL & ~wxTOP).Expand());
-	sizer->Add(d.CreateStdDialogButtonSizer(wxOK | wxCANCEL | wxHELP), wxSizerFlags().Border().Expand());
+	const auto btn = d.CreateStdDialogButtonSizer(wxOK | wxCANCEL | wxHELP);
+	btn->GetHelpButton()->SetLabel(_("Help"));
+	sizer->Add(btn, wxSizerFlags().Border().Expand());
 
 	unsigned int sel = OPT_GET("Video/Last Script Resolution Mismatch Choice")->GetInt();
 	rb->SetSelection(std::min(sel - 1, rb->GetCount()));

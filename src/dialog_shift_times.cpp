@@ -220,7 +220,9 @@ DialogShiftTimes::DialogShiftTimes(agi::Context *context)
 
 	wxSizer *main_sizer = new wxBoxSizer(wxVERTICAL);
 	main_sizer->Add(top_sizer, wxSizerFlags().Border(wxALL & ~wxBOTTOM));
-	main_sizer->Add(CreateButtonSizer(wxOK | wxCANCEL | wxHELP), wxSizerFlags().Right().Border());
+	const auto btn = CreateStdDialogButtonSizer(wxOK | wxCANCEL | wxHELP);
+	btn->GetHelpButton()->SetLabel(_("Help"));
+	main_sizer->Add(btn, wxSizerFlags().Right().Border());
 	SetSizerAndFit(main_sizer);
 	CenterOnParent();
 
