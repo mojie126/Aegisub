@@ -21,10 +21,19 @@
 class wxBitmap;
 class wxIcon;
 
+bool IsWindows10OrGreater();
+float getScaleFactor();
 wxBitmap libresrc_getimage(const unsigned char *image, size_t size, double scale=1.0, int dir=0);
 wxIcon libresrc_geticon(const unsigned char *image, size_t size);
 #define GETIMAGE(a) libresrc_getimage(a, sizeof(a))
 #define GETIMAGEDIR(a, s, d) libresrc_getimage(a, sizeof(a), s, d)
 #define GETICON(a) libresrc_geticon(a, sizeof(a))
+#define ICON(name) ( \
+	OPT_GET("App/Toolbar Icon Size")->GetInt() >= 64 ? GETIMAGE(name##_64) : \
+	OPT_GET("App/Toolbar Icon Size")->GetInt() >= 48 ? GETIMAGE(name##_48) : \
+	OPT_GET("App/Toolbar Icon Size")->GetInt() >= 32 ? GETIMAGE(name##_32) : \
+	OPT_GET("App/Toolbar Icon Size")->GetInt() >= 24 ? GETIMAGE(name##_24) : \
+	GETIMAGE(name##_16) \
+)
 
 #define GET_DEFAULT_CONFIG(a) std::make_pair(reinterpret_cast<const char *>(a), sizeof(a))

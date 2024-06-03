@@ -19,6 +19,7 @@
 #pragma once
 
 #include <map>
+#include <options.h>
 #include <string>
 #include <vector>
 
@@ -37,10 +38,10 @@ namespace agi { struct Context; }
 #define CMD_TYPE(a) int Type() const override { using namespace cmd; return a; }
 
 #define CMD_ICON(icon) wxBitmap Icon(int size, double scale = 1.0, wxLayoutDirection dir = wxLayout_LeftToRight) const override { \
-	if (size * scale >= 64) return GETIMAGEDIR(icon##_64, scale, dir); \
-	if (size * scale >= 48) return GETIMAGEDIR(icon##_48, scale, dir); \
-	if (size * scale >= 32) return GETIMAGEDIR(icon##_32, scale, dir); \
-	if (size * scale >= 24) return GETIMAGEDIR(icon##_24, scale, dir); \
+	if (OPT_GET("App/Toolbar Icon Size")->GetInt() >= 64) return GETIMAGEDIR(icon##_64, scale, dir); \
+	if (OPT_GET("App/Toolbar Icon Size")->GetInt() >= 48) return GETIMAGEDIR(icon##_48, scale, dir); \
+	if (OPT_GET("App/Toolbar Icon Size")->GetInt() >= 32) return GETIMAGEDIR(icon##_32, scale, dir); \
+	if (OPT_GET("App/Toolbar Icon Size")->GetInt() >= 24) return GETIMAGEDIR(icon##_24, scale, dir); \
 	return GETIMAGEDIR(icon##_16, scale, dir); \
 }
 
