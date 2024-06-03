@@ -96,6 +96,7 @@ DialogPasteOver::DialogPasteOver(wxWindow *parent)
 
 	// Buttons
 	auto ButtonSizer = d.CreateStdDialogButtonSizer(wxOK | wxCANCEL | wxHELP);
+	ButtonSizer->GetHelpButton()->SetLabel(_("Help"));
 	d.Bind(wxEVT_BUTTON, &DialogPasteOver::OnOK, this, wxID_OK);
 	d.Bind(wxEVT_BUTTON, std::bind(&HelpButton::OpenPage, "Paste Over"), wxID_HELP);
 

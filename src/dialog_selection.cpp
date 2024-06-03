@@ -150,7 +150,9 @@ wxDialog (c->parent, -1, _("Select"), wxDefaultPosition, wxDefaultSize, wxCAPTIO
 		main_sizer->Add(selection_change_type = new wxRadioBox(this, -1, _("Action"), wxDefaultPosition, wxDefaultSize, 4, actions, 1), main_flags);
 	}
 
-	main_sizer->Add(CreateButtonSizer(wxOK | wxCANCEL | wxAPPLY | wxHELP), main_flags);
+	const auto btn = CreateStdDialogButtonSizer(wxOK | wxCANCEL | wxAPPLY | wxHELP);
+	btn->GetHelpButton()->SetLabel(_("Help"));
+	main_sizer->Add(btn, main_flags);
 
 	SetSizerAndFit(main_sizer);
 	CenterOnParent();

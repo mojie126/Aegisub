@@ -154,6 +154,7 @@ DialogExport::DialogExport(agi::Context *c)
 
 	auto btn_sizer = d.CreateStdDialogButtonSizer(wxOK | wxCANCEL | wxHELP);
 	btn_sizer->GetAffirmativeButton()->SetLabelText(_("Export..."));
+	btn_sizer->GetHelpButton()->SetLabel(_("Help"));
 	d.Bind(wxEVT_BUTTON, &DialogExport::OnProcess, this, wxID_OK);
 	d.Bind(wxEVT_BUTTON, std::bind(&HelpButton::OpenPage, "Export"), wxID_HELP);
 

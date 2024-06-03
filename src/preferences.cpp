@@ -830,6 +830,7 @@ Preferences::Preferences(wxWindow *parent): wxDialog(parent, -1, _("Preferences"
 
 	// Bottom Buttons
 	auto stdButtonSizer = CreateStdDialogButtonSizer(wxOK | wxCANCEL | wxAPPLY | wxHELP);
+	stdButtonSizer->GetHelpButton()->SetLabel(_("Help"));
 	applyButton = stdButtonSizer->GetApplyButton();
 	wxSizer *buttonSizer = new wxBoxSizer(wxHORIZONTAL);
 	auto defaultButton = new wxButton(this, -1, _("&Restore Defaults"));

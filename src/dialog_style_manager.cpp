@@ -313,6 +313,7 @@ DialogStyleManager::DialogStyleManager(agi::Context *context)
 	// Buttons
 	wxStdDialogButtonSizer *buttonSizer = CreateStdDialogButtonSizer(wxCANCEL | wxHELP);
 	buttonSizer->GetCancelButton()->SetLabel(_("Close"));
+	buttonSizer->GetHelpButton()->SetLabel(_("Help"));
 	Bind(wxEVT_BUTTON, bind(&HelpButton::OpenPage, "Styles Manager"), wxID_HELP);
 
 	// General layout
