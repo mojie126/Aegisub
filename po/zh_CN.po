@@ -6933,7 +6933,7 @@ msgid "Clip export path"
 msgstr "视频片段导出路径"
 
 msgid "Create video clip"
-msgstr "创建音频剪辑"
+msgstr "创建视频剪辑"
 
 msgid "Export video clips from frame to frame at a specified time of the selected line"
 msgstr "导出所选行的视频关键帧图片序列"
