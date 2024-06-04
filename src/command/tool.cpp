@@ -221,7 +221,7 @@ struct tool_translation_assistant final : public Command {
 			c->dialog->ShowModal<DialogTranslation>(c);
 		}
 		catch (DialogTranslation::NothingToTranslate const&) {
-			wxMessageBox(_("There is nothing to translate in the file."));
+			wxMessageBox(_("There is nothing to translate in the file."), _("Message"));
 		}
 	}
 };

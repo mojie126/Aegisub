@@ -6944,6 +6944,9 @@ msgstr "关闭字幕及相关资源"
 msgid "Close Subtitles"
 msgstr "关闭字幕"
 
+msgid "Message"
+msgstr "信息"
+
 #~ msgid "    Subtitle format handler: %s"
 #~ msgstr "    字幕格式处理器： %s"
 
