@@ -31,7 +31,7 @@
 			"HD" : {
 				"Location" : "default"
 			},
-			"Type" : 1
+			"Type" : 2
 		},
 		"Colour Schemes" : [
 			{ "string" : "Green" },
@@ -429,7 +429,7 @@
 			"Font Face" : "Tahoma",
 			"Font Size" : 8,
 			"Hide Overrides" : 1,
-			"Hide Overrides Char" : "☀",
+			"Hide Overrides Char" : "★",
 			"Highlight Subtitles in Frame" : true
 		},
 		"Highlight" : {
@@ -658,9 +658,9 @@
 		"Dummy" : {
 			"FPS String" : "24000/1001",
 			"Last" : {
-				"Height" : 720,
+				"Height" : 1080,
 				"Length" : 40000,
-				"Width" : 1280
+				"Width" : 1920
 			},
 			"Pattern" : false
 		},
