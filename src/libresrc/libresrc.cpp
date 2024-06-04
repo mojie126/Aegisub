@@ -51,12 +51,12 @@ wxBitmap libresrc_getimage(const unsigned char *buff, size_t size, double scale,
 	const float scaleFactor = getScaleFactor();
 	if (dir != wxLayout_RightToLeft) {
 		wx_bitmap = wxBitmap(wx_image, wxBITMAP_SCREEN_DEPTH, scale);
-		if (scaleFactor >= 2)
+		if (scaleFactor >= 1.5f)
 			wx_bitmap.GetGDIImageData()->SetSize(wx_image.GetWidth() / 2, wx_image.GetHeight() / 2);
 		return wx_bitmap;
 	}
 	wx_bitmap = wxBitmap(wx_image.Mirror(), wxBITMAP_SCREEN_DEPTH, scale);
-	if (scaleFactor >= 2)
+	if (scaleFactor >= 1.5f)
 		wx_bitmap.GetGDIImageData()->SetSize(wx_image.GetWidth() / 2, wx_image.GetHeight() / 2);
 	return wx_bitmap;
 	#else
