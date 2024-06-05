@@ -161,7 +161,7 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	layer->SetInitialSize(layer->GetSizeFromTextSize(GetTextExtent(wxS("00"))));
 #endif
 	layer->SetToolTip(_("Layer number"));
-	middle_left_sizer->Add(layer, wxSizerFlags().Expand());
+	middle_left_sizer->Add(layer, wxSizerFlags().CenterVertical());
 	middle_left_sizer->AddSpacer(5);
 
 	start_time = MakeTimeCtrl(_("Start time"), TIME_START);
@@ -272,7 +272,7 @@ wxTextCtrl *SubsEditBox::MakeMarginCtrl(wxString const& tooltip, int margin, wxS
 	ctrl->SetInitialSize(ctrl->GetSizeFromTextSize(GetTextExtent(wxS("0000"))));
 	ctrl->SetMaxLength(5);
 	ctrl->SetToolTip(tooltip);
-	middle_left_sizer->Add(ctrl, wxSizerFlags().Expand());
+	middle_left_sizer->Add(ctrl, wxSizerFlags().CenterVertical());
 
 	Bind(wxEVT_TEXT, [=](wxCommandEvent&) {
 		int value = agi::util::mid(-9999, atoi(ctrl->GetValue().utf8_str()), 99999);
@@ -289,7 +289,7 @@ TimeEdit *SubsEditBox::MakeTimeCtrl(wxString const& tooltip, TimeField field) {
 	ctrl->SetToolTip(tooltip);
 	Bind(wxEVT_TEXT, [=](wxCommandEvent&) { CommitTimes(field); }, ctrl->GetId());
 	ctrl->Bind(wxEVT_CHAR_HOOK, time_edit_char_hook);
-	middle_left_sizer->Add(ctrl, wxSizerFlags().Expand());
+	middle_left_sizer->Add(ctrl, wxSizerFlags().CenterVertical());
 	return ctrl;
 }
 
