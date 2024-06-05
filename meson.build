@@ -78,10 +78,7 @@ deps += dependency('ffnvcodec')
 #deps += dependency('vpl')
 
 if host_machine.system() == 'darwin'
-    add_languages('objc', 'objcpp')
-    add_project_arguments('-DGL_SILENCE_DEPRECATION', language: 'cpp')
-    # meson neither supports objcpp_std nor inherits cpp_std https://github.com/mesonbuild/meson/issues/5495
-    add_project_arguments('-std=c++11', language: 'objcpp')
+    add_languages('objc', 'objcpp', native: false, required: true)
 elif host_machine.system() != 'windows'
     conf.set('WITH_FONTCONFIG', 1)
     deps += dependency('fontconfig')
@@ -206,8 +203,8 @@ else
     endif
 endif
 
-deps += dependency('icu-uc', version: '>=4.8.1.1')
-deps += dependency('icu-i18n', version: '>=4.8.1.1')
+deps += dependency('icu-uc', components: 'uc', allow_fallback: true, version: '>=4.8.1.1')
+deps += dependency('icu-i18n', components: 'i18n', allow_fallback: true, version: '>=4.8.1.1')
 
 foreach dep: [
     # audio, in order of precedence
@@ -226,14 +223,7 @@ foreach dep: [
     if not get_option(optname).disabled()
         # [provide] section is ignored if required is false;
         # must provided define fallback explicitly
-        # (with meson 0.56 you can do allow_fallback: true):
-        #d = dependency(dep[0], version: dep[1],
-        #               required: false, allow_fallback: true)
-        if dep[3].length() > 0
-            d = dependency(dep[0], version: dep[1], fallback: dep[3])
-        else
-            d = dependency(dep[0], version: dep[1], required: false)
-        endif
+        d = dependency(dep[0], version: dep[1], required: false, allow_fallback: true)
 
         if not d.found() and dep[4].length() > 0 and host_machine.system() == 'darwin'
             d = dependency('appleframeworks', modules: dep[4], required: false)
@@ -399,12 +389,9 @@ if not dep_gl.found()
         dep_gl = cc.find_library('GL', required: false)
     endif
 
-    if not cc.has_header('GL/gl.h')
+    if not cc.has_header('GL/glcorearb.h')
         dep_gl = dependency('', required: false)
     endif
-endif
-if host_machine.system() == 'darwin'
-    conf.set('HAVE_OPENGL_GL_H', 1)
 endif
 
 if not dep_gl.found()

@@ -46,10 +46,10 @@
 #include <algorithm>
 #include <boost/noncopyable.hpp>
 
-#ifdef HAVE_OPENGL_GL_H
-#include <OpenGL/gl.h>
+#ifdef __APPLE__
+#include <OpenGL/gl3.h>
 #else
-#include <GL/gl.h>
+#include <GL/glcorearb.h>
 #endif
 
 namespace {

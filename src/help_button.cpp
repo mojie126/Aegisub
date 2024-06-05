@@ -81,7 +81,7 @@ void HelpButton::OpenPage(const char *pageID) {
 	auto page = url(pageID);
 	auto sep = strchr(page, '#');
 	if (sep)
-		wxLaunchDefaultBrowser(fmt_wx("http://docs.aegisub.org/3.2/%.*s/%s", sep - page, page, sep));
+		wxLaunchDefaultBrowser(fmt_wx("http://docs.aegisub.org/latest/%.*s/%s", sep - page, page, sep));
 	else
-		wxLaunchDefaultBrowser(fmt_wx("http://docs.aegisub.org/3.2/%s/", page));
+		wxLaunchDefaultBrowser(fmt_wx("http://docs.aegisub.org/latest/%s/", page));
 }

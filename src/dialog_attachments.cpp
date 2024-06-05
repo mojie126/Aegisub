@@ -70,7 +70,7 @@ DialogAttachments::DialogAttachments(wxWindow *parent, AssFile *ass)
 {
 	d.SetIcon(GETICON(attach_button_16));
 
-	listView = new wxListView(&d, -1, wxDefaultPosition, wxSize(500, 200));
+	listView = new wxListView(&d, -1, wxDefaultPosition, d.FromDIP(wxSize(500, 200)));
 	UpdateList();
 
 	auto attachFont = new wxButton(&d, -1, _("Attach &Font"));

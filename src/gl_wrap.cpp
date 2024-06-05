@@ -23,12 +23,10 @@
 
 #include <wx/colour.h>
 
-#ifdef HAVE_OPENGL_GL_H
-#include <OpenGL/gl.h>
-#include <OpenGL/glext.h>
+#ifdef __APPLE__
+#include <OpenGL/gl3.h>
 #else
-#include <GL/gl.h>
-#include "gl/glext.h"
+#include <GL/glcorearb.h>
 #endif
 
 static const float deg2rad = 3.1415926536f / 180.f;

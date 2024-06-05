@@ -94,7 +94,7 @@ public:
 };
 
 FrameMain::FrameMain()
-: wxFrame(nullptr, -1, "", wxDefaultPosition, wxSize(920,700), wxDEFAULT_FRAME_STYLE | wxCLIP_CHILDREN)
+: wxFrame(nullptr, -1, "", wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_STYLE | wxCLIP_CHILDREN)
 , context(agi::make_unique<agi::Context>())
 {
 	StartupLog("Entering FrameMain constructor");
@@ -107,6 +107,9 @@ FrameMain::FrameMain()
 	// However LC_NUMERIC must be "C", otherwise some parsing fails.
 	setlocale(LC_NUMERIC, "C");
 #endif
+
+	StartupLog("Set frame size");
+	this->SetClientSize(this->FromDIP(wxSize(920, 700)));
 
 	StartupLog("Initializing context controls");
 	context->ass->AddCommitListener(&FrameMain::UpdateTitle, this);
