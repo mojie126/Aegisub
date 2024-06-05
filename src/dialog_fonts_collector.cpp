@@ -271,6 +271,7 @@ DialogFontsCollector::DialogFontsCollector(agi::Context *c)
 	log_box->Add(collection_log, wxSizerFlags().Border());
 
 	wxStdDialogButtonSizer *button_sizer = CreateStdDialogButtonSizer(wxOK | wxCANCEL | wxHELP);
+	button_sizer->GetHelpButton()->SetLabel(_("Help"));
 	start_btn = button_sizer->GetAffirmativeButton();
 	close_btn = button_sizer->GetCancelButton();
 	start_btn->SetLabel(_("&Start!"));
