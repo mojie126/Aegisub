@@ -189,10 +189,7 @@ namespace {
 			, background(nullptr)
 			, direction(direction) {
 			size.x += 2;
-			if (getScaleFactor() == 2.0f)
-				size.y += 14;
-			else
-				size.y += 2;
+			size.y += 2;
 
 			if (direction == PickerDirection::Vert) size.x += spectrum_horz_vert_arrow_size + 1;
 			if (direction == PickerDirection::Horz) size.y += spectrum_horz_vert_arrow_size + 1;
