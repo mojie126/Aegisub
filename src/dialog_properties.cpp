@@ -102,7 +102,7 @@ DialogProperties::DialogProperties(agi::Context *c)
 
 	// Script details crap
 	wxSizer *TopSizer = new wxStaticBoxSizer(wxHORIZONTAL,&d,_("Script"));
-	auto TopSizerGrid = new wxFlexGridSizer(0,2,5,5);
+	const auto TopSizerGrid = new wxFlexGridSizer(0, 2, d.FromDIP(5), d.FromDIP(5));
 
 	AddProperty(TopSizerGrid, _("Title:"), "Title");
 	AddProperty(TopSizerGrid, _("Original script:"), "Original Script");
@@ -127,9 +127,9 @@ DialogProperties::DialogProperties(agi::Context *c)
 		FromVideo->Bind(wxEVT_BUTTON, &DialogProperties::OnSetFromVideo, this);
 
 	auto res_sizer = new wxBoxSizer(wxHORIZONTAL);
-	res_sizer->Add(ResX, 1, wxRIGHT | wxALIGN_CENTER_VERTICAL, 5);
-	res_sizer->Add(new wxStaticText(&d, -1, "x"), 0, wxALIGN_CENTER | wxRIGHT, 5);
-	res_sizer->Add(ResY, 1, wxRIGHT | wxALIGN_CENTER_VERTICAL, 5);
+	res_sizer->Add(ResX, 1, wxRIGHT | wxALIGN_CENTER_VERTICAL, d.FromDIP(5));
+	res_sizer->Add(new wxStaticText(&d, -1, "x"), 0, wxALIGN_CENTER | wxRIGHT, d.FromDIP(5));
+	res_sizer->Add(ResY, 1, wxRIGHT | wxALIGN_CENTER_VERTICAL, d.FromDIP(5));
 	res_sizer->Add(FromVideo, 1, 0, 0);
 
 	YCbCrMatrix = new wxComboBox(&d, -1, to_wx(c->ass->GetScriptInfo("YCbCr Matrix")),
@@ -167,10 +167,10 @@ DialogProperties::DialogProperties(agi::Context *c)
 
 	// MainSizer
 	wxSizer *MainSizer = new wxBoxSizer(wxVERTICAL);
-	MainSizer->Add(TopSizer,0,wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND,5);
-	MainSizer->Add(res_box,0,wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND,5);
-	MainSizer->Add(optionsBox,0,wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND,5);
-	MainSizer->Add(ButtonSizer,0,wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND,5);
+	MainSizer->Add(TopSizer, 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, d.FromDIP(5));
+	MainSizer->Add(res_box, 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, d.FromDIP(5));
+	MainSizer->Add(optionsBox, 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, d.FromDIP(5));
+	MainSizer->Add(ButtonSizer, 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, d.FromDIP(5));
 
 	d.SetSizerAndFit(MainSizer);
 	d.CenterOnParent();

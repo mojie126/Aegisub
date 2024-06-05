@@ -104,7 +104,11 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 	// Set properties
 	SetWrapMode(wxSTC_WRAP_WORD);
 	SetMarginWidth(1,0);
-	UsePopUp(false);
+#if wxCHECK_VERSION(3, 2, 0)
+	UsePopUp(wxSTC_POPUP_NEVER);
+#else
+	UsePopUp(0);
+#endif
 	SetStyles();
 
 	// Set hotkeys

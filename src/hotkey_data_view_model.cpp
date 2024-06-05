@@ -86,14 +86,14 @@ public:
 			variant = to_wx(combo.Str());
 		else if (col == 1) {
 			wxIcon icon;
-			try {
-				auto icon_bmp = cmd::get(combo.CmdName())->Icon(16);
-				if (icon_bmp.IsOk())
-					icon.CopyFromBitmap(icon_bmp);
-			}
-			catch (agi::Exception const&) {
-				// Just use no icon; error is reported in the description column
-			}
+			// try {
+			// 	auto icon_bmp = cmd::get(combo.CmdName())->Icon(16);
+			// 	if (icon_bmp.IsOk())
+			// 		icon.CopyFromBitmap(icon_bmp);
+			// }
+			// catch (agi::Exception const&) {
+			// 	// Just use no icon; error is reported in the description column
+			// }
 			variant << wxDataViewIconText(to_wx(combo.CmdName()), icon);
 		}
 		else if (col == 2) {

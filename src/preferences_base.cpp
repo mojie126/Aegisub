@@ -145,7 +145,7 @@ wxControl *OptionPage::OptionAdd(wxFlexGridSizer *flex, const wxString &name, co
 		}
 
 		case agi::OptionType::Color: {
-			auto cb = new ColourButton(this, wxSize(40,10), false, opt->GetColor());
+			auto cb = new ColourButton(this, this->FromDIP(wxSize(40,10)), false, opt->GetColor());
 			cb->Bind(EVT_COLOR, ColourUpdater(opt_name, parent));
 			Add(flex, name, cb);
 			return cb;
@@ -217,7 +217,7 @@ void OptionPage::OptionBrowse(wxFlexGridSizer *flex, const wxString &name, const
 		throw agi::InternalError("Option must be agi::OptionType::String for BrowseButton.");
 
 	auto text = new wxTextCtrl(this, -1 , to_wx(opt->GetString()));
-	text->SetMinSize(wxSize(160, -1));
+	text->SetMinSize(parent->FromDIP(wxSize(160, -1)));
 	text->Bind(wxEVT_TEXT, StringUpdater(opt_name, parent));
 
 	auto browse = new wxButton(this, -1, _("Browse..."));
@@ -249,7 +249,7 @@ void OptionPage::OptionFont(wxSizer *sizer, std::string opt_prefix) {
 	parent->AddChangeableOption(size_opt->GetName());
 
 	auto font_name = new wxTextCtrl(this, -1, to_wx(face_opt->GetString()));
-	font_name->SetMinSize(wxSize(160, -1));
+	font_name->SetMinSize(parent->FromDIP(wxSize(160, -1)));
 	font_name->Bind(wxEVT_TEXT, StringUpdater(face_opt->GetName().c_str(), parent));
 
 	auto font_size = new wxSpinCtrl(this, -1, std::to_wstring((int)size_opt->GetInt()), wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 3, 42, size_opt->GetInt());

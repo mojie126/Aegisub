@@ -107,7 +107,7 @@ DialogExport::DialogExport(agi::Context *c)
 	d.SetExtraStyle(wxWS_EX_VALIDATE_RECURSIVELY);
 
 	std::vector<std::string> filters = exporter.GetAllFilterNames();
-	filter_list = new wxCheckListBox(&d, -1, wxDefaultPosition, wxSize(200, 100), to_wx(filters));
+	filter_list = new wxCheckListBox(&d, -1, wxDefaultPosition, d.FromDIP(wxSize(200, 100)), to_wx(filters));
 	filter_list->Bind(wxEVT_CHECKLISTBOX, [=](wxCommandEvent&) { RefreshOptions(); });
 	filter_list->Bind(wxEVT_LISTBOX, &DialogExport::OnChange, this);
 
@@ -119,10 +119,10 @@ DialogExport::DialogExport(agi::Context *c)
 			filter_list->Check(distance(begin(filters), it));
 	}
 
-	wxButton *btn_up = new wxButton(&d, -1, _("Move &Up"), wxDefaultPosition, wxSize(90, -1));
-	wxButton *btn_down = new wxButton(&d, -1, _("Move &Down"), wxDefaultPosition, wxSize(90, -1));
-	wxButton *btn_all = new wxButton(&d, -1, _("Select &All"), wxDefaultPosition, wxSize(80, -1));
-	wxButton *btn_none = new wxButton(&d, -1, _("Select &None"), wxDefaultPosition, wxSize(80, -1));
+	auto *btn_up = new wxButton(&d, -1, _("Move &Up"), wxDefaultPosition, d.FromDIP(wxSize(90, -1)));
+	auto *btn_down = new wxButton(&d, -1, _("Move &Down"), wxDefaultPosition, d.FromDIP(wxSize(90, -1)));
+	auto *btn_all = new wxButton(&d, -1, _("Select &All"), wxDefaultPosition, d.FromDIP(wxSize(80, -1)));
+	auto *btn_none = new wxButton(&d, -1, _("Select &None"), wxDefaultPosition, d.FromDIP(wxSize(80, -1)));
 
 	btn_up->Bind(wxEVT_BUTTON, [=](wxCommandEvent&) { swap(filter_list, filter_list->GetSelection() - 1, 0); });
 	btn_down->Bind(wxEVT_BUTTON, [=](wxCommandEvent&) { swap(filter_list, filter_list->GetSelection(), 1); });
@@ -135,7 +135,7 @@ DialogExport::DialogExport(agi::Context *c)
 	top_buttons->Add(btn_all, wxSizerFlags(1).Expand());
 	top_buttons->Add(btn_none, wxSizerFlags(1).Expand());
 
-	filter_description = new wxTextCtrl(&d, -1, "", wxDefaultPosition, wxSize(200, 60), wxTE_MULTILINE | wxTE_READONLY);
+	filter_description = new wxTextCtrl(&d, -1, "", wxDefaultPosition, d.FromDIP(wxSize(200, 60)), wxTE_MULTILINE | wxTE_READONLY);
 
 	// Charset dropdown list
 	wxStaticText *charset_list_label = new wxStaticText(&d, -1, _("Text encoding:"));

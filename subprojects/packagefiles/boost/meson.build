@@ -17,8 +17,8 @@ if host_machine.system() == 'windows'
     add_project_arguments('-DWIN32', language: 'cpp')
 endif
 
-icu_deps = [dependency('icu-uc'),
-            dependency('icu-i18n')]
+icu_deps = [dependency('icu-uc', components: 'uc', allow_fallback: true),
+            dependency('icu-i18n', components: 'i18n', allow_fallback: true)]
 
 modules = ['chrono', 'thread', 'filesystem', 'locale', 'regex', 'program_options']
 foreach module: modules

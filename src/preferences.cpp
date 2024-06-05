@@ -88,8 +88,8 @@ void General_DefaultStyles(wxTreebook *book, Preferences *parent) {
 	p->sizer->AddSpacer(8);
 
 	auto instructions = new wxStaticText(p, wxID_ANY, _("The chosen style catalogs will be loaded when you start a new file or import files in the various formats.\n\nYou can set up style catalogs in the Style Manager."));
+	instructions->Wrap(book->FromDIP(460));
 	p->sizer->Fit(p);
-	instructions->Wrap(400);
 	staticbox->Add(instructions, 0, wxALL, 5);
 	staticbox->AddSpacer(16);
 
@@ -375,7 +375,7 @@ void Advanced(wxTreebook *book, Preferences *parent) {
 	auto warning = new wxStaticText(p, wxID_ANY ,_("Changing these settings might result in bugs and/or crashes.  Do not touch these unless you know what you're doing."));
 	warning->SetFont(wxFont(12, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD));
 	p->sizer->Fit(p);
-	warning->Wrap(400);
+	warning->Wrap(book->FromDIP(400));
 	general->Add(warning, 0, wxALL, 5);
 
 	p->SetSizerAndFit(p->sizer);
@@ -536,7 +536,7 @@ void VapourSynth(wxTreebook *book, Preferences *parent) {
 
 	auto vhint = new wxStaticText(p, wxID_ANY, _("This script will be executed to load video files that aren't\nVapourSynth scripts (i.e. end in .py or .vpy).\nThe filename variable stores the path to the file."));
 	p->sizer->Fit(p);
-	vhint->Wrap(400);
+	vhint->Wrap(book->FromDIP(400));
 	video->Add(vhint, 0, wxALL, 5);
 	p->CellSkip(video);
 
@@ -548,7 +548,7 @@ void VapourSynth(wxTreebook *book, Preferences *parent) {
 	auto audio = p->PageSizer(_("Default Audio Script"));
 	auto ahint = new wxStaticText(p, wxID_ANY, _("This script will be executed to load audio files that aren't\nVapourSynth scripts (i.e. end in .py or .vpy).\nThe filename variable stores the path to the file."));
 	p->sizer->Fit(p);
-	ahint->Wrap(400);
+	ahint->Wrap(book->FromDIP(400));
 	audio->Add(ahint, 0, wxALL, 5);
 	p->CellSkip(audio);
 
@@ -705,8 +705,8 @@ Interface_Hotkeys::Interface_Hotkeys(wxTreebook *book, Preferences *parent)
 	dvc = new wxDataViewCtrl(this, -1);
 	dvc->AssociateModel(model.get());
 #ifndef __APPLE__
-	dvc->AppendColumn(new wxDataViewColumn(_("Hotkey"), new HotkeyRenderer, 0, 125, wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE));
-	dvc->AppendColumn(new wxDataViewColumn(_("Command"), new CommandRenderer, 1, 250, wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE));
+	dvc->AppendColumn(new wxDataViewColumn(_("Hotkey"), new HotkeyRenderer, 0, book->FromDIP(125), wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE));
+	dvc->AppendColumn(new wxDataViewColumn(_("Command"), new CommandRenderer, 1, book->FromDIP(250), wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE));
 #else
 	auto col = new wxDataViewColumn("Hotkey", new wxDataViewTextRenderer("string", wxDATAVIEW_CELL_EDITABLE), 0, 150, wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE);
 	col->SetMinWidth(150);
@@ -803,7 +803,7 @@ void Preferences::OnResetDefault(wxCommandEvent&) {
 	EndModal(-1);
 }
 
-Preferences::Preferences(wxWindow *parent): wxDialog(parent, -1, _("Preferences"), wxDefaultPosition, wxSize(-1, -1), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
+Preferences::Preferences(wxWindow *parent): wxDialog(parent, -1, _("Preferences"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
 	SetIcon(GETICON(options_button_16));
 
 	book = new wxTreebook(this, -1, wxDefaultPosition, wxDefaultSize);

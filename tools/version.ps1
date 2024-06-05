@@ -23,15 +23,15 @@ if ($BuildRoot -eq $null -or $BuildRoot.Trim() -eq "")  {
 }
 
 # support legacy in-tree builds
-if ([System.IO.Path]::GetFullPath([System.IO.Path]::Combine((pwd).Path, $BuildRoot)) -eq
-  [System.IO.Path]::GetFullPath([System.IO.Path]::Combine((pwd).Path, $repositoryRootPath))) {
+if ([System.IO.Path]::GetFullPath([System.IO.Path]::Combine((Get-Location).Path, $BuildRoot)) -eq
+  [System.IO.Path]::GetFullPath([System.IO.Path]::Combine((Get-Location).Path, $repositoryRootPath))) {
     $BuildRoot = Join-Path $repositoryRootPath 'build'
   }
 $gitVersionHeaderPath = Join-Path $BuildRoot 'git_version.h'
 
 $version = @{}
 if (Test-Path $gitVersionHeaderPath) {
-  Get-Content $gitVersionHeaderPath | %{$_.Trim()} | ?{$_} | %{
+  Get-Content $gitVersionHeaderPath | ForEach-Object{$_.Trim()} | Where-Object{$_} | ForEach-Object{
     switch -regex ($_) {
       $defineNumberMatch {
         $version[$Matches[1]] = [int]$Matches[2];
@@ -76,7 +76,7 @@ if ($exactGitTag -match $semVerMatch) {
 $version['BUILD_GIT_VERSION_NUMBER'] = $gitRevision
 $version['BUILD_GIT_VERSION_STRING'] = $gitVersionString
 
-$version.GetEnumerator() | %{
+$version.GetEnumerator() | ForEach-Object{
   $type = $_.Value.GetType()
   $value = $_.Value
   $fmtValue = switch ($type) {

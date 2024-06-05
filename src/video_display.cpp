@@ -59,10 +59,10 @@
 #include <wx/textctrl.h>
 #include <wx/toolbar.h>
 
-#ifdef HAVE_OPENGL_GL_H
-#include <OpenGL/gl.h>
+#ifdef __APPLE__
+#include <OpenGL/gl3.h>
 #else
-#include <GL/gl.h>
+#include <GL/glcorearb.h>
 #endif
 
 /// Attribute list for gl canvases; set the canvases to doublebuffered rgba with an 8 bit stencil buffer

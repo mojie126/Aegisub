@@ -113,7 +113,7 @@ DialogAutomation::DialogAutomation(agi::Context *c)
 	SetIcon(GETICON(automation_toolbutton_16));
 
 	// create main controls
-	list = new wxListView(this, -1, wxDefaultPosition, wxSize(600, 175), wxLC_REPORT|wxLC_SINGLE_SEL);
+	list = new wxListView(this, -1, wxDefaultPosition, this->FromDIP(wxSize(600, 175)), wxLC_REPORT|wxLC_SINGLE_SEL);
 	wxButton *add_button = new wxButton(this, -1, _("&Add"));
 	remove_button = new wxButton(this, -1, _("&Remove"));
 	reload_button = new wxButton(this, -1, _("Re&load"));
@@ -130,10 +130,10 @@ DialogAutomation::DialogAutomation(agi::Context *c)
 	reload_autoload_button->Bind(wxEVT_BUTTON, &DialogAutomation::OnReloadAutoload, this);
 
 	// add headers to list view
-	list->InsertColumn(0, "", wxLIST_FORMAT_CENTER, 20);
-	list->InsertColumn(1, _("Name"), wxLIST_FORMAT_LEFT, 140);
-	list->InsertColumn(2, _("Filename"), wxLIST_FORMAT_LEFT, 90);
-	list->InsertColumn(3, _("Description"), wxLIST_FORMAT_LEFT, 330);
+	list->InsertColumn(0, "", wxLIST_FORMAT_CENTER, this->FromDIP(20));
+	list->AppendColumn(_("Name"), wxLIST_FORMAT_LEFT, this->FromDIP(140));
+	list->AppendColumn(_("Filename"), wxLIST_FORMAT_LEFT, this->FromDIP(90));
+	list->AppendColumn( _("Description"), wxLIST_FORMAT_LEFT, this->FromDIP(330));
 
 	// button layout
 	wxSizer *button_box = new wxBoxSizer(wxHORIZONTAL);
