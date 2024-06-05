@@ -627,7 +627,7 @@ namespace {
 		spectop_sizer->Add(5, 5, 1, wxEXPAND);
 		spectop_sizer->Add(preview_box, 0, wxALIGN_CENTER_VERTICAL);
 
-		wxSizer *spectrum_sizer = new wxFlexGridSizer(3, 5, 5);
+		wxSizer *spectrum_sizer = new wxFlexGridSizer(3, this->FromDIP(5), this->FromDIP(5));
 		spectrum_sizer->Add(spectop_sizer, wxEXPAND);
 		spectrum_sizer->AddStretchSpacer(1);
 		spectrum_sizer->AddStretchSpacer(1);
@@ -732,7 +732,7 @@ namespace {
 
 	template<int N, class Control>
 	wxSizer *DialogColorPicker::MakeColorInputSizer(wxString (&labels)[N], Control *(&inputs)[N]) {
-		auto sizer = new wxFlexGridSizer(2, 5, 5);
+		auto sizer = new wxFlexGridSizer(2, this->FromDIP(5), this->FromDIP(5));
 		for (int i = 0; i < N; ++i) {
 			sizer->Add(new wxStaticText(this, -1, labels[i]), wxSizerFlags(1).Center().Left());
 			sizer->Add(inputs[i]);
