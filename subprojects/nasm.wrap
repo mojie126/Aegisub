@@ -1,6 +1,6 @@
 [wrap-file]
-directory = nasm-2.16
-source_url = https://www.nasm.us/pub/nasm/releasebuilds/2.16/win64/nasm-2.16-win64.zip
-source_filename = nasm-2.16-win64.zip
-source_hash = b50871c27e2db1492bd2464871992c3c09b54d171264e4cda3e32342ab3df785
+directory = nasm-2.16.03
+source_url = https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/win64/nasm-2.16.03-win64.zip
+source_filename = nasm-2.16.03-win64.zip
+source_hash = 3ee4782247bcb874378d02f7eab4e294a84d3d15f3f6ee2de2f47a46aa7226e6
 patch_directory = nasm
