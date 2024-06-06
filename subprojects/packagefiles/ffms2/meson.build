@@ -4,7 +4,7 @@ deps = []
 
 opts = [
 	'gpl=enabled', 'programs=enabled', 'tests=disabled',
-	'libx264=enabled', 'libdav1d=enabled', 'libvpl=enabled', 'ffnvcodec=enabled', 'cuda=enabled', 'cuvid=enabled'
+	'libx264=enabled', 'libdav1d=enabled', 'ffnvcodec=enabled', 'cuda=enabled', 'cuvid=enabled'
 ]
 
 deps += dependency('zlib')
