@@ -21,6 +21,7 @@
 
 #include "gl_wrap.h"
 
+#include <libresrc.h>
 #include <wx/colour.h>
 
 #ifdef __APPLE__
@@ -93,7 +94,7 @@ public:
 OpenGLWrapper::OpenGLWrapper() {
 	line_r = line_g = line_b = line_a = 1.f;
 	fill_r = fill_g = fill_b = fill_a = 1.f;
-	line_width = 1;
+	line_width = 1 * getScaleFactor();
 	transform_pushed = false;
 	smooth = true;
 }
@@ -247,7 +248,7 @@ void OpenGLWrapper::SetLineColour(wxColour col, float alpha, int width) {
 	line_g = col.Green() / 255.f;
 	line_b = col.Blue() / 255.f;
 	line_a = alpha;
-	line_width = width;
+	line_width = width * getScaleFactor();
 }
 
 void OpenGLWrapper::SetFillColour(wxColour col, float alpha) {
