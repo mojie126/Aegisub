@@ -128,7 +128,12 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	style_edit_button = new wxButton(this, -1, _("Edit"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
 	style_edit_button->Bind(wxEVT_BUTTON, [=](wxCommandEvent&) {
 		if (active_style) {
-			wxArrayString font_list = wxFontEnumerator::GetFacenames();
+			const auto font_dir = wxString(OPT_GET("Subtitle/Font Dir")->GetString().c_str(), wxConvUTF8);
+			wxArrayString font_list;
+			if (!font_dir.empty())
+				font_list = LoadFontsFromDirectory(font_dir);
+			else
+				font_list = wxFontEnumerator::GetFacenames();
 			font_list.Sort();
 			DialogStyleEditor(this, active_style, c, nullptr, "", font_list).ShowModal();
 		}

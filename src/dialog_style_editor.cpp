@@ -54,13 +54,51 @@
 #include <libaegisub/make_unique.h>
 
 #include <algorithm>
+#include <freetype/freetype.h>
 
 #include <wx/bmpbuttn.h>
 #include <wx/checkbox.h>
+#include <wx/dir.h>
 #include <wx/msgdlg.h>
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
 #include <wx/stattext.h>
+
+// 从指定文件夹获取字体
+wxArrayString LoadFontsFromDirectory(const wxString &directory) {
+	wxArrayString fontNames;
+	const wxDir dir(directory);
+	if (!dir.IsOpened()) {
+		return fontNames;
+	}
+
+	FT_Library library;
+	if (FT_Init_FreeType(&library)) {
+		return fontNames;
+	}
+
+	wxString filename;
+	bool cont = dir.GetFirst(&filename, wxEmptyString, wxDIR_FILES);
+	while (cont) {
+		wxString filePath = directory + wxFileName::GetPathSeparator() + filename;
+
+		FT_Face face;
+		if (FT_New_Face(library, filePath.mb_str(), 0, &face)) {} else {
+			if (face->family_name) {
+				wxString faceName(face->family_name, wxConvUTF8);
+				fontNames.Add(faceName);
+			}
+			FT_Done_Face(face);
+		}
+
+		cont = dir.GetNext(&filename);
+	}
+
+	FT_Done_FreeType(library);
+
+	fontNames.Sort();
+	return fontNames;
+}
 
 /// Style rename helper that walks a file searching for a style and optionally
 /// updating references to it

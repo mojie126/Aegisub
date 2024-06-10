@@ -209,6 +209,9 @@ void Video(wxTreebook *book, Preferences *parent) {
 void Interface(wxTreebook *book, Preferences *parent) {
 	auto p = new OptionPage(book, parent, _("Interface"));
 
+	const auto font_dir = p->PageSizer(_("Font Dir"));
+	p->OptionBrowse(font_dir, _("Font Dir"), "Subtitle/Font Dir");
+
 	auto edit_box = p->PageSizer(_("Edit Box"));
 	p->OptionAdd(edit_box, _("Enable call tips"), "App/Call Tips");
 	p->OptionAdd(edit_box, _("Overwrite in time boxes"), "Subtitle/Time Edit/Insert Mode");
