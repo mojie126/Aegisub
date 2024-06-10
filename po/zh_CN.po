@@ -6950,6 +6950,12 @@ msgstr "信息"
 msgid "Font Dir"
 msgstr "字体文件夹"
 
+msgid "Use Font Filename"
+msgstr "使用字体文件名"
+
+msgid "The file name of the font is used as the name display"
+msgstr "使用字体的文件名作为名称展示"
+
 #~ msgid "    Subtitle format handler: %s"
 #~ msgstr "    字幕格式处理器： %s"
 

@@ -77,6 +77,7 @@ wxArrayString LoadFontsFromDirectory(const wxString &directory) {
 		return fontNames;
 	}
 
+	const auto use_font_filename = OPT_GET("Subtitle/Use Font Filename")->GetBool();
 	wxString filename;
 	bool cont = dir.GetFirst(&filename, wxEmptyString, wxDIR_FILES);
 	while (cont) {
@@ -85,8 +86,12 @@ wxArrayString LoadFontsFromDirectory(const wxString &directory) {
 		FT_Face face;
 		if (FT_New_Face(library, filePath.mb_str(), 0, &face)) {} else {
 			if (face->family_name) {
-				wxString faceName(face->family_name, wxConvUTF8);
-				fontNames.Add(faceName);
+				if (!use_font_filename) {
+					wxString faceName = to_wx((face->family_name));
+					fontNames.Add(faceName);
+				} else {
+					fontNames.Add(wxFileName(filename).GetName());
+				}
 			}
 			FT_Done_Face(face);
 		}

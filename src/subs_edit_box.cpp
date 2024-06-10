@@ -128,7 +128,7 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	style_edit_button = new wxButton(this, -1, _("Edit"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
 	style_edit_button->Bind(wxEVT_BUTTON, [=](wxCommandEvent&) {
 		if (active_style) {
-			const auto font_dir = wxString(OPT_GET("Subtitle/Font Dir")->GetString().c_str(), wxConvUTF8);
+			const auto font_dir = to_wx(OPT_GET("Subtitle/Font Dir")->GetString());
 			wxArrayString font_list;
 			if (!font_dir.empty())
 				font_list = LoadFontsFromDirectory(font_dir);

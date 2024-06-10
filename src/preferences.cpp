@@ -211,6 +211,8 @@ void Interface(wxTreebook *book, Preferences *parent) {
 
 	const auto font_dir = p->PageSizer(_("Font Dir"));
 	p->OptionBrowse(font_dir, _("Font Dir"), "Subtitle/Font Dir");
+	p->CellSkip(font_dir);
+	p->OptionAdd(font_dir, _("Use Font Filename"), "Subtitle/Use Font Filename")->SetToolTip(_("The file name of the font is used as the name display"));
 
 	auto edit_box = p->PageSizer(_("Edit Box"));
 	p->OptionAdd(edit_box, _("Enable call tips"), "App/Call Tips");
