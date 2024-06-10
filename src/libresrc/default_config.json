@@ -405,6 +405,7 @@
 	},
 
 	"Subtitle" : {
+		"Font Dir" : "",
 		"Character Counter" : {
 			"Ignore Whitespace" : true,
 			"Ignore Punctuation" : true,

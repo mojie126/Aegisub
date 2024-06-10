@@ -262,9 +262,14 @@ DialogStyleManager::DialogStyleManager(agi::Context *context)
 , commit_connection(c->ass->AddCommitListener(&DialogStyleManager::LoadCurrentStyles, this))
 , active_line_connection(c->selectionController->AddActiveLineListener(&DialogStyleManager::OnActiveLineChanged, this))
 , font_list(std::async(std::launch::async, []() -> wxArrayString {
-	wxArrayString fontList = wxFontEnumerator::GetFacenames();
-	fontList.Sort();
-	return fontList;
+	const auto font_dir = wxString(OPT_GET("Subtitle/Font Dir")->GetString().c_str(), wxConvUTF8);
+	wxArrayString font_list;
+	if (!font_dir.empty())
+		font_list = LoadFontsFromDirectory(font_dir);
+	else
+		font_list = wxFontEnumerator::GetFacenames();
+	font_list.Sort();
+	return font_list;
 }))
 {
 	using std::bind;

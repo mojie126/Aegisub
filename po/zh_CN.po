@@ -6947,6 +6947,9 @@ msgstr "关闭字幕"
 msgid "Message"
 msgstr "信息"
 
+msgid "Font Dir"
+msgstr "字体文件夹"
+
 #~ msgid "    Subtitle format handler: %s"
 #~ msgstr "    字幕格式处理器： %s"
 

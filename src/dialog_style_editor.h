@@ -106,3 +106,5 @@ public:
 
 	std::string GetStyleName() const;
 };
+
+wxArrayString LoadFontsFromDirectory(const wxString &directory);
