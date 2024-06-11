@@ -1,5 +1,6 @@
 {
     "grid_context" : [
+        { "command" : "subtitle/apply/mocha", "text" : "Apply Mocha-Motion" },
         { "command" : "subtitle/insert/before", "text" : "&Insert (before)" },
         { "command" : "subtitle/insert/after", "text" : "Insert (after)" },
         { "command" : "subtitle/insert/before/videotime", "text" : "Insert at video time (before)" },

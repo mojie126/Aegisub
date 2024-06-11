@@ -175,6 +175,45 @@ struct subtitle_insert_after_videotime final : public validate_nonempty_selectio
 	}
 };
 
+struct subtitle_apply_mocha final : public validate_nonempty_selection {
+	CMD_NAME("subtitle/apply/mocha")
+	STR_MENU("Apply Mocha-Motion")
+	STR_DISP("Apply Mocha-Motion")
+	STR_HELP("Apply mocha tracking data to the current subtitle entry")
+	CMD_TYPE(COMMAND_VALIDATE)
+
+	bool Validate(const agi::Context *c) override {
+		return c->project->VideoProvider() && !c->selectionController->GetSelectedSet().empty();
+	}
+
+	void operator()(agi::Context *c) override {
+		AssDialogue *last_inserted_line = nullptr;
+		const AssDialogue *active_line = c->selectionController->GetActiveLine();
+		const int startFrame = c->videoController->FrameAtTime(active_line->Start, agi::vfr::START);
+		const int endFrame = c->videoController->FrameAtTime(active_line->End, agi::vfr::END);
+
+		for (auto it = c->ass->Events.begin(); it != c->ass->Events.end(); ++it) {
+			if (const AssDialogue *diag = &*it; diag == active_line) {
+				++it;
+				c->ass->Events.erase(c->ass->Events.iterator_to(*active_line));
+				for (int i = startFrame; i <= endFrame; ++i) {
+					const auto new_line = new AssDialogue;
+					new_line->Style = active_line->Style;
+					new_line->Text = active_line->Text;
+					new_line->Start = c->videoController->TimeAtFrame(i, agi::vfr::Time::START);
+					new_line->End = c->videoController->TimeAtFrame(i, agi::vfr::Time::END);
+					c->ass->Events.insert(it, *new_line);
+					last_inserted_line = new_line;
+				}
+				--it;
+			}
+		}
+
+		c->ass->Commit(_("line insertion"), AssFile::COMMIT_DIAG_ADDREM);
+		c->selectionController->SetSelectionAndActive({last_inserted_line}, last_inserted_line);
+	}
+};
+
 struct subtitle_insert_before final : public validate_nonempty_selection {
 	CMD_NAME("subtitle/insert/before")
 	STR_MENU("&Before Current")
@@ -457,6 +496,7 @@ namespace cmd {
 		reg(agi::make_unique<subtitle_find_next>());
 		reg(agi::make_unique<subtitle_insert_after>());
 		reg(agi::make_unique<subtitle_insert_after_videotime>());
+		reg(agi::make_unique<subtitle_apply_mocha>());
 		reg(agi::make_unique<subtitle_insert_before>());
 		reg(agi::make_unique<subtitle_insert_before_videotime>());
 		reg(agi::make_unique<subtitle_new>());
