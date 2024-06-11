@@ -64,7 +64,7 @@
 #include <wx/spinctrl.h>
 #include <wx/stattext.h>
 
-// 从指定文件夹获取字体
+// 从指定文件夹获取字体信息，仅仅是方便找到字体，字体还是需要安装注册在系统上的
 wxArrayString LoadFontsFromDirectory(const wxString &directory) {
 	wxArrayString fontNames;
 	const wxDir dir(directory);
@@ -87,7 +87,7 @@ wxArrayString LoadFontsFromDirectory(const wxString &directory) {
 		if (FT_New_Face(library, filePath.mb_str(), 0, &face)) {} else {
 			if (face->family_name) {
 				if (!use_font_filename) {
-					wxString faceName = to_wx((face->family_name));
+					wxString faceName = to_wx(face->family_name);
 					fontNames.Add(faceName);
 				} else {
 					fontNames.Add(wxFileName(filename).GetName());
