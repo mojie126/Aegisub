@@ -6956,6 +6956,15 @@ msgstr "使用字体文件名"
 msgid "The file name of the font is used as the name display"
 msgstr "使用字体的文件名作为名称展示"
 
+msgid "Apply Mocha-Motion"
+msgstr "应用mocha追踪"
+
+msgid "Apply mocha tracking data to the current subtitle entry"
+msgstr "将mocha追踪数据应用于当前选中的字幕条目"
+
+msgid "Please choose a language:"
+msgstr "请选择将要使用的语言："
+
 #~ msgid "    Subtitle format handler: %s"
 #~ msgstr "    字幕格式处理器： %s"
 
