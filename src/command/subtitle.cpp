@@ -29,6 +29,8 @@
 //
 // Aegisub Project http://www.aegisub.org/
 
+#include <dialog_manager.h>
+
 #include "command.h"
 
 #include "../ass_dialogue.h"
@@ -187,6 +189,8 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 	}
 
 	void operator()(agi::Context *c) override {
+		c->videoController->Stop();
+		ShowMochaUtilDialog(c);
 		AssDialogue *last_inserted_line = nullptr;
 		const AssDialogue *active_line = c->selectionController->GetActiveLine();
 		const int startFrame = c->videoController->FrameAtTime(active_line->Start, agi::vfr::START);
