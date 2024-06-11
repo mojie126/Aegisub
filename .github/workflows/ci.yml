@@ -127,20 +127,20 @@ jobs:
                     echo "date=$date" >> $GITHUB_OUTPUT
                 shell: bash
 
-#            -   name: Upload artifacts - win_installer
-#                uses: actions/upload-artifact@v4
-#                if: matrix.config.os == 'windows-latest'
-#                with:
-#                    name: ${{ matrix.config.name }} - installer
-#                    path: build/aegisub-install-64.exe
-#                    if-no-files-found: error
-#
-#            -   name: Upload artifacts - portable.zip
-#                uses: actions/upload-artifact@v4
-#                if: matrix.config.os == 'windows-latest'
-#                with:
-#                    name: ${{ matrix.config.name }} - portable
-#                    path: build/aegisub-portable-64.zip
+            -   name: Upload artifacts - win_installer
+                uses: actions/upload-artifact@v4
+                if: matrix.config.os == 'windows-latest'
+                with:
+                    name: ${{ matrix.config.name }} - installer
+                    path: build/aegisub-install-64.exe
+                    if-no-files-found: error
+
+            -   name: Upload artifacts - portable.zip
+                uses: actions/upload-artifact@v4
+                if: matrix.config.os == 'windows-latest'
+                with:
+                    name: ${{ matrix.config.name }} - portable
+                    path: build/aegisub-portable-64.zip
 
             -   name: create Release
                 uses: ncipollo/release-action@v1.14.0
