@@ -428,6 +428,7 @@ DialogStyleEditor::DialogStyleEditor(wxWindow *parent, AssStyle *style, agi::Con
 
 	previewButton->Bind(EVT_COLOR, &DialogStyleEditor::OnPreviewColourChange, this);
 	FontName->Bind(wxEVT_TEXT_ENTER, &DialogStyleEditor::OnCommandPreviewUpdate, this);
+	FontName->Bind(wxEVT_COMBOBOX, &DialogStyleEditor::OnCommandPreviewUpdate, this);
 	PreviewText->Bind(wxEVT_TEXT, &DialogStyleEditor::OnPreviewTextChange, this);
 
 	Bind(wxEVT_BUTTON, std::bind(&DialogStyleEditor::Apply, this, true, true), wxID_OK);
