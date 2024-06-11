@@ -66,6 +66,7 @@ aegisub_src = files(
     'dialog_export_ebu3264.cpp',
     'dialog_fonts_collector.cpp',
     'dialog_jumpto.cpp',
+    'dialog_mocha.cpp',
     'dialog_kara_timing_copy.cpp',
     'dialog_log.cpp',
     'dialog_paste_over.cpp',

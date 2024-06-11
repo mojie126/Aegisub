@@ -63,6 +63,7 @@ void ShowAttachmentsDialog(wxWindow *parent, AssFile *file);
 void ShowAutomationDialog(agi::Context *c);
 void ShowExportDialog(agi::Context *c);
 void ShowFontsCollectorDialog(agi::Context *c);
+void ShowMochaUtilDialog(agi::Context *c);
 void ShowJumpToDialog(agi::Context *c);
 void ShowJumpFrameToDialog(agi::Context *c);
 long getStartFrame();
