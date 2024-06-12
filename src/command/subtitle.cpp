@@ -202,7 +202,7 @@ std::string append_if_starts_with_brace(const std::string &str, const std::strin
 	if (const std::string modified_str = remove_patterns(str); !modified_str.empty() && modified_str[0] == '{') {
 		return modified_str.substr(0, 1) + to_append + modified_str.substr(1);
 	} else {
-		return "{" + to_append + modified_str + "}";
+		return "{" + to_append + "}" + modified_str;
 	}
 }
 
@@ -230,7 +230,7 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 			const int startFrame = c->videoController->FrameAtTime(active_line->Start, agi::vfr::START);
 			const int endFrame = c->videoController->FrameAtTime(active_line->End, agi::vfr::END);
 			if (int dur_frame = endFrame - startFrame + 1; total_frame != dur_frame) {
-				wxMessageBox(from_wx(agi::wxformat(_("The trace data is asymmetrical with the selected row data and requires %d frames"), dur_frame)),_("Error"), wxICON_ERROR);
+				wxMessageBox(agi::wxformat(_("The trace data is asymmetrical with the selected row data and requires %d frames"), dur_frame),_("Error"), wxICON_ERROR);
 				return;
 			}
 			for (auto it = c->ass->Events.begin(); it != c->ass->Events.end(); ++it) {
