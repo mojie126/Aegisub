@@ -13,18 +13,43 @@
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 //
 // Aegisub Project http://www.aegisub.org/
+#ifndef DIALOGS_H
+#define DIALOGS_H
 
 #include <libaegisub/color.h>
 
 #include <functional>
 #include <string>
 
+struct KeyframeData {
+	int frame;
+	double x;
+	double y;
+	double z;
+	double scaleX;
+	double scaleY;
+	double scaleZ;
+	double rotation;
+};
+
+struct MochaData {
+	size_t total_frame;
+	double frame_rate;
+	int source_width;
+	int source_height;
+	bool is_mocha_data;
+};
+
 class AssFile;
 class AsyncVideoProvider;
 class wxArrayInt;
 class wxArrayString;
 class wxWindow;
-namespace agi { struct Context; }
+
+namespace agi {
+	struct Context;
+}
+
 struct ResampleSettings;
 
 /// @brief Get a color from the user via a color picker dialog
@@ -52,34 +77,65 @@ bool PromptForResampleSettings(agi::Context *c, ResampleSettings &settings);
 /// Update the video properties for a newly opened video, possibly prompting the user about what to do
 void UpdateVideoProperties(AssFile *file, const AsyncVideoProvider *new_provider, wxWindow *parent);
 
-int GetSelectedChoices(wxWindow *parent, wxArrayInt& selections, wxString const& message, wxString const& caption, wxArrayString const& choices);
+int GetSelectedChoices(wxWindow *parent, wxArrayInt &selections, wxString const &message, wxString const &caption, wxArrayString const &choices);
 
 std::string CreateDummyVideo(wxWindow *parent);
 
 bool ShowPasteOverDialog(wxWindow *parent);
+
 bool ShowPlainTextImportDialog();
+
 void ShowAboutDialog(wxWindow *parent);
+
 void ShowAttachmentsDialog(wxWindow *parent, AssFile *file);
+
 void ShowAutomationDialog(agi::Context *c);
+
 void ShowExportDialog(agi::Context *c);
+
 void ShowFontsCollectorDialog(agi::Context *c);
+
 void ShowMochaUtilDialog(agi::Context *c);
+
+std::vector<KeyframeData> getMochaMotionParseData();
+
+MochaData getMochaCheckData();
+
 void ShowJumpToDialog(agi::Context *c);
+
 void ShowJumpFrameToDialog(agi::Context *c);
+
 long getStartFrame();
+
 long getEndFrame();
+
 int getStartTime();
+
 int getEndTime();
+
 bool getOnOK();
+
 bool getOutputImg();
+
 void ShowKanjiTimerDialog(agi::Context *c);
+
 void ShowLogWindow(agi::Context *c);
+
 void ShowPreferences(wxWindow *parent);
+
 void ShowPropertiesDialog(agi::Context *c);
+
 void ShowSelectLinesDialog(agi::Context *c);
+
 void ShowShiftTimesDialog(agi::Context *c);
+
 void ShowSpellcheckerDialog(agi::Context *c);
+
 void ShowStyleManagerDialog(agi::Context *c);
+
 void ShowTimingProcessorDialog(agi::Context *c);
+
 void ShowVideoDetailsDialog(agi::Context *c);
-void ShowAlignToVideoDialog(agi::Context* c);
+
+void ShowAlignToVideoDialog(agi::Context *c);
+#endif // DIALOGS_H
