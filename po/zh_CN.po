@@ -6986,6 +6986,9 @@ msgstr "应用"
 msgid "The trace data is asymmetrical with the selected row data and requires %d frames"
 msgstr "追踪数据与选定行数据不对称，需要 %d 帧"
 
+msgid "Paste from Clipboard"
+msgstr "从剪贴板粘贴数据"
+
 #~ msgid "    Subtitle format handler: %s"
 #~ msgstr "    字幕格式处理器： %s"
 
