@@ -30,6 +30,7 @@
 // Aegisub Project http://www.aegisub.org/
 
 #include <dialog_manager.h>
+#include <format.h>
 
 #include "command.h"
 
@@ -177,6 +178,13 @@ struct subtitle_insert_after_videotime final : public validate_nonempty_selectio
 	}
 };
 
+std::string append_if_starts_with_brace(const std::string &str, const std::string &to_append) {
+	if (!str.empty() && str[0] == '{') {
+		return str.substr(0, 1) + to_append + str.substr(1);
+	}
+	return "{" + to_append + str + "}";
+}
+
 struct subtitle_apply_mocha final : public validate_nonempty_selection {
 	CMD_NAME("subtitle/apply/mocha")
 	STR_MENU("Apply Mocha-Motion")
@@ -192,11 +200,18 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 		c->videoController->Stop();
 		ShowMochaUtilDialog(c);
 		if (getMochaOK()) {
+			const auto [total_frame, frame_rate, source_width, source_height, is_mocha_data, get_position, get_scale, get_rotation] = getMochaCheckData();
+			std::vector<KeyframeData> final_data = getMochaMotionParseData();
 			AssDialogue *last_inserted_line = nullptr;
+			int current_process_frame = 0;
 			const AssDialogue *active_line = c->selectionController->GetActiveLine();
+			const std::string temp_text = active_line->Text;
 			const int startFrame = c->videoController->FrameAtTime(active_line->Start, agi::vfr::START);
 			const int endFrame = c->videoController->FrameAtTime(active_line->End, agi::vfr::END);
-
+			if (int dur_frame = endFrame - startFrame + 1; total_frame != dur_frame) {
+				wxMessageBox(from_wx(agi::wxformat(_("The trace data is asymmetrical with the selected row data and requires %d frames"), dur_frame)),_("Error"), wxICON_ERROR);
+				return;
+			}
 			for (auto it = c->ass->Events.begin(); it != c->ass->Events.end(); ++it) {
 				if (const AssDialogue *diag = &*it; diag == active_line) {
 					++it;
@@ -204,29 +219,31 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 					for (int i = startFrame; i <= endFrame; ++i) {
 						const auto new_line = new AssDialogue;
 						new_line->Style = active_line->Style;
-						new_line->Text = active_line->Text;
 						new_line->Start = c->videoController->TimeAtFrame(i, agi::vfr::Time::START);
 						new_line->End = c->videoController->TimeAtFrame(i, agi::vfr::Time::END);
+						// 字幕内容处理 -- 开始
+						auto [frame, x, y, z, scaleX, scaleY, scaleZ, rotation] = final_data[current_process_frame];
+						std::string ass_tag_str;
+						if (get_position) {
+							ass_tag_str.append(agi::wxformat(R"(\pos(%lf, %lf))", x, y));
+						}
+						if (get_scale) {
+							ass_tag_str.append(agi::wxformat(R"(\fscx%lf\fscy%lf)", scaleX, scaleY));
+						}
+						if (get_rotation) {
+							ass_tag_str.append(agi::wxformat(R"(\frz%lf)", rotation));
+						}
+						std::string _temp_text = append_if_starts_with_brace(temp_text, ass_tag_str);
+						new_line->Text = _temp_text;
+						// 字幕内容处理 -- 结束
 						c->ass->Events.insert(it, *new_line);
-						last_inserted_line = new_line;
+						if (current_process_frame == 0)
+							last_inserted_line = new_line;
+						ass_tag_str.clear();
+						++current_process_frame;
 					}
 					--it;
 				}
-			}
-
-			const MochaData mocha_data=getMochaCheckData();
-			std::cout << mocha_data.total_frame << std::endl;
-			std::vector<KeyframeData> final_data = getMochaMotionParseData();
-			for (const auto &[frame, x, y, z, scaleX, scaleY, scaleZ, rotation] : final_data) {
-				std::cout << frame << "\t";
-				std::cout << x << "\t";
-				std::cout << y << "\t";
-				std::cout << z << "\t";
-				std::cout << scaleX << "\t";
-				std::cout << scaleY << "\t";
-				std::cout << scaleZ << "\t";
-				std::cout << rotation << "\t";
-				std::cout << std::endl;
 			}
 
 			c->ass->Commit(_("line insertion"), AssFile::COMMIT_DIAG_ADDREM);

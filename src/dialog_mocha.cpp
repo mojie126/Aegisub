@@ -19,7 +19,7 @@ std::vector<KeyframeData> final_data;
 MochaData mocha_data;
 bool onMochaOK = false;
 
-std::vector<KeyframeData> parseData(const std::string &input, bool getX, bool getY, bool getZ, bool getScaleX, bool getScaleY, bool getScaleZ, bool getRotation) {
+std::vector<KeyframeData> parseData(const std::string &input, bool getPosition, bool getScale, bool getRotation) {
 	std::istringstream stream(input), check_stream(input);
 	std::string line;
 	std::vector<KeyframeData> keyframeData;
@@ -42,6 +42,9 @@ std::vector<KeyframeData> parseData(const std::string &input, bool getX, bool ge
 				mocha_data.frame_rate = std::stod(line.substr(line.find_last_of('\t') + 1));
 			}
 		}
+		mocha_data.get_position = getPosition;
+		mocha_data.get_scale = getScale;
+		mocha_data.get_rotation = getRotation;
 	}
 
 	while (std::getline(stream, line)) {
@@ -69,13 +72,17 @@ std::vector<KeyframeData> parseData(const std::string &input, bool getX, bool ge
 			}
 
 			if (section == "Position") {
-				if (getX) ss >> data.x;
-				if (getY) ss >> data.y;
-				if (getZ) ss >> data.z;
+				if (getPosition) {
+					ss >> data.x;
+					ss >> data.y;
+					ss >> data.z;
+				}
 			} else if (section == "Scale") {
-				if (getScaleX) ss >> data.scaleX;
-				if (getScaleY) ss >> data.scaleY;
-				if (getScaleZ) ss >> data.scaleZ;
+				if (getScale) {
+					ss >> data.scaleX;
+					ss >> data.scaleY;
+					ss >> data.scaleZ;
+				}
 			} else if (section == "Rotation") {
 				if (getRotation) {
 					ss >> data.rotation;
@@ -106,8 +113,8 @@ namespace {
 
 		wxDialog d;
 		agi::Context *c;
-		wxCheckBox *positionCheckBoxes[3]{};
-		wxCheckBox *scaleCheckBoxes[3]{};
+		wxCheckBox *positionCheckBoxes;
+		wxCheckBox *scaleCheckBoxes;
 		wxCheckBox *rotationCheckBox;
 		wxTextCtrl *logTextCtrl;
 	};
@@ -122,54 +129,44 @@ namespace {
 		auto *mainSizer = new wxBoxSizer(wxVERTICAL);
 
 		// 创建包含所有控件的静态框和水平sizer
-		auto *controlsBox = new wxStaticBox(&d, wxID_ANY, _("Controls"));
+		auto *controlsBox = new wxStaticBox(&d, wxID_ANY, _("Options"));
 		auto *controlsSizer = new wxStaticBoxSizer(controlsBox, wxHORIZONTAL);
 
 		// 创建位移、缩放和角度的标签和复选框
 		struct ControlGroup {
 			wxStaticText *label;
-			wxCheckBox *checkBoxes[3];
+			wxCheckBox *checkBoxes;
 		};
 
 		ControlGroup positionGroup{}, scaleGroup{}, rotationGroup{};
 
-		positionGroup.label = new wxStaticText(&d, wxID_ANY, _("Position:"));
-		scaleGroup.label = new wxStaticText(&d, wxID_ANY, _("Scale:"));
-		rotationGroup.label = new wxStaticText(&d, wxID_ANY, _("Rotation:"));
+		positionGroup.label = new wxStaticText(&d, wxID_ANY, _("Position: "));
+		scaleGroup.label = new wxStaticText(&d, wxID_ANY, _("Scale: "));
+		rotationGroup.label = new wxStaticText(&d, wxID_ANY, _("Rotation: "));
 
-		for (int i = 0; i < 3; ++i) {
-			wxString checkBoxLabel = wxString::Format("%c", 'X' + i);
-			positionGroup.checkBoxes[i] = new wxCheckBox(&d, wxID_ANY, checkBoxLabel);
-			scaleGroup.checkBoxes[i] = new wxCheckBox(&d, wxID_ANY, checkBoxLabel);
-		}
-		rotationGroup.checkBoxes[0] = new wxCheckBox(&d, wxID_ANY, wxEmptyString);
+		positionGroup.checkBoxes = new wxCheckBox(&d, wxID_ANY, wxEmptyString);
+		scaleGroup.checkBoxes = new wxCheckBox(&d, wxID_ANY, wxEmptyString);
+		rotationGroup.checkBoxes = new wxCheckBox(&d, wxID_ANY, wxEmptyString);
 
 		// 将标签和复选框添加到控制sizer中
 		controlsSizer->Add(positionGroup.label, 0, wxALIGN_CENTER_VERTICAL);
-		for (const auto checkBox : positionGroup.checkBoxes) {
-			controlsSizer->Add(checkBox, 0, wxALL, d.FromDIP(5));
-		}
+		controlsSizer->Add(positionGroup.checkBoxes, 0, wxALL, d.FromDIP(5));
 		controlsSizer->AddStretchSpacer();
 		controlsSizer->Add(scaleGroup.label, 0, wxALIGN_CENTER_VERTICAL);
-		for (const auto checkBox : scaleGroup.checkBoxes) {
-			controlsSizer->Add(checkBox, 0, wxALL, d.FromDIP(5));
-		}
+		controlsSizer->Add(scaleGroup.checkBoxes, 0, wxALL, d.FromDIP(5));
 		controlsSizer->AddStretchSpacer();
 		controlsSizer->Add(rotationGroup.label, 0, wxALIGN_CENTER_VERTICAL);
-		controlsSizer->Add(rotationGroup.checkBoxes[0], 0, wxALL, d.FromDIP(5));
+		controlsSizer->Add(rotationGroup.checkBoxes, 0, wxALL, d.FromDIP(5));
 
 		// 保存复选框指针到类成员变量
-		for (int i = 0; i < 3; ++i) {
-			positionCheckBoxes[i] = positionGroup.checkBoxes[i];
-			scaleCheckBoxes[i] = scaleGroup.checkBoxes[i];
-		}
-		rotationCheckBox = rotationGroup.checkBoxes[0];
+		positionCheckBoxes = positionGroup.checkBoxes;
+		scaleCheckBoxes = scaleGroup.checkBoxes;
+		rotationCheckBox = rotationGroup.checkBoxes;
 
 		// 设置默认勾选状态
-		for (int i = 0; i < 3; ++i) {
-			positionCheckBoxes[i]->SetValue(true);
-			scaleCheckBoxes[i]->SetValue(true);
-		}
+		positionCheckBoxes->SetValue(true);
+		scaleCheckBoxes->SetValue(true);
+		rotationCheckBox->SetValue(true);
 
 		// 创建多行文本框
 		auto *logBox = new wxStaticBox(&d, wxID_ANY, _("Mocha Motion Data"));
@@ -189,6 +186,21 @@ namespace {
 		mainSizer->Add(logSizer, 1, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, d.FromDIP(10));
 		mainSizer->Add(buttonSizer, 0, wxALIGN_RIGHT | wxALL, d.FromDIP(10));
 
+		// 获取剪贴板内容
+		if (wxTheClipboard->Open()) {
+			if (wxTheClipboard->IsSupported(wxDF_TEXT)) {
+				wxTextDataObject data;
+				wxTheClipboard->GetData(data);
+				const wxString clipboardText = data.GetText();
+				// 将剪贴板内容复制到文本框中
+				logTextCtrl->SetValue(clipboardText);
+			}
+			wxTheClipboard->Close();
+		}
+
+		logTextCtrl->SetFocus();
+		d.Refresh();
+
 		d.SetSizerAndFit(mainSizer);
 		d.SetSize(dialogSize);
 		d.CentreOnScreen();
@@ -199,12 +211,8 @@ namespace {
 
 	void DialogMochaUtil::OnStart(wxCommandEvent &) {
 		// 获取复选框的状态
-		const bool getX = positionCheckBoxes[0]->IsChecked();
-		const bool getY = positionCheckBoxes[1]->IsChecked();
-		const bool getZ = positionCheckBoxes[2]->IsChecked();
-		const bool getScaleX = scaleCheckBoxes[0]->IsChecked();
-		const bool getScaleY = scaleCheckBoxes[1]->IsChecked();
-		const bool getScaleZ = scaleCheckBoxes[2]->IsChecked();
+		const bool getPosition = positionCheckBoxes->IsChecked();
+		const bool getScale = scaleCheckBoxes->IsChecked();
 		const bool getRotation = rotationCheckBox->IsChecked();
 
 		// 获取文本框中的内容
@@ -212,7 +220,7 @@ namespace {
 
 		// 解析数据
 		try {
-			final_data = parseData(inputText.ToStdString(), getX, getY, getZ, getScaleX, getScaleY, getScaleZ, getRotation);
+			final_data = parseData(inputText.ToStdString(), getPosition, getScale, getRotation);
 
 			// // 整合并处理数据
 			// std::cout << "Frame\t";
