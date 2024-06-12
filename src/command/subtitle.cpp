@@ -191,30 +191,47 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 	void operator()(agi::Context *c) override {
 		c->videoController->Stop();
 		ShowMochaUtilDialog(c);
-		AssDialogue *last_inserted_line = nullptr;
-		const AssDialogue *active_line = c->selectionController->GetActiveLine();
-		const int startFrame = c->videoController->FrameAtTime(active_line->Start, agi::vfr::START);
-		const int endFrame = c->videoController->FrameAtTime(active_line->End, agi::vfr::END);
+		if (getMochaOK()) {
+			AssDialogue *last_inserted_line = nullptr;
+			const AssDialogue *active_line = c->selectionController->GetActiveLine();
+			const int startFrame = c->videoController->FrameAtTime(active_line->Start, agi::vfr::START);
+			const int endFrame = c->videoController->FrameAtTime(active_line->End, agi::vfr::END);
 
-		for (auto it = c->ass->Events.begin(); it != c->ass->Events.end(); ++it) {
-			if (const AssDialogue *diag = &*it; diag == active_line) {
-				++it;
-				c->ass->Events.erase(c->ass->Events.iterator_to(*active_line));
-				for (int i = startFrame; i <= endFrame; ++i) {
-					const auto new_line = new AssDialogue;
-					new_line->Style = active_line->Style;
-					new_line->Text = active_line->Text;
-					new_line->Start = c->videoController->TimeAtFrame(i, agi::vfr::Time::START);
-					new_line->End = c->videoController->TimeAtFrame(i, agi::vfr::Time::END);
-					c->ass->Events.insert(it, *new_line);
-					last_inserted_line = new_line;
+			for (auto it = c->ass->Events.begin(); it != c->ass->Events.end(); ++it) {
+				if (const AssDialogue *diag = &*it; diag == active_line) {
+					++it;
+					c->ass->Events.erase(c->ass->Events.iterator_to(*active_line));
+					for (int i = startFrame; i <= endFrame; ++i) {
+						const auto new_line = new AssDialogue;
+						new_line->Style = active_line->Style;
+						new_line->Text = active_line->Text;
+						new_line->Start = c->videoController->TimeAtFrame(i, agi::vfr::Time::START);
+						new_line->End = c->videoController->TimeAtFrame(i, agi::vfr::Time::END);
+						c->ass->Events.insert(it, *new_line);
+						last_inserted_line = new_line;
+					}
+					--it;
 				}
-				--it;
 			}
-		}
 
-		c->ass->Commit(_("line insertion"), AssFile::COMMIT_DIAG_ADDREM);
-		c->selectionController->SetSelectionAndActive({last_inserted_line}, last_inserted_line);
+			const MochaData mocha_data=getMochaCheckData();
+			std::cout << mocha_data.total_frame << std::endl;
+			std::vector<KeyframeData> final_data = getMochaMotionParseData();
+			for (const auto &[frame, x, y, z, scaleX, scaleY, scaleZ, rotation] : final_data) {
+				std::cout << frame << "\t";
+				std::cout << x << "\t";
+				std::cout << y << "\t";
+				std::cout << z << "\t";
+				std::cout << scaleX << "\t";
+				std::cout << scaleY << "\t";
+				std::cout << scaleZ << "\t";
+				std::cout << rotation << "\t";
+				std::cout << std::endl;
+			}
+
+			c->ass->Commit(_("line insertion"), AssFile::COMMIT_DIAG_ADDREM);
+			c->selectionController->SetSelectionAndActive({last_inserted_line}, last_inserted_line);
+		}
 	}
 };
 

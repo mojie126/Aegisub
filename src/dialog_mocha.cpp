@@ -17,6 +17,7 @@
 
 std::vector<KeyframeData> final_data;
 MochaData mocha_data;
+bool onMochaOK = false;
 
 std::vector<KeyframeData> parseData(const std::string &input, bool getX, bool getY, bool getZ, bool getScaleX, bool getScaleY, bool getScaleZ, bool getRotation) {
 	std::istringstream stream(input), check_stream(input);
@@ -96,29 +97,32 @@ std::vector<KeyframeData> parseData(const std::string &input, bool getX, bool ge
 }
 
 namespace {
-	class DialogMochaUtil final : public wxDialog {
+	struct DialogMochaUtil {
 		void OnStart(wxCommandEvent &);
 
-	public:
-		explicit DialogMochaUtil(const agi::Context *c);
+		void OnCancel(wxCommandEvent &);
 
-	private:
+		explicit DialogMochaUtil(agi::Context *c);
+
+		wxDialog d;
+		agi::Context *c;
 		wxCheckBox *positionCheckBoxes[3]{};
 		wxCheckBox *scaleCheckBoxes[3]{};
 		wxCheckBox *rotationCheckBox;
 		wxTextCtrl *logTextCtrl;
 	};
 
-	DialogMochaUtil::DialogMochaUtil(const agi::Context *c)
-		: wxDialog(c->parent, wxID_ANY, _("Mocha Motion - Simple Version"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
+	DialogMochaUtil::DialogMochaUtil(agi::Context *c)
+		: d(c->parent, -1, _("Mocha Motion - Simple Version"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+		, c(c) {
 		// 使用 wxDIP 来适配高 DPI 显示
-		const wxSize dialogSize = FromDIP(wxSize(600, 400), this);
+		const wxSize dialogSize = wxDialog::FromDIP(wxSize(600, 400), &d);
 
 		// 创建主垂直sizer
 		auto *mainSizer = new wxBoxSizer(wxVERTICAL);
 
 		// 创建包含所有控件的静态框和水平sizer
-		auto *controlsBox = new wxStaticBox(this, wxID_ANY, _("Controls"));
+		auto *controlsBox = new wxStaticBox(&d, wxID_ANY, _("Controls"));
 		auto *controlsSizer = new wxStaticBoxSizer(controlsBox, wxHORIZONTAL);
 
 		// 创建位移、缩放和角度的标签和复选框
@@ -129,30 +133,30 @@ namespace {
 
 		ControlGroup positionGroup{}, scaleGroup{}, rotationGroup{};
 
-		positionGroup.label = new wxStaticText(this, wxID_ANY, _("Position:"));
-		scaleGroup.label = new wxStaticText(this, wxID_ANY, _("Scale:"));
-		rotationGroup.label = new wxStaticText(this, wxID_ANY, _("Rotation:"));
+		positionGroup.label = new wxStaticText(&d, wxID_ANY, _("Position:"));
+		scaleGroup.label = new wxStaticText(&d, wxID_ANY, _("Scale:"));
+		rotationGroup.label = new wxStaticText(&d, wxID_ANY, _("Rotation:"));
 
 		for (int i = 0; i < 3; ++i) {
 			wxString checkBoxLabel = wxString::Format("%c", 'X' + i);
-			positionGroup.checkBoxes[i] = new wxCheckBox(this, wxID_ANY, checkBoxLabel);
-			scaleGroup.checkBoxes[i] = new wxCheckBox(this, wxID_ANY, checkBoxLabel);
+			positionGroup.checkBoxes[i] = new wxCheckBox(&d, wxID_ANY, checkBoxLabel);
+			scaleGroup.checkBoxes[i] = new wxCheckBox(&d, wxID_ANY, checkBoxLabel);
 		}
-		rotationGroup.checkBoxes[0] = new wxCheckBox(this, wxID_ANY, wxEmptyString);
+		rotationGroup.checkBoxes[0] = new wxCheckBox(&d, wxID_ANY, wxEmptyString);
 
 		// 将标签和复选框添加到控制sizer中
 		controlsSizer->Add(positionGroup.label, 0, wxALIGN_CENTER_VERTICAL);
 		for (const auto checkBox : positionGroup.checkBoxes) {
-			controlsSizer->Add(checkBox, 0, wxALL, FromDIP(5));
+			controlsSizer->Add(checkBox, 0, wxALL, d.FromDIP(5));
 		}
 		controlsSizer->AddStretchSpacer();
 		controlsSizer->Add(scaleGroup.label, 0, wxALIGN_CENTER_VERTICAL);
 		for (const auto checkBox : scaleGroup.checkBoxes) {
-			controlsSizer->Add(checkBox, 0, wxALL, FromDIP(5));
+			controlsSizer->Add(checkBox, 0, wxALL, d.FromDIP(5));
 		}
 		controlsSizer->AddStretchSpacer();
 		controlsSizer->Add(rotationGroup.label, 0, wxALIGN_CENTER_VERTICAL);
-		controlsSizer->Add(rotationGroup.checkBoxes[0], 0, wxALL, FromDIP(5));
+		controlsSizer->Add(rotationGroup.checkBoxes[0], 0, wxALL, d.FromDIP(5));
 
 		// 保存复选框指针到类成员变量
 		for (int i = 0; i < 3; ++i) {
@@ -168,27 +172,29 @@ namespace {
 		}
 
 		// 创建多行文本框
-		auto *logBox = new wxStaticBox(this, wxID_ANY, _("Mocha Motion Data"));
+		auto *logBox = new wxStaticBox(&d, wxID_ANY, _("Mocha Motion Data"));
 		auto *logSizer = new wxStaticBoxSizer(logBox, wxVERTICAL);
-		logTextCtrl = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(-1, FromDIP(150)), wxTE_MULTILINE);
-		logSizer->Add(logTextCtrl, 1, wxEXPAND | wxALL, FromDIP(5));
+		logTextCtrl = new wxTextCtrl(&d, wxID_ANY, "", wxDefaultPosition, wxSize(-1, d.FromDIP(150)), wxTE_MULTILINE);
+		logSizer->Add(logTextCtrl, 1, wxEXPAND | wxALL, d.FromDIP(5));
 
 		// 创建按钮
-		wxStdDialogButtonSizer *buttonSizer = CreateStdDialogButtonSizer(wxOK | wxCANCEL);
+		wxStdDialogButtonSizer *buttonSizer = d.CreateStdDialogButtonSizer(wxOK | wxCANCEL);
 		wxButton *executeButton = buttonSizer->GetAffirmativeButton();
 		executeButton->SetLabel(_("Apply"));
-		executeButton->Bind(wxEVT_BUTTON, &DialogMochaUtil::OnStart, this);
 		wxButton *cancelButton = buttonSizer->GetCancelButton();
 		cancelButton->SetLabel(_("Cancel"));
 
 		// 将所有sizer添加到主sizer中
-		mainSizer->Add(controlsSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP(10));
-		mainSizer->Add(logSizer, 1, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP(10));
-		mainSizer->Add(buttonSizer, 0, wxALIGN_RIGHT | wxALL, FromDIP(10));
+		mainSizer->Add(controlsSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, d.FromDIP(10));
+		mainSizer->Add(logSizer, 1, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, d.FromDIP(10));
+		mainSizer->Add(buttonSizer, 0, wxALIGN_RIGHT | wxALL, d.FromDIP(10));
 
-		SetSizerAndFit(mainSizer);
-		SetSize(dialogSize);
-		CentreOnScreen();
+		d.SetSizerAndFit(mainSizer);
+		d.SetSize(dialogSize);
+		d.CentreOnScreen();
+
+		d.Bind(wxEVT_BUTTON, &DialogMochaUtil::OnStart, this, wxID_OK);
+		d.Bind(wxEVT_BUTTON, &DialogMochaUtil::OnCancel, this, wxID_CANCEL);
 	}
 
 	void DialogMochaUtil::OnStart(wxCommandEvent &) {
@@ -208,31 +214,38 @@ namespace {
 		try {
 			final_data = parseData(inputText.ToStdString(), getX, getY, getZ, getScaleX, getScaleY, getScaleZ, getRotation);
 
-			// 整合并处理数据
-			std::cout << "Frame\t";
-			if (getX) std::cout << "X\t";
-			if (getY) std::cout << "Y\t";
-			if (getZ) std::cout << "Z\t";
-			if (getScaleX) std::cout << "ScaleX\t";
-			if (getScaleY) std::cout << "ScaleY\t";
-			if (getScaleZ) std::cout << "ScaleZ\t";
-			if (getRotation) std::cout << "Rotation\t";
-			std::cout << std::endl;
-
-			for (const auto &[frame, x, y, z, scaleX, scaleY, scaleZ, rotation] : final_data) {
-				std::cout << frame << "\t";
-				if (getX) std::cout << x << "\t";
-				if (getY) std::cout << y << "\t";
-				if (getZ) std::cout << z << "\t";
-				if (getScaleX) std::cout << scaleX << "\t";
-				if (getScaleY) std::cout << scaleY << "\t";
-				if (getScaleZ) std::cout << scaleZ << "\t";
-				if (getRotation) std::cout << rotation << "\t";
-				std::cout << std::endl;
-			}
+			// // 整合并处理数据
+			// std::cout << "Frame\t";
+			// if (getX) std::cout << "X\t";
+			// if (getY) std::cout << "Y\t";
+			// if (getZ) std::cout << "Z\t";
+			// if (getScaleX) std::cout << "ScaleX\t";
+			// if (getScaleY) std::cout << "ScaleY\t";
+			// if (getScaleZ) std::cout << "ScaleZ\t";
+			// if (getRotation) std::cout << "Rotation\t";
+			// std::cout << std::endl;
+			//
+			// for (const auto &[frame, x, y, z, scaleX, scaleY, scaleZ, rotation] : final_data) {
+			// 	std::cout << frame << "\t";
+			// 	if (getX) std::cout << x << "\t";
+			// 	if (getY) std::cout << y << "\t";
+			// 	if (getZ) std::cout << z << "\t";
+			// 	if (getScaleX) std::cout << scaleX << "\t";
+			// 	if (getScaleY) std::cout << scaleY << "\t";
+			// 	if (getScaleZ) std::cout << scaleZ << "\t";
+			// 	if (getRotation) std::cout << rotation << "\t";
+			// 	std::cout << std::endl;
+			// }
 		} catch (const std::exception &e) {
 			wxLogError("Error: %s", e.what());
 		}
+		d.EndModal(0);
+		onMochaOK = true;
+	}
+
+	void DialogMochaUtil::OnCancel(wxCommandEvent &) {
+		d.EndModal(0);
+		onMochaOK = false;
 	}
 }
 
@@ -244,6 +257,10 @@ MochaData getMochaCheckData() {
 	return mocha_data;
 }
 
+bool getMochaOK() {
+	return onMochaOK;
+}
+
 void ShowMochaUtilDialog(agi::Context *c) {
-	c->dialog->Show<DialogMochaUtil>(c);
+	DialogMochaUtil(c).d.ShowModal();
 }

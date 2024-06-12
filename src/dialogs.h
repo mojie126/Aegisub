@@ -101,6 +101,8 @@ std::vector<KeyframeData> getMochaMotionParseData();
 
 MochaData getMochaCheckData();
 
+bool getMochaOK();
+
 void ShowJumpToDialog(agi::Context *c);
 
 void ShowJumpFrameToDialog(agi::Context *c);
