@@ -38,6 +38,9 @@ struct MochaData {
 	int source_width;
 	int source_height;
 	bool is_mocha_data;
+	bool get_position;
+	bool get_scale;
+	bool get_rotation;
 };
 
 class AssFile;

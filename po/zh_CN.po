@@ -6965,6 +6965,27 @@ msgstr "将mocha追踪数据应用于当前选中的字幕条目"
 msgid "Please choose a language:"
 msgstr "请选择将要使用的语言："
 
+msgid "Mocha Motion - Simple Version"
+msgstr "摩卡追踪 - 简易版"
+
+msgid "Position: "
+msgstr "坐标："
+
+msgid "Scale: "
+msgstr "缩放："
+
+msgid "Rotation: "
+msgstr "旋转："
+
+msgid "Mocha Motion Data"
+msgstr "摩卡追踪数据"
+
+msgid "Apply"
+msgstr "应用"
+
+msgid "The trace data is asymmetrical with the selected row data and requires %d frames"
+msgstr "追踪数据与选定行数据不对称，需要 %d 帧"
+
 #~ msgid "    Subtitle format handler: %s"
 #~ msgstr "    字幕格式处理器： %s"
 
