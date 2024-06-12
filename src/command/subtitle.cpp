@@ -31,6 +31,7 @@
 
 #include <dialog_manager.h>
 #include <format.h>
+#include <regex>
 
 #include "command.h"
 
@@ -178,11 +179,31 @@ struct subtitle_insert_after_videotime final : public validate_nonempty_selectio
 	}
 };
 
+// 删除指定模式的子字符串
+std::string remove_patterns(const std::string &input) {
+	std::string result = input;
+
+	// 定义正则表达式模式
+	const std::regex pos_regex(R"(\\pos\(-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?\))");
+	const std::regex frz_regex(R"(\\frz-?\d+(\.\d+)?)");
+	const std::regex fscx_regex(R"(\\fscx-?\d+(\.\d+)?)");
+	const std::regex fscy_regex(R"(\\fscy-?\d+(\.\d+)?)");
+
+	// 使用正则表达式替换匹配的子字符串
+	result = std::regex_replace(result, pos_regex, "");
+	result = std::regex_replace(result, frz_regex, "");
+	result = std::regex_replace(result, fscx_regex, "");
+	result = std::regex_replace(result, fscy_regex, "");
+
+	return result;
+}
+
 std::string append_if_starts_with_brace(const std::string &str, const std::string &to_append) {
-	if (!str.empty() && str[0] == '{') {
-		return str.substr(0, 1) + to_append + str.substr(1);
+	if (const std::string modified_str = remove_patterns(str); !modified_str.empty() && modified_str[0] == '{') {
+		return modified_str.substr(0, 1) + to_append + modified_str.substr(1);
+	} else {
+		return "{" + to_append + modified_str + "}";
 	}
-	return "{" + to_append + str + "}";
 }
 
 struct subtitle_apply_mocha final : public validate_nonempty_selection {
@@ -233,7 +254,7 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 						if (get_rotation) {
 							ass_tag_str.append(agi::wxformat(R"(\frz%lf)", rotation));
 						}
-						std::string _temp_text = append_if_starts_with_brace(temp_text, ass_tag_str);
+						const std::string _temp_text = append_if_starts_with_brace(temp_text, ass_tag_str);
 						new_line->Text = _temp_text;
 						// 字幕内容处理 -- 结束
 						c->ass->Events.insert(it, *new_line);

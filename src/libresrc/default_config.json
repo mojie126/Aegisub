@@ -406,7 +406,7 @@
 
 	"Subtitle" : {
 		"Font Dir" : "",
-		"Use Font Filename" : false,
+		"Use Font Filename" : true,
 		"Character Counter" : {
 			"Ignore Whitespace" : true,
 			"Ignore Punctuation" : true,

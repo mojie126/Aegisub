@@ -109,6 +109,8 @@ namespace {
 
 		void OnCancel(wxCommandEvent &);
 
+		void OnPaste(wxCommandEvent &);
+
 		explicit DialogMochaUtil(agi::Context *c);
 
 		wxDialog d;
@@ -175,11 +177,13 @@ namespace {
 		logSizer->Add(logTextCtrl, 1, wxEXPAND | wxALL, d.FromDIP(5));
 
 		// 创建按钮
-		wxStdDialogButtonSizer *buttonSizer = d.CreateStdDialogButtonSizer(wxOK | wxCANCEL);
+		wxStdDialogButtonSizer *buttonSizer = d.CreateStdDialogButtonSizer(wxOK | wxCANCEL | wxAPPLY);
 		wxButton *executeButton = buttonSizer->GetAffirmativeButton();
 		executeButton->SetLabel(_("Apply"));
 		wxButton *cancelButton = buttonSizer->GetCancelButton();
 		cancelButton->SetLabel(_("Cancel"));
+		wxButton *pasteButton = buttonSizer->GetApplyButton();
+		pasteButton->SetLabel(_("Paste from Clipboard"));
 
 		// 将所有sizer添加到主sizer中
 		mainSizer->Add(controlsSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, d.FromDIP(10));
@@ -187,16 +191,8 @@ namespace {
 		mainSizer->Add(buttonSizer, 0, wxALIGN_RIGHT | wxALL, d.FromDIP(10));
 
 		// 获取剪贴板内容
-		if (wxTheClipboard->Open()) {
-			if (wxTheClipboard->IsSupported(wxDF_TEXT)) {
-				wxTextDataObject data;
-				wxTheClipboard->GetData(data);
-				const wxString clipboardText = data.GetText();
-				// 将剪贴板内容复制到文本框中
-				logTextCtrl->SetValue(clipboardText);
-			}
-			wxTheClipboard->Close();
-		}
+		wxCommandEvent wx_command_event;
+		OnPaste(wx_command_event);
 
 		logTextCtrl->SetFocus();
 		d.Refresh();
@@ -205,8 +201,10 @@ namespace {
 		d.SetSize(dialogSize);
 		d.CentreOnScreen();
 
+		// 绑定事件处理函数
 		d.Bind(wxEVT_BUTTON, &DialogMochaUtil::OnStart, this, wxID_OK);
 		d.Bind(wxEVT_BUTTON, &DialogMochaUtil::OnCancel, this, wxID_CANCEL);
+		d.Bind(wxEVT_BUTTON, &DialogMochaUtil::OnPaste, this, wxID_APPLY);
 	}
 
 	void DialogMochaUtil::OnStart(wxCommandEvent &) {
@@ -254,6 +252,20 @@ namespace {
 	void DialogMochaUtil::OnCancel(wxCommandEvent &) {
 		d.EndModal(0);
 		onMochaOK = false;
+	}
+
+	void DialogMochaUtil::OnPaste(wxCommandEvent &) {
+		// 获取剪贴板内容
+		if (wxTheClipboard->Open()) {
+			if (wxTheClipboard->IsSupported(wxDF_TEXT)) {
+				wxTextDataObject data;
+				wxTheClipboard->GetData(data);
+				const wxString clipboardText = data.GetText();
+				// 将剪贴板内容复制到文本框中
+				logTextCtrl->SetValue(clipboardText);
+			}
+			wxTheClipboard->Close();
+		}
 	}
 }
 
