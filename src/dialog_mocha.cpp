@@ -10,26 +10,38 @@
 #include <sstream>
 #include <iostream>
 #include <cmath>
+#include <dialogs.h>
 #include <exception>
 #include <dialog_manager.h>
 #include <aegisub/context.h>
 
-struct KeyframeData {
-	int frame;
-	double x;
-	double y;
-	double z;
-	double scaleX;
-	double scaleY;
-	double scaleZ;
-	double rotation;
-};
+std::vector<KeyframeData> final_data;
+MochaData mocha_data;
 
 std::vector<KeyframeData> parseData(const std::string &input, bool getX, bool getY, bool getZ, bool getScaleX, bool getScaleY, bool getScaleZ, bool getRotation) {
-	std::istringstream stream(input);
+	std::istringstream stream(input), check_stream(input);
 	std::string line;
 	std::vector<KeyframeData> keyframeData;
 	std::string section;
+
+	if (std::getline(check_stream, line)) {
+		if (line.find("Adobe After Effects ") == 0 && line.find(" Keyframe Data") != std::string::npos) {
+			mocha_data.is_mocha_data = true;
+		} else
+			return keyframeData;
+	}
+
+	if (mocha_data.is_mocha_data) {
+		while (std::getline(check_stream, line)) {
+			if (line.find("Source Width") != std::string::npos) {
+				mocha_data.source_width = std::stoi(line.substr(line.find_last_of('\t') + 1));
+			} else if (line.find("Source Height") != std::string::npos) {
+				mocha_data.source_height = std::stoi(line.substr(line.find_last_of('\t') + 1));
+			} else if (line.find("Units Per Second") != std::string::npos) {
+				mocha_data.frame_rate = std::stod(line.substr(line.find_last_of('\t') + 1));
+			}
+		}
+	}
 
 	while (std::getline(stream, line)) {
 		std::istringstream ss(line);
@@ -79,6 +91,7 @@ std::vector<KeyframeData> parseData(const std::string &input, bool getX, bool ge
 		}
 	}
 
+	mocha_data.total_frame = keyframeData.size();
 	return keyframeData;
 }
 
@@ -90,7 +103,7 @@ namespace {
 		explicit DialogMochaUtil(const agi::Context *c);
 
 	private:
-		wxCheckBox *displacementCheckBoxes[3]{};
+		wxCheckBox *positionCheckBoxes[3]{};
 		wxCheckBox *scaleCheckBoxes[3]{};
 		wxCheckBox *rotationCheckBox;
 		wxTextCtrl *logTextCtrl;
@@ -114,43 +127,43 @@ namespace {
 			wxCheckBox *checkBoxes[3];
 		};
 
-		ControlGroup displacementGroup{}, scaleGroup{}, angleGroup{};
+		ControlGroup positionGroup{}, scaleGroup{}, rotationGroup{};
 
-		displacementGroup.label = new wxStaticText(this, wxID_ANY, _("Position:"));
+		positionGroup.label = new wxStaticText(this, wxID_ANY, _("Position:"));
 		scaleGroup.label = new wxStaticText(this, wxID_ANY, _("Scale:"));
-		angleGroup.label = new wxStaticText(this, wxID_ANY, _("Rotation:"));
+		rotationGroup.label = new wxStaticText(this, wxID_ANY, _("Rotation:"));
 
 		for (int i = 0; i < 3; ++i) {
 			wxString checkBoxLabel = wxString::Format("%c", 'X' + i);
-			displacementGroup.checkBoxes[i] = new wxCheckBox(this, wxID_ANY, checkBoxLabel);
+			positionGroup.checkBoxes[i] = new wxCheckBox(this, wxID_ANY, checkBoxLabel);
 			scaleGroup.checkBoxes[i] = new wxCheckBox(this, wxID_ANY, checkBoxLabel);
 		}
-		angleGroup.checkBoxes[0] = new wxCheckBox(this, wxID_ANY, wxEmptyString);
+		rotationGroup.checkBoxes[0] = new wxCheckBox(this, wxID_ANY, wxEmptyString);
 
 		// 将标签和复选框添加到控制sizer中
-		controlsSizer->Add(displacementGroup.label, 0, wxALIGN_CENTER_VERTICAL);
-		for (const auto checkBox : displacementGroup.checkBoxes) {
+		controlsSizer->Add(positionGroup.label, 0, wxALIGN_CENTER_VERTICAL);
+		for (const auto checkBox : positionGroup.checkBoxes) {
 			controlsSizer->Add(checkBox, 0, wxALL, FromDIP(5));
 		}
-		controlsSizer->AddStretchSpacer(2);
+		controlsSizer->AddStretchSpacer();
 		controlsSizer->Add(scaleGroup.label, 0, wxALIGN_CENTER_VERTICAL);
 		for (const auto checkBox : scaleGroup.checkBoxes) {
 			controlsSizer->Add(checkBox, 0, wxALL, FromDIP(5));
 		}
-		controlsSizer->AddStretchSpacer(2);
-		controlsSizer->Add(angleGroup.label, 0, wxALIGN_CENTER_VERTICAL);
-		controlsSizer->Add(angleGroup.checkBoxes[0], 0, wxALL, FromDIP(5));
+		controlsSizer->AddStretchSpacer();
+		controlsSizer->Add(rotationGroup.label, 0, wxALIGN_CENTER_VERTICAL);
+		controlsSizer->Add(rotationGroup.checkBoxes[0], 0, wxALL, FromDIP(5));
 
 		// 保存复选框指针到类成员变量
 		for (int i = 0; i < 3; ++i) {
-			displacementCheckBoxes[i] = displacementGroup.checkBoxes[i];
+			positionCheckBoxes[i] = positionGroup.checkBoxes[i];
 			scaleCheckBoxes[i] = scaleGroup.checkBoxes[i];
 		}
-		rotationCheckBox = angleGroup.checkBoxes[0];
+		rotationCheckBox = rotationGroup.checkBoxes[0];
 
 		// 设置默认勾选状态
 		for (int i = 0; i < 3; ++i) {
-			displacementCheckBoxes[i]->SetValue(true);
+			positionCheckBoxes[i]->SetValue(true);
 			scaleCheckBoxes[i]->SetValue(true);
 		}
 
@@ -180,9 +193,9 @@ namespace {
 
 	void DialogMochaUtil::OnStart(wxCommandEvent &) {
 		// 获取复选框的状态
-		const bool getX = displacementCheckBoxes[0]->IsChecked();
-		const bool getY = displacementCheckBoxes[1]->IsChecked();
-		const bool getZ = displacementCheckBoxes[2]->IsChecked();
+		const bool getX = positionCheckBoxes[0]->IsChecked();
+		const bool getY = positionCheckBoxes[1]->IsChecked();
+		const bool getZ = positionCheckBoxes[2]->IsChecked();
 		const bool getScaleX = scaleCheckBoxes[0]->IsChecked();
 		const bool getScaleY = scaleCheckBoxes[1]->IsChecked();
 		const bool getScaleZ = scaleCheckBoxes[2]->IsChecked();
@@ -193,7 +206,7 @@ namespace {
 
 		// 解析数据
 		try {
-			const std::vector<KeyframeData> data = parseData(inputText.ToStdString(), getX, getY, getZ, getScaleX, getScaleY, getScaleZ, getRotation);
+			final_data = parseData(inputText.ToStdString(), getX, getY, getZ, getScaleX, getScaleY, getScaleZ, getRotation);
 
 			// 整合并处理数据
 			std::cout << "Frame\t";
@@ -206,7 +219,7 @@ namespace {
 			if (getRotation) std::cout << "Rotation\t";
 			std::cout << std::endl;
 
-			for (const auto &[frame, x, y, z, scaleX, scaleY, scaleZ, rotation] : data) {
+			for (const auto &[frame, x, y, z, scaleX, scaleY, scaleZ, rotation] : final_data) {
 				std::cout << frame << "\t";
 				if (getX) std::cout << x << "\t";
 				if (getY) std::cout << y << "\t";
@@ -221,6 +234,14 @@ namespace {
 			wxLogError("Error: %s", e.what());
 		}
 	}
+}
+
+std::vector<KeyframeData> getMochaMotionParseData() {
+	return final_data;
+}
+
+MochaData getMochaCheckData() {
+	return mocha_data;
 }
 
 void ShowMochaUtilDialog(agi::Context *c) {
