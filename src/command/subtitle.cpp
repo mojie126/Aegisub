@@ -29,8 +29,10 @@
 //
 // Aegisub Project http://www.aegisub.org/
 
+#include <ass_style.h>
 #include <dialog_manager.h>
 #include <format.h>
+#include <iomanip>
 #include <regex>
 
 #include "command.h"
@@ -179,21 +181,43 @@ struct subtitle_insert_after_videotime final : public validate_nonempty_selectio
 	}
 };
 
-// 删除指定模式的子字符串
 std::string remove_patterns(const std::string &input) {
 	std::string result = input;
 
-	// 定义正则表达式模式
 	const std::regex pos_regex(R"(\\pos\(-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?\))");
-	const std::regex frz_regex(R"(\\frz-?\d+(\.\d+)?)");
+	const std::regex frz_regex(R"(\\frz?-?\d+(\.\d+)?)");
 	const std::regex fscx_regex(R"(\\fscx-?\d+(\.\d+)?)");
 	const std::regex fscy_regex(R"(\\fscy-?\d+(\.\d+)?)");
 
-	// 使用正则表达式替换匹配的子字符串
-	result = std::regex_replace(result, pos_regex, "");
-	result = std::regex_replace(result, frz_regex, "");
-	result = std::regex_replace(result, fscx_regex, "");
-	result = std::regex_replace(result, fscy_regex, "");
+	bool found = true;
+	while (found) {
+		found = false;
+		std::string new_result;
+
+		new_result = std::regex_replace(result, pos_regex, "");
+		if (new_result != result) {
+			found = true;
+			result = new_result;
+		}
+
+		new_result = std::regex_replace(result, frz_regex, "");
+		if (new_result != result) {
+			found = true;
+			result = new_result;
+		}
+
+		new_result = std::regex_replace(result, fscx_regex, "");
+		if (new_result != result) {
+			found = true;
+			result = new_result;
+		}
+
+		new_result = std::regex_replace(result, fscy_regex, "");
+		if (new_result != result) {
+			found = true;
+			result = new_result;
+		}
+	}
 
 	return result;
 }
@@ -220,6 +244,7 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 	void operator()(agi::Context *c) override {
 		c->videoController->Stop();
 		ShowMochaUtilDialog(c);
+		bool log = false;
 		if (getMochaOK()) {
 			const auto [total_frame, frame_rate, source_width, source_height, is_mocha_data, get_position, get_scale, get_rotation] = getMochaCheckData();
 			std::vector<KeyframeData> final_data = getMochaMotionParseData();
@@ -239,11 +264,142 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 					c->ass->Events.erase(c->ass->Events.iterator_to(*active_line));
 					for (int i = startFrame; i <= endFrame; ++i) {
 						const auto new_line = new AssDialogue;
+						// 获取当前行的基本样式信息
+						/*
+						* 如果有手动定义fscx, fscy, frz/fr, pos，则以手动定义为准，忽略Style里的定义
+						* Margin[0] = 左边距，Margin[1] = 右边距， Margin[2] = 垂直边距
+						* an1 X = Margin[0], Y = height - Margin[2]
+						* an2 X = width / 2, Y = height - Margin[2]
+						* an3 X = width - Margin[1], Y = height - Margin[2]
+						* an4 X = Margin[0], Y = height / 2
+						* an5 X = width / 2, Y = height / 2
+						* an6 X = width - Margin[1], Y = height / 2
+						* an7 X = Margin[0], Y = Margin[2]
+						* an8 X = width / 2, Y = Margin[2]
+						* an9 X = width - Margin[1], Y = Margin[2]
+						* xRatio = Mocha_scaleX / Style_scaleX
+						* yRatio = Mocha_scaleY / Style_scaleY
+						* zRotationDiff = Mocha_rotation - Style_rotation
+						*/
+						auto [frame, x, y, z, scaleX, scaleY, scaleZ, rotation] = final_data[current_process_frame];
+						AssStyle const *const style = c->ass->GetStyle(active_line->Style);
+						double _x, _y, xStartPosition, yStartPosition, xRatio, yRatio, zRotationDiff, radius, angle, temp_x, temp_y, xCurrentPosition = x, yCurrentPosition = y, default_scale_x = 100., default_scale_y = 100.;
+						const double Vertical_margins = style->Margin[2], Right_margin = style->Margin[1], Left_margin = style->Margin[0], Style_scaleX = style->scalex, Style_scaleY = style->scaley, Style_rotation = style->angle;
+						if (current_process_frame == 0) {
+							double X, Y;
+							xStartPosition = x;
+							yStartPosition = y;
+							if (const int an = style->alignment; an == 1) {
+								X = Left_margin;
+								Y = source_height - Vertical_margins;
+							} else if (an == 2) {
+								X = static_cast<double>(source_width) / 2;
+								Y = source_height - Vertical_margins;
+							} else if (an == 3) {
+								X = source_width - Right_margin;
+								Y = source_height - Vertical_margins;
+							} else if (an == 4) {
+								X = Left_margin;
+								Y = static_cast<double>(source_height) / 2;
+							} else if (an == 5) {
+								X = static_cast<double>(source_width) / 2;
+								Y = static_cast<double>(source_height) / 2;
+							} else if (an == 6) {
+								X = source_width - Right_margin;
+								Y = static_cast<double>(source_height) / 2;
+							} else if (an == 7) {
+								X = Left_margin;
+								Y = Right_margin;
+							} else if (an == 8) {
+								X = static_cast<double>(source_width) / 2;
+								Y = Right_margin;
+							} else if (an == 9) {
+								X = source_width - Right_margin;
+								Y = Right_margin;
+							}
+							_x = X;
+							_y = Y;
+						}
+						// 匹配是否激活行有定义
+						const std::regex pos_regex(R"(\\pos\((-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)\))");
+						const std::regex frz_regex(R"(\\frz?(-?\d+(\.\d+)?))");
+						const std::regex fscx_regex(R"(\\fscx(-?\d+(\.\d+)?))");
+						const std::regex fscy_regex(R"(\\fscy(-?\d+(\.\d+)?))");
+
+						std::smatch pos_match, frz_match, fscx_match, fscy_match;
+						auto searchStart(temp_text.cbegin());
+						bool find_pos = std::regex_search(searchStart, temp_text.cend(), pos_match, pos_regex);
+						bool find_frz = std::regex_search(searchStart, temp_text.cend(), frz_match, frz_regex);
+						bool find_fscx = std::regex_search(searchStart, temp_text.cend(), fscx_match, fscx_regex);
+						bool find_fscy = std::regex_search(searchStart, temp_text.cend(), fscy_match, fscy_regex);
+						/*
+						 * xStartPosition, yStartPosition永远是追踪数据的首帧数据，不可变
+						 * xRatio, yRatio是追踪数据每帧缩放数据 / Style默认缩放值，即100.
+						 * zRotationDiff是追踪数据每帧的旋转值，负数取绝对值，正数变负数
+						 */
+						if (find_pos) {
+							_x = wxAtof(pos_match[1].str());
+							_y = wxAtof(pos_match[3].str());
+						}
+						xRatio = scaleX / default_scale_x;
+						yRatio = scaleY / default_scale_y;
+						if (rotation < 0) {
+							zRotationDiff = std::fabs(rotation);
+						} else {
+							zRotationDiff = -rotation;
+						}
+						temp_x = (_x - xStartPosition) * xRatio;
+						temp_y = (_y - yStartPosition) * yRatio;
+						if (log) {
+							std::cout << std::setprecision(15) << "frame:\t" << current_process_frame << std::endl;
+							std::cout << std::setprecision(15) << "_x:\t" << _x << std::endl;
+							std::cout << std::setprecision(15) << "_y:\t" << _y << std::endl;
+							std::cout << std::setprecision(15) << "temp_x:\t" << temp_x << std::endl;
+							std::cout << std::setprecision(15) << "temp_y:\t" << temp_y << std::endl;
+						}
+						radius = std::sqrt(temp_x * temp_x + temp_y * temp_y);
+						angle = std::atan2(temp_y, temp_x) * 180 / M_PI;
+						x = xCurrentPosition + radius * std::cos((angle - zRotationDiff) * M_PI / 180);
+						y = yCurrentPosition + radius * std::sin((angle - zRotationDiff) * M_PI / 180);
+
+						if (log) {
+							std::cout << std::setprecision(15) << "xStartPosition:\t" << xStartPosition << std::endl;
+							std::cout << std::setprecision(15) << "yStartPosition:\t" << yStartPosition << std::endl;
+							std::cout << std::setprecision(15) << "xRatio:\t" << xRatio << std::endl;
+							std::cout << std::setprecision(15) << "yRatio:\t" << yRatio << std::endl;
+							std::cout << std::setprecision(15) << "radius:\t" << radius << std::endl;
+							std::cout << std::setprecision(15) << "angle:\t" << angle << std::endl;
+							std::cout << std::setprecision(15) << "xCurrentPosition:\t" << xCurrentPosition << std::endl;
+							std::cout << std::setprecision(15) << "yCurrentPosition:\t" << yCurrentPosition << std::endl;
+							std::cout << std::setprecision(15) << "zRotationDiff:\t" << zRotationDiff << std::endl;
+							std::cout << std::setprecision(15) << "angle - zRotationDiff:\t" << angle - zRotationDiff << std::endl;
+							std::cout << std::setprecision(15) << "cos:\t" << std::cos((angle - zRotationDiff) * M_PI / 180) << std::endl;
+							std::cout << std::setprecision(15) << "sin:\t" << std::sin((angle - zRotationDiff) * M_PI / 180) << std::endl;
+							std::cout << std::setprecision(15) << "x:\t" << x << std::endl;
+							std::cout << std::setprecision(15) << "y:\t" << y << std::endl;
+							std::cout << "===================" << std::endl;
+						}
+
+						// rotation要取绝对值
+						if (find_frz) {
+							rotation = std::fabs(rotation) + wxAtof(frz_match[1].str());
+						} else {
+							rotation = std::fabs(rotation);
+						}
+						if (find_fscx) {
+							scaleX *= wxAtof(fscx_match[1].str()) / default_scale_x;
+						} else {
+							scaleX *= Style_scaleX / default_scale_x;
+						}
+						if (find_fscy) {
+							scaleY *= wxAtof(fscy_match[1].str()) / default_scale_y;
+						} else {
+							scaleY *= Style_scaleY / default_scale_y;
+						}
 						new_line->Style = active_line->Style;
 						new_line->Start = c->videoController->TimeAtFrame(i, agi::vfr::Time::START);
 						new_line->End = c->videoController->TimeAtFrame(i, agi::vfr::Time::END);
 						// 字幕内容处理 -- 开始
-						auto [frame, x, y, z, scaleX, scaleY, scaleZ, rotation] = final_data[current_process_frame];
 						std::string ass_tag_str;
 						if (get_position) {
 							ass_tag_str.append(agi::wxformat(R"(\pos(%lf, %lf))", x, y));

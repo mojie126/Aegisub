@@ -86,7 +86,6 @@ std::vector<KeyframeData> parseData(const std::string &input, bool getPosition, 
 			} else if (section == "Rotation") {
 				if (getRotation) {
 					ss >> data.rotation;
-					data.rotation = std::fabs(std::fmod(data.rotation, 360.0));
 				}
 			}
 
