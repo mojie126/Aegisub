@@ -41,6 +41,7 @@ struct MochaData {
 	bool get_position;
 	bool get_scale;
 	bool get_rotation;
+	bool get_preview;
 };
 
 class AssFile;

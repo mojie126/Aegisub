@@ -6968,14 +6968,29 @@ msgstr "请选择将要使用的语言："
 msgid "Mocha Motion - Simple Version"
 msgstr "摩卡追踪 - 简易版"
 
-msgid "Position: "
-msgstr "坐标："
+msgid "Position(\\pos):"
+msgstr "坐标(\\pos)："
 
-msgid "Scale: "
-msgstr "缩放："
+msgid "Applies the coordinate values of the tracking data to the selected caption line"
+msgstr "应用追踪数据的坐标值到选中的字幕行"
 
-msgid "Rotation: "
-msgstr "旋转："
+msgid "Scale(\\fscx, \\fscy):"
+msgstr "缩放(\\fscx, \\fscy)："
+
+msgid "Applies the zoom value of the tracking data to the selected caption line"
+msgstr "应用追踪数据的缩放值到选中的字幕行"
+
+msgid "Rotation(\\frz):"
+msgstr "旋转(\\frz)："
+
+msgid "Applies the rotation value of the tracking data to the selected caption line"
+msgstr "应用追踪数据的旋转值到选中的字幕行"
+
+msgid "Convenient preview:"
+msgstr "便捷预览："
+
+msgid "Annotate the original subtitle line to preview the tracking effect, and click [Play Current Line] to preview it"
+msgstr "注释原始字幕行，以方便预览追踪的效果，点击[播放当前行]可进行预览"
 
 msgid "Mocha Motion Data"
 msgstr "摩卡追踪数据"
