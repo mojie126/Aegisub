@@ -246,11 +246,11 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 		ShowMochaUtilDialog(c);
 		bool log = false;
 		if (getMochaOK()) {
-			const auto [total_frame, frame_rate, source_width, source_height, is_mocha_data, get_position, get_scale, get_rotation] = getMochaCheckData();
+			const auto [total_frame, frame_rate, source_width, source_height, is_mocha_data, get_position, get_scale, get_rotation, get_preview] = getMochaCheckData();
 			std::vector<KeyframeData> final_data = getMochaMotionParseData();
 			AssDialogue *last_inserted_line = nullptr;
 			int current_process_frame = 0;
-			const AssDialogue *active_line = c->selectionController->GetActiveLine();
+			AssDialogue *active_line = c->selectionController->GetActiveLine();
 			const std::string temp_text = active_line->Text;
 			const int startFrame = c->videoController->FrameAtTime(active_line->Start, agi::vfr::START);
 			const int endFrame = c->videoController->FrameAtTime(active_line->End, agi::vfr::END);
@@ -261,7 +261,14 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 			for (auto it = c->ass->Events.begin(); it != c->ass->Events.end(); ++it) {
 				if (const AssDialogue *diag = &*it; diag == active_line) {
 					++it;
-					c->ass->Events.erase(c->ass->Events.iterator_to(*active_line));
+					if (!get_preview) {
+						// 删除原始行
+						c->ass->Events.erase(c->ass->Events.iterator_to(*active_line));
+					} else {
+						// 注释原始行，方便预览应用追踪的效果
+						active_line->Comment = true;
+						last_inserted_line = active_line;
+					}
 					for (int i = startFrame; i <= endFrame; ++i) {
 						const auto new_line = new AssDialogue;
 						// 获取当前行的基本样式信息
@@ -350,6 +357,7 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 						}
 						temp_x = (_x - xStartPosition) * xRatio;
 						temp_y = (_y - yStartPosition) * yRatio;
+						// log = true;
 						if (log) {
 							std::cout << std::setprecision(15) << "frame:\t" << current_process_frame << std::endl;
 							std::cout << std::setprecision(15) << "_x:\t" << _x << std::endl;
@@ -414,7 +422,7 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 						new_line->Text = _temp_text;
 						// 字幕内容处理 -- 结束
 						c->ass->Events.insert(it, *new_line);
-						if (current_process_frame == 0)
+						if (current_process_frame == 0 && !get_preview)
 							last_inserted_line = new_line;
 						ass_tag_str.clear();
 						++current_process_frame;
