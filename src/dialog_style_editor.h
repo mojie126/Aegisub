@@ -30,6 +30,7 @@
 #include <memory>
 #include <string>
 #include <wx/dialog.h>
+#include "ini.h"
 
 class AssStyle;
 class AssStyleStorage;
@@ -75,7 +76,7 @@ class DialogStyleEditor final : public wxDialog {
 	wxCheckBox *BoxItalic;
 	wxCheckBox *BoxUnderline;
 	wxCheckBox *BoxStrikeout;
-	wxSpinCtrl *margin[3];
+	wxSpinCtrl *margin[3]{};
 	wxRadioBox *Alignment;
 	wxCheckBox *OutlineType;
 	wxComboBox *Encoding;
@@ -107,4 +108,6 @@ public:
 	std::string GetStyleName() const;
 };
 
-wxArrayString LoadFontsFromDirectory(const wxString &directory);
+inline auto file = mINI::INIFile("favoriteFont.ini");;
+inline mINI::INIStructure ini;
+inline int favorite_font_num;

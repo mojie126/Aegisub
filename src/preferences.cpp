@@ -209,10 +209,8 @@ void Video(wxTreebook *book, Preferences *parent) {
 void Interface(wxTreebook *book, Preferences *parent) {
 	auto p = new OptionPage(book, parent, _("Interface"));
 
-	const auto font_dir = p->PageSizer(_("Font Dir"));
-	p->OptionBrowse(font_dir, _("Font Dir"), "Subtitle/Font Dir");
-	p->CellSkip(font_dir);
-	p->OptionAdd(font_dir, _("Use Font Filename"), "Subtitle/Use Font Filename")->SetToolTip(_("The file name of the font is used as the name display"));
+	const auto favoriteFont = p->PageSizer(_("Favorite Font"));
+	p->OptionAdd(favoriteFont, _("Favorite Font Number"), "Subtitle/Favorite Font Number")->SetToolTip(_("Sets the maximum number of favorite fonts"));
 
 	auto edit_box = p->PageSizer(_("Edit Box"));
 	p->OptionAdd(edit_box, _("Enable call tips"), "App/Call Tips");

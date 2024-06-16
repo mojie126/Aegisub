@@ -110,6 +110,9 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 , retina_helper(agi::make_unique<RetinaHelper>(parent))
 , undo_timer(GetEventHandler())
 {
+	favorite_font_num = OPT_GET("Subtitle/Favorite Font Number")->GetInt();
+	file.read(ini);
+	file.generate(ini);
 	using std::bind;
 
 	// Top controls
@@ -128,13 +131,20 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	style_edit_button = new wxButton(this, -1, _("Edit"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
 	style_edit_button->Bind(wxEVT_BUTTON, [=](wxCommandEvent&) {
 		if (active_style) {
-			const auto font_dir = to_wx(OPT_GET("Subtitle/Font Dir")->GetString());
-			wxArrayString font_list;
-			if (!font_dir.empty())
-				font_list = LoadFontsFromDirectory(font_dir);
-			else
-				font_list = wxFontEnumerator::GetFacenames();
+			wxArrayString font_list(wxFontEnumerator::GetFacenames()), temp_font_list;
 			font_list.Sort();
+			int i = 0;
+			for (const auto &[fst, snd] : ini) {
+				for (auto x = snd.rbegin(); x != snd.rend(); ++x) {
+					temp_font_list.push_back(to_wx(x->second));
+					++i;
+					if (i == favorite_font_num)
+						break;
+				}
+			}
+			for (auto x = temp_font_list.rbegin(); x != temp_font_list.rend(); ++x) {
+				font_list.Insert(to_wx(from_wx(x->c_str())), 0);
+			}
 			DialogStyleEditor(this, active_style, c, nullptr, "", font_list).ShowModal();
 		}
 	});
