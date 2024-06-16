@@ -108,6 +108,6 @@ public:
 	std::string GetStyleName() const;
 };
 
-inline auto file = mINI::INIFile("favoriteFont.ini");;
+inline auto file = mINI::INIFile(std::string(wxGetHomeDir()) + "/favoriteFont.ini");
 inline mINI::INIStructure ini;
 inline int favorite_font_num;
