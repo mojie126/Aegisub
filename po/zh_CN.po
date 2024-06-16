@@ -6947,14 +6947,14 @@ msgstr "关闭字幕"
 msgid "Message"
 msgstr "信息"
 
-msgid "Font Dir"
-msgstr "字体文件夹"
+msgid "Favorite Font"
+msgstr "收藏字体"
 
-msgid "Use Font Filename"
-msgstr "使用字体文件名"
+msgid "Favorite Font Number"
+msgstr "收藏字体数量"
 
-msgid "The file name of the font is used as the name display"
-msgstr "使用字体的文件名作为名称展示"
+msgid "Sets the maximum number of favorite fonts"
+msgstr "设置最大收藏字体的数量"
 
 msgid "Apply Mocha-Motion"
 msgstr "应用mocha追踪"

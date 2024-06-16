@@ -560,6 +560,28 @@ void DialogStyleEditor::OnPreviewColourChange(ValueEvent<agi::Color> &evt) {
 }
 
 void DialogStyleEditor::OnCommandPreviewUpdate(wxCommandEvent &event) {
+	if (favorite_font_num > 0) {
+		if (ini["favoriteFont"].size() < favorite_font_num) {
+			ini["favoriteFont"][from_wx(event.GetString())] = from_wx(event.GetString());
+		} else {
+			const int diff_num = static_cast<int>(ini["favoriteFont"].size()) - favorite_font_num;
+			int currint_index = 0;
+			std::vector<wxString> keys;
+			for (const auto &[fst, snd] : ini) {
+				for (const auto &[fst, snd] : snd) {
+					keys.emplace_back(to_wx(fst));
+				}
+			}
+			for (const auto &x : keys) {
+				if (currint_index < diff_num)
+					ini["favoriteFont"].remove(from_wx(x));
+				++currint_index;
+			}
+			ini["favoriteFont"][from_wx(event.GetString())] = from_wx(event.GetString());
+		}
+		file.write(ini);
+	}
+
 	UpdateWorkStyle();
 	SubsPreview->SetStyle(*work);
 	event.Skip();
