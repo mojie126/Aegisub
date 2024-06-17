@@ -18,7 +18,7 @@ std::vector<KeyframeData> final_data;
 MochaData mocha_data;
 bool onMochaOK = false;
 
-std::vector<KeyframeData> parseData(const std::string &input, bool getPosition, bool getScale, bool getRotation) {
+std::vector<KeyframeData> parseData(const std::string &input) {
 	std::istringstream stream(input), check_stream(input);
 	std::string line;
 	std::vector<KeyframeData> keyframeData;
@@ -41,9 +41,6 @@ std::vector<KeyframeData> parseData(const std::string &input, bool getPosition, 
 				mocha_data.frame_rate = std::stod(line.substr(line.find_last_of('\t') + 1));
 			}
 		}
-		mocha_data.get_position = getPosition;
-		mocha_data.get_scale = getScale;
-		mocha_data.get_rotation = getRotation;
 	}
 
 	while (std::getline(stream, line)) {
@@ -71,21 +68,15 @@ std::vector<KeyframeData> parseData(const std::string &input, bool getPosition, 
 			}
 
 			if (section == "Position") {
-				if (getPosition) {
-					ss >> data.x;
-					ss >> data.y;
-					ss >> data.z;
-				}
+				ss >> data.x;
+				ss >> data.y;
+				ss >> data.z;
 			} else if (section == "Scale") {
-				if (getScale) {
-					ss >> data.scaleX;
-					ss >> data.scaleY;
-					ss >> data.scaleZ;
-				}
+				ss >> data.scaleX;
+				ss >> data.scaleY;
+				ss >> data.scaleZ;
 			} else if (section == "Rotation") {
-				if (getRotation) {
-					ss >> data.rotation;
-				}
+				ss >> data.rotation;
 			}
 
 			// 更新或者插入新的对象
@@ -217,9 +208,9 @@ namespace {
 
 	void DialogMochaUtil::OnStart(wxCommandEvent &) {
 		// 获取复选框的状态
-		const bool getPosition = positionCheckBoxes->IsChecked();
-		const bool getScale = scaleCheckBoxes->IsChecked();
-		const bool getRotation = rotationCheckBox->IsChecked();
+		mocha_data.get_position = positionCheckBoxes->IsChecked();
+		mocha_data.get_scale = scaleCheckBoxes->IsChecked();
+		mocha_data.get_rotation = rotationCheckBox->IsChecked();
 		mocha_data.get_preview = previewCheckBox->IsChecked();
 
 		// 获取文本框中的内容
@@ -227,7 +218,7 @@ namespace {
 
 		// 解析数据
 		try {
-			final_data = parseData(inputText.ToStdString(), getPosition, getScale, getRotation);
+			final_data = parseData(inputText.ToStdString());
 		} catch (const std::exception &e) {
 			wxLogError("Error: %s", e.what());
 		}

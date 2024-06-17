@@ -290,12 +290,15 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 						*/
 						auto [frame, x, y, z, scaleX, scaleY, scaleZ, rotation] = final_data[current_process_frame];
 						AssStyle const *const style = c->ass->GetStyle(active_line->Style);
-						double _x, _y, xStartPosition, yStartPosition, xRatio, yRatio, zRotationDiff, radius, angle, temp_x, temp_y, xCurrentPosition = x, yCurrentPosition = y, default_scale_x = 100., default_scale_y = 100.;
+						double _x, _y, xStartPosition, yStartPosition, xStartScale, yStartScale, zStartRotation, xRatio, yRatio, zRotationDiff, radius, angle, temp_x, temp_y, xCurrentPosition = x, yCurrentPosition = y, default_scale_x = 100., default_scale_y = 100.;
 						const double Vertical_margins = style->Margin[2], Right_margin = style->Margin[1], Left_margin = style->Margin[0], Style_scaleX = style->scalex, Style_scaleY = style->scaley, Style_rotation = style->angle;
 						if (current_process_frame == 0) {
 							double X, Y;
 							xStartPosition = x;
 							yStartPosition = y;
+							xStartScale = scaleX;
+							yStartScale = scaleY;
+							zStartRotation = rotation;
 							if (const int an = style->alignment; an == 1) {
 								X = Left_margin;
 								Y = source_height - Vertical_margins;
@@ -341,19 +344,30 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 						bool find_fscy = std::regex_search(searchStart, temp_text.cend(), fscy_match, fscy_regex);
 						/*
 						 * xStartPosition, yStartPosition永远是追踪数据的首帧数据，不可变
-						 * xRatio, yRatio是追踪数据每帧缩放数据 / Style默认缩放值，即100.
-						 * zRotationDiff是追踪数据每帧的旋转值，负数取绝对值，正数变负数
+						 * xStartScale, yStartScale永远是追踪数据的首帧数据，不可变
+						 * xRatio, yRatio是追踪数据当前帧缩放值 / 追踪数据首帧缩放值
+						 * zRotationDiff是追踪数据当前帧旋转值 - 追踪数据首帧旋转值
 						 */
 						if (find_pos) {
 							_x = wxAtof(pos_match[1].str());
 							_y = wxAtof(pos_match[3].str());
 						}
-						xRatio = scaleX / default_scale_x;
-						yRatio = scaleY / default_scale_y;
-						if (rotation < 0) {
-							zRotationDiff = std::fabs(rotation);
+						if (get_scale) {
+							xRatio = scaleX / xStartScale;
+							yRatio = scaleY / yStartScale;
 						} else {
-							zRotationDiff = -rotation;
+							xRatio = Style_scaleX / default_scale_x;
+							yRatio = Style_scaleY / default_scale_y;
+						}
+						if (get_rotation) {
+							zRotationDiff = rotation - zStartRotation;
+							if (zRotationDiff <= 0) {
+								zRotationDiff = std::fabs(zRotationDiff);
+							} else {
+								zRotationDiff = -zRotationDiff;
+							}
+						} else {
+							zRotationDiff = 0;
 						}
 						temp_x = (_x - xStartPosition) * xRatio;
 						temp_y = (_y - yStartPosition) * yRatio;
@@ -388,21 +402,20 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 							std::cout << "===================" << std::endl;
 						}
 
-						// rotation要取绝对值
 						if (find_frz) {
-							rotation = std::fabs(rotation) + wxAtof(frz_match[1].str());
+							rotation = zRotationDiff + wxAtof(frz_match[1].str());
 						} else {
-							rotation = std::fabs(rotation);
+							rotation = zRotationDiff;
 						}
 						if (find_fscx) {
-							scaleX *= wxAtof(fscx_match[1].str()) / default_scale_x;
+							scaleX = wxAtof(fscx_match[1].str()) * xRatio;
 						} else {
-							scaleX *= Style_scaleX / default_scale_x;
+							scaleX = Style_scaleX * xRatio;
 						}
 						if (find_fscy) {
-							scaleY *= wxAtof(fscy_match[1].str()) / default_scale_y;
+							scaleY = wxAtof(fscy_match[1].str()) * yRatio;
 						} else {
-							scaleY *= Style_scaleY / default_scale_y;
+							scaleY = Style_scaleY * yRatio;
 						}
 						new_line->Style = active_line->Style;
 						new_line->Start = c->videoController->TimeAtFrame(i, agi::vfr::Time::START);
