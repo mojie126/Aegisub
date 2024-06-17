@@ -18,7 +18,7 @@ std::vector<KeyframeData> final_data;
 MochaData mocha_data;
 bool onMochaOK = false;
 
-std::vector<KeyframeData> parseData(const std::string &input) {
+std::vector<KeyframeData> parseData(const std::string &input, bool insertFromStart) {
 	std::istringstream stream(input), check_stream(input);
 	std::string line;
 	std::vector<KeyframeData> keyframeData;
@@ -83,7 +83,11 @@ std::vector<KeyframeData> parseData(const std::string &input) {
 			if (it != keyframeData.end()) {
 				*it = data;
 			} else {
-				keyframeData.push_back(data);
+				if (insertFromStart) {
+					keyframeData.insert(keyframeData.begin(), data);
+				} else {
+					keyframeData.push_back(data);
+				}
 			}
 		}
 	}
@@ -110,6 +114,7 @@ namespace {
 		wxCheckBox *scaleCheckBoxes;
 		wxCheckBox *rotationCheckBox;
 		wxCheckBox *previewCheckBox;
+		wxCheckBox *reverseTrackingCheckBox;
 		wxTextCtrl *logTextCtrl;
 	};
 
@@ -117,7 +122,7 @@ namespace {
 		: d(c->parent, -1, _("Mocha Motion - Simple Version"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 		, c(c) {
 		// 使用 wxDIP 来适配高 DPI 显示
-		const wxSize dialogSize = wxDialog::FromDIP(wxSize(600, 400), &d);
+		const wxSize dialogSize = wxDialog::FromDIP(wxSize(600, 550), &d);
 
 		// 创建主垂直sizer
 		auto *mainSizer = new wxBoxSizer(wxVERTICAL);
@@ -156,11 +161,23 @@ namespace {
 		controlsSizer->Add(previewLabel, 0, wxALIGN_CENTER_VERTICAL);
 		controlsSizer->Add(previewCheckBox, 0, wxALL, d.FromDIP(5));
 
+		// 杂项
+		auto *otherOptionsBox = new wxStaticBox(&d, wxID_ANY, _("Other options"));
+		auto *otherOptionsSizer = new wxStaticBoxSizer(otherOptionsBox, wxHORIZONTAL);
+
+		auto *reverseTrackingLabel = new wxStaticText(&d, wxID_ANY, _("Reverse tracking:"));
+		auto *reverseTrackingCheckBox = new wxCheckBox(&d, wxID_ANY, wxEmptyString);
+		reverseTrackingCheckBox->SetToolTip(_("Tracking data is used when tracking from the last frame to the first frame"));
+
+		otherOptionsSizer->Add(reverseTrackingLabel, 0, wxALIGN_CENTER_VERTICAL);
+		otherOptionsSizer->Add(reverseTrackingCheckBox, 0, wxALL, d.FromDIP(5));
+
 		// 保存复选框指针到类成员变量
 		this->positionCheckBoxes = positionCheckBoxes;
 		this->scaleCheckBoxes = scaleCheckBoxes;
 		this->rotationCheckBox = rotationCheckBox;
 		this->previewCheckBox = previewCheckBox;
+		this->reverseTrackingCheckBox = reverseTrackingCheckBox;
 
 		// 设置默认勾选状态
 		this->positionCheckBoxes->SetValue(true);
@@ -185,6 +202,7 @@ namespace {
 
 		// 将所有sizer添加到主sizer中
 		mainSizer->Add(controlsSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, d.FromDIP(10));
+		mainSizer->Add(otherOptionsSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, d.FromDIP(10));
 		mainSizer->Add(logSizer, 1, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, d.FromDIP(10));
 		mainSizer->Add(buttonSizer, 0, wxALIGN_RIGHT | wxALL, d.FromDIP(10));
 
@@ -212,13 +230,14 @@ namespace {
 		mocha_data.get_scale = scaleCheckBoxes->IsChecked();
 		mocha_data.get_rotation = rotationCheckBox->IsChecked();
 		mocha_data.get_preview = previewCheckBox->IsChecked();
+		const bool get_reverse_tracking = mocha_data.get_reverse_tracking = reverseTrackingCheckBox->IsChecked();
 
 		// 获取文本框中的内容
 		const wxString inputText = logTextCtrl->GetValue();
 
 		// 解析数据
 		try {
-			final_data = parseData(inputText.ToStdString());
+			final_data = parseData(inputText.ToStdString(), get_reverse_tracking);
 		} catch (const std::exception &e) {
 			wxLogError("Error: %s", e.what());
 		}

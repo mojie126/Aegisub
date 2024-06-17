@@ -7004,6 +7004,15 @@ msgstr "追踪数据与选定行数据不对称，需要 %d 帧"
 msgid "Paste from Clipboard"
 msgstr "从剪贴板粘贴数据"
 
+msgid "Reverse tracking:"
+msgstr "反向追踪"
+
+msgid "Tracking data is used when tracking from the last frame to the first frame"
+msgstr "追踪数据是从最后一帧向第一帧方向追踪时使用"
+
+msgid "Other options"
+msgstr "杂项"
+
 #~ msgid "    Subtitle format handler: %s"
 #~ msgstr "    字幕格式处理器： %s"
 
