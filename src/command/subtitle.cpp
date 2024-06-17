@@ -246,7 +246,7 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 		ShowMochaUtilDialog(c);
 		bool log = false;
 		if (getMochaOK()) {
-			const auto [total_frame, frame_rate, source_width, source_height, is_mocha_data, get_position, get_scale, get_rotation, get_preview] = getMochaCheckData();
+			const auto [total_frame, frame_rate, source_width, source_height, is_mocha_data, get_position, get_scale, get_rotation, get_preview, get_reverse_tracking] = getMochaCheckData();
 			std::vector<KeyframeData> final_data = getMochaMotionParseData();
 			AssDialogue *last_inserted_line = nullptr;
 			int current_process_frame = 0;
@@ -254,6 +254,7 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 			const std::string temp_text = active_line->Text;
 			const int startFrame = c->videoController->FrameAtTime(active_line->Start, agi::vfr::START);
 			const int endFrame = c->videoController->FrameAtTime(active_line->End, agi::vfr::END);
+			int _reverse_tracking_i = endFrame;
 			if (int dur_frame = endFrame - startFrame + 1; total_frame != dur_frame) {
 				wxMessageBox(agi::wxformat(_("The trace data is asymmetrical with the selected row data and requires %d frames"), dur_frame),_("Error"), wxICON_ERROR);
 				return;
@@ -418,8 +419,14 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 							scaleY = Style_scaleY * yRatio;
 						}
 						new_line->Style = active_line->Style;
-						new_line->Start = c->videoController->TimeAtFrame(i, agi::vfr::Time::START);
-						new_line->End = c->videoController->TimeAtFrame(i, agi::vfr::Time::END);
+						if (get_reverse_tracking) {
+							new_line->Start = c->videoController->TimeAtFrame(_reverse_tracking_i, agi::vfr::Time::START);
+							new_line->End = c->videoController->TimeAtFrame(_reverse_tracking_i, agi::vfr::Time::END);
+							--_reverse_tracking_i;
+						} else {
+							new_line->Start = c->videoController->TimeAtFrame(i, agi::vfr::Time::START);
+							new_line->End = c->videoController->TimeAtFrame(i, agi::vfr::Time::END);
+						}
 						// 字幕内容处理 -- 开始
 						std::string ass_tag_str;
 						if (get_position) {
