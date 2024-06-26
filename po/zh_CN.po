@@ -7013,6 +7013,12 @@ msgstr "追踪数据是从最后一帧向第一帧方向追踪时使用"
 msgid "Other options"
 msgstr "杂项"
 
+msgid "When enabled, Shift+Enter add \\n, when disabled, add \\N"
+msgstr "当启用时Shift+Enter添加软换行符\\n，关闭时则添加硬换行符\\N"
+
+msgid "Shift+Enter adds \\n"
+msgstr "Shift+Enter添加软换行符\\n"
+
 #~ msgid "    Subtitle format handler: %s"
 #~ msgstr "    字幕格式处理器： %s"
 

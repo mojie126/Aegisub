@@ -184,10 +184,10 @@ struct subtitle_insert_after_videotime final : public validate_nonempty_selectio
 std::string remove_patterns(const std::string &input) {
 	std::string result = input;
 
-	const std::regex pos_regex(R"(\\pos\(-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?\))");
-	const std::regex frz_regex(R"(\\frz?-?\d+(\.\d+)?)");
-	const std::regex fscx_regex(R"(\\fscx-?\d+(\.\d+)?)");
-	const std::regex fscy_regex(R"(\\fscy-?\d+(\.\d+)?)");
+	const std::regex pos_regex(R"(\pos\(-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?\))");
+	const std::regex frz_regex(R"(\frz?-?\d+(\.\d+)?)");
+	const std::regex fscx_regex(R"(\fscx-?\d+(\.\d+)?)");
+	const std::regex fscy_regex(R"(\fscy-?\d+(\.\d+)?)");
 
 	bool found = true;
 	while (found) {
@@ -332,10 +332,10 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 							_y = Y;
 						}
 						// 匹配是否激活行有定义
-						const std::regex pos_regex(R"(\\pos\((-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)\))");
-						const std::regex frz_regex(R"(\\frz?(-?\d+(\.\d+)?))");
-						const std::regex fscx_regex(R"(\\fscx(-?\d+(\.\d+)?))");
-						const std::regex fscy_regex(R"(\\fscy(-?\d+(\.\d+)?))");
+						const std::regex pos_regex(R"(\pos\((-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)\))");
+						const std::regex frz_regex(R"(\frz?(-?\d+(\.\d+)?))");
+						const std::regex fscx_regex(R"(\fscx(-?\d+(\.\d+)?))");
+						const std::regex fscy_regex(R"(\fscy(-?\d+(\.\d+)?))");
 
 						std::smatch pos_match, frz_match, fscx_match, fscy_match;
 						auto searchStart(temp_text.cbegin());

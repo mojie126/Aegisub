@@ -215,7 +215,7 @@ void Interface(wxTreebook *book, Preferences *parent) {
 	auto edit_box = p->PageSizer(_("Edit Box"));
 	p->OptionAdd(edit_box, _("Enable call tips"), "App/Call Tips");
 	p->OptionAdd(edit_box, _("Overwrite in time boxes"), "Subtitle/Time Edit/Insert Mode");
-	p->OptionAdd(edit_box, _("Shift+Enter adds \\n"), "Subtitle/Edit Box/Soft Line Break");
+	p->OptionAdd(edit_box, _("Shift+Enter adds \\n"), "Subtitle/Edit Box/Soft Line Break")->SetToolTip(_("When enabled, Shift+Enter add \\n, when disabled, add \\N"));
 	p->OptionAdd(edit_box, _("Enable syntax highlighting"), "Subtitle/Highlight/Syntax");
 	p->OptionBrowse(edit_box, _("Dictionaries path"), "Path/Dictionary");
 	p->OptionFont(edit_box, "Subtitle/Edit Box/");
