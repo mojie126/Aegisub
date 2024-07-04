@@ -51,6 +51,7 @@
 #include "../video_controller.h"
 #include "../video_display.h"
 #include "../video_frame.h"
+#include "../gifski/inc/gifski.h"
 
 #include <libaegisub/ass/time.h>
 #include <libaegisub/fs.h>
@@ -331,6 +332,144 @@ namespace {
 			return GetImage(*c->project->VideoProvider()->GetFrame(frame, c->project->Timecodes().TimeAtFrame(frame), raw));
 		}
 	}
+
+	bool CreateGifFromWxImages(const agi::Context *c, agi::ProgressSink *ps, const int width, const int height, const std::string &outputFilename, const double delay, const int totalFrame) {
+		// Initialize gifski
+		GifskiSettings settings;
+		settings.quality = getGifQuality();
+		settings.width = width;
+		settings.height = height;
+		settings.fast = false;
+		settings.repeat = 0;
+
+		GifskiError error = {};
+		gifski *g = gifski_new(&settings);
+		if (!g) {
+			wxLogError("Failed to initialize gifski: %d", error);
+			return false;
+		}
+
+		error = gifski_set_file_output(g, outputFilename.c_str());
+		if (error != GIFSKI_OK) {
+			wxLogError("Failed to set file output: %d", error);
+			return false;
+		}
+
+		// Add frames to gifski
+		uint32_t current_frame = 0;
+		for (int i = getStartFrame(); i <= getEndFrame(); ++i) {
+			const wxImage &img = GetImage(*c->project->VideoProvider()->GetFrame(i, c->project->Timecodes().TimeAtFrame(i), false));
+			ps->SetMessage(from_wx(agi::wxformat(_("Exporting gif image, please later..."))));
+			ps->SetProgress(current_frame, totalFrame);
+			if (ps->IsCancelled()) break;
+			std::vector<uint8_t> pixels(width * height * 4);
+			const unsigned char *imgData = img.GetData();
+			for (int y = 0; y < height; ++y) {
+				for (int x = 0; x < width; ++x) {
+					const size_t imgIdx = (y * width + x) * 3;
+					const size_t pixelIdx = (y * width + x) * 4;
+					pixels[pixelIdx + 0] = imgData[imgIdx + 0]; // R
+					pixels[pixelIdx + 1] = imgData[imgIdx + 1]; // G
+					pixels[pixelIdx + 2] = imgData[imgIdx + 2]; // B
+					pixels[pixelIdx + 3] = 255; // A
+				}
+			}
+
+			error = gifski_add_frame_rgba(g, current_frame, width, height, pixels.data(), delay);
+			if (error != GIFSKI_OK) {
+				wxLogError("Failed to add frame %zu: %d", i, error);
+				return false;
+			}
+			++current_frame;
+		}
+
+		// Finish writing the GIF
+		error = gifski_finish(g);
+		if (error != GIFSKI_OK) {
+			wxLogError("Failed to finish GIF: %d", error);
+			return false;
+		}
+
+		return true;
+	}
+
+	void export_gif(agi::Context *c) {
+		auto option = OPT_GET("Path/Screenshot")->GetString();
+		agi::fs::path basepath;
+
+		auto videoname = c->project->VideoName();
+		bool is_dummy = boost::starts_with(videoname.string(), "?dummy");
+
+		// Is it a path specifier and not an actual fixed path?
+		if (option[0] == '?') {
+			// If dummy video is loaded, we can't save to the video location
+			if (boost::starts_with(option, "?video") && is_dummy) {
+				// So try the script location instead
+				option = "?script";
+			}
+			// Find out where the ?specifier points to
+			basepath = c->path->Decode(option);
+			// If where ever that is isn't defined, we can't save there
+			if ((basepath == "\\") || (basepath == "/")) {
+				// So save to the current user's home dir instead
+				basepath = std::string(wxGetHomeDir());
+			}
+		}
+		// Actual fixed (possibly relative) path, decode it
+		else
+			basepath = c->path->MakeAbsolute(option, "?user/");
+
+		basepath /= is_dummy ? "dummy" : videoname.stem();
+
+		// Get full path
+		std::string path;
+		auto clip_export_path = OPT_GET("Path/ClipExport")->GetString();
+		clip_export_path = wxString(clip_export_path.c_str(), wxConvUTF8).ToStdString();
+		if (clip_export_path.empty())
+			path = agi::format("%s", basepath.string());
+		else
+			path = agi::format("%s", clip_export_path);
+		const wxFileName fName(videoname.c_str());
+		boost::filesystem::create_directories(from_wx(path));
+
+		// 设置帧到帧
+		c->videoController->Stop();
+		ShowJumpFrameToDialog(c);
+		c->videoSlider->SetFocus();
+
+		if (getOnOK()) {
+			DialogProgress progress(nullptr, _("Export gif image"), wxEmptyString);
+			const double delay = static_cast<double>(getEndTime() - getStartTime()) / (getEndFrame() - getStartFrame() + 1);
+			std::string gif_filename = agi::format("%s_[%ld-%ld].gif", path + wxFileName::GetPathSeparator() + fName.GetName(), getStartFrame(), getEndFrame());
+			try {
+				progress.Run(
+					[&](agi::ProgressSink *ps) {
+						CreateGifFromWxImages(
+							c, ps, c->project->VideoProvider()->GetWidth(), c->project->VideoProvider()->GetHeight(), gif_filename, delay, getEndFrame() - getStartFrame() + 1
+						);
+					}
+				);
+			} catch (agi::Exception &err) {
+				std::cerr << err.GetMessage() << std::endl;
+			}
+		}
+	}
+
+	struct video_to_gif final : validator_video_loaded {
+		CMD_NAME("video/save/gif")
+		STR_MENU("Export gif image")
+		STR_DISP("Export gif image")
+		STR_HELP("Export video clips to gif image")
+		CMD_TYPE(COMMAND_VALIDATE)
+
+		bool Validate(const agi::Context *c) override {
+			return c->project->VideoProvider() && !c->selectionController->GetSelectedSet().empty();
+		}
+
+		void operator()(agi::Context *c) override {
+			export_gif(c);
+		}
+	};
 
 	struct video_frame_copy final : public validator_video_loaded {
 		CMD_NAME("video/frame/copy")
@@ -921,8 +1060,8 @@ namespace {
 
 	struct video_save_clip final : validator_video_loaded {
 		CMD_NAME("video/save/clip")
-		STR_MENU("Create video clip")
-		STR_DISP("Create video clip")
+		STR_MENU("Export the clip")
+		STR_DISP("Export the clip")
 		STR_HELP("Export video clips from frame to frame at a specified time of the selected line")
 		CMD_TYPE(COMMAND_VALIDATE)
 
@@ -1226,5 +1365,6 @@ namespace cmd {
 		reg(agi::make_unique<video_zoom_50>());
 		reg(agi::make_unique<video_zoom_in>());
 		reg(agi::make_unique<video_zoom_out>());
+		reg(agi::make_unique<video_to_gif>());
 	}
 }
