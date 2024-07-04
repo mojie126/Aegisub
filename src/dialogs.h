@@ -124,6 +124,8 @@ bool getOnOK();
 
 bool getOutputImg();
 
+long getGifQuality();
+
 void ShowKanjiTimerDialog(agi::Context *c);
 
 void ShowLogWindow(agi::Context *c);

@@ -7019,6 +7019,18 @@ msgstr "当启用时Shift+Enter添加软换行符\\n，关闭时则添加硬换�
 msgid "Shift+Enter adds \\n"
 msgstr "Shift+Enter添加软换行符\\n"
 
+msgid "Gif Quality: "
+msgstr "GIF图像质量："
+
+msgid "Valid only for exporting GIFs"
+msgstr "只针对GIF导出生效"
+
+msgid "Export gif image"
+msgstr "导出GIF图像"
+
+msgid "Exporting gif image, please later..."
+msgstr "正在导出GIF图像，请稍后..."
+
 #~ msgid "    Subtitle format handler: %s"
 #~ msgstr "    字幕格式处理器： %s"
 

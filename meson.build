@@ -425,10 +425,18 @@ aegisub_c_pch = ['src/include/agi_pre_c.h']
 link_args = []
 link_depends = []
 if host_machine.system() == 'windows'
-    manifest_file = configure_file(copy: true, input: 'src/res/aegisub.exe.manifest', output: 'aegisub.exe.manifest')
-    link_args += ['/MANIFEST:EMBED', '/MANIFESTINPUT:@0@'.format(manifest_file)]
-    link_depends += manifest_file
+	manifest_file = configure_file(copy : true, input : 'src/res/aegisub.exe.manifest', output : 'aegisub.exe.manifest')
+	link_args += ['/MANIFEST:EMBED', '/MANIFESTINPUT:@0@'.format(manifest_file)]
+	link_depends += manifest_file
 endif
+
+configure_file(copy : true, input : 'gifski/lib/gifski.lib', output : 'gifski.lib')
+configure_file(copy : true, input : 'libimagequant/lib/imagequant_sys.lib', output : 'imagequant_sys.lib')
+# 创建依赖项
+other_dep = declare_dependency(
+    include_directories : ['gifski/inc', 'libimagequant/inc'],
+    link_args : ['gifski.lib', 'imagequant_sys.lib', '-luserenv', '-lntdll']
+)
 
 aegisub = executable('aegisub', aegisub_src, version_h, acconf, resrc,
                      link_with: [libresrc, libluabins, libaegisub],
@@ -439,5 +447,5 @@ aegisub = executable('aegisub', aegisub_src, version_h, acconf, resrc,
                      c_pch: aegisub_c_pch,
                      install: true,
                      install_dir: bindir,
-                     dependencies: deps,
+                     dependencies: [deps, other_dep],
                      win_subsystem: 'windows')

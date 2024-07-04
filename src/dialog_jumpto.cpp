@@ -55,6 +55,7 @@ int startTime;
 int endTime;
 bool onOK = false;
 bool outputImage;
+long onGifQuality;
 
 namespace {
 	struct DialogJumpTo {
@@ -152,6 +153,8 @@ namespace {
 		wxTextCtrl *editEndFrame; ///< Target frame edit control
 		bool output_img;
 		wxCheckBox *editOutputImg;
+		long gifQuality;
+		wxSpinCtrl *editGifQuality;
 
 		/// Enter/OK button handler
 		void OnOK(wxCommandEvent &event);
@@ -162,6 +165,8 @@ namespace {
 		void OnEditStartFrame(wxCommandEvent &event);
 
 		void OnEditEndFrame(wxCommandEvent &event);
+
+		void OnEditGifQuality(wxCommandEvent &event);
 
 		/// Dialog initializer to set default focus and selection
 		void OnInitDialog(wxInitDialogEvent &);
@@ -174,11 +179,13 @@ namespace {
 		, c(c)
 		, startFrame(LONG_MAX)
 		, endFrame(LONG_MIN)
-		, output_img(true) {
+		, output_img(true)
+		, gifQuality(90) {
 		d.SetIcon(GETICON(jumpto_button_16));
 
 		const auto StartFrame = new wxStaticText(&d, -1, _("Start Frame: "));
 		const auto EndFrame = new wxStaticText(&d, -1, _("End Frame: "));
+		const auto GifQuality = new wxStaticText(&d, -1, _("Gif Quality: "));
 		const auto OutputImg = new wxStaticText(&d, -1, _("Export image sequence"));
 
 		for (const auto line : c->selectionController->GetSelectedSet()) {
@@ -201,17 +208,22 @@ namespace {
 		editStartFrame->SetMaxLength(std::to_string(c->project->VideoProvider()->GetFrameCount() - 1).size());
 		editEndFrame = new wxTextCtrl(&d, -1, "", wxDefaultPosition, wxSize(-1, -1),wxTE_PROCESS_ENTER, IntValidator(static_cast<int>(endFrame)));
 		editEndFrame->SetMaxLength(std::to_string(c->project->VideoProvider()->GetFrameCount() - 1).size());
+		editGifQuality = new wxSpinCtrl(&d, -1, "", wxDefaultPosition, wxSize(-1, -1),wxSP_ARROW_KEYS, 1, 100, gifQuality);
+		editGifQuality->SetToolTip(_("Valid only for exporting GIFs"));
 		editOutputImg = new wxCheckBox(&d, -1, "", wxDefaultPosition, wxDefaultSize, 0, wxDefaultValidator);
 		editOutputImg->SetValue(true);
 		editOutputImg->Disable();
 
-		const auto TimesSizer = new wxGridSizer(2, 5, 5);
+		const auto TimesSizer = new wxGridSizer(2, d.FromDIP(5), d.FromDIP(5));
 
 		TimesSizer->Add(StartFrame, 1, wxALIGN_CENTER_VERTICAL);
 		TimesSizer->Add(editStartFrame, wxEXPAND);
 
 		TimesSizer->Add(EndFrame, 1, wxALIGN_CENTER_VERTICAL);
 		TimesSizer->Add(editEndFrame, wxEXPAND);
+
+		TimesSizer->Add(GifQuality, 1, wxALIGN_CENTER_VERTICAL);
+		TimesSizer->Add(editGifQuality, wxEXPAND);
 
 		TimesSizer->Add(OutputImg, 1, wxALIGN_CENTER_VERTICAL);
 		TimesSizer->Add(editOutputImg, wxEXPAND);
@@ -231,6 +243,7 @@ namespace {
 		d.Bind(wxEVT_BUTTON, &DialogJumpFrameTo::OnCANCEL, this, wxID_CANCEL);
 		editStartFrame->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditStartFrame, this);
 		editEndFrame->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditEndFrame, this);
+		editGifQuality->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditGifQuality, this);
 	}
 
 	void DialogJumpFrameTo::OnInitDialog(wxInitDialogEvent &) {
@@ -246,6 +259,7 @@ namespace {
 		d.EndModal(0);
 		onOK = true;
 		outputImage = output_img = editOutputImg->GetValue();
+		onGifQuality = gifQuality = editGifQuality->GetValue();
 	}
 
 	void DialogJumpFrameTo::OnCANCEL(wxCommandEvent &) {
@@ -264,6 +278,10 @@ namespace {
 		if (endFrame <= startFrame) {
 			wxMessageBox(_("The end frame cannot be less than or equal to the start frame"),_("Error"), wxICON_ERROR);
 		}
+	}
+
+	void DialogJumpFrameTo::OnEditGifQuality(wxCommandEvent &event) {
+		onGifQuality = gifQuality = editGifQuality->GetValue();
 	}
 }
 
@@ -293,6 +311,10 @@ bool getOnOK() {
 
 bool getOutputImg() {
 	return outputImage;
+}
+
+long getGifQuality() {
+	return onGifQuality;
 }
 
 void ShowJumpFrameToDialog(agi::Context *c) {
