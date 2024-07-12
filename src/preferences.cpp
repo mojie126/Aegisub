@@ -188,7 +188,11 @@ void Video(wxTreebook *book, Preferences *parent) {
 	const wxString cscr_arr[3] = { "?video", "?script", "." };
 	wxArrayString scr_res(3, cscr_arr);
 	p->OptionChoice(general, _("Screenshot save path"), scr_res, "Path/Screenshot");
+	const wxString image_suffix[2] = { "png", "jpg" };
+	const wxArrayString image_suffix_res(2, image_suffix);
+	p->OptionChoice(general, _("Image Suffix"), image_suffix_res, "Path/ImageSuffix");
 	p->OptionBrowse(general, _("Clip export path"), "Path/ClipExport");
+	p->OptionBrowse(general, _("GIF export path"), "Path/GifExport");
 
 	auto resolution = p->PageSizer(_("Script Resolution"));
 	wxControl *autocb = p->OptionAdd(resolution, _("Use resolution of first video opened"), "Subtitle/Default Resolution/Auto");

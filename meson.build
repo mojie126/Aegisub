@@ -181,6 +181,7 @@ else
     if host_machine.system() == 'windows' or host_machine.system() == 'darwin'
         deps += [
             wx.dependency('wxpng'),
+            wx.dependency('wxjpeg')
         ]
     endif
 

@@ -423,12 +423,12 @@ namespace {
 
 		// Get full path
 		std::string path;
-		auto clip_export_path = OPT_GET("Path/ClipExport")->GetString();
-		clip_export_path = wxString(clip_export_path.c_str(), wxConvUTF8).ToStdString();
-		if (clip_export_path.empty())
+		auto gif_export_path = OPT_GET("Path/GifExport")->GetString();
+		gif_export_path = wxString(gif_export_path.c_str(), wxConvUTF8).ToStdString();
+		if (gif_export_path.empty())
 			path = agi::format("%s", basepath.string());
 		else
-			path = agi::format("%s", clip_export_path);
+			path = agi::format("%s", gif_export_path);
 		const wxFileName fName(videoname.c_str());
 		boost::filesystem::create_directories(from_wx(path));
 
@@ -678,12 +678,20 @@ namespace {
 
 		// Get full path
 		int session_shot_count = 1;
+		wxString image_suffix = subsonly ? "png" : OPT_GET("Path/ImageSuffix")->GetString();
 		std::string path;
 		do {
-			path = agi::format("%s_%03d_%d.png", basepath.string(), session_shot_count++, c->videoController->GetFrameN());
+			path = agi::format("%s_%03d_%d.%s", basepath.string(), session_shot_count++, c->videoController->GetFrameN(), image_suffix);
 		} while (agi::fs::FileExists(path));
 
-		get_image(c, raw, subsonly).SaveFile(to_wx(path), wxBITMAP_TYPE_PNG);
+		wxBitmapType image_type = wxBITMAP_TYPE_PNG;
+		wxImage img = get_image(c, raw, subsonly);
+		if (image_suffix == "jpg") {
+			wxImage::AddHandler(new wxJPEGHandler);
+			img.SetOption(wxIMAGE_OPTION_QUALITY, 100);
+			image_type = wxBITMAP_TYPE_JPEG;
+		}
+		img.SaveFile(to_wx(path), image_type);
 	}
 
 	struct video_frame_save final : public validator_video_loaded {
