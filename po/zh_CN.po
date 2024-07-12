@@ -2589,19 +2589,19 @@ msgstr "快速向后跳帧"
 
 #: ../src/command/video.cpp:531 ../src/command/video.cpp:532
 msgid "Save PNG snapshot"
-msgstr "截取图像 PNG格式(有字幕)"
+msgstr "截取图像(有字幕)"
 
 #: ../src/command/video.cpp:533
 msgid "Save the currently displayed frame to a PNG file in the video's directory"
-msgstr "截取当前显示帧(带字幕)为PNG格式图像到视频所在目录"
+msgstr "截取当前显示帧(带字幕)图像到视频所在目录"
 
 #: ../src/command/video.cpp:542 ../src/command/video.cpp:543
 msgid "Save PNG snapshot (no subtitles)"
-msgstr "截取图像 PNG格式(无字幕)"
+msgstr "截取图像(无字幕)"
 
 #: ../src/command/video.cpp:544
 msgid "Save the currently displayed frame without the subtitles to a PNG file in the video's directory"
-msgstr "截取当前显示帧(不带字幕)为PNG格式图像到视频所在目录"
+msgstr "截取当前显示帧(不带字幕)图像到视频所在目录"
 
 #: ../src/command/video.cpp:553 ../src/command/video.cpp:554
 msgid "Save PNG snapshot (only subtitles)"
@@ -7030,6 +7030,12 @@ msgstr "导出GIF图像"
 
 msgid "Exporting gif image, please later..."
 msgstr "正在导出GIF图像，请稍后..."
+
+msgid "GIF export path"
+msgstr "GIF导出路径"
+
+msgid "Image Suffix"
+msgstr "图像格式"
 
 #~ msgid "    Subtitle format handler: %s"
 #~ msgstr "    字幕格式处理器： %s"

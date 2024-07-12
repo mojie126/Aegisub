@@ -316,7 +316,9 @@
 			"Video" : ""
 		},
 		"Screenshot" : "?video",
-		"ClipExport" : ""
+		"ClipExport" : "",
+		"GifExport" : "",
+		"ImageSuffix" : "png"
 	},
 
 
