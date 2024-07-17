@@ -988,6 +988,43 @@ namespace {
 		return true;
 	}
 
+	bool export_clip_image_sequences(const agi::Context *c, agi::ProgressSink *ps, const char *output_filename, long start_frame, long end_frame, const char *img_path) {
+		int current_frame = 1, duration_frame = end_frame - start_frame + 1;
+		std::string output_path;
+		auto clip_export_path = OPT_GET("Path/ClipExport")->GetString();
+		clip_export_path = wxString(clip_export_path.c_str(), wxConvUTF8).ToStdString();
+		if (clip_export_path.empty()) {
+			output_path = agi::wxformat("%s [%ld-%ld]", output_filename, start_frame, end_frame);
+			boost::filesystem::create_directories(from_wx(output_path));
+		} else {
+			output_path = clip_export_path;
+			boost::filesystem::create_directories(from_wx(output_path));
+			wxString filename;
+			const wxDir dir(output_path);
+			bool cont = dir.GetFirst(&filename, wxEmptyString, wxDIR_FILES);
+			while (cont) {
+				const std::string _tmp_file{output_path + wxFileName::GetPathSeparator() + filename};
+				wxRemoveFile(_tmp_file);
+				cont = dir.GetNext(&filename);
+			}
+		}
+
+		wxImage::AddHandler(new wxJPEGHandler);
+		for (int i = start_frame; i <= end_frame; ++i) {
+			std::string image_filename{output_path + wxFileName::GetPathSeparator() + agi::wxformat(std::string(img_path) + "_[%ld-%ld]_%05d.jpg", start_frame, end_frame, current_frame)};
+			wxImage img = GetImage(*c->project->VideoProvider()->GetFrame(i, c->project->Timecodes().TimeAtFrame(i), true));
+			const bool res = img.SaveFile(image_filename, wxBITMAP_TYPE_JPEG);
+			ps->SetMessage(from_wx(agi::wxformat(_("Exporting video clips, frame: [%ld ~ %ld], total: %d, please later"), start_frame, end_frame, duration_frame)));
+			ps->SetProgress(i, end_frame);
+			if (ps->IsCancelled()) break;
+			if (!res) {
+				return res;
+			}
+			current_frame++;
+		}
+		return true;
+	}
+
 	void export_clip(agi::Context *c) {
 		auto option = OPT_GET("Path/Screenshot")->GetString();
 		agi::fs::path basepath;
@@ -1042,11 +1079,12 @@ namespace {
 			try {
 				progress.Run(
 					[&](agi::ProgressSink *ps) {
-						extract_video_segment(
-							c, ps, c->project->VideoName().string().c_str(), path.c_str(),
-							getStartFrame(), getEndFrame(),
-							getStartTime(), getEndTime(), getOutputImg(), img_path.c_str()
-						);
+						// extract_video_segment(
+						// 	c, ps, c->project->VideoName().string().c_str(), path.c_str(),
+						// 	getStartFrame(), getEndFrame(),
+						// 	getStartTime(), getEndTime(), getOutputImg(), img_path.c_str()
+						// );
+						export_clip_image_sequences(c, ps, path.c_str(), getStartFrame(), getEndFrame(), img_path.c_str());
 					}
 				);
 			} catch (agi::Exception &err) {
