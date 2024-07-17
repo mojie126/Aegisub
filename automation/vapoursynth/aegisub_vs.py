@@ -196,9 +196,9 @@ def wrap_lwlibavsource(filename: str, padding: str, cachedir: str | None = None,
 
     ensure_plugin("lsmas", "LSMASHSource", "To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin for VapourSynth must be installed")
 
-    # type: ignore
-    # if b"-Dcachedir" not in core.lsmas.Version()["config"]:
-    #     raise vs.Error("To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin must support the `cachedir` option for LWLibavSource.")
+    import inspect
+    if "cachedir" not in inspect.getfullargspec(vs.core.lsmas.LWLibavSource).args:
+        raise vs.Error("To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin must support the `cachedir` option for LWLibavSource.")
 
     clip = core.lsmas.LWLibavSource(source=filename, cachefile=cachefile, cachedir=".", prefer_hw=3, **kwargs)
     clip = core.std.AddBorders(clip, left=0, right=0, top=padding, bottom=padding)
