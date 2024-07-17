@@ -106,8 +106,8 @@ jobs:
             -   name: Build
                 run: meson compile -C build -j(Get-WmiObject -Class Win32_Processor).NumberOfLogicalProcessors
 
-#            -   name: Run test
-#                run: meson test -C build --verbose "gtest main"
+            #            -   name: Run test
+            #                run: meson test -C build --verbose "gtest main"
 
             # Windows artifacts
             -   name: Generate Windows installer
