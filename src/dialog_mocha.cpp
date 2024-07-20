@@ -254,6 +254,7 @@ namespace {
 
 		otherOptionsSizer->Add(reverseTrackingLabel, 0, wxALIGN_CENTER_VERTICAL);
 		otherOptionsSizer->Add(reverseTrackingCheckBox, 0, wxALL, d.FromDIP(5));
+		otherOptionsSizer->AddSpacer(d.FromDIP(50));
 		otherOptionsSizer->Add(ThreeDTrackingLabel, 0, wxALIGN_CENTER_VERTICAL);
 		otherOptionsSizer->Add(ThreeDTrackingCheckBox, 0, wxALL, d.FromDIP(5));
 
