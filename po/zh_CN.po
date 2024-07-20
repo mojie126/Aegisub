@@ -7040,9 +7040,6 @@ msgstr "图像格式"
 msgid "Copy the Mocha Pro 3D tracking data into the text box and click the Execute button again"
 msgstr "请将Mocha Pro 3D追踪数据复制进文本框内，并再次点击执行按钮"
 
-msgid "Info"
-msgstr "信息"
-
 msgid "Apply 3D tracking data"
 msgstr "应用Mocha Pro相机反求追踪数据"
 
