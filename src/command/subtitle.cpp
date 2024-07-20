@@ -186,6 +186,8 @@ std::string remove_patterns(const std::string &input) {
 
 	const std::regex pos_regex(R"(\\pos\(-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?\))");
 	const std::regex frz_regex(R"(\\frz?-?\d+(\.\d+)?)");
+	const std::regex frx_regex(R"(\\frx-?\d+(\.\d+)?)");
+	const std::regex fry_regex(R"(\\fry-?\d+(\.\d+)?)");
 	const std::regex fscx_regex(R"(\\fscx-?\d+(\.\d+)?)");
 	const std::regex fscy_regex(R"(\\fscy-?\d+(\.\d+)?)");
 
@@ -201,6 +203,18 @@ std::string remove_patterns(const std::string &input) {
 		}
 
 		new_result = std::regex_replace(result, frz_regex, "");
+		if (new_result != result) {
+			found = true;
+			result = new_result;
+		}
+
+		new_result = std::regex_replace(result, frx_regex, "");
+		if (new_result != result) {
+			found = true;
+			result = new_result;
+		}
+
+		new_result = std::regex_replace(result, fry_regex, "");
 		if (new_result != result) {
 			found = true;
 			result = new_result;
@@ -246,7 +260,7 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 		ShowMochaUtilDialog(c);
 		bool log = false;
 		if (getMochaOK()) {
-			const auto [total_frame, frame_rate, source_width, source_height, is_mocha_data, get_position, get_scale, get_rotation, get_preview, get_reverse_tracking] = getMochaCheckData();
+			const auto [total_frame, frame_rate, source_width, source_height, is_mocha_data, get_position, get_scale, get_rotation, get_preview, get_reverse_tracking, get_3D] = getMochaCheckData();
 			std::vector<KeyframeData> final_data = getMochaMotionParseData();
 			AssDialogue *last_inserted_line = nullptr;
 			int current_process_frame = 0;
@@ -285,13 +299,10 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 						* an7 X = Margin[0], Y = Margin[2]
 						* an8 X = width / 2, Y = Margin[2]
 						* an9 X = width - Margin[1], Y = Margin[2]
-						* xRatio = Mocha_scaleX / Style_scaleX
-						* yRatio = Mocha_scaleY / Style_scaleY
-						* zRotationDiff = Mocha_rotation - Style_rotation
 						*/
-						auto [frame, x, y, z, scaleX, scaleY, scaleZ, rotation] = final_data[current_process_frame];
+						auto [frame, x, y, z, scaleX, scaleY, scaleZ, rotation, xRotation, yRotation] = final_data[current_process_frame];
 						AssStyle const *const style = c->ass->GetStyle(active_line->Style);
-						double _x, _y, xStartPosition, yStartPosition, xStartScale, yStartScale, zStartRotation, xRatio, yRatio, zRotationDiff, radius, angle, temp_x, temp_y, xCurrentPosition = x, yCurrentPosition = y, default_scale_x = 100., default_scale_y = 100.;
+						double _x, _y, xStartPosition, yStartPosition, xStartScale, yStartScale, zStartRotation, xStartRotation, yStartRotation, xRatio, yRatio, zRotationDiff, xRotationDiff, yRotationDiff, radius, angle, temp_x, temp_y, xCurrentPosition = x, yCurrentPosition = y, default_scale_x = 100., default_scale_y = 100.;
 						const double Vertical_margins = style->Margin[2], Right_margin = style->Margin[1], Left_margin = style->Margin[0], Style_scaleX = style->scalex, Style_scaleY = style->scaley, Style_rotation = style->angle;
 						if (current_process_frame == 0) {
 							double X, Y;
@@ -300,6 +311,8 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 							xStartScale = scaleX;
 							yStartScale = scaleY;
 							zStartRotation = rotation;
+							xStartRotation = xRotation;
+							yStartRotation = yRotation;
 							if (const int an = style->alignment; an == 1) {
 								X = Left_margin;
 								Y = source_height - Vertical_margins;
@@ -334,13 +347,17 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 						// 匹配是否激活行有定义
 						const std::regex pos_regex(R"(\\pos\((-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)\))");
 						const std::regex frz_regex(R"(\\frz?(-?\d+(\.\d+)?))");
+						const std::regex frx_regex(R"(\\frx(-?\d+(\.\d+)?))");
+						const std::regex fry_regex(R"(\\fry(-?\d+(\.\d+)?))");
 						const std::regex fscx_regex(R"(\\fscx(-?\d+(\.\d+)?))");
 						const std::regex fscy_regex(R"(\\fscy(-?\d+(\.\d+)?))");
 
-						std::smatch pos_match, frz_match, fscx_match, fscy_match;
+						std::smatch pos_match, frz_match, frx_match, fry_match, fscx_match, fscy_match;
 						auto searchStart(temp_text.cbegin());
 						bool find_pos = std::regex_search(searchStart, temp_text.cend(), pos_match, pos_regex);
 						bool find_frz = std::regex_search(searchStart, temp_text.cend(), frz_match, frz_regex);
+						bool find_frx = std::regex_search(searchStart, temp_text.cend(), frx_match, frx_regex);
+						bool find_fry = std::regex_search(searchStart, temp_text.cend(), fry_match, fry_regex);
 						bool find_fscx = std::regex_search(searchStart, temp_text.cend(), fscx_match, fscx_regex);
 						bool find_fscy = std::regex_search(searchStart, temp_text.cend(), fscy_match, fscy_regex);
 						/*
@@ -348,6 +365,8 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 						 * xStartScale, yStartScale永远是追踪数据的首帧数据，不可变
 						 * xRatio, yRatio是追踪数据当前帧缩放值 / 追踪数据首帧缩放值
 						 * zRotationDiff是追踪数据当前帧旋转值 - 追踪数据首帧旋转值
+						 * xRotationDiff是追踪数据当前帧旋转值 - 追踪数据首帧旋转值
+						 * yRotationDiff是追踪数据当前帧旋转值 - 追踪数据首帧旋转值
 						 */
 						if (find_pos) {
 							_x = wxAtof(pos_match[1].str());
@@ -369,6 +388,23 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 							}
 						} else {
 							zRotationDiff = 0;
+						}
+						if (get_3D) {
+							xRotationDiff = xRotation - xStartRotation;
+							if (xRotationDiff <= 0) {
+								xRotationDiff = std::fabs(xRotationDiff);
+							} else {
+								xRotationDiff = -xRotationDiff;
+							}
+							yRotationDiff = yRotation - yStartRotation;
+							if (yRotationDiff <= 0) {
+								yRotationDiff = std::fabs(yRotationDiff);
+							} else {
+								yRotationDiff = -yRotationDiff;
+							}
+						} else {
+							xRotationDiff = 0;
+							yRotationDiff = 0;
 						}
 						temp_x = (_x - xStartPosition) * xRatio;
 						temp_y = (_y - yStartPosition) * yRatio;
@@ -408,6 +444,16 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 						} else {
 							rotation = zRotationDiff;
 						}
+						if (find_frx) {
+							xRotation = xRotationDiff + wxAtof(frx_match[1].str());
+						} else {
+							xRotation = xRotationDiff;
+						}
+						if (find_fry) {
+							yRotation = yRotationDiff + wxAtof(fry_match[1].str());
+						} else {
+							yRotation = yRotationDiff;
+						}
 						if (find_fscx) {
 							scaleX = wxAtof(fscx_match[1].str()) * xRatio;
 						} else {
@@ -437,6 +483,9 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 						}
 						if (get_rotation) {
 							ass_tag_str.append(agi::wxformat(R"(\frz%lf)", rotation));
+						}
+						if (get_3D) {
+							ass_tag_str.append(agi::wxformat(R"(\frx%lf\fry%lf)", xRotation, yRotation));
 						}
 						const std::string _temp_text = append_if_starts_with_brace(temp_text, ass_tag_str);
 						new_line->Text = _temp_text;

@@ -96,6 +96,82 @@ std::vector<KeyframeData> parseData(const std::string &input, bool insertFromSta
 	return keyframeData;
 }
 
+std::vector<KeyframeData> parse3DData(const std::string &input, bool insertFromStart) {
+	std::istringstream stream(input);
+	std::string line;
+	std::vector<KeyframeData> keyframeData;
+	std::string section;
+	bool isMocha3D = false;
+
+	// 检查输入数据是否为Mocha 3D数据
+	if (std::getline(stream, line)) {
+		if (line.find("*Mocha 3D Track Importer 1.0 Data") != std::string::npos) {
+			isMocha3D = true;
+		} else {
+			return keyframeData;
+		}
+	}
+
+	if (!isMocha3D) {
+		return keyframeData;
+	}
+
+	// 跳过头部信息，直到找到EndHeader行
+	while (std::getline(stream, line)) {
+		if (line.find("EndHeader") != std::string::npos) {
+			break;
+		}
+	}
+
+	// 读取并解析数据
+	while (std::getline(stream, line)) {
+		std::istringstream ss(line);
+		std::string word;
+		ss >> word;
+
+		if (word == "Transform") {
+			// 更新当前处理的段落
+			ss >> section;
+		} else if (isdigit(word[0]) || (word[0] == '-' && isdigit(word[1]))) {
+			// 解析帧数据
+			int frame = std::stoi(word);
+			double value;
+			ss >> value;
+
+			auto it = std::find_if(
+				keyframeData.begin(), keyframeData.end(), [&](const KeyframeData &kf) {
+					return kf.frame == frame;
+				}
+			);
+
+			KeyframeData data{};
+			if (it != keyframeData.end()) {
+				data = *it;
+			} else {
+				data.frame = frame;
+			}
+
+			if (section == "X") {
+				data.xRotation = value;
+			} else if (section == "Y") {
+				data.yRotation = value;
+			}
+
+			if (it != keyframeData.end()) {
+				*it = data;
+			} else {
+				if (insertFromStart) {
+					keyframeData.insert(keyframeData.begin(), data);
+				} else {
+					keyframeData.push_back(data);
+				}
+			}
+		}
+	}
+
+	return keyframeData;
+}
+
 namespace {
 	struct DialogMochaUtil {
 		void OnStart(wxCommandEvent &);
@@ -113,14 +189,17 @@ namespace {
 		wxCheckBox *positionCheckBoxes;
 		wxCheckBox *scaleCheckBoxes;
 		wxCheckBox *rotationCheckBox;
+		wxCheckBox *threeDCheckBox;
 		wxCheckBox *previewCheckBox;
 		wxCheckBox *reverseTrackingCheckBox;
 		wxTextCtrl *logTextCtrl;
+		bool waiting_for_3D_data;
 	};
 
 	DialogMochaUtil::DialogMochaUtil(agi::Context *c)
 		: d(c->parent, -1, _("Mocha Motion - Simple Version"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
-		, c(c) {
+		, c(c)
+		, waiting_for_3D_data(false) {
 		// 使用 wxDIP 来适配高 DPI 显示
 		const wxSize dialogSize = wxDialog::FromDIP(wxSize(600, 550), &d);
 
@@ -169,8 +248,14 @@ namespace {
 		auto *reverseTrackingCheckBox = new wxCheckBox(&d, wxID_ANY, wxEmptyString);
 		reverseTrackingCheckBox->SetToolTip(_("Tracking data is used when tracking from the last frame to the first frame"));
 
+		auto *ThreeDTrackingLabel = new wxStaticText(&d, wxID_ANY, _("3D(\\frx, \\fry):"));
+		auto *ThreeDTrackingCheckBox = new wxCheckBox(&d, wxID_ANY, wxEmptyString);
+		ThreeDTrackingCheckBox->SetToolTip(_("Apply 3D tracking data"));
+
 		otherOptionsSizer->Add(reverseTrackingLabel, 0, wxALIGN_CENTER_VERTICAL);
 		otherOptionsSizer->Add(reverseTrackingCheckBox, 0, wxALL, d.FromDIP(5));
+		otherOptionsSizer->Add(ThreeDTrackingLabel, 0, wxALIGN_CENTER_VERTICAL);
+		otherOptionsSizer->Add(ThreeDTrackingCheckBox, 0, wxALL, d.FromDIP(5));
 
 		// 保存复选框指针到类成员变量
 		this->positionCheckBoxes = positionCheckBoxes;
@@ -178,6 +263,7 @@ namespace {
 		this->rotationCheckBox = rotationCheckBox;
 		this->previewCheckBox = previewCheckBox;
 		this->reverseTrackingCheckBox = reverseTrackingCheckBox;
+		this->threeDCheckBox = ThreeDTrackingCheckBox;
 
 		// 设置默认勾选状态
 		this->positionCheckBoxes->SetValue(true);
@@ -229,18 +315,61 @@ namespace {
 		mocha_data.get_position = positionCheckBoxes->IsChecked();
 		mocha_data.get_scale = scaleCheckBoxes->IsChecked();
 		mocha_data.get_rotation = rotationCheckBox->IsChecked();
+		mocha_data.get_3D = threeDCheckBox->IsChecked();
 		mocha_data.get_preview = previewCheckBox->IsChecked();
 		const bool get_reverse_tracking = mocha_data.get_reverse_tracking = reverseTrackingCheckBox->IsChecked();
 
 		// 获取文本框中的内容
-		const wxString inputText = logTextCtrl->GetValue();
+		wxString inputText = logTextCtrl->GetValue();
 
-		// 解析数据
+		// 解析2D数据
 		try {
-			final_data = parseData(inputText.ToStdString(), get_reverse_tracking);
+			auto parsed_2D_data = parseData(inputText.ToStdString(), get_reverse_tracking);
+			final_data.insert(final_data.end(), parsed_2D_data.begin(), parsed_2D_data.end());
 		} catch (const std::exception &e) {
 			wxLogError("Error: %s", e.what());
+			d.EndModal(0);
+			return;
 		}
+
+		if (mocha_data.get_3D && !waiting_for_3D_data) {
+			// 提示用户粘贴3D追踪数据
+			wxMessageBox(_("Copy the Mocha Pro 3D tracking data into the text box and click the Execute button again"), _("Info"), wxOK | wxICON_INFORMATION);
+
+			// 设置等待3D数据标志
+			waiting_for_3D_data = true;
+			return;
+		}
+
+		if (mocha_data.get_3D && waiting_for_3D_data) {
+			// 获取新的文本框内容
+			inputText = logTextCtrl->GetValue();
+
+			try {
+				// 解析3D数据
+				const auto updated_data = parse3DData(inputText.ToStdString(), get_reverse_tracking);
+
+				// 合并parseData和parse3DData的数据
+				for (const auto &updated : updated_data) {
+					if (auto it = std::find_if(
+						final_data.begin(), final_data.end(), [&](const KeyframeData &kf) {
+							return kf.frame == updated.frame;
+						}
+					); it != final_data.end()) {
+						it->xRotation = updated.xRotation;
+						it->yRotation = updated.yRotation;
+					} else {
+						final_data.push_back(updated);
+					}
+				}
+			} catch (const std::exception &e) {
+				wxLogError("Error: %s", e.what());
+			}
+
+			// 重置等待3D数据标志
+			waiting_for_3D_data = false;
+		}
+
 		d.EndModal(0);
 		onMochaOK = true;
 	}

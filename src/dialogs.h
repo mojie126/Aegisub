@@ -30,6 +30,8 @@ struct KeyframeData {
 	double scaleY;
 	double scaleZ;
 	double rotation;
+	double xRotation;
+	double yRotation;
 };
 
 struct MochaData {
@@ -43,6 +45,7 @@ struct MochaData {
 	bool get_rotation;
 	bool get_preview;
 	bool get_reverse_tracking;
+	bool get_3D;
 };
 
 class AssFile;
