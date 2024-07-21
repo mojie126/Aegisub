@@ -31,6 +31,14 @@ if (!(Test-Path DependencyControl)) {
 	Set-Location $DepsDir
 }
 
+# Aegisub-Motion
+if (!(Test-Path Aegisub-Motion)) {
+	git clone https://github.com/TypesettingTools/Aegisub-Motion.git
+	Set-Location Aegisub-Motion
+	git checkout DepCtrl
+	Set-Location $DepsDir
+}
+
 # YUtils
 if (!(Test-Path YUtils)) {
 	git clone https://github.com/TypesettingTools/YUtils.git
