@@ -1,30 +1,34 @@
 #!/usr/bin/env powershell
 
 param (
-    [Parameter(Position = 0)]
-    [string]$BuildRoot,
-    [Parameter(Position = 1)]
-    [string]$SourceRoot
+	[Parameter(Position = 0)]
+	[string]$BuildRoot,
+	[Parameter(Position = 1)]
+	[string]$SourceRoot
 )
 
-function Copy-New-Item {
-    $SourceFilePath = $args[0]
-    $DestinationFilePath = $args[1]
+function Copy-New-Item
+{
+	$SourceFilePath = $args[0]
+	$DestinationFilePath = $args[1]
 
-    If (-not (Test-Path $DestinationFilePath)) {
-        New-Item -ItemType Directory -Path $DestinationFilePath -Force
-    }
-    Copy-Item -Path $SourceFilePath -Destination $DestinationFilePath
+	If (-not (Test-Path $DestinationFilePath))
+	{
+		New-Item -ItemType Directory -Path $DestinationFilePath -Force
+	}
+	Copy-Item -Path $SourceFilePath -Destination $DestinationFilePath
 }
 
-function Copy-New-Items {
-    $SourceFilePath = $args[0]
-    $DestinationFilePath = $args[1]
+function Copy-New-Items
+{
+	$SourceFilePath = $args[0]
+	$DestinationFilePath = $args[1]
 
-    If (-not (Test-Path $DestinationFilePath)) {
-        New-Item -ItemType Directory -Path $DestinationFilePath -Force
-    }
-    Copy-Item -Path $SourceFilePath -Destination $DestinationFilePath -Recurse
+	If (-not (Test-Path $DestinationFilePath))
+	{
+		New-Item -ItemType Directory -Path $DestinationFilePath -Force
+	}
+	Copy-Item -Path $SourceFilePath -Destination $DestinationFilePath -Recurse
 }
 
 
@@ -78,6 +82,8 @@ Copy-New-Items "$InstallerDir\share\aegisub\automation\*"  "$PortableOutputDir\a
 Write-Output 'Copying - automation\DEPCTRL'
 Copy-New-Items "$InstallerDepsDir\DependencyControl\modules\*"  "$PortableOutputDir\automation\include\l0\"  -Recurse
 Copy-New-Items "$InstallerDepsDir\DependencyControl\macros\*"  "$PortableOutputDir\automation\autoload\"  -Recurse
+Copy-New-Items $InstallerDepsDir\Aegisub-Motion\a-mo.Aegisub-Motion.moon  $PortableOutputDir\automation\autoload
+Copy-New-Items "$InstallerDepsDir\Aegisub-Motion\src\*"  "$PortableOutputDir\automation\include\a-mo\"  -Recurse
 Copy-New-Item $InstallerDepsDir\Yutils\src\Yutils.lua  $PortableOutputDir\automation\include
 Copy-New-Items "$InstallerDepsDir\luajson\lua\*"  "$PortableOutputDir\automation\include\"  -Recurse
 
