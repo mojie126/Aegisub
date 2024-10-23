@@ -55,7 +55,7 @@ class BSVideoProvider final : public VideoProvider {
 	bool apply_rff;
 
 	std::unique_ptr<BestVideoSource> bs;
-	VideoProperties properties;
+	BSVideoProperties properties;
 
 	std::vector<int> Keyframes;
 	agi::vfr::Framerate Timecodes;

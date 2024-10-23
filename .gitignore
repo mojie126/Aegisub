@@ -42,4 +42,4 @@ subprojects/zlib-*
 subprojects/dirent-*
 subprojects/hunspell-*
 subprojects/uchardet-*
-subprojects/xxhash
+subprojects/xxHash-*
