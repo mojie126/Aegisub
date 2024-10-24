@@ -62,8 +62,8 @@ int OpenScriptOrVideo(const VSAPI *api, const VSSCRIPTAPI *sapi, VSScript *scrip
 
 		std::string vscript;
 		vscript += "import sys\n";
-		vscript += "sys.path.append(f'{__aegi_data}/automation/vapoursynth')\n";
 		vscript += "sys.path.append(f'{__aegi_user}/automation/vapoursynth')\n";
+		vscript += "sys.path.append(f'{__aegi_data}/automation/vapoursynth')\n";
 		vscript += default_script;
 		result = sapi->evaluateBuffer(script, vscript.c_str(), "aegisub");
 	}
