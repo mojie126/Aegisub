@@ -104,19 +104,6 @@ std::string colormatrix_description(int colorFamily, int colorRange, int matrix)
 	}
 }
 
-// Adds an argument to the rescaler if the corresponding frameprop does not exist or is set as unspecified
-void VapourSynthVideoProvider::SetResizeArg(VSMap *args, const VSMap *props, const char *arg_name, const char *prop_name, int64_t deflt, int64_t unspecified) {
-	int err;
-	int64_t result = vs.GetAPI()->mapGetInt(props, prop_name, 0, &err);
-	if (err != 0 || result == unspecified) {
-		result = deflt;
-		if (!strcmp(arg_name, "range_in")) {
-			result = result == VSC_RANGE_FULL ? 1 : 0;
-		}
-		vs.GetAPI()->mapSetInt(args, arg_name, result, maAppend);
-	}
-}
-
 VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename, std::string const& colormatrix, agi::BackgroundRunner *br) try { try {
 	std::lock_guard<std::mutex> lock(vs.GetMutex());
 
@@ -270,12 +257,13 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 
 		vs.GetAPI()->mapSetNode(args, "clip", node, maAppend);
 		vs.GetAPI()->mapSetInt(args, "format", pfRGB24, maAppend);
-		if (vi->format.colorFamily != cfGray)
-			SetResizeArg(args, props, "matrix_in", "_Matrix", VSC_MATRIX_BT709, VSC_MATRIX_UNSPECIFIED);
-		SetResizeArg(args, props, "transfer_in", "_Transfer", VSC_TRANSFER_BT709, VSC_TRANSFER_UNSPECIFIED);
-		SetResizeArg(args, props, "primaries_in", "_Primaries", VSC_PRIMARIES_BT709, VSC_PRIMARIES_UNSPECIFIED);
-		SetResizeArg(args, props, "range_in", "_ColorRange", VSC_RANGE_LIMITED);
-		SetResizeArg(args, props, "chromaloc_in", "_ChromaLocation", VSC_CHROMA_LEFT);
+
+		// Set defaults for the colorspace parameters.
+		// If the video node has frame props (like if the video is tagged with
+		// some color space), these will override these arguments.
+		vs.GetAPI()->mapSetInt(args, "matrix_in", VSC_MATRIX_BT709, maAppend);
+		vs.GetAPI()->mapSetInt(args, "range_in", 0, maAppend);
+		vs.GetAPI()->mapSetInt(args, "chromaloc_in", VSC_CHROMA_LEFT, maAppend);
 
 		VSMap *result = vs.GetAPI()->invoke(resize, "Bicubic", args);
 		vs.GetAPI()->freeMap(args);
