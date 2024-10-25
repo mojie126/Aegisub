@@ -81,11 +81,15 @@ public:
 	DialogProgressSink(DialogProgress *dialog) : dialog(dialog) { }
 
 	void SetTitle(std::string const& title) override {
-		Main().Async([=]{ dialog->title->SetLabelText(to_wx(title)); });
+		Main().Async([=]{ dialog->title->SetLabelText(to_wx(title)); dialog->Layout(); });
 	}
 
 	void SetMessage(std::string const& msg) override {
-		Main().Async([=]{ dialog->text->SetLabelText(to_wx(msg)); });
+		Main().Async([=]{
+			dialog->text->SetLabelText(to_wx(msg));
+			dialog->text->Wrap(dialog->GetMinWidth());
+			dialog->Fit();
+		});
 	}
 
 	void SetProgress(int64_t cur, int64_t max) override {
@@ -127,7 +131,7 @@ DialogProgress::DialogProgress(wxWindow *parent, wxString const& title_text, wxS
 {
 	title = new wxStaticText(this, -1, title_text, wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE | wxST_NO_AUTORESIZE);
 	gauge = new wxGauge(this, -1, 300, wxDefaultPosition, wxSize(300,20));
-	text = new wxStaticText(this, -1, message, wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE | wxST_NO_AUTORESIZE);
+	text = new wxStaticText(this, -1, message, wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE);
 	cancel_button = new wxButton(this, wxID_CANCEL);
 	log_output = new wxTextCtrl(this, -1, "", wxDefaultPosition, wxSize(600, 240), wxTE_MULTILINE | wxTE_READONLY);
 
