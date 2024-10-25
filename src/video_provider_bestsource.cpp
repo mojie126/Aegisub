@@ -61,6 +61,8 @@ class BSVideoProvider final : public VideoProvider {
 	agi::vfr::Framerate Timecodes;
 	AVPixelFormat pixfmt;
 	std::string colorspace;
+	int video_cs = -1;		// Reported or guessed color matrix of first frame
+	int video_cr = -1;		// Reported or guessed color range of first frame
 	bool has_audio = false;
 
 	bool is_linear = false;
@@ -72,7 +74,7 @@ public:
 
 	void GetFrame(int n, VideoFrame &out) override;
 
-	void SetColorSpace(std::string const& matrix) override { } 	// TODO Follow Aegisub's colorspace forcing?
+	void SetColorSpace(std::string const& matrix) override { colorspace = matrix; }
 
 	int GetFrameCount() const override { return properties.NumFrames; };
 
@@ -82,32 +84,18 @@ public:
 
 	agi::vfr::Framerate GetFPS() const override { return Timecodes; };
 	std::string GetColorSpace() const override { return colorspace; };
-	std::string GetRealColorSpace() const override { return colorspace; };
+	std::string GetRealColorSpace() const override {
+		std::string result = ColorMatrix::colormatrix_description(video_cs, video_cr);
+		if (result == "") {
+			return "None";
+		}
+		return result;
+	};
 	std::vector<int> GetKeyFrames() const override { return Keyframes; };
 	std::string GetDecoderName() const override { return "BestSource"; };
 	bool WantsCaching() const override { return false; };
 	bool HasAudio() const override { return has_audio; };
 };
-
-// Match the logic from the ffms2 provider, but directly use libavutil's constants and don't abort when encountering an unknown color space
-std::string colormatrix_description(const AVFrame *frame) {
-	// Assuming TV for unspecified
-	std::string str = frame->color_range == AVCOL_RANGE_JPEG ? "PC" : "TV";
-
-	switch (frame->colorspace) {
-		case AVCOL_SPC_BT709:
-			return str + ".709";
-		case AVCOL_SPC_FCC:
-			return str + ".FCC";
-		case AVCOL_SPC_BT470BG:
-		case AVCOL_SPC_SMPTE170M:
-			return str + ".601";
-		case AVCOL_SPC_SMPTE240M:
-			return str + ".240M";
-		default:
-			return "None";
-	}
-}
 
 BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string const& colormatrix, agi::BackgroundRunner *br) try
 : apply_rff(OPT_GET("Provider/Video/BestSource/Apply RFF"))
@@ -177,7 +165,9 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 	// Decode the first frame to get the color space and pixel format
 	std::unique_ptr<BestVideoFrame> frame(bs->GetFrame(0));
 	auto avframe = frame->GetAVFrame();
-	colorspace = colormatrix_description(avframe);
+	video_cs = avframe->colorspace;
+	video_cr = avframe->color_range;
+	ColorMatrix::guess_colorspace(video_cs, video_cr, properties.Width, properties.Height);
 	pixfmt = (AVPixelFormat) avframe->format;
 
 	sws_context = sws_getContext(
@@ -189,6 +179,7 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 		throw VideoDecodeError("Cannot convert frame to RGB!");
 	}
 
+	SetColorSpace(colormatrix);
 }
 catch (BestSourceException const& err) {
 	throw VideoOpenError(agi::format("Failed to create BestVideoSource: %s",  + err.what()));
@@ -210,16 +201,17 @@ void BSVideoProvider::GetFrame(int n, VideoFrame &out) {
 
 	const AVFrame *frame = bsframe->GetAVFrame();
 
-	int range = frame->color_range == AVCOL_RANGE_JPEG;
-	const int *coefficients = sws_getCoefficients(frame->colorspace == AVCOL_SPC_UNSPECIFIED ? AVCOL_SPC_BT709 : frame->colorspace);
+	int cs = frame->colorspace;
+	int cr = frame->color_range;
+	ColorMatrix::override_colormatrix(cs, cr, colorspace, properties.Width, properties.Height);
+	const int *coefficients = sws_getCoefficients(cs);
 
 	if (frame->format != pixfmt || frame->width != properties.Width || frame->height != properties.Height)
 		throw VideoDecodeError("Video has variable format!");
 
-	// TODO apply color space forcing.
 	sws_setColorspaceDetails(sws_context,
-		coefficients, range,
-		coefficients, range,
+		coefficients, cr == AVCOL_RANGE_JPEG,
+		coefficients, cr == AVCOL_RANGE_JPEG,
 		0, 1 << 16, 1 << 16);
 
 	out.data.resize(frame->width * frame->height * 4);
