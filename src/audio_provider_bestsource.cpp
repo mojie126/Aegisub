@@ -40,7 +40,7 @@ namespace {
 class BSAudioProvider final : public agi::AudioProvider {
 	std::map<std::string, std::string> bsopts;
 	std::unique_ptr<BestAudioSource> bs;
-	AudioProperties properties;
+	BSAudioProperties properties;
 
 	void FillBuffer(void *Buf, int64_t Start, int64_t Count) const override;
 public:
