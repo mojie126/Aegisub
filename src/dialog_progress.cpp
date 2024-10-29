@@ -81,14 +81,16 @@ public:
 	DialogProgressSink(DialogProgress *dialog) : dialog(dialog) { }
 
 	void SetTitle(std::string const& title) override {
-		Main().Async([=]{ dialog->title->SetLabelText(to_wx(title)); dialog->Layout(); });
+		Main().Async([=]{ dialog->title->SetLabelText(to_wx(title)); });
 	}
 
 	void SetMessage(std::string const& msg) override {
 		Main().Async([=]{
 			dialog->text->SetLabelText(to_wx(msg));
 			dialog->text->Wrap(dialog->GetMinWidth());
+			dialog->text->CenterOnParent();
 			dialog->Fit();
+			dialog->Layout();
 		});
 	}
 
