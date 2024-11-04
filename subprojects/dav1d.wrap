@@ -2,7 +2,6 @@
 directory = dav1d
 url = https://github.com/videolan/dav1d.git
 revision = head
-diff_files = dav1d/0001.patch
 
 [provide]
 dav1d = dav1d_dep

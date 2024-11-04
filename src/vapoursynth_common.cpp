@@ -24,6 +24,7 @@
 #include <libaegisub/format.h>
 #include <libaegisub/fs.h>
 #include <libaegisub/path.h>
+#include <libaegisub/scoped_ptr.h>
 #include <libaegisub/util.h>
 
 #include <boost/algorithm/string/replace.hpp>
@@ -38,7 +39,7 @@ int OpenScriptOrVideo(const VSAPI *api, const VSSCRIPTAPI *sapi, VSScript *scrip
 	if (agi::fs::HasExtension(filename, "py") || agi::fs::HasExtension(filename, "vpy")) {
 		result = sapi->evaluateFile(script, filename.string().c_str());
 	} else {
-		VSMap *map = api->createMap();
+		agi::scoped_holder<VSMap *> map(api->createMap(), api->freeMap);
 		if (map == nullptr)
 			throw VapourSynthError("Failed to create VSMap for script info");
 
@@ -60,12 +61,10 @@ int OpenScriptOrVideo(const VSAPI *api, const VSSCRIPTAPI *sapi, VSScript *scrip
 		if (sapi->setVariables(script, map))
 			throw VapourSynthError("Failed to set script info variables");
 
-		api->freeMap(map);
-
 		std::string vscript;
 		vscript += "import sys\n";
-		vscript += "sys.path.append(f'{__aegi_data}/automation/vapoursynth')\n";
 		vscript += "sys.path.append(f'{__aegi_user}/automation/vapoursynth')\n";
+		vscript += "sys.path.append(f'{__aegi_data}/automation/vapoursynth')\n";
 		vscript += default_script;
 		result = sapi->evaluateBuffer(script, vscript.c_str(), "aegisub");
 	}

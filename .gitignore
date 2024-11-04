@@ -47,5 +47,4 @@ subprojects/dirent-*
 subprojects/hunspell-*
 subprojects/uchardet-*
 subprojects/vapoursynth
-subprojects/xxhash
-subprojects/vpl
+subprojects/xxHash-*

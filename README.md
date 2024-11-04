@@ -21,6 +21,17 @@ We absolutely do, and I'm aware that adding another one [doesn't sound like](htt
 
     While this is usually also the version of Aegisub I'm currently using, I make no promises on stability. **Don't** use this version if you're just looking for any version of Aegisub - this is mostly intended for typesetting and other advanced usage.
 
+### Issues and Pull Requests
+Please be aware that, even if this fork is currently effectively the "active Aegisub fork", I cannot promise full maintainership.
+The main purpose of this fork is collecting fixes and additions that I am sure are correct (with the goal of complicating the eventual merging of changes and additions upstream as little as possible).
+In particular, unsolicited pull requests with large additions are unlikely to get merged here. If you plan to send a large PR, feel free to contact me first to see if I'd be willing to merge it and/or have suggestions on how to implement it.
+Similarly, I cannot currently accept PRs that update or add translations to languages that I do not speak myself.
+I'm very sorry to have to limit contributions in this way, but I simply do not have the time and resources right now to act as a full maintainer.
+
+As for issues and feature requests, I'll gladly take any bug reports, but if you encounter an issue, please check first if it occurs only on my fork, or also on official Aegisub or [earlier TSTools builds](https://github.com/TypesettingTools/Aegisub/actions).
+If it wasn't introduced by my fork, I can still take a look, but I can't promise anything.
+Also, in that case, please open the issues at the relevant upstream repositories rather than here. This makes it easier to find issues with *my* additions (which have much higher priority), and keeps the issues around when my fork eventually becomes less relevant.
+
 ### Organization
 Being a collection of different feature additions, this repository consists of a set of branches for different features, so that they can easily be merged into other repositories. The [`feature`](https://github.com/arch1t3cht/Aegisub/tree/feature) branch merges together all the features I deem as currently usable. Due to the structure of the repository, I will be force-pushing to this branch and some of the individual branches very frequently, so they're not ideal for basing further branches on.
 
@@ -46,26 +57,6 @@ This list is for navigating the repository. Go to the [release page](https://git
 - [`video_panning_option`](https://github.com/arch1t3cht/Aegisub/tree/video_panning_option): Merge [moex3's video zoom and panning](https://github.com/TypesettingTools/Aegisub/pull/150), with several bugfixes and more options to control zoom behavior
 - [`spectrum-frequency-mapping`](https://github.com/arch1t3cht/Aegisub/tree/spectrum-frequency-mapping): Merge EleonoreMizo's [spectrum display improvements](https://github.com/TypesettingTools/Aegisub/pull/94), and also make Shift+Scroll vertically zoom the audio display
 - [`wangqr_time_video`](https://github.com/arch1t3cht/Aegisub/tree/wangqr_time_video): Merge wangqr's feature adding a tool for timing subtitles to changes in the video
-
-### Troubleshooting
-I'll gladly take any bug reports, but if you encounter an issue, please check first if it occurs only on my fork, or also on [earlier TSTools builds](https://github.com/TypesettingTools/Aegisub/actions).
-If it wasn't introduced by my fork, I can still take a look, but I can't promise anything.
-
-You can find me for support on various servers, including the cave and the TSTools server linked below.
-
-#### Aegisub on Linux doesn't recognize my GTK theme
-This is probably because you're building with wxgtk2. Building with wxgtk3 fixes this, but causes some problems of its own (notably the broken color picker, occasional crashes when opening file dialogs from automation scripts, and general layouting issues).
-
-The exact way of switching depends on your Linux distribution, but essentially you need to ensure that `wx-config` or the next best variant of it points to wxgtk3. If it points to wxgtk2 by default and deinstalling wxgtk2 isn't an option, you can also temporarily move it out of the path or use a `native-file` in your meson project. Then, fully reconfigure meson using `meson configure --clearcache` and `meson setup --reconfigure`.
-
-#### The video is desynced / Frames don't appear at the right time
-This is probably due to the ffms2 seeking bug ([#394](https://github.com/FFMS/ffms2/issues/394)). On Windows, this specific regression shouldn't happen anymore. On Linux, you need to install the latest git version of ffms2 - for example the [`ffms2-git`](https://aur.archlinux.org/packages/ffms2-git) AUR package on Arch linux, or just compile it yourself.
-
-If it's not because of this particular bug, you can also try an alternative video source like LSMASHSource via Avisynth or Vapoursynth, or BestSource.
-
-#### On Windows: Aegisub crashes whenever I open a video
-If you're compiling yourself, try adding `--force-fallback-for=zlib` to the meson options.
-
 
 ### Compilation
 If you're just looking to install Aegisub, you might want to check out the [releases page](https://github.com/arch1t3cht/Aegisub/releases) or the [CI builds](https://github.com/arch1t3cht/Aegisub/actions) first.

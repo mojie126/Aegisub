@@ -28,6 +28,7 @@
 #include <libaegisub/log.h>
 #include <libaegisub/make_unique.h>
 #include <libaegisub/path.h>
+#include <libaegisub/scoped_ptr.h>
 
 #include <mutex>
 
@@ -44,27 +45,28 @@ static const char *audio_key = "__aegi_hasaudio";
 namespace {
 class VapourSynthVideoProvider: public VideoProvider {
 	VapourSynthWrapper vs;
-	VSScript *script = nullptr;
-	VSNode *node = nullptr;
+	agi::scoped_holder<VSScript *> script;
+	agi::scoped_holder<VSNode *> source_node;
+	agi::scoped_holder<VSNode *> prepared_node;
 	const VSVideoInfo *vi = nullptr;
 
 	double dar = 0;
 	agi::vfr::Framerate fps;
 	std::vector<int> keyframes;
 	std::string colorspace;
-	std::string real_colorspace;
+	int video_cs = -1;		// Reported or guessed color matrix of first frame
+	int video_cr = -1;		// Reported or guessed color range of first frame
 	bool has_audio = false;
 
-	const VSFrame *GetVSFrame(int n);
+	agi::scoped_holder<const VSFrame *, void (*)(const VSFrame *) noexcept> GetVSFrame(VSNode *node, int n);
 	void SetResizeArg(VSMap *args, const VSMap *props, const char *arg_name, const char *prop_name, int64_t deflt, int64_t unspecified = -1);
 
 public:
 	VapourSynthVideoProvider(agi::fs::path const& filename, std::string const& colormatrix, agi::BackgroundRunner *br);
-	~VapourSynthVideoProvider();
 
 	void GetFrame(int n, VideoFrame &frame) override;
 
-	void SetColorSpace(std::string const& matrix) override { }
+	void SetColorSpace(std::string const& matrix) override;
 
 	int GetFrameCount() const override             { return vi->numFrames; }
 	agi::vfr::Framerate GetFPS() const override    { return fps; }
@@ -72,64 +74,37 @@ public:
 	int GetHeight() const override                 { return vi->height; }
 	double GetDAR() const override                 { return dar; }
 	std::vector<int> GetKeyFrames() const override { return keyframes; }
-	std::string GetColorSpace() const override     { return GetRealColorSpace(); }
-	std::string GetRealColorSpace() const override { return colorspace == "Unknown" ? "None" : colorspace; }
+	std::string GetColorSpace() const override     { return colorspace; }
+	std::string GetRealColorSpace() const override {
+		std::string result = ColorMatrix::colormatrix_description(video_cs, video_cr);
+		if (result == "") {
+			return "None";
+		}
+		return result;
+	}
 	bool HasAudio() const override                 { return has_audio; }
 	bool WantsCaching() const override             { return true; }
 	std::string GetDecoderName() const override    { return "VapourSynth"; }
 	bool ShouldSetVideoProperties() const override { return colorspace != "Unknown"; }
 };
 
-std::string colormatrix_description(int colorFamily, int colorRange, int matrix) {
-	if (colorFamily != cfYUV) {
-		return "None";
-	}
-	// Assuming TV for unspecified
-	std::string str = colorRange == VSC_RANGE_FULL ? "PC" : "TV";
-
-	switch (matrix) {
-		case VSC_MATRIX_RGB:
-			return "None";
-		case VSC_MATRIX_BT709:
-			return str + ".709";
-		case VSC_MATRIX_FCC:
-			return str + ".FCC";
-		case VSC_MATRIX_BT470_BG:
-		case VSC_MATRIX_ST170_M:
-			return str + ".601";
-		case VSC_MATRIX_ST240_M:
-			return str + ".240M";
-		default:
-			return "Unknown"; 	// Will return "None" in GetColorSpace
-	}
-}
-
-// Adds an argument to the rescaler if the corresponding frameprop does not exist or is set as unspecified
-void VapourSynthVideoProvider::SetResizeArg(VSMap *args, const VSMap *props, const char *arg_name, const char *prop_name, int64_t deflt, int64_t unspecified) {
-	int err;
-	int64_t result = vs.GetAPI()->mapGetInt(props, prop_name, 0, &err);
-	if (err != 0 || result == unspecified) {
-		result = deflt;
-		if (!strcmp(arg_name, "range_in")) {
-			result = result == VSC_RANGE_FULL ? 1 : 0;
-		}
-		vs.GetAPI()->mapSetInt(args, arg_name, result, maAppend);
-	}
-}
-
-VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename, std::string const& colormatrix, agi::BackgroundRunner *br) try { try {
+VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename, std::string const& colormatrix, agi::BackgroundRunner *br) try
+: vs()
+, script(nullptr, vs.GetScriptAPI()->freeScript)
+, source_node(nullptr, vs.GetAPI()->freeNode)
+, prepared_node(nullptr, vs.GetAPI()->freeNode) {
 	std::lock_guard<std::mutex> lock(vs.GetMutex());
 
 	VSCleanCache();
 
 	int err1, err2;
+	// createScript takes ownership of the core so no need for a scoped_holder here
 	VSCore *core = vs.GetAPI()->createCore(OPT_GET("Provider/VapourSynth/Autoload User Plugins")->GetBool() ? 0 : VSCoreCreationFlags::ccfDisableAutoLoading);
 	if (core == nullptr) {
 		throw VapourSynthError("Error creating core");
 	}
 	script = vs.GetScriptAPI()->createScript(core);
 	if (script == nullptr) {
-		vs.GetAPI()->freeCore(core);
 		throw VapourSynthError("Error creating script API");
 	}
 	vs.GetScriptAPI()->evalSetWorkingDir(script, 1);
@@ -150,14 +125,14 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 		std::string msg = agi::format("Error executing VapourSynth script: %s", vs.GetScriptAPI()->getError(script));
 		throw VapourSynthError(msg);
 	}
-	node = vs.GetScriptAPI()->getOutputNode(script, 0);
-	if (node == nullptr)
+	source_node = vs.GetScriptAPI()->getOutputNode(script, 0);
+	if (source_node == nullptr)
 		throw VapourSynthError("No output node set");
 
-	if (vs.GetAPI()->getNodeType(node) != mtVideo) {
+	if (vs.GetAPI()->getNodeType(source_node) != mtVideo) {
 		throw VapourSynthError("Output node isn't a video node");
 	}
-	vi = vs.GetAPI()->getVideoInfo(node);
+	vi = vs.GetAPI()->getVideoInfo(source_node);
 	if (vi == nullptr)
 		throw VapourSynthError("Couldn't get video info");
 	if (!vsh::isConstantVideoFormat(vi))
@@ -172,7 +147,7 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 	fps = agi::vfr::Framerate(fpsNum, fpsDen);
 
 	// Get timecodes and/or keyframes if provided
-	VSMap *clipinfo = vs.GetAPI()->createMap();
+	agi::scoped_holder<VSMap *> clipinfo(vs.GetAPI()->createMap(), vs.GetAPI()->freeMap);
 	if (clipinfo == nullptr)
 		throw VapourSynthError("Couldn't create map");
 	vs.GetScriptAPI()->getVariable(script, kf_key, clipinfo);
@@ -238,10 +213,9 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 			}
 		}
 	}
-	vs.GetAPI()->freeMap(clipinfo);
 
 	// Find the first frame Of the video to get some info
-	const VSFrame *frame = GetVSFrame(0);
+	auto frame = GetVSFrame(source_node, 0);
 
 	const VSMap *props = vs.GetAPI()->getFramePropertiesRO(frame);
 	if (props == nullptr)
@@ -252,78 +226,110 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 		dar = double(vi->width * sarn) / (vi->height * sard);
 	}
 
-	int64_t range = vs.GetAPI()->mapGetInt(props, "_ColorRange", 0, &err1);
-	int64_t matrix = vs.GetAPI()->mapGetInt(props, "_Matrix", 0, &err2);
-	colorspace = colormatrix_description(vi->format.colorFamily, err1 == 0 ? range : -1, err2 == 0 ? matrix : -1);
+	int video_cr_vs = vs.GetAPI()->mapGetInt(props, "_ColorRange", 0, &err1);
+	switch (video_cr_vs) {
+		case VSC_RANGE_FULL:
+			video_cr = AGI_CR_JPEG;
+		case VSC_RANGE_LIMITED:
+			video_cr = AGI_CR_MPEG;
+		default:
+			video_cr = AGI_CR_UNSPECIFIED;
+	}
+	video_cs = vs.GetAPI()->mapGetInt(props, "_Matrix", 0, &err2);
+	ColorMatrix::guess_colorspace(video_cs, video_cr, vi->width, vi->height);
 
-	vs.GetAPI()->freeFrame(frame);
+	SetColorSpace(colormatrix);
+}
+catch (VapourSynthError const& err) {
+	throw VideoOpenError(err.GetMessage());
+}
 
+void VapourSynthVideoProvider::SetColorSpace(std::string const& matrix) {
 	if (vi->format.colorFamily != cfRGB || vi->format.bitsPerSample != 8) {
+		if (matrix == colorspace && prepared_node != nullptr) {
+			return;
+		}
+
+		agi::scoped_holder<VSNode *> intermediary(vs.GetAPI()->addNodeRef(source_node), vs.GetAPI()->freeNode);
+
+		auto [force_cs, force_cr] = ColorMatrix::parse_colormatrix(matrix);
+		if (force_cs != AGI_CS_UNSPECIFIED && force_cr != AGI_CR_UNSPECIFIED) {
+			// Override the _Matrix and _Range frame props to force the color space
+			VSPlugin *std = vs.GetAPI()->getPluginByID(VSH_STD_PLUGIN_ID, vs.GetScriptAPI()->getCore(script));
+			if (std == nullptr)
+				throw VapourSynthError("Couldn't find std plugin");
+
+			agi::scoped_holder<VSMap *> args(vs.GetAPI()->createMap(), vs.GetAPI()->freeMap);
+			if (args == nullptr)
+				throw VapourSynthError("Failed to create argument map");
+
+			vs.GetAPI()->mapSetNode(args, "clip", source_node, maAppend);
+			vs.GetAPI()->mapSetInt(args, "_Matrix", force_cs, maAppend);
+			vs.GetAPI()->mapSetInt(args, "_ColorRange", force_cr == AGI_CR_JPEG ? VSC_RANGE_FULL : VSC_RANGE_LIMITED, maAppend);
+
+			VSMap *result = vs.GetAPI()->invoke(std, "SetFrameProps", args);
+			const char *error = vs.GetAPI()->mapGetError(result);
+			if (error) {
+				throw VideoOpenError(agi::format("Failed set color space frame props: %s", error));
+			}
+			int err;
+			intermediary = vs.GetAPI()->mapGetNode(result, "clip", 0, &err);
+			if (err) {
+				throw VideoOpenError("Failed to get SetFrameProps output node");
+			}
+		}
+
 		// Convert to RGB24 format
 		VSPlugin *resize = vs.GetAPI()->getPluginByID(VSH_RESIZE_PLUGIN_ID, vs.GetScriptAPI()->getCore(script));
 		if (resize == nullptr)
 			throw VapourSynthError("Couldn't find resize plugin");
 
-		VSMap *args = vs.GetAPI()->createMap();
+		agi::scoped_holder<VSMap *> args(vs.GetAPI()->createMap(), vs.GetAPI()->freeMap);
 		if (args == nullptr)
 			throw VapourSynthError("Failed to create argument map");
 
-		vs.GetAPI()->mapSetNode(args, "clip", node, maAppend);
+		vs.GetAPI()->mapSetNode(args, "clip", intermediary, maAppend);
 		vs.GetAPI()->mapSetInt(args, "format", pfRGB24, maAppend);
-		if (vi->format.colorFamily != cfGray)
-			SetResizeArg(args, props, "matrix_in", "_Matrix", VSC_MATRIX_BT709, VSC_MATRIX_UNSPECIFIED);
-		SetResizeArg(args, props, "transfer_in", "_Transfer", VSC_TRANSFER_BT709, VSC_TRANSFER_UNSPECIFIED);
-		SetResizeArg(args, props, "primaries_in", "_Primaries", VSC_PRIMARIES_BT709, VSC_PRIMARIES_UNSPECIFIED);
-		SetResizeArg(args, props, "range_in", "_ColorRange", VSC_RANGE_LIMITED);
-		SetResizeArg(args, props, "chromaloc_in", "_ChromaLocation", VSC_CHROMA_LEFT);
+
+		// Set defaults for the colorspace parameters.
+		// If the video node has frame props (like if the video is tagged with
+		// some color space), these will override these arguments.
+		vs.GetAPI()->mapSetInt(args, "matrix_in", video_cs, maAppend);
+		vs.GetAPI()->mapSetInt(args, "range_in", video_cr == AGI_CR_JPEG, maAppend);
+		vs.GetAPI()->mapSetInt(args, "chromaloc_in", VSC_CHROMA_LEFT, maAppend);
 
 		VSMap *result = vs.GetAPI()->invoke(resize, "Bicubic", args);
-		vs.GetAPI()->freeMap(args);
 		const char *error = vs.GetAPI()->mapGetError(result);
 		if (error) {
-			vs.GetAPI()->freeMap(result);
-			vs.GetAPI()->freeNode(node);
-			vs.GetScriptAPI()->freeScript(script);
 			throw VideoOpenError(agi::format("Failed to convert to RGB24: %s", error));
 		}
 		int err;
-		vs.GetAPI()->freeNode(node);
-		node = vs.GetAPI()->mapGetNode(result, "clip", 0, &err);
-		vs.GetAPI()->freeMap(result);
+		prepared_node = vs.GetAPI()->mapGetNode(result, "clip", 0, &err);
 		if (err) {
-			vs.GetScriptAPI()->freeScript(script);
 			throw VideoOpenError("Failed to get resize output node");
 		}
 
 		// Finally, try to get the first frame again, so if the filter does crash, it happens before loading finishes
-		const VSFrame *rgbframe = GetVSFrame(0);
-		vs.GetAPI()->freeFrame(rgbframe);
+		GetVSFrame(prepared_node, 0);
+	} else {
+		prepared_node = vs.GetAPI()->addNodeRef(source_node);
 	}
-} catch (VapourSynthError const& err) {     // for try inside of function. We need both here since we need to catch errors from the VapourSynthWrap constructor.
-	if (node != nullptr)
-		vs.GetAPI()->freeNode(node);
-	if (script != nullptr)
-		vs.GetScriptAPI()->freeScript(script);
-	throw err;
-}
-}
-catch (VapourSynthError const& err) {    // for the entire constructor
-	throw VideoOpenError(err.GetMessage());
+	colorspace = matrix;
 }
 
-const VSFrame *VapourSynthVideoProvider::GetVSFrame(int n) {
+agi::scoped_holder<const VSFrame *, void (*)(const VSFrame *) noexcept> VapourSynthVideoProvider::GetVSFrame(VSNode *node, int n) {
 	char errorMsg[1024];
 	const VSFrame *frame = vs.GetAPI()->getFrame(n, node, errorMsg, sizeof(errorMsg));
 	if (frame == nullptr) {
 		throw VapourSynthError(agi::format("Error getting frame: %s", errorMsg));
 	}
-	return frame;
+	return agi::scoped_holder(frame, vs.GetAPI()->freeFrame);
 }
 
 void VapourSynthVideoProvider::GetFrame(int n, VideoFrame &out) {
 	std::lock_guard<std::mutex> lock(vs.GetMutex());
 
-	const VSFrame *frame = GetVSFrame(n);
+	auto frame = GetVSFrame(prepared_node, n);
 
 	const VSVideoFormat *format = vs.GetAPI()->getVideoFrameFormat(frame);
 	if (format->colorFamily != cfRGB || format->numPlanes != 3 || format->bitsPerSample != 8 || format->subSamplingH != 0 || format->subSamplingW != 0) {
@@ -355,18 +361,8 @@ void VapourSynthVideoProvider::GetFrame(int n, VideoFrame &out) {
 			writePtr += out.pitch;
 		}
 	}
-
-	vs.GetAPI()->freeFrame(frame);
 }
 
-VapourSynthVideoProvider::~VapourSynthVideoProvider() {
-	if (node != nullptr) {
-		vs.GetAPI()->freeNode(node);
-	}
-	if (script != nullptr) {
-		vs.GetScriptAPI()->freeScript(script);
-	}
-}
 }
 
 namespace agi { class BackgroundRunner; }
