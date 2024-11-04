@@ -1,5 +1,5 @@
 diff --git a/meson.build b/meson.build
-index 4cd117cd..dfcbe890 100644
+index 49b7c936..8541ece6 100644
 --- a/meson.build
 +++ b/meson.build
 @@ -107,9 +107,9 @@ endif
@@ -18,7 +18,7 @@ index 4cd117cd..dfcbe890 100644
 @@ -796,6 +796,10 @@ configure_file(output : 'x264_config.h',
    install_dir: get_option('includedir'))
  install_headers('x264.h')
-
+ 
 +x264_h = configuration_data()
 +x264_h.set('X264_BUILD ', meson.project_version().split('.')[1])
 +configure_file(output : 'x264_check.h', configuration : x264_h, install_dir: get_option('includedir'))
