@@ -47,6 +47,7 @@ namespace agi {
 /// functionality as possible is implemented here to avoid having four copies
 /// of each method for no good reason (and four times as many error messages)
 class VisualToolBase {
+	void SetResolutions();
 	void OnCommit(int type);
 	void OnSeek(int new_frame);
 
@@ -102,6 +103,7 @@ protected:
 	Vector2D mouse_pos; ///< Last seen mouse position
 	Vector2D drag_start; ///< Mouse position at the beginning of the last drag
 	Vector2D script_res; ///< Script resolution
+	Vector2D layout_res; ///< Layout resolution
 	Vector2D video_pos; ///< Top-left corner of the video in the display area
 	Vector2D video_res; ///< Video resolution
 	Vector2D client_size; ///< The size of the display area
