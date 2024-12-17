@@ -217,6 +217,13 @@ void AudioSpectrumRenderer::FillBlock(size_t block_index, float *block)
 	const float scale_fix =
 		1.f / sqrtf (float (1 << (derivation_size - derivation_size_user)));
 
+	// Because the FFTs used here are unnormalized DFTs, we have to compensate
+	// the possible length difference between derivation_size used in the
+	// calculations and its user-provided counterpart. Thus, the display is
+	// kept independent of the sampling rate.
+	const float scale_fix =
+		1.f / sqrtf (float (1 << (derivation_size - derivation_size_user)));
+
 #ifdef WITH_FFTW3
 	ConvertToFloat(2 << derivation_size, dft_input);
 
