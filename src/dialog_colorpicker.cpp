@@ -382,10 +382,14 @@ public:
 	void DropFromScreenXY(int x, int y);
 };
 
+#ifndef MAC_OS_VERSION_15_0
+#define MAC_OS_VERSION_15_0 150000
+#endif
+
 void ColorPickerScreenDropper::DropFromScreenXY(int x, int y) {
 	wxMemoryDC capdc(capture);
 	capdc.SetPen(*wxTRANSPARENT_PEN);
-#ifndef __WXMAC__
+#if !(defined(__WXMAC__) && (MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_VERSION_15_0))
 	std::unique_ptr<wxDC> screen;
 
 	if (!OPT_GET("Tool/Colour Picker/Restrict to Window")->GetBool()) {
