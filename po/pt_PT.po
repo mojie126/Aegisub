@@ -5621,8 +5621,8 @@ msgid ""
 msgstr ""
 "Ocorreu um erro inesperado. Por favor, guarde o seu trabalho e reinicie o "
 "Aegisub.\n"
-"\v\n"
-"\vMensagem de Erro: %s"
+"\n"
+"Mensagem de Erro: %s"
 
 #: ../src/menu.cpp:96
 msgid "Empty"
