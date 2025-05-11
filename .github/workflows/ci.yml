@@ -73,13 +73,13 @@ jobs:
           #}
           - {
             name: Ubuntu Debug,
-            os: ubuntu-latest,
+            os: ubuntu-22.04,
             buildtype: debugoptimized,
             args: ''
           }
           - {
             name: Ubuntu Release,
-            os: ubuntu-latest,
+            os: ubuntu-22.04,
             buildtype: release,
             args: ''
           }
