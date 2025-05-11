@@ -75,7 +75,7 @@ namespace {
 
 namespace agi { namespace dispatch {
 
-void Init(std::function<void (Thunk)> invoke_main) {
+void Init(std::function<void (Thunk)>&& invoke_main) {
 	static IOServiceThreadPool thread_pool;
 	::service = &thread_pool.io_context;
 	::invoke_main = invoke_main;
