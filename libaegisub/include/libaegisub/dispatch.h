@@ -36,7 +36,7 @@ namespace agi {
 
 		/// Initialize the dispatch thread pools
 		/// @param invoke_main A function which invokes the thunk on the GUI thread
-		void Init(std::function<void (Thunk)> invoke_main);
+		void Init(std::function<void (Thunk)>&& invoke_main);
 
 		/// Get the main queue, which runs on the GUI thread
 		Queue& Main();
