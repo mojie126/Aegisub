@@ -43,8 +43,7 @@ if (!(Test-Path luajson)) {
 
 # Avisynth
 if (!(Test-Path AviSynthPlus64)) {
-	$avsReleases = Invoke-WebRequest "https://api.github.com/repos/AviSynth/AviSynthPlus/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
-	$avsUrl = $avsReleases.assets[0].browser_download_url
+	$avsUrl = "https://github.com/AviSynth/AviSynthPlus/releases/download/v3.7.3/AviSynthPlus_3.7.3_20230715-filesonly.7z"
 	Invoke-WebRequest $avsUrl -OutFile AviSynthPlus.7z -UseBasicParsing
 	7z x AviSynthPlus.7z
 	Rename-Item (Get-ChildItem -Filter "AviSynthPlus_*" -Directory) AviSynthPlus64
