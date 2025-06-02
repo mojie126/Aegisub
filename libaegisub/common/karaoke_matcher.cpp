@@ -152,8 +152,8 @@ karaoke_match_result auto_match_karaoke(std::vector<std::string> const& source_s
 	// should be selected based on the distances it was found at.
 
 	// The longest kanji are 'uketamawa.ru' and 'kokorozashi', each with a
-	// reading consisting of five kana. This means each each character from
-	// the destination can match at most five syllables from the source.
+	// reading consisting of five kana. This means each character from the
+	// destination can match at most five syllables from the source.
 	static const int max_character_length = 5;
 
 	// Arbitrarily chosen limit on the number of dest characters to try
