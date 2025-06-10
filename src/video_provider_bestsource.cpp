@@ -173,7 +173,7 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 	sws_context = sws_getContext(
 			properties.Width, properties.Height, pixfmt,
 			properties.Width, properties.Height, AV_PIX_FMT_BGR0,
-			SWS_BICUBIC, nullptr, nullptr, nullptr);
+			SWS_FULL_CHR_H_INT | SWS_FULL_CHR_H_INP | SWS_ACCURATE_RND | SWS_BICUBIC, nullptr, nullptr, nullptr);
 
 	if (sws_context == nullptr) {
 		throw VideoDecodeError("Cannot convert frame to RGB!");
