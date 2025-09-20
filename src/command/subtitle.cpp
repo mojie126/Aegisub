@@ -181,53 +181,114 @@ struct subtitle_insert_after_videotime final : public validate_nonempty_selectio
 	}
 };
 
-std::string remove_patterns(const std::string &input) {
-	std::string result = input;
+struct MoveData {
+	double x1{}, y1{}, x2{}, y2{};
+	int t1{}, t2{};
+};
 
-	const std::regex pos_regex(R"(\\pos\(-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?\))");
-	const std::regex frz_regex(R"(\\frz?-?\d+(\.\d+)?)");
-	const std::regex fscx_regex(R"(\\fscx-?\d+(\.\d+)?)");
-	const std::regex fscy_regex(R"(\\fscy-?\d+(\.\d+)?)");
+struct FadeData {
+	int in{}, out{};
+};
 
-	bool found = true;
-	while (found) {
-		found = false;
-		std::string new_result;
+struct TransformData {
+	int t1{}, t2{};
+	double accel{};
+	std::string effect;
+};
 
-		new_result = std::regex_replace(result, pos_regex, "");
-		if (new_result != result) {
-			found = true;
-			result = new_result;
-		}
-
-		new_result = std::regex_replace(result, frz_regex, "");
-		if (new_result != result) {
-			found = true;
-			result = new_result;
-		}
-
-		new_result = std::regex_replace(result, fscx_regex, "");
-		if (new_result != result) {
-			found = true;
-			result = new_result;
-		}
-
-		new_result = std::regex_replace(result, fscy_regex, "");
-		if (new_result != result) {
-			found = true;
-			result = new_result;
-		}
+/// @brief 计算 \fade 标签在特定时间的 alpha 乘数
+/// @param fade \fade(t1, t2) 数据
+/// @param timeDelta 当前帧相对于行开始的时间
+/// @param line_duration 行的总持续时间
+/// @return alpha 乘数 (0.0 到 1.0)
+double calculate_fade_multiplier(const FadeData& fade, const int timeDelta, const int line_duration) {
+	if (fade.in > 0 && timeDelta < fade.in) {
+		return static_cast<double>(timeDelta) / fade.in;
 	}
-
-	return result;
+	if (fade.out > 0 && timeDelta > fade.out) {
+		const double fade_out_duration = line_duration - fade.out;
+		if (fade_out_duration <= 0) {
+			return 0.0; // 如果淡出开始时间晚于或等于行结束时间，则立即完全透明
+		}
+		const double elapsed_since_fade_out_start = timeDelta - fade.out;
+		return std::max(0.0, 1.0 - elapsed_since_fade_out_start / fade_out_duration);
+	}
+	return 1.0;
 }
 
-std::string append_if_starts_with_brace(const std::string &str, const std::string &to_append) {
-	if (const std::string modified_str = remove_patterns(str); !modified_str.empty() && modified_str[0] == '{') {
-		return modified_str.substr(0, 1) + to_append + modified_str.substr(1);
-	} else {
-		return "{" + to_append + "}" + modified_str;
+/// @brief 计算 \move 标签在特定时间的 \pos 坐标
+/// @param move \move(x1, y1, x2, y2, t1, t2) 数据
+/// @param timeDelta 相对于行开始的时间
+/// @return std::pair<double, double> 包含 x 和 y 坐标
+std::pair<double, double> calculate_move_position(const MoveData& move, const int timeDelta) {
+	if (move.t2 <= move.t1) return {move.x1, move.y1};
+	double progress = static_cast<double>(timeDelta - move.t1) / (move.t2 - move.t1);
+	progress = std::max(0.0, std::min(1.0, progress));
+	double x = move.x1 + (move.x2 - move.x1) * progress;
+	double y = move.y1 + (move.y2 - move.y1) * progress;
+	return {x, y};
+}
+
+/// @brief 移除文本中的 \t, \move, \fad 标签并返回它们的动画效果
+/// @param text 原始行文本
+/// @param t_data 用于存储 \t 数据的结构体
+/// @param move_data 用于存储 \move 数据的结构体
+/// @param fade_data 用于存储 \fad 数据的结构体
+/// @return 清理了动画标签后的文本
+std::string extract_and_remove_animations(
+	std::string text,
+	std::optional<TransformData>& t_data,
+	std::optional<MoveData>& move_data,
+	std::optional<FadeData>& fade_data)
+{
+	// 提取 \t
+	// 这个正则表达式可以正确处理嵌套括号，精确匹配从 \t( 开始到对应的 ) 结束
+	// 它首先尝试匹配4个参数（t1, t2, accel, effect），然后是3个参数（t1, t2, effect）
+	const std::regex t_regex(R"(\\t\(((?:[^,()]|\([^)]*\))+?),((?:[^,()]|\([^)]*\))+?),((?:[^,()]|\([^)]*\))+?),((?:[^()]|\([^)]*\))*)\))");
+	const std::regex t_regex_simple(R"(\\t\(((?:[^,()]|\([^)]*\))+?),((?:[^,()]|\([^)]*\))+?),((?:[^()]|\([^)]*\))*)\))");
+	std::smatch t_match;
+	try {
+		if (std::regex_search(text, t_match, t_regex)) {
+			t_data = TransformData{std::stoi(t_match[1]), std::stoi(t_match[2]), std::stod(t_match[3]), t_match[4]};
+			text = std::regex_replace(text, t_regex, "");
+		} else if (std::regex_search(text, t_match, t_regex_simple)) {
+			t_data = TransformData{std::stoi(t_match[1]), std::stoi(t_match[2]), 1.0, t_match[3].str()};
+			text = std::regex_replace(text, t_regex_simple, "");
+		}
+	} catch (const std::invalid_argument& e) {
+		// 如果时间或加速度参数不是有效的数字，则忽略此标签
+		t_data.reset();
+	} catch (const std::out_of_range& e) {
+		t_data.reset();
 	}
+
+	// 提取 \move
+	// MoonScript: \\move%(([%.%d%-]+,[%.%d%-]+,[%.%d%-]+,[%.%d%-]+,[%d%-]+,[%d%-]+)%)
+	// 增加了对参数前后可能存在的空格的容忍
+	const std::regex move_regex(R"(\\move\(\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*\))");
+	std::smatch move_match;
+	if (std::regex_search(text, move_match, move_regex)) {
+		move_data = MoveData{
+			std::stod(move_match[1]), std::stod(move_match[2]),
+			std::stod(move_match[3]), std::stod(move_match[4]),
+			std::stoi(move_match[5]), std::stoi(move_match[6])
+		};
+		text = std::regex_replace(text, move_regex, "");
+	}
+
+	// 提取 \fad
+	// MoonScript: \\fade?%((%d+,%d+)%)
+	// 匹配 \fad(t1,t2) 或 \fade(t1,t2)，并容忍空格
+	const std::regex fad_regex(R"(\\fad(?:e)?\(\s*(\d+)\s*,\s*(\d+)\s*\))");
+	std::smatch fad_match;
+	if (std::regex_search(text, fad_match, fad_regex)) {
+		fade_data = FadeData{std::stoi(fad_match[1]), std::stoi(fad_match[2])};
+		text = std::regex_replace(text, fad_regex, "");
+	}
+
+	// 清理空的标签块
+	text = std::regex_replace(text, std::regex(R"(\{\})"), "");
+	return text;
 }
 
 struct subtitle_apply_mocha final : public validate_nonempty_selection {
@@ -251,7 +312,12 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 			AssDialogue *last_inserted_line = nullptr;
 			int current_process_frame = 0;
 			AssDialogue *active_line = c->selectionController->GetActiveLine();
-			const std::string temp_text = active_line->Text;
+
+			std::optional<TransformData> t_data;
+			std::optional<MoveData> move_data;
+			std::optional<FadeData> fade_data;
+			const std::string temp_text = extract_and_remove_animations(active_line->Text, t_data, move_data, fade_data);
+
 			const int startFrame = c->videoController->FrameAtTime(active_line->Start, agi::vfr::START);
 			const int endFrame = c->videoController->FrameAtTime(active_line->End, agi::vfr::END);
 			int _reverse_tracking_i = endFrame;
@@ -270,6 +336,10 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 						active_line->Comment = true;
 						last_inserted_line = active_line;
 					}
+
+					const int line_start_ms = active_line->Start;
+					const int line_end_ms = active_line->End;
+
 					for (int i = startFrame; i <= endFrame; ++i) {
 						const auto new_line = new AssDialogue;
 						// 获取当前行的基本样式信息
@@ -290,6 +360,10 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 						* zRotationDiff = Mocha_rotation - Style_rotation
 						*/
 						auto [frame, x, y, z, scaleX, scaleY, scaleZ, rotation] = final_data[current_process_frame];
+						const int current_frame_start_ms = c->videoController->TimeAtFrame(i, agi::vfr::Time::START);
+						// timeDelta 是当前帧相对于原始行动画开始的时间（毫秒）
+						const int timeDelta = current_frame_start_ms - line_start_ms;
+
 						AssStyle const *const style = c->ass->GetStyle(active_line->Style);
 						double _x, _y, xStartPosition, yStartPosition, xStartScale, yStartScale, zStartRotation, xRatio, yRatio, zRotationDiff, radius, angle, temp_x, temp_y, xCurrentPosition = x, yCurrentPosition = y, default_scale_x = 100., default_scale_y = 100.;
 						const double Vertical_margins = style->Margin[2], Right_margin = style->Margin[1], Left_margin = style->Margin[0], Style_scaleX = style->scalex, Style_scaleY = style->scaley, Style_rotation = style->angle;
@@ -352,6 +426,11 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 						if (find_pos) {
 							_x = wxAtof(pos_match[1].str());
 							_y = wxAtof(pos_match[3].str());
+						}
+						// 如果原始行有 \move 标签，用其插值结果覆盖 \pos
+						if (move_data) {
+							auto [move_x, move_y] = calculate_move_position(*move_data, timeDelta);
+							_x = move_x; _y = move_y;
 						}
 						if (get_scale) {
 							xRatio = scaleX / xStartScale;
@@ -429,17 +508,76 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 						}
 						// 字幕内容处理 -- 开始
 						std::string ass_tag_str;
+
+						// 处理 \t
+						if (t_data) {
+							// timeDelta 是当前帧相对于原始行起始时间的偏移
+							int new_t1 = t_data->t1 - timeDelta;
+							int new_t2 = t_data->t2 - timeDelta;
+
+							// 重新构建 \t 标签
+							if (t_data->accel == 1.0) {
+								ass_tag_str.append(agi::wxformat(R"(\t(%d,%d,%s))", new_t1, new_t2, t_data->effect));
+							} else {
+								ass_tag_str.append(agi::wxformat(R"(\t(%d,%d,%g,%s))", new_t1, new_t2, t_data->accel, t_data->effect));
+							}
+						}
+
+						// 处理 \fad
+						if (fade_data) {
+							const int line_duration = line_end_ms - line_start_ms;
+							double fade_multiplier = calculate_fade_multiplier(*fade_data, timeDelta, line_duration);
+							int alpha = 255 - static_cast<int>(fade_multiplier * 255.0);
+							ass_tag_str.append(agi::wxformat(R"(\alpha&H%02X&)", alpha));
+						}
+
+						// 直接在原始文本（已移除\t,\move,\fad）上进行原地替换，以保持标签的相对位置
+						std::string final_text = temp_text;
+
+						// 替换 \pos 标签
 						if (get_position) {
-							ass_tag_str.append(agi::wxformat(R"(\pos(%lf, %lf))", x, y));
+							// 如果原始文本中存在 \pos，则替换它
+							if (find_pos) {
+								final_text = std::regex_replace(final_text, pos_regex, agi::wxformat(R"(\pos(%lf, %lf))", x, y).ToStdString());
+							} else {
+								// 如果不存在，则在第一个标签块的开头添加
+								if (final_text.empty() || final_text.front() != '{') final_text.insert(0, "{}");
+								final_text.insert(1, agi::wxformat(R"(\pos(%lf, %lf))", x, y).ToStdString());
+							}
 						}
+
+						// 替换 \fscx 和 \fscy 标签
 						if (get_scale) {
-							ass_tag_str.append(agi::wxformat(R"(\fscx%lf\fscy%lf)", scaleX, scaleY));
+							if (find_fscx)
+								final_text = std::regex_replace(final_text, fscx_regex, agi::wxformat(R"(\fscx%lf)", scaleX).ToStdString());
+							else {
+								if (final_text.empty() || final_text.front() != '{') final_text.insert(0, "{}");
+								final_text.insert(1, agi::wxformat(R"(\fscx%lf)", scaleX).ToStdString());
+							}
+
+							if (find_fscy)
+								final_text = std::regex_replace(final_text, fscy_regex, agi::wxformat(R"(\fscy%lf)", scaleY).ToStdString());
+							else {
+								if (final_text.empty() || final_text.front() != '{') final_text.insert(0, "{}");
+								final_text.insert(1, agi::wxformat(R"(\fscy%lf)", scaleY).ToStdString());
+							}
 						}
+
+						// 替换 \frz 标签
 						if (get_rotation) {
-							ass_tag_str.append(agi::wxformat(R"(\frz%lf)", rotation));
+							if (find_frz)
+								final_text = std::regex_replace(final_text, frz_regex, agi::wxformat(R"(\frz%lf)", rotation).ToStdString());
+							else {
+								if (final_text.empty() || final_text.front() != '{') final_text.insert(0, "{}");
+								final_text.insert(1, agi::wxformat(R"(\frz%lf)", rotation).ToStdString());
+							}
 						}
-						const std::string _temp_text = append_if_starts_with_brace(temp_text, ass_tag_str);
-						new_line->Text = _temp_text;
+
+						// 将其他动态生成的标签（如\t, \alpha）插入到第一个标签块的末尾
+						if (final_text.empty() || final_text.front() != '{') final_text.insert(0, "{}");
+						final_text.insert(final_text.find('}') , ass_tag_str);
+						
+						new_line->Text = final_text;
 						// 字幕内容处理 -- 结束
 						c->ass->Events.insert(it, *new_line);
 						if (current_process_frame == 0 && !get_preview)
