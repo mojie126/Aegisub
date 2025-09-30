@@ -60,9 +60,13 @@ Copy-New-Item $InstallerDepsDir\dictionaries\en_US.aff  $PortableOutputDir\dicti
 Copy-New-Item $InstallerDepsDir\dictionaries\en_US.dic  $PortableOutputDir\dictionaries
 Write-Output 'Copying - codecs'
 Write-Output 'Copying - codecs\Avisynth'
-Copy-New-Item $InstallerDepsDir\AvisynthPlus64\x64\Output\system\DevIL.dll  $PortableOutputDir
-Copy-New-Item $InstallerDepsDir\AvisynthPlus64\x64\Output\AviSynth.dll  $PortableOutputDir
-Copy-New-Item $InstallerDepsDir\AvisynthPlus64\x64\Output\plugins\DirectShowSource.dll  $PortableOutputDir
+#AviSynthPlus 3.7.3
+#Copy-New-Item $InstallerDepsDir\AvisynthPlus64\x64\Output\system\DevIL.dll  $PortableOutputDir
+#Copy-New-Item $InstallerDepsDir\AvisynthPlus64\x64\Output\AviSynth.dll  $PortableOutputDir
+#Copy-New-Item $InstallerDepsDir\AvisynthPlus64\x64\Output\plugins\DirectShowSource.dll  $PortableOutputDir
+#AviSynthPlus 3.7.5
+Copy-New-Item $InstallerDepsDir\AvisynthPlus64\x64\AviSynth.dll  $PortableOutputDir
+Copy-New-Item $InstallerDepsDir\AvisynthPlus64\x64\plugins\DirectShowSource.dll  $PortableOutputDir
 Write-Output 'Copying - codecs\VapourSynth'
 Copy-New-Item $InstallerDepsDir\L-SMASH-Works\libvslsmashsource.dll  $PortableOutputDir\vapoursynth
 Copy-New-Item $InstallerDepsDir\L-SMASH-Works-new\x64\LSMASHSource.dll  $PortableOutputDir\vapoursynth
