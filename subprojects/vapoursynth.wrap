@@ -1,5 +1,5 @@
 [wrap-git]
 url = https://github.com/vapoursynth/vapoursynth
-revision = R69
+revision = R72
 depth = 1
 patch_directory = vapoursynth

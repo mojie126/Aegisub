@@ -4,7 +4,9 @@ param (
   [Parameter(Position = 0, Mandatory = $false)]
   [string]$BuildRoot = $null,
   [Parameter(Position = 1, Mandatory = $false)]
-  [string]$SourceRoot = $null
+  [string]$SourceRoot = $null,
+  [Parameter(Mandatory = $false)]
+  [string]$VersionOverride = $null
 )
 
 $lastSvnRevision = 6962
@@ -49,11 +51,17 @@ $gitHash = git -C $repositoryRootPath rev-parse --short HEAD 2>$null
 $gitVersionString = $gitRevision, $gitBranch, $gitHash -join '-'
 $exactGitTag = git -C $repositoryRootPath describe --exact-match --tags 2>$null
 
-if ($gitVersionString -eq $version['BUILD_GIT_VERSION_STRING']) {
+if ($gitVersionString -eq $version['BUILD_GIT_VERSION_STRING'] -and !$VersionOverride) {
   exit 0
 }
 
-if ($exactGitTag -match $semVerMatch) {
+# Handle version override from CI input
+if ($VersionOverride -and $VersionOverride -match $semVerMatch) {
+  $version['TAGGED_RELEASE'] = $true
+  $version['RESOURCE_BASE_VERSION'] = $Matches[1..3]
+  $version['INSTALLER_VERSION'] = $gitVersionString = ($Matches[1..3] -join '.') + @("-$($Matches[4])",'')[!$Matches[4]]
+  Write-Host "Using version override: $VersionOverride"
+} elseif ($exactGitTag -match $semVerMatch) {
   $version['TAGGED_RELEASE'] = $true
   $version['RESOURCE_BASE_VERSION'] = $Matches[1..3]
   $version['INSTALLER_VERSION'] = $gitVersionString = ($Matches[1..3] -join '.') + @("-$($Matches[4])",'')[!$Matches[4]]
