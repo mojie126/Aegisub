@@ -1,6 +1,6 @@
 [wrap-git]
 url = https://github.com/microsoft/mimalloc.git
-revision = v2.1.7
+revision = v2.2.4
 clone-recursive = true
 depth = 1
 patch_directory = mimalloc
