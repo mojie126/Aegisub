@@ -1,0 +1,7 @@
+[wrap-git]
+url = https://github.com/FFMS/ffms2.git
+revision = head
+patch_directory = ffms2
+
+[provide]
+ffms2 = ffms2_dep

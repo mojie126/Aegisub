@@ -1,0 +1,32 @@
+{
+    "Default" : {
+        "app/minimize" : [
+            "Ctrl-M"
+        ],
+        "app/toggle/toolbar" : [
+            "Ctrl-Alt-T"
+        ],
+        "edit/find_replace" : [
+            "Ctrl-Alt-F"
+        ],
+        "edit/line/delete" : [
+            "Ctrl-Backspace"
+        ],
+        "edit/redo" : [
+            "Ctrl-Shift-Z"
+        ],
+        "subtitle/find/next" : [
+            "Ctrl-G"
+        ],
+        "subtitle/close" : [
+            "Ctrl-W"
+        ],
+        "subtitle/spellcheck" : [
+            "Ctrl-:",
+            "Ctrl-;"
+        ],
+        "video/jump" : [
+            "Ctrl-J"
+        ]
+    }
+}

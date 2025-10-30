@@ -1,0 +1,16 @@
+{
+    "Audio" : {
+        "Karaoke" : {
+            "Font Face" : ""
+        }
+    },
+    "Subtitle" : {
+        "Edit Box" : {
+            "Font Size" : 13
+        },
+        "Grid" : {
+            "Font Face" : "",
+            "Font Size" : 12
+        }
+    }
+}

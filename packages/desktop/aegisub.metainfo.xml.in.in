@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop">
+  <id>@AEGISUB_RDNS_NAME@</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>BSD-3-Clause AND MIT AND MPL-1.1</project_license>
+  <name>Aegisub</name>
+  <summary>Create and modify subtitles</summary>
+  <description>
+    <p>Aegisub is a free, cross-platform open source tool for creating and modifying subtitles. Aegisub makes it quick and easy to time subtitles to audio, and features many powerful tools for styling them, including a built-in real-time video preview.</p>
+    <p>Aegisub was originally created as a tool to make typesetting, particularly in anime fansubs, a less painful experience. At the time of the start of the project, many other programs that supported the Advanced Substation Alpha format lacked (and in many cases, still lack; development on several competing programs have since been dropped for various reasons completely unrelated to Aegisub) many vital functions, or were too buggy and/or unreliable to be really useful.</p>
+    <p>Since then, Aegisub has grown into a fully fledged, highly customizable subtitle editor. It features a lot of convenient tools to help you with timing, typesetting, editing and translating subtitles, as well as a powerful scripting environment called Automation (originally mostly intended for creating karaoke effects, Automation can now be used much else, including creating macros and various other convenient tools).</p>
+    <p>Some highlights of Aegisub:</p>
+    <ul>
+      <li>Simple and intuitive yet powerful interface for editing subtitles</li>
+      <li>Support for many formats and character sets</li>
+      <li>Powerful video mode</li>
+      <li>Visual typesetting tools</li>
+      <li>Intuitive and customizable audio timing mode</li>
+      <li>Fully scriptable through the Automation module</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">@AEGISUB_RDNS_NAME@.desktop</launchable>
+  <kudos>
+    <kudo>HiDpiIcon</kudo>
+    <kudo>HighContrast</kudo>
+    <kudo>UserDocs</kudo>
+  </kudos>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Graphics</category>
+  </categories>
+  <keywords>
+    <keyword translate="no">ass</keyword>
+    <keyword translate="no">sub</keyword>
+    <keyword translate="no">srt</keyword>
+    <keyword>anime</keyword>
+    <keyword>movie</keyword>
+    <keyword>subtitle</keyword>
+    <keyword>translate</keyword>
+  </keywords>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Typesetting</caption>
+      <image>https://aegisub.org/img/screenshots/unix/typesetting.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Audio video</caption>
+      <image>https://aegisub.org/img/screenshots/unix/audio-video.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Audio timing</caption>
+      <image>https://aegisub.org/img/screenshots/unix/audio-timing.png</image>
+    </screenshot>
+  </screenshots>
+  <developer id="@AEGISUB_RDNS_DEVELOPER@">
+    <name>Aegisub Group</name>
+  </developer>
+  <url type="bugtracker">https://github.com/TypesettingTools/Aegisub/issues</url>
+  <url type="vcs-browser">https://github.com/TypesettingTools/Aegisub</url>
+  <url type="faq">https://aegisub.org/docs/latest/faq</url>
+  <url type="help">https://aegisub.org/docs/latest/main_page</url>
+  <url type="homepage">https://aegisub.org</url>
+  <url type="translate">https://github.com/TypesettingTools/Aegisub</url>
+  <content_rating type="oars-1.1" />
+  <translation type="gettext">aegisub</translation>
+  <provides>
+    <binary>aegisub</binary>
+    <mediatype>application/x-ass</mediatype>
+    <mediatype>application/x-srt</mediatype>
+    <mediatype>application/x-ssa</mediatype>
+    <mediatype>text/plain</mediatype>
+    <mediatype>text/x-ass</mediatype>
+    <mediatype>text/x-microdvd</mediatype>
+    <mediatype>text/x-ssa</mediatype>
+  </provides>
+  <releases>
+    <!-- TODO: automatic replace at config time -->
+    <release version="3.4.2" date="2025-01-12">
+      <url>https://aegisub.org/changelog/3.4.2/</url>
+    </release>
+    <release version="3.4.1" date="2025-01-01">
+      <url>https://aegisub.org/changelog/3.4.1/</url>
+    </release>
+    <release version="3.4.0" date="2024-12-18">
+      <url>https://aegisub.org/changelog/3.4.0/</url>
+    </release>
+    <release version="3.2.2" date="2014-12-08">
+      <url>https://aegisub.org/changelog/3.2.2/</url>
+    </release>
+    <release version="3.2.1" date="2014-09-14">
+      <url>https://aegisub.org/changelog/3.2.1/</url>
+    </release>
+    <release version="3.2.0" date="2014-07-28">
+      <url>https://aegisub.org/changelog/3.2.0/</url>
+    </release>
+    <release version="3.1.3" date="2014-04-07">
+      <url>https://aegisub.org/changelog/3.1.3/</url>
+    </release>
+    <release version="3.1.2" date="2014-02-02">
+      <url>https://aegisub.org/changelog/3.1.2/</url>
+    </release>
+    <release version="3.1.1" date="2014-01-12">
+      <url>https://aegisub.org/changelog/3.1.1/</url>
+    </release>
+    <release version="3.1.0" date="2014-01-04">
+      <url>https://aegisub.org/changelog/3.1.0/</url>
+    </release>
+    <release version="3.0.4" date="2013-07-05">
+      <url>https://aegisub.org/changelog/3.0.4/</url>
+    </release>
+    <release version="3.0.3" date="2013-06-29">
+      <url>https://aegisub.org/changelog/3.0.3/</url>
+    </release>
+    <release version="3.0.2" date="2012-10-23">
+      <url>https://aegisub.org/changelog/3.0.2/</url>
+    </release>
+    <release version="3.0.1" date="2012-10-08">
+      <url>https://aegisub.org/changelog/3.0.1/</url>
+    </release>
+    <release version="3.0.0" date="2012-10-01">
+      <url>https://aegisub.org/changelog/3.0.0/</url>
+    </release>
+    <release version="2.1.9" date="2012-02-05">
+      <url>https://aegisub.org/changelog/2.1.9/</url>
+    </release>
+    <release version="2.1.8" date="2010-01-30">
+      <url>https://aegisub.org/changelog/2.1.8/</url>
+    </release>
+    <release version="2.1.7" date="2009-07-14">
+      <url>https://aegisub.org/changelog/2.1.7/</url>
+    </release>
+    <release version="2.1.6" date="2008-11-26">
+      <url>https://aegisub.org/changelog/2.1.6/</url>
+    </release>
+    <release version="2.1.5" date="2008-11-23">
+      <url>https://aegisub.org/changelog/2.1.5/</url>
+    </release>
+    <release version="2.1.4" date="2008-11-14">
+      <url>https://aegisub.org/changelog/2.1.4/</url>
+    </release>
+    <release version="2.1.3a" date="2008-10-29">
+      <url>https://aegisub.org/changelog/2.1.3a/</url>
+    </release>
+    <release version="1.10 beta" date="2006-08-07">
+      <url>https://aegisub.org/changelog/1.10/</url>
+    </release>
+    <release version="1.09 beta" date="2006-01-16">
+      <url>https://aegisub.org/changelog/1.09/</url>
+    </release>
+    <release version="1.08 beta" date="2006-01-03">
+      <url>https://aegisub.org/changelog/1.08/</url>
+    </release>
+    <release version="1.07 beta" date="2005-12-26">
+      <url>https://aegisub.org/changelog/1.07/</url>
+    </release>
+    <release version="1.06 beta" date="2005-11-29">
+      <url>https://aegisub.org/changelog/1.06/</url>
+    </release>
+    <release version="1.06a beta" date="2005-11-30">
+      <url>https://aegisub.org/changelog/1.06a/</url>
+    </release>
+    <release version="1.05 beta" date="2005-11-20">
+      <url>https://aegisub.org/changelog/1.05/</url>
+    </release>
+    <release version="1.04 beta" date="2005-11-16">
+      <url>https://aegisub.org/changelog/1.04/</url>
+    </release>
+    <release version="1.04a beta" date="2005-11-16">
+      <url>https://aegisub.org/changelog/1.04a/</url>
+    </release>
+    <release version="1.03 beta" date="2005-11-12">
+      <url>https://aegisub.org/changelog/1.03/</url>
+    </release>
+    <release version="1.02 beta" date="2005-11-08">
+      <url>https://aegisub.org/changelog/1.02/</url>
+    </release>
+    <release version="1.02a beta" date="2005-11-09">
+      <url>https://aegisub.org/changelog/1.02a/</url>
+    </release>
+    <release version="1.01 beta" date="2005-11-06">
+      <url>https://aegisub.org/changelog/1.01/</url>
+    </release>
+    <release version="1.00 beta" date="2005-11-05">
+      <url>https://aegisub.org/changelog/1.00/</url>
+    </release>
+  </releases>
+</component>
