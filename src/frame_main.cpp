@@ -98,6 +98,8 @@ FrameMain::FrameMain()
 {
 	StartupLog("Entering FrameMain constructor");
 
+	SetSize(FromDIP(wxSize(920, 700)));
+
 #ifdef __WXGTK__
 	// XXX HACK XXX
 	// We need to set LC_ALL to "" here for input methods to work reliably.
