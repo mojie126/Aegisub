@@ -211,7 +211,8 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 	else
 		SeekMode = FFMS_SEEK_NORMAL;
 
-	const auto hw_name = OPT_GET("Provider/Video/FFmpegSource/HW hw_name")->GetString().c_str();
+	const auto hw_name_str = OPT_GET("Provider/Video/FFmpegSource/HW hw_name")->GetString();
+	const auto hw_name = hw_name_str.c_str();
 	const auto padding = OPT_GET("Provider/Video/FFmpegSource/ABB")->GetInt();
 	VideoSource = FFMS_CreateVideoSource(filename.string().c_str(), TrackNumber, Index, Threads, SeekMode, &ErrInfo, hw_name, padding);
 	if (!VideoSource)
@@ -261,7 +262,8 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 			KeyFramesList.push_back(CurFrameNum);
 
 		// calculate timestamp and add to timecodes vector
-		int Timestamp = (int)((CurFrameData->PTS * TimeBase->Num) / TimeBase->Den);
+		// 使用四舍五入而非截断，避免亚毫秒精度导致帧时间码偏移
+		int Timestamp = std::lround(CurFrameData->PTS * TimeBase->Num / TimeBase->Den);
 		TimecodesVector.push_back(Timestamp);
 	}
 	if (TimecodesVector.size() < 2)
@@ -273,7 +275,7 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 void FFmpegSourceVideoProvider::GetFrame(int n, VideoFrame &out) {
 	n = mid(0, n, GetFrameCount() - 1);
 
-	auto frame = FFMS_GetFrame(VideoSource, n, &ErrInfo);
+	const auto frame = FFMS_GetFrame(VideoSource, n, &ErrInfo);
 	if (!frame)
 		throw VideoDecodeError(std::string("Failed to retrieve frame: ") +  ErrInfo.Buffer);
 

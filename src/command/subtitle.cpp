@@ -46,6 +46,8 @@
 #include "../include/aegisub/context.h"
 #include "../libresrc/libresrc.h"
 #include "../main.h"
+#include "../mocha_motion/motion_dialog.h"
+#include "../mocha_motion/motion_processor.h"
 #include "../options.h"
 #include "../project.h"
 #include "../search_replace_engine.h"
@@ -62,6 +64,7 @@
 #include <boost/range/algorithm/copy.hpp>
 #include <wx/msgdlg.h>
 #include <wx/choicdlg.h>
+#include <wx/progdlg.h>
 
 namespace {
 	using cmd::Command;
@@ -181,116 +184,11 @@ struct subtitle_insert_after_videotime final : public validate_nonempty_selectio
 	}
 };
 
-struct MoveData {
-	double x1{}, y1{}, x2{}, y2{};
-	int t1{}, t2{};
-};
-
-struct FadeData {
-	int in{}, out{};
-};
-
-struct TransformData {
-	int t1{}, t2{};
-	double accel{};
-	std::string effect;
-};
-
-/// @brief 计算 \fade 标签在特定时间的 alpha 乘数
-/// @param fade \fade(t1, t2) 数据
-/// @param timeDelta 当前帧相对于行开始的时间
-/// @param line_duration 行的总持续时间
-/// @return alpha 乘数 (0.0 到 1.0)
-double calculate_fade_multiplier(const FadeData& fade, const int timeDelta, const int line_duration) {
-	if (fade.in > 0 && timeDelta < fade.in) {
-		return static_cast<double>(timeDelta) / fade.in;
-	}
-	if (fade.out > 0 && timeDelta > fade.out) {
-		const double fade_out_duration = line_duration - fade.out;
-		if (fade_out_duration <= 0) {
-			return 0.0; // 如果淡出开始时间晚于或等于行结束时间，则立即完全透明
-		}
-		const double elapsed_since_fade_out_start = timeDelta - fade.out;
-		return std::max(0.0, 1.0 - elapsed_since_fade_out_start / fade_out_duration);
-	}
-	return 1.0;
-}
-
-/// @brief 计算 \move 标签在特定时间的 \pos 坐标
-/// @param move \move(x1, y1, x2, y2, t1, t2) 数据
-/// @param timeDelta 相对于行开始的时间
-/// @return std::pair<double, double> 包含 x 和 y 坐标
-std::pair<double, double> calculate_move_position(const MoveData& move, const int timeDelta) {
-	if (move.t2 <= move.t1) return {move.x1, move.y1};
-	double progress = static_cast<double>(timeDelta - move.t1) / (move.t2 - move.t1);
-	progress = std::max(0.0, std::min(1.0, progress));
-	double x = move.x1 + (move.x2 - move.x1) * progress;
-	double y = move.y1 + (move.y2 - move.y1) * progress;
-	return {x, y};
-}
-
-/// @brief 移除文本中的 \t, \move, \fad 标签并返回它们的动画效果
-/// @param text 原始行文本
-/// @param t_data 用于存储 \t 数据的结构体
-/// @param move_data 用于存储 \move 数据的结构体
-/// @param fade_data 用于存储 \fad 数据的结构体
-/// @return 清理了动画标签后的文本
-std::string extract_and_remove_animations(
-	std::string text,
-	std::optional<TransformData>& t_data,
-	std::optional<MoveData>& move_data,
-	std::optional<FadeData>& fade_data)
-{
-	// 提取 \t
-	// 这个正则表达式可以正确处理嵌套括号，精确匹配从 \t( 开始到对应的 ) 结束
-	// 它首先尝试匹配4个参数（t1, t2, accel, effect），然后是3个参数（t1, t2, effect）
-	const std::regex t_regex(R"(\\t\(((?:[^,()]|\([^)]*\))+?),((?:[^,()]|\([^)]*\))+?),((?:[^,()]|\([^)]*\))+?),((?:[^()]|\([^)]*\))*)\))");
-	const std::regex t_regex_simple(R"(\\t\(((?:[^,()]|\([^)]*\))+?),((?:[^,()]|\([^)]*\))+?),((?:[^()]|\([^)]*\))*)\))");
-	std::smatch t_match;
-	try {
-		if (std::regex_search(text, t_match, t_regex)) {
-			t_data = TransformData{std::stoi(t_match[1]), std::stoi(t_match[2]), std::stod(t_match[3]), t_match[4]};
-			text = std::regex_replace(text, t_regex, "");
-		} else if (std::regex_search(text, t_match, t_regex_simple)) {
-			t_data = TransformData{std::stoi(t_match[1]), std::stoi(t_match[2]), 1.0, t_match[3].str()};
-			text = std::regex_replace(text, t_regex_simple, "");
-		}
-	} catch (const std::invalid_argument& e) {
-		// 如果时间或加速度参数不是有效的数字，则忽略此标签
-		t_data.reset();
-	} catch (const std::out_of_range& e) {
-		t_data.reset();
-	}
-
-	// 提取 \move
-	// MoonScript: \\move%(([%.%d%-]+,[%.%d%-]+,[%.%d%-]+,[%.%d%-]+,[%d%-]+,[%d%-]+)%)
-	// 增加了对参数前后可能存在的空格的容忍
-	const std::regex move_regex(R"(\\move\(\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*\))");
-	std::smatch move_match;
-	if (std::regex_search(text, move_match, move_regex)) {
-		move_data = MoveData{
-			std::stod(move_match[1]), std::stod(move_match[2]),
-			std::stod(move_match[3]), std::stod(move_match[4]),
-			std::stoi(move_match[5]), std::stoi(move_match[6])
-		};
-		text = std::regex_replace(text, move_regex, "");
-	}
-
-	// 提取 \fad
-	// MoonScript: \\fade?%((%d+,%d+)%)
-	// 匹配 \fad(t1,t2) 或 \fade(t1,t2)，并容忍空格
-	const std::regex fad_regex(R"(\\fad(?:e)?\(\s*(\d+)\s*,\s*(\d+)\s*\))");
-	std::smatch fad_match;
-	if (std::regex_search(text, fad_match, fad_regex)) {
-		fade_data = FadeData{std::stoi(fad_match[1]), std::stoi(fad_match[2])};
-		text = std::regex_replace(text, fad_regex, "");
-	}
-
-	// 清理空的标签块
-	text = std::regex_replace(text, std::regex(R"(\{\})"), "");
-	return text;
-}
-
+/// @brief 应用 Mocha Motion 追踪数据到字幕行
+/// 使用 mocha_motion 模块的完整运动追踪管线替代旧版内联处理逻辑
+/// 支持：位置/缩放/旋转/clip/原点/边框/阴影/模糊等标签的追踪应用
+///       线性(\move+\t)和非线性(逐帧)两种模式
+///       反向追踪、便捷预览、变换标签插值等高级功能
 struct subtitle_apply_mocha final : public validate_nonempty_selection {
 	CMD_NAME("subtitle/apply/mocha")
 	STR_MENU("Apply Mocha-Motion")
@@ -298,298 +196,217 @@ struct subtitle_apply_mocha final : public validate_nonempty_selection {
 	STR_HELP("Apply mocha tracking data to the current subtitle entry")
 	CMD_TYPE(COMMAND_VALIDATE)
 
+	/// 验证条件：视频已加载且有选中行
 	bool Validate(const agi::Context *c) override {
 		return c->project->VideoProvider() && !c->selectionController->GetSelectedSet().empty();
 	}
 
 	void operator()(agi::Context *c) override {
+		// 暂停视频播放以避免在修改字幕时产生冲突
 		c->videoController->Stop();
-		ShowMochaUtilDialog(c);
-		bool log = false;
-		if (getMochaOK()) {
-			const auto [total_frame, frame_rate, source_width, source_height, is_mocha_data, get_position, get_scale, get_rotation, get_preview, get_reverse_tracking] = getMochaCheckData();
-			std::vector<KeyframeData> final_data = getMochaMotionParseData();
-			AssDialogue *last_inserted_line = nullptr;
-			int current_process_frame = 0;
-			AssDialogue *active_line = c->selectionController->GetActiveLine();
 
-			std::optional<TransformData> t_data;
-			std::optional<MoveData> move_data;
-			std::optional<FadeData> fade_data;
-			const std::string temp_text = extract_and_remove_animations(active_line->Text, t_data, move_data, fade_data);
+		// 显示新版 Mocha Motion 对话框，获取用户配置和追踪数据
+		mocha::MotionDialogResult result = mocha::ShowMotionDialog(c);
+		if (!result.accepted) return;
 
-			const int startFrame = c->videoController->FrameAtTime(active_line->Start, agi::vfr::START);
-			const int endFrame = c->videoController->FrameAtTime(active_line->End, agi::vfr::END);
-			int _reverse_tracking_i = endFrame;
-			if (int dur_frame = endFrame - startFrame + 1; total_frame != dur_frame) {
-				wxMessageBox(agi::wxformat(_("The trace data is asymmetrical with the selected row data and requires %d frames"), dur_frame),_("Error"), wxICON_ERROR);
-				return;
+		// 获取所有选中的字幕行（对应 MoonScript LineCollection.collectLines）
+		auto selected_set = c->selectionController->GetSelectedSet();
+		if (selected_set.empty()) return;
+
+		// 将选中行按出现顺序排列后反转（对应 MoonScript: for i = #sel, 1, -1）
+		// 反向处理确保插入新行后不影响后续行的索引定位
+		std::vector<AssDialogue*> selected_lines(selected_set.begin(), selected_set.end());
+		std::sort(selected_lines.begin(), selected_lines.end(),
+			[&](AssDialogue* a, AssDialogue* b) {
+				// 按在事件列表中的位置排序
+				for (auto & Event : c->ass->Events) {
+					if (&Event == a) return true;
+					if (&Event == b) return false;
+				}
+				return false;
+			});
+		std::reverse(selected_lines.begin(), selected_lines.end());
+
+		// 计算行集合的帧范围（遍历所有选中行的最早起始帧和最晚结束帧）
+		// 对应 MoonScript: LineCollection.startFrame / .endFrame / .totalFrames
+		int collection_start_frame = c->videoController->FrameAtTime(selected_lines.back()->Start, agi::vfr::START);
+		int collection_end_frame = c->videoController->FrameAtTime(selected_lines.back()->End, agi::vfr::END);
+		for (const AssDialogue* line : selected_lines) {
+			const int sf = c->videoController->FrameAtTime(line->Start, agi::vfr::START);
+			const int ef = c->videoController->FrameAtTime(line->End, agi::vfr::END);
+			if (sf < collection_start_frame) collection_start_frame = sf;
+			if (ef > collection_end_frame) collection_end_frame = ef;
+		}
+		const int total_frames = collection_end_frame - collection_start_frame;
+
+		// 验证追踪数据帧数是否匹配
+		// 对应 MoonScript: mainData.dataObject\checkLength lineCollection.totalFrames
+		if (!result.main_data.check_length(total_frames)) {
+			wxMessageBox(
+				agi::wxformat(_("The trace data is asymmetrical with the selected row data and requires %d frames"), total_frames),
+				_("Error"), wxICON_ERROR);
+			return;
+		}
+
+		// 验证 clip 数据帧数
+		if (result.has_clip_data && !result.clip_data.check_length(total_frames)) {
+			wxMessageBox(
+				agi::wxformat(_("The clip tracking data is asymmetrical with the selected row data and requires %d frames"), total_frames),
+				_("Error"), wxICON_ERROR);
+			return;
+		}
+
+		// 如果启用反向追踪，先反转追踪数据数组
+		if (result.options.reverse_tracking) {
+			result.main_data.reverse_data();
+			if (result.has_clip_data) {
+				result.clip_data.reverse_data();
 			}
-			for (auto it = c->ass->Events.begin(); it != c->ass->Events.end(); ++it) {
-				if (const AssDialogue *diag = &*it; diag == active_line) {
-					++it;
-					if (!get_preview) {
-						// 删除原始行
-						c->ass->Events.erase(c->ass->Events.iterator_to(*active_line));
-					} else {
-						// 注释原始行，方便预览应用追踪的效果
-						active_line->Comment = true;
-						last_inserted_line = active_line;
-					}
+		}
 
-					const int line_start_ms = active_line->Start;
-					const int line_end_ms = active_line->End;
+		// 构建运动处理器，传入用户选项和脚本分辨率
+		mocha::MotionProcessor processor(result.options, result.script_res_x, result.script_res_y);
 
-					for (int i = startFrame; i <= endFrame; ++i) {
-						const auto new_line = new AssDialogue;
-						// 获取当前行的基本样式信息
-						/*
-						* 如果有手动定义fscx, fscy, frz/fr, pos，则以手动定义为准，忽略Style里的定义
-						* Margin[0] = 左边距，Margin[1] = 右边距， Margin[2] = 垂直边距
-						* an1 X = Margin[0], Y = height - Margin[2]
-						* an2 X = width / 2, Y = height - Margin[2]
-						* an3 X = width - Margin[1], Y = height - Margin[2]
-						* an4 X = Margin[0], Y = height / 2
-						* an5 X = width / 2, Y = height / 2
-						* an6 X = width - Margin[1], Y = height / 2
-						* an7 X = Margin[0], Y = Margin[2]
-						* an8 X = width / 2, Y = Margin[2]
-						* an9 X = width - Margin[1], Y = Margin[2]
-						* xRatio = Mocha_scaleX / Style_scaleX
-						* yRatio = Mocha_scaleY / Style_scaleY
-						* zRotationDiff = Mocha_rotation - Style_rotation
-						*/
-						auto [frame, x, y, z, scaleX, scaleY, scaleZ, rotation] = final_data[current_process_frame];
-						const int current_frame_start_ms = c->videoController->TimeAtFrame(i, agi::vfr::Time::START);
-						// timeDelta 是当前帧相对于原始行动画开始的时间（毫秒）
-						const int timeDelta = current_frame_start_ms - line_start_ms;
+		// 设置帧-时间双向转换函数（通过视频控制器实现）
+		processor.set_timing_functions(
+			[c](int ms) { return c->videoController->FrameAtTime(ms, agi::vfr::START); },
+			[c](int frame) { return c->videoController->TimeAtFrame(frame, agi::vfr::START); }
+		);
 
-						AssStyle const *const style = c->ass->GetStyle(active_line->Style);
-						double _x, _y, xStartPosition, yStartPosition, xStartScale, yStartScale, zStartRotation, xRatio, yRatio, zRotationDiff, radius, angle, temp_x, temp_y, xCurrentPosition = x, yCurrentPosition = y, default_scale_x = 100., default_scale_y = 100.;
-						const double Vertical_margins = style->Margin[2], Right_margin = style->Margin[1], Left_margin = style->Margin[0], Style_scaleX = style->scalex, Style_scaleY = style->scaley, Style_rotation = style->angle;
-						if (current_process_frame == 0) {
-							double X, Y;
-							xStartPosition = x;
-							yStartPosition = y;
-							xStartScale = scaleX;
-							yStartScale = scaleY;
-							zStartRotation = rotation;
-							if (const int an = style->alignment; an == 1) {
-								X = Left_margin;
-								Y = source_height - Vertical_margins;
-							} else if (an == 2) {
-								X = static_cast<double>(source_width) / 2;
-								Y = source_height - Vertical_margins;
-							} else if (an == 3) {
-								X = source_width - Right_margin;
-								Y = source_height - Vertical_margins;
-							} else if (an == 4) {
-								X = Left_margin;
-								Y = static_cast<double>(source_height) / 2;
-							} else if (an == 5) {
-								X = static_cast<double>(source_width) / 2;
-								Y = static_cast<double>(source_height) / 2;
-							} else if (an == 6) {
-								X = source_width - Right_margin;
-								Y = static_cast<double>(source_height) / 2;
-							} else if (an == 7) {
-								X = Left_margin;
-								Y = Right_margin;
-							} else if (an == 8) {
-								X = static_cast<double>(source_width) / 2;
-								Y = Right_margin;
-							} else if (an == 9) {
-								X = source_width - Right_margin;
-								Y = Right_margin;
-							}
-							_x = X;
-							_y = Y;
-						}
-						// 匹配是否激活行有定义
-						const std::regex pos_regex(R"(\\pos\((-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)\))");
-						const std::regex frz_regex(R"(\\frz?(-?\d+(\.\d+)?))");
-						const std::regex fscx_regex(R"(\\fscx(-?\d+(\.\d+)?))");
-						const std::regex fscy_regex(R"(\\fscy(-?\d+(\.\d+)?))");
+		// 设置样式查询回调（处理器需要从样式获取默认标签值）
+		processor.set_style_lookup([c](const std::string& name) -> const AssStyle* {
+			return c->ass->GetStyle(name);
+		});
 
-						std::smatch pos_match, frz_match, fscx_match, fscy_match;
-						auto searchStart(temp_text.cbegin());
-						bool find_pos = std::regex_search(searchStart, temp_text.cend(), pos_match, pos_regex);
-						bool find_frz = std::regex_search(searchStart, temp_text.cend(), frz_match, frz_regex);
-						bool find_fscx = std::regex_search(searchStart, temp_text.cend(), fscx_match, fscx_regex);
-						bool find_fscy = std::regex_search(searchStart, temp_text.cend(), fscy_match, fscy_regex);
-						/*
-						 * xStartPosition, yStartPosition永远是追踪数据的首帧数据，不可变
-						 * xStartScale, yStartScale永远是追踪数据的首帧数据，不可变
-						 * xRatio, yRatio是追踪数据当前帧缩放值 / 追踪数据首帧缩放值
-						 * zRotationDiff是追踪数据当前帧旋转值 - 追踪数据首帧旋转值
-						 */
-						if (find_pos) {
-							_x = wxAtof(pos_match[1].str());
-							_y = wxAtof(pos_match[3].str());
-						}
-						// 如果原始行有 \move 标签，用其插值结果覆盖 \pos
-						if (move_data) {
-							auto [move_x, move_y] = calculate_move_position(*move_data, timeDelta);
-							_x = move_x; _y = move_y;
-						}
-						if (get_scale) {
-							xRatio = scaleX / xStartScale;
-							yRatio = scaleY / yStartScale;
-						} else {
-							xRatio = Style_scaleX / default_scale_x;
-							yRatio = Style_scaleY / default_scale_y;
-						}
-						if (get_rotation) {
-							zRotationDiff = rotation - zStartRotation;
-							if (zRotationDiff <= 0) {
-								zRotationDiff = std::fabs(zRotationDiff);
-							} else {
-								zRotationDiff = -zRotationDiff;
-							}
-						} else {
-							zRotationDiff = 0;
-						}
-						temp_x = (_x - xStartPosition) * xRatio;
-						temp_y = (_y - yStartPosition) * yRatio;
-						// log = true;
-						if (log) {
-							std::cout << std::setprecision(15) << "frame:\t" << current_process_frame << std::endl;
-							std::cout << std::setprecision(15) << "_x:\t" << _x << std::endl;
-							std::cout << std::setprecision(15) << "_y:\t" << _y << std::endl;
-							std::cout << std::setprecision(15) << "temp_x:\t" << temp_x << std::endl;
-							std::cout << std::setprecision(15) << "temp_y:\t" << temp_y << std::endl;
-						}
-						radius = std::sqrt(temp_x * temp_x + temp_y * temp_y);
-						angle = std::atan2(temp_y, temp_x) * 180 / M_PI;
-						x = xCurrentPosition + radius * std::cos((angle - zRotationDiff) * M_PI / 180);
-						y = yCurrentPosition + radius * std::sin((angle - zRotationDiff) * M_PI / 180);
+		// 两阶段处理：先处理所有行收集结果，再统一跨行合并后插入
+		// 对应 MoonScript combineWithLine：跨源行的结果也可以合并
 
-						if (log) {
-							std::cout << std::setprecision(15) << "xStartPosition:\t" << xStartPosition << std::endl;
-							std::cout << std::setprecision(15) << "yStartPosition:\t" << yStartPosition << std::endl;
-							std::cout << std::setprecision(15) << "xRatio:\t" << xRatio << std::endl;
-							std::cout << std::setprecision(15) << "yRatio:\t" << yRatio << std::endl;
-							std::cout << std::setprecision(15) << "radius:\t" << radius << std::endl;
-							std::cout << std::setprecision(15) << "angle:\t" << angle << std::endl;
-							std::cout << std::setprecision(15) << "xCurrentPosition:\t" << xCurrentPosition << std::endl;
-							std::cout << std::setprecision(15) << "yCurrentPosition:\t" << yCurrentPosition << std::endl;
-							std::cout << std::setprecision(15) << "zRotationDiff:\t" << zRotationDiff << std::endl;
-							std::cout << std::setprecision(15) << "angle - zRotationDiff:\t" << angle - zRotationDiff << std::endl;
-							std::cout << std::setprecision(15) << "cos:\t" << std::cos((angle - zRotationDiff) * M_PI / 180) << std::endl;
-							std::cout << std::setprecision(15) << "sin:\t" << std::sin((angle - zRotationDiff) * M_PI / 180) << std::endl;
-							std::cout << std::setprecision(15) << "x:\t" << x << std::endl;
-							std::cout << std::setprecision(15) << "y:\t" << y << std::endl;
-							std::cout << "===================" << std::endl;
-						}
+		// 阶段 1：处理所有选中行，收集结果（带进度和取消支持）
+		// 对应 MoonScript: aegisub.progress.set, aegisub.progress.is_cancelled
+		std::vector<mocha::MotionLine> all_result_lines;
+		const int total_lines = static_cast<int>(selected_lines.size());
+		bool cancelled = false;
 
-						if (find_frz) {
-							rotation = zRotationDiff + wxAtof(frz_match[1].str());
-						} else {
-							rotation = zRotationDiff;
-						}
-						if (find_fscx) {
-							scaleX = wxAtof(fscx_match[1].str()) * xRatio;
-						} else {
-							scaleX = Style_scaleX * xRatio;
-						}
-						if (find_fscy) {
-							scaleY = wxAtof(fscy_match[1].str()) * yRatio;
-						} else {
-							scaleY = Style_scaleY * yRatio;
-						}
-						new_line->Style = active_line->Style;
-						if (get_reverse_tracking) {
-							new_line->Start = c->videoController->TimeAtFrame(_reverse_tracking_i, agi::vfr::Time::START);
-							new_line->End = c->videoController->TimeAtFrame(_reverse_tracking_i, agi::vfr::Time::END);
-							--_reverse_tracking_i;
-						} else {
-							new_line->Start = c->videoController->TimeAtFrame(i, agi::vfr::Time::START);
-							new_line->End = c->videoController->TimeAtFrame(i, agi::vfr::Time::END);
-						}
-						// 字幕内容处理 -- 开始
-						std::string ass_tag_str;
+		// 仅多行时显示进度对话框
+		std::unique_ptr<wxProgressDialog> progress;
+		if (total_lines > 1) {
+			progress = std::make_unique<wxProgressDialog>(
+				_("Applying Mocha-Motion"),
+				_("Processing lines..."),
+				total_lines,
+				c->parent,
+				wxPD_APP_MODAL | wxPD_CAN_ABORT | wxPD_AUTO_HIDE | wxPD_SMOOTH);
+		}
 
-						// 处理 \t
-						if (t_data) {
-							// timeDelta 是当前帧相对于原始行起始时间的偏移
-							int new_t1 = t_data->t1 - timeDelta;
-							int new_t2 = t_data->t2 - timeDelta;
+		int line_index = 0;
+		for (AssDialogue* active_line : selected_lines) {
+			// 取消检查
+			if (progress && !progress->Update(line_index,
+				wxString::Format(_("Processing line %d / %d ..."), line_index + 1, total_lines))) {
+				cancelled = true;
+				break;
+			}
+			// 从 AssDialogue 构建模块内部使用的 MotionLine 数据结构
+			mocha::MotionLine motion_line = processor.build_line(active_line);
 
-							// 重新构建 \t 标签
-							if (t_data->accel == 1.0) {
-								ass_tag_str.append(agi::wxformat(R"(\t(%d,%d,%s))", new_t1, new_t2, t_data->effect));
-							} else {
-								ass_tag_str.append(agi::wxformat(R"(\t(%d,%d,%g,%s))", new_t1, new_t2, t_data->accel, t_data->effect));
-							}
-						}
+			// 构建行集合
+			std::vector<mocha::MotionLine> lines = { motion_line };
 
-						// 处理 \fad
-						if (fade_data) {
-							const int line_duration = line_end_ms - line_start_ms;
-							double fade_multiplier = calculate_fade_multiplier(*fade_data, timeDelta, line_duration);
-							int alpha = 255 - static_cast<int>(fade_multiplier * 255.0);
-							ass_tag_str.append(agi::wxformat(R"(\alpha&H%02X&)", alpha));
-						}
+			// 执行完整的运动应用管线：预处理 → 回调应用 → 后处理
+			// 使用行集合的起始帧（所有选中行中最早的），使得行内的
+			// 相对帧索引正确映射到追踪数据中的位置
+			// 对应 MoonScript: lineCollection.startFrame 传给 MotionHandler
+			std::vector<mocha::MotionLine> new_lines = processor.apply(
+				lines,
+				result.main_data,
+				result.has_clip_data ? &result.clip_data : nullptr,
+				result.has_clip_data ? &result.clip_options : nullptr,
+				collection_start_frame);
 
-						// 直接在原始文本（已移除\t,\move,\fad）上进行原地替换，以保持标签的相对位置
-						std::string final_text = temp_text;
-
-						// 替换 \pos 标签
-						if (get_position) {
-							// 如果原始文本中存在 \pos，则替换它
-							if (find_pos) {
-								final_text = std::regex_replace(final_text, pos_regex, agi::wxformat(R"(\pos(%lf, %lf))", x, y).ToStdString());
-							} else {
-								// 如果不存在，则在第一个标签块的开头添加
-								if (final_text.empty() || final_text.front() != '{') final_text.insert(0, "{}");
-								final_text.insert(1, agi::wxformat(R"(\pos(%lf, %lf))", x, y).ToStdString());
-							}
-						}
-
-						// 替换 \fscx 和 \fscy 标签
-						if (get_scale) {
-							if (find_fscx)
-								final_text = std::regex_replace(final_text, fscx_regex, agi::wxformat(R"(\fscx%lf)", scaleX).ToStdString());
-							else {
-								if (final_text.empty() || final_text.front() != '{') final_text.insert(0, "{}");
-								final_text.insert(1, agi::wxformat(R"(\fscx%lf)", scaleX).ToStdString());
-							}
-
-							if (find_fscy)
-								final_text = std::regex_replace(final_text, fscy_regex, agi::wxformat(R"(\fscy%lf)", scaleY).ToStdString());
-							else {
-								if (final_text.empty() || final_text.front() != '{') final_text.insert(0, "{}");
-								final_text.insert(1, agi::wxformat(R"(\fscy%lf)", scaleY).ToStdString());
-							}
-						}
-
-						// 替换 \frz 标签
-						if (get_rotation) {
-							if (find_frz)
-								final_text = std::regex_replace(final_text, frz_regex, agi::wxformat(R"(\frz%lf)", rotation).ToStdString());
-							else {
-								if (final_text.empty() || final_text.front() != '{') final_text.insert(0, "{}");
-								final_text.insert(1, agi::wxformat(R"(\frz%lf)", rotation).ToStdString());
-							}
-						}
-
-						// 将其他动态生成的标签（如\t, \alpha）插入到第一个标签块的末尾
-						if (final_text.empty() || final_text.front() != '{') final_text.insert(0, "{}");
-						final_text.insert(final_text.find('}') , ass_tag_str);
-						
-						new_line->Text = final_text;
-						// 字幕内容处理 -- 结束
-						c->ass->Events.insert(it, *new_line);
-						if (current_process_frame == 0 && !get_preview)
-							last_inserted_line = new_line;
-						ass_tag_str.clear();
-						++current_process_frame;
-					}
-					--it;
+			// 如果启用反向追踪，反转输出行的时间分配
+			if (result.options.reverse_tracking && new_lines.size() > 1) {
+				std::vector<std::pair<int, int>> times;
+				times.reserve(new_lines.size());
+				for (const auto& nl : new_lines) {
+					times.emplace_back(nl.start_time, nl.end_time);
+				}
+				std::reverse(times.begin(), times.end());
+				for (size_t i = 0; i < new_lines.size(); ++i) {
+					new_lines[i].start_time = times[i].first;
+					new_lines[i].end_time = times[i].second;
 				}
 			}
 
-			c->ass->Commit(_("line insertion"), AssFile::COMMIT_DIAG_ADDREM);
+			all_result_lines.insert(all_result_lines.end(),
+				std::make_move_iterator(new_lines.begin()),
+				std::make_move_iterator(new_lines.end()));
+
+			++line_index;
+		}
+
+		// 关闭进度对话框
+		progress.reset();
+
+		// 用户取消时不修改字幕
+		if (cancelled || all_result_lines.empty()) return;
+
+		// 按起始时间排序后执行跨行合并
+		std::sort(all_result_lines.begin(), all_result_lines.end(),
+			[](const mocha::MotionLine& a, const mocha::MotionLine& b) {
+				return a.start_time < b.start_time;
+			});
+		processor.cross_line_combine(all_result_lines);
+
+		// 阶段 2：删除/注释所有原始行，并记录插入位置
+		// selected_lines 已按反序排列，最后一个元素是正序中最早的行
+		// 在正序最早的原始行位置之前记录插入点
+		AssDialogue* first_original = selected_lines.back();
+		auto insert_pos = c->ass->Events.end();
+		for (auto it = c->ass->Events.begin(); it != c->ass->Events.end(); ++it) {
+			if (&*it == first_original) {
+				insert_pos = it;
+				break;
+			}
+		}
+
+		// 反向删除/注释所有原始行（反向以保持迭代器有效性）
+		for (AssDialogue* active_line : selected_lines) {
+			if (result.options.preview) {
+				// 便捷预览模式：保留原始行但注释掉
+				active_line->Comment = true;
+			} else {
+				// 正式应用模式：删除原始行
+				// 如果 insert_pos 指向当前行，先前移
+				if (&*insert_pos == active_line) {
+					++insert_pos;
+				}
+				c->ass->Events.erase(c->ass->Events.iterator_to(*active_line));
+			}
+		}
+
+		// 在记录的位置插入所有合并后的结果行
+		AssDialogue* last_inserted_line = nullptr;
+		for (const auto& ml : all_result_lines) {
+			auto* new_diag = new AssDialogue;
+			new_diag->Text = ml.text;
+			new_diag->Style = ml.style;
+			new_diag->Start = ml.start_time;
+			new_diag->End = ml.end_time;
+			new_diag->Comment = ml.comment;
+			new_diag->Layer = ml.layer;
+			new_diag->Margin[0] = ml.margin_l;
+			new_diag->Margin[1] = ml.margin_r;
+			new_diag->Margin[2] = ml.margin_t;
+			new_diag->Actor = ml.actor;
+			new_diag->Effect = ml.effect;
+
+			c->ass->Events.insert(insert_pos, *new_diag);
+			last_inserted_line = new_diag;
+		}
+
+		// 提交修改并选中最后插入的行
+		c->ass->Commit(_("line insertion"), AssFile::COMMIT_DIAG_ADDREM);
+		if (last_inserted_line) {
 			c->selectionController->SetSelectionAndActive({last_inserted_line}, last_inserted_line);
 		}
 	}

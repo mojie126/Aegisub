@@ -6908,11 +6908,14 @@ msgstr "解码全轨道，确保完美的帧精度。这需要一段时间！"
 msgid "BestSource had to fall back to linear decoding. Seeking through the video will be very slow now. You may want to try a different video provider, but note that those are not guaranteed to be frame-exact."
 msgstr "BestSource 不得不回退到线性解码。现在通过视频搜索定位将非常缓慢。你可能想尝试其他视频处理器，但请注意，这些处理器不能保证帧的精确度。"
 
-msgid "Export the clip"
-msgstr "导出视频片段"
+#~ msgid "Export the clip"
+#~ msgstr "导出视频片段"
 
-msgid "Export video clips from frame to frame at a specified time"
-msgstr "导出指定帧到帧之间的视频片段"
+msgid "Export GIF"
+msgstr "导出GIF动画"
+
+#~ msgid "Export video clips from frame to frame at a specified time"
+#~ msgstr "导出指定帧到帧之间的视频片段"
 
 msgid "Start Frame: "
 msgstr "起始帧："
@@ -6924,10 +6927,10 @@ msgid "The end frame cannot be less than or equal to the start frame"
 msgstr "结束帧不能小于或等于起始帧"
 
 msgid "Exporting video clips, frame: [%ld ~ %ld], total: %d, please later"
-msgstr "正在导出视频片段 [%ld ~ %ld]，总计：%d，请稍后..."
+msgstr "正在导出图片序列 [%ld ~ %ld]，总计：%d，请稍后..."
 
 msgid "Export image sequence"
-msgstr "导出为图片序列"
+msgstr "导出图片序列"
 
 msgid "Clip export path"
 msgstr "视频片段导出路径"
@@ -6935,8 +6938,8 @@ msgstr "视频片段导出路径"
 msgid "Create video clip"
 msgstr "创建视频剪辑"
 
-msgid "Export video clips from frame to frame at a specified time of the selected line"
-msgstr "导出所选行的视频关键帧图片序列"
+#~ msgid "Export video clips from frame to frame at a specified time of the selected line"
+#~ msgstr "导出所选行的视频关键帧图片序列"
 
 msgid "Turn off subtitles and related resources"
 msgstr "关闭字幕及相关资源"
@@ -6957,10 +6960,10 @@ msgid "Sets the maximum number of favorite fonts"
 msgstr "设置最大收藏字体的数量"
 
 msgid "Apply Mocha-Motion"
-msgstr "应用mocha追踪"
+msgstr "应用摩卡追踪"
 
 msgid "Apply mocha tracking data to the current subtitle entry"
-msgstr "将mocha追踪数据应用于当前选中的字幕条目"
+msgstr "将摩卡追踪数据应用于当前选中的字幕条目"
 
 msgid "Please choose a language:"
 msgstr "请选择将要使用的语言："
@@ -7010,6 +7013,340 @@ msgstr "反向追踪"
 msgid "Tracking data is used when tracking from the last frame to the first frame"
 msgstr "追踪数据是从最后一帧向第一帧方向追踪时使用"
 
+#. Mocha Motion 新版对话框翻译（motion_dialog.cpp）
+#. 对话框标题
+msgid "Mocha Motion"
+msgstr "摩卡追踪"
+
+#. 数据输入区
+msgid "Tracking Data"
+msgstr "追踪数据"
+
+msgid "Paste AE keyframe data or enter file path (no quotes):"
+msgstr "粘贴AE关键帧数据或输入文件路径（无需引号）："
+
+msgid ""
+"Supports Adobe After Effects keyframe data. "
+"You can also enter a file path to load data from file."
+msgstr ""
+"支持Adobe After Effects关键帧数据。"
+"也可输入文件路径从文件加载数据。"
+
+msgid "No data loaded"
+msgstr "未加载数据"
+
+msgid "Invalid data format or file path"
+msgstr "数据格式或文件路径无效"
+
+msgid "Data frames: %d | Line needs: %d frames | Source: %dx%d"
+msgstr "数据帧数: %d | 选中行需要: %d 帧 | 源: %dx%d"
+
+msgid "Data frames: %d | Source: %dx%d | FPS: %.2f"
+msgstr "数据帧数: %d | 源: %dx%d | FPS: %.2f"
+
+msgid "Data frames: %d | Source: %dx%d"
+msgstr "数据帧数: %d | 源: %dx%d"
+
+#. 位置选项（组标题）
+msgid "Position (\\pos)"
+msgstr "位置 (\\pos)"
+
+msgid "&X"
+msgstr "X轴(&X)"
+
+msgid "Apply X position tracking data (\\pos X component)"
+msgstr "应用X轴位置追踪数据（\\pos X分量）"
+
+msgid "&Y"
+msgstr "Y轴(&Y)"
+
+msgid "Apply Y position tracking data (\\pos Y component)"
+msgstr "应用Y轴位置追踪数据（\\pos Y分量）"
+
+msgid "&Origin(\\org)"
+msgstr "原点(&O)(\\org)"
+
+msgid "Move the origin point along with position data"
+msgstr "随位置数据移动原点"
+
+msgid "Absolut&e"
+msgstr "绝对位置(&E)"
+
+msgid "Set position to exactly that of the tracking data with no processing"
+msgstr "将位置精确设为追踪数据的值，不做任何处理"
+
+#. 缩放选项（组标题）
+msgid "Scale (\\fscx, \\fscy)"
+msgstr "缩放 (\\fscx, \\fscy)"
+
+#. 缩放复选框
+msgid "&Scale"
+msgstr "缩放(&S)"
+
+msgid ""
+"Apply scaling data to the selected lines. "
+"When unchecked, Border/Shadow/Blur options are also disabled."
+msgstr ""
+"将缩放数据应用到选中行。"
+"取消勾选时，边框/阴影/模糊选项也会被禁用。"
+
+msgid "&Border(\\bord)"
+msgstr "边框(&B)(\\bord)"
+
+msgid "Scale border width with the line (requires Scale)"
+msgstr "随行缩放调整边框宽度（需启用缩放）"
+
+msgid "Shado&w(\\shad)"
+msgstr "阴影(&W)(\\shad)"
+
+msgid "Scale shadow offset with the line (requires Scale)"
+msgstr "随行缩放调整阴影偏移（需启用缩放）"
+
+msgid "Bl&ur(\\blur)"
+msgstr "模糊(&U)(\\blur)"
+
+msgid "Scale blur with the line (requires Scale, does not scale \\be)"
+msgstr "随行缩放调整模糊值（需启用缩放，不缩放\\be）"
+
+msgid "Factor:"
+msgstr "系数："
+
+msgid ""
+"Factor to attenuate (or amplify) blur scale ratio. "
+"1.0 = full tracking ratio, 0.5 = half effect."
+msgstr ""
+"模糊缩放比例衰减（或增幅）系数。"
+"1.0=完整追踪比例，0.5=半效果。"
+
+#. 旋转（组标题）
+msgid "Rotation (\\frz)"
+msgstr "旋转 (\\frz)"
+
+#. 旋转复选框
+msgid "&Rotation"
+msgstr "旋转(&R)"
+
+msgid "Apply Z-axis rotation data to the selected lines"
+msgstr "将Z轴旋转数据应用到选中行"
+
+#. 裁剪选项（组标题）
+msgid "Clip (\\clip)"
+msgstr "裁剪 (\\clip)"
+
+#. 裁剪复选框
+msgid "Rect C&lip"
+msgstr "矩形裁剪(&L)"
+
+msgid "Apply tracking data to rectangular \\clip in the line"
+msgstr "将追踪数据应用到行中的矩形\\clip"
+
+msgid "&Vect Clip"
+msgstr "矢量裁剪(&V)"
+
+msgid "Apply tracking data to vector \\clip in the line"
+msgstr "将追踪数据应用到行中的矢量\\clip"
+
+msgid "R->V"
+msgstr "矩→矢"
+
+msgid ""
+"Convert rectangular clip to vector clip before tracking. "
+"Automatically enables both Rect Clip and Vect Clip."
+msgstr ""
+"追踪前将矩形clip转换为矢量clip。"
+"自动启用矩形裁剪和矢量裁剪。"
+
+#. 处理模式
+msgid "Processing Mode"
+msgstr "处理模式"
+
+msgid "&Multi-line(\\t)"
+msgstr "多行插入(&M)(\\t)"
+
+msgid ""
+"Generate per-frame subtitle lines with interpolated \\t tags. "
+"When enabled, \\t tags are evaluated and replaced at each frame; "
+"when disabled, \\t times are shifted."
+msgstr ""
+"逐帧生成字幕行并插值\\t变换标签。"
+"启用时计算并替换\\t标签；"
+"禁用时仅平移\\t时间。"
+
+msgid "Si&ngle-line(\\move)"
+msgstr "单行插入(&N)(\\move)"
+
+msgid ""
+"Use \\move + \\t to create linear transition (single output line), "
+"instead of generating per-frame lines."
+msgstr ""
+"使用\\move+\\t创建线性过渡（单行输出），"
+"而非生成逐帧行。"
+
+msgid "&Clip Only"
+msgstr "仅裁剪(&C)"
+
+msgid ""
+"Only apply tracking to clip tags. Ignores position, scale, rotation, "
+"border, shadow, and blur."
+msgstr ""
+"仅将追踪应用到clip标签。"
+"忽略位置、缩放、旋转、边框、阴影和模糊。"
+
+#. 配置选项
+msgid "Configuration"
+msgstr "配置"
+
+msgid "Relat&ive"
+msgstr "相对帧号(&I)"
+
+#~ msgid "Start frame is relative to the selection start, not an absolute video frame number"
+#~ msgstr "起始帧相对于选区起始位置，而非绝对视频帧号"
+
+msgid "Relative: start frame is an index into tracking data (1=first). Absolute: start frame is a video frame number, auto-converted to relative."
+msgstr "相对模式：起始帧为跟踪数据中的索引（1=第一帧）。绝对模式：起始帧为视频帧号，自动转换为相对值。"
+
+msgid "Start Frame (relative):"
+msgstr "起始帧（相对）："
+
+msgid "Start Frame (absolute):"
+msgstr "起始帧（绝对）："
+
+#~ msgid "-1 = last frame of data. 0 is auto-adjusted to 1 in relative mode."
+#~ msgstr "-1表示数据最后一帧。相对模式下0会自动调整为1。"
+
+msgid "Relative mode: 1=first frame, -1=last frame, 0=auto-adjusted to 1.\nAbsolute mode: video frame number where tracking data starts."
+msgstr "相对模式：1=第一帧，-1=最后一帧，0=自动调整为1。\n绝对模式：跟踪数据起始的视频帧号。"
+
+msgid "Convenient preview"
+msgstr "便捷预览"
+
+msgid ""
+"Annotate original subtitle to preview tracking effect, "
+"then click [Play Current Line] to preview."
+msgstr ""
+"注释原始字幕以预览追踪效果，"
+"然后点击[播放当前行]进行预览。"
+
+msgid "Reverse tracking"
+msgstr "反向追踪"
+
+msgid ""
+"Reverse tracking data order. Use when Mocha tracked from "
+"last frame to first frame."
+msgstr ""
+"反转追踪数据顺序。"
+"在Mocha从最后一帧往第一帧方向追踪时使用。"
+
+msgid "Save config"
+msgstr "保存配置"
+
+msgid "Save current options to configuration file for next use."
+msgstr "将当前选项保存到配置文件以供下次使用。"
+
+#. 错误消息
+msgid "No tracking data provided."
+msgstr "未提供追踪数据。"
+
+msgid "Failed to parse tracking data. Please check the data format or file path."
+msgstr "追踪数据解析失败，请检查数据格式或文件路径。"
+
+#. 独立 clip 追踪数据对话框（motion_dialog.cpp）
+msgid "Track \\clip separately"
+msgstr "独立追踪\\clip"
+
+msgid ""
+"Open a separate dialog to provide independent tracking data for clips. "
+"This allows clips to move independently from the main subtitle."
+msgstr ""
+"打开独立对话框为clip提供独立追踪数据。"
+"使clip可以独立于主字幕移动。"
+
+msgid "No separate clip data"
+msgstr "无独立clip数据"
+
+msgid "Clip Tracking Data"
+msgstr "Clip追踪数据"
+
+msgid "Paste clip tracking data or enter file path:"
+msgstr "粘贴clip追踪数据或输入文件路径："
+
+msgid ""
+"Tracking data for clips, independent from main tracking data. "
+"Supports AE keyframe and Shake Rotoshape formats."
+msgstr ""
+"clip追踪数据，独立于主追踪数据。"
+"支持AE关键帧和Shake Rotoshape格式。"
+
+msgid "Data to apply:"
+msgstr "应用数据通道："
+
+msgid "Apply X position data to clip"
+msgstr "将X轴位置数据应用到clip"
+
+msgid "Apply Y position data to clip"
+msgstr "将Y轴位置数据应用到clip"
+
+msgid "Apply scale data to clip"
+msgstr "将缩放数据应用到clip"
+
+#. clip 对话框中的旋转标签（不带快捷键前缀，区别于主对话框的 "&Rotation"）
+msgid "Rotation"
+msgstr "旋转"
+
+msgid "Apply rotation data to clip"
+msgstr "将旋转数据应用到clip"
+
+msgid "Clip Type:"
+msgstr "Clip类型："
+
+msgid "Rect Clip"
+msgstr "矩形裁剪"
+
+msgid "Vect Clip"
+msgstr "矢量裁剪"
+
+msgid "Convert rectangular clip to vector clip"
+msgstr "将矩形clip转换为矢量clip"
+
+msgid "Relative"
+msgstr "相对"
+
+msgid "Clear Data"
+msgstr "清除数据"
+
+msgid "Remove independent clip tracking data"
+msgstr "移除独立clip追踪数据"
+
+msgid "Clip data loaded: %d frames (%s)"
+msgstr "Clip数据已加载：%d 帧 (%s)"
+
+msgid "Clip data invalid"
+msgstr "Clip数据无效"
+
+#. subtitle.cpp - clip 数据帧数不匹配
+msgid "The clip tracking data is asymmetrical with the selected row data and requires %d frames"
+msgstr "clip追踪数据与选定行数据不对称，需要 %d 帧"
+
+#. subtitle.cpp - 进度对话框（应用 Mocha-Motion 处理循环）
+msgid "Applying Mocha-Motion"
+msgstr "应用 Mocha-Motion"
+
+msgid "Processing lines..."
+msgstr "正在处理行..."
+
+msgid "Processing line %d / %d ..."
+msgstr "正在处理第 %d / %d 行..."
+
+#. GIF 导出对话框循环预览（dialog_jumpto.cpp）
+msgid "Loop Preview"
+msgstr "循环预览"
+
+msgid "Toggle loop playback within the frame range"
+msgstr "在帧范围内切换循环播放"
+
+msgid "Stop Preview"
+msgstr "停止预览"
+
 msgid "Other options"
 msgstr "杂项"
 
@@ -7020,22 +7357,72 @@ msgid "Shift+Enter adds \\n"
 msgstr "Shift+Enter添加软换行符\\n"
 
 msgid "Gif Quality: "
-msgstr "GIF图像质量："
+msgstr "GIF动画质量："
 
 msgid "Valid only for exporting GIFs"
 msgstr "只针对GIF导出生效"
 
 msgid "Export gif image"
-msgstr "导出GIF图像"
+msgstr "导出GIF动画"
+
+#~ msgid "Export video clips to gif image"
+#~ msgstr "导出视频片段为GIF动画"
+
+msgid "Export video clips as GIF animation"
+msgstr "导出视频片段为GIF动画"
+
+msgid "Export video frames as JPEG image sequence"
+msgstr "导出视频帧为JPEG图像序列"
+
+msgid "Export video frames as JPEG image sequence of the selected line"
+msgstr "导出选中行的视频帧为JPEG图像序列"
 
 msgid "Exporting gif image, please later..."
-msgstr "正在导出GIF图像，请稍后..."
+msgstr "正在导出GIF动画，请稍后..."
 
 msgid "GIF export path"
 msgstr "GIF导出路径"
 
 msgid "Image Suffix"
 msgstr "图像格式"
+
+#. GIF 导出对话框（dialog_jumpto.cpp）
+msgid "Frame Range"
+msgstr "帧范围"
+
+msgid "Start Frame:"
+msgstr "起始帧："
+
+msgid "End Frame:"
+msgstr "结束帧："
+
+#~ msgid "Export Settings"
+#~ msgstr "导出设置"
+
+msgid "GIF Quality:"
+msgstr "GIF质量："
+
+msgid "GIF image quality (1-100), higher values produce better quality but larger files"
+msgstr "GIF动画质量（1-100），值越高质量越好但文件越大"
+
+#~ msgid "Frame Rate:"
+#~ msgstr "帧率："
+
+#~ msgid "GIF frame rate override (0 = use video FPS)"
+#~ msgstr "GIF帧率覆盖（0 = 使用视频帧率）"
+
+msgid "Crop Region"
+msgstr "裁剪区域"
+
+msgid "Left-drag to select crop area, right-click to clear"
+msgstr "左键拖选裁剪区域，右键清除"
+
+#. GIF 导出裁剪区域（旧版，保留兼容）
+msgid "Crop region (left-drag to select, right-click to clear):"
+msgstr "裁剪区域（左键拖选，右键清除）："
+
+msgid "No video preview"
+msgstr "无视频预览"
 
 #~ msgid "    Subtitle format handler: %s"
 #~ msgstr "    字幕格式处理器： %s"
