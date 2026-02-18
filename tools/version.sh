@@ -33,8 +33,9 @@ if test x$git_version_str != x; then
   git_version_str="${git_version_str##v}"
   tagged_release=1
   if [ $(echo $git_version_str | grep '\d\.\d\.\d') ]; then
-    installer_version=$git_version_str
-    resource_version=$(echo $git_version_str | sed 's/\./, /g')
+    # VersionInfoVersion 仅接受纯数字格式，去除预发布后缀
+    installer_version=$(echo $git_version_str | sed 's/-.*//')
+    resource_version=$(echo $installer_version | sed 's/\./, /g')
   fi
 else
   git_branch="$(git symbolic-ref HEAD 2> /dev/null)" || git_branch="(unnamed branch)"
