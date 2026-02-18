@@ -3,7 +3,7 @@ project('ffms2', 'cpp', version : '2.40.0')
 deps = []
 
 opts = [
-	'gpl=enabled', 'programs=enabled', 'tests=disabled',
+	'gpl=enabled', 'programs=disabled', 'tests=disabled',
 	'libx264=enabled', 'libdav1d=enabled', 'ffnvcodec=enabled', 'cuda=enabled', 'cuvid=enabled'
 ]
 

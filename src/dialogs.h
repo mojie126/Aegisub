@@ -21,30 +21,6 @@
 #include <functional>
 #include <string>
 
-struct KeyframeData {
-	int frame;
-	double x;
-	double y;
-	double z;
-	double scaleX;
-	double scaleY;
-	double scaleZ;
-	double rotation;
-};
-
-struct MochaData {
-	size_t total_frame;
-	double frame_rate;
-	int source_width;
-	int source_height;
-	bool is_mocha_data;
-	bool get_position;
-	bool get_scale;
-	bool get_rotation;
-	bool get_preview;
-	bool get_reverse_tracking;
-};
-
 class AssFile;
 class AsyncVideoProvider;
 class wxArrayInt;
@@ -100,17 +76,11 @@ void ShowExportDialog(agi::Context *c);
 
 void ShowFontsCollectorDialog(agi::Context *c);
 
-void ShowMochaUtilDialog(agi::Context *c);
-
-std::vector<KeyframeData> getMochaMotionParseData();
-
-MochaData getMochaCheckData();
-
-bool getMochaOK();
-
 void ShowJumpToDialog(agi::Context *c);
 
 void ShowJumpFrameToDialog(agi::Context *c);
+
+void ShowFrameSeqExportDialog(agi::Context *c);
 
 long getStartFrame();
 
@@ -122,9 +92,23 @@ int getEndTime();
 
 bool getOnOK();
 
-bool getOutputImg();
-
 long getGifQuality();
+
+int getCropX();
+
+int getCropY();
+
+int getCropW();
+
+int getCropH();
+
+bool getHasCropRegion();
+
+long getSeqStartFrame();
+
+long getSeqEndFrame();
+
+bool getSeqOnOK();
 
 void ShowKanjiTimerDialog(agi::Context *c);
 

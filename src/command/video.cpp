@@ -65,22 +65,28 @@
 #include <boost/filesystem.hpp>
 
 #include <wx/dir.h>
+#include <wx/filename.h>
 #include <wx/msgdlg.h>
 #include <wx/textdlg.h>
-
-extern "C" {
-	#include <libavformat/avformat.h>
-	#include <libavcodec/avcodec.h>
-	#include <libavfilter/avfilter.h>
-	#include <libavfilter/buffersink.h>
-	#include <libavfilter/buffersrc.h>
-	#include <libavutil/imgutils.h>
-	#include <libavutil/time.h>
-	#include <libavutil/opt.h>
-}
+#include <cerrno>
+#include <cstdio>
 
 namespace {
 	using cmd::Command;
+
+	/// 将文件名中的非法字符替换为下划线
+	/// Windows 文件名不允许: \ / : * ? " < > |
+	wxString SanitizeFileName(const wxString& name) {
+		wxString result = name;
+		for (size_t i = 0; i < result.length(); ++i) {
+			wxUniChar ch = result[i];
+			if (ch == ':' || ch == '\\' || ch == '/' || ch == '*' ||
+				ch == '?' || ch == '"' || ch == '<' || ch == '>' || ch == '|') {
+				result[i] = '_';
+			}
+		}
+		return result;
+	}
 
 	struct validator_video_loaded : public Command {
 		CMD_TYPE(COMMAND_VALIDATE)
@@ -333,41 +339,98 @@ namespace {
 		}
 	}
 
-	bool CreateGifFromWxImages(const agi::Context *c, agi::ProgressSink *ps, const int width, const int height, const std::string &outputFilename, const double delay, const int totalFrame) {
+	// gifski write callback：将数据写入 FILE*
+	static int gifski_write_cb(size_t buf_len, const uint8_t* buf, void* user_data) {
+		FILE* f = static_cast<FILE*>(user_data);
+		if (buf_len == 0) {
+			fflush(f);
+			return GIFSKI_OK;
+		}
+		return fwrite(buf, 1, buf_len, f) == buf_len ? GIFSKI_OK : 1;
+	}
+
+	bool CreateGifFromWxImages(const agi::Context *c, agi::ProgressSink *ps, const int width, const int height, const std::wstring &outputPath, const double delay, const int totalFrame) {
+		// 确定实际输出尺寸（全帧或裁剪区域）
+		bool crop = getHasCropRegion();
+		int cx = crop ? getCropX() : 0;
+		int cy = crop ? getCropY() : 0;
+		int cw = crop ? getCropW() : width;
+		int ch = crop ? getCropH() : height;
+
+		// 裁剪区域边界校验
+		if (cx < 0) cx = 0;
+		if (cy < 0) cy = 0;
+		if (cx + cw > width) cw = width - cx;
+		if (cy + ch > height) ch = height - cy;
+		if (cw <= 0 || ch <= 0) {
+			wxLogError("Invalid crop region");
+			return false;
+		}
+
 		// Initialize gifski
 		GifskiSettings settings;
 		settings.quality = getGifQuality();
-		settings.width = width;
-		settings.height = height;
+		settings.width = cw;
+		settings.height = ch;
 		settings.fast = false;
 		settings.repeat = 0;
 
 		GifskiError error = {};
 		gifski *g = gifski_new(&settings);
 		if (!g) {
-			wxLogError("Failed to initialize gifski: %d", error);
+			wxLogError("Failed to initialize gifski");
 			return false;
 		}
 
-		error = gifski_set_file_output(g, outputFilename.c_str());
+		// 使用 write callback 代替 gifski_set_file_output
+		// 由 C++ 侧打开文件，避免 Rust 库在 Windows 上的路径处理问题
+		// 确保父目录存在
+		{
+			agi::fs::path parent_dir(outputPath);
+			parent_dir = parent_dir.parent_path();
+			if (!parent_dir.empty()) {
+				boost::system::error_code ec;
+				boost::filesystem::create_directories(parent_dir, ec);
+				if (ec) {
+					wxLogError("Failed to create output directory: %s (error: %s)",
+						parent_dir.string().c_str(), ec.message().c_str());
+					gifski_finish(g);
+					return false;
+				}
+			}
+		}
+
+		FILE* output_file = _wfopen(outputPath.c_str(), L"wb");
+		if (!output_file) {
+			int err = errno;
+			wxLogError("Failed to open output file for writing: %s (errno=%d: %s)",
+				wxString(outputPath).c_str(), err, strerror(err));
+			gifski_finish(g);
+			return false;
+		}
+
+		error = gifski_set_write_callback(g, gifski_write_cb, output_file);
 		if (error != GIFSKI_OK) {
-			wxLogError("Failed to set file output: %d", error);
+			wxLogError("Failed to set write callback: %d", error);
+			fclose(output_file);
+			gifski_finish(g);
 			return false;
 		}
 
 		// Add frames to gifski
 		uint32_t current_frame = 0;
+		ps->SetMessage(from_wx(agi::wxformat(_("Exporting gif image, please later..."))));
 		for (int i = getStartFrame(); i <= getEndFrame(); ++i) {
 			const wxImage &img = GetImage(*c->project->VideoProvider()->GetFrame(i, c->project->Timecodes().TimeAtFrame(i), false));
-			ps->SetMessage(from_wx(agi::wxformat(_("Exporting gif image, please later..."))));
 			ps->SetProgress(current_frame, totalFrame);
 			if (ps->IsCancelled()) break;
-			std::vector<uint8_t> pixels(width * height * 4);
+			std::vector<uint8_t> pixels(cw * ch * 4);
 			const unsigned char *imgData = img.GetData();
-			for (int y = 0; y < height; ++y) {
-				for (int x = 0; x < width; ++x) {
-					const size_t imgIdx = (y * width + x) * 3;
-					const size_t pixelIdx = (y * width + x) * 4;
+			for (int y = 0; y < ch; ++y) {
+				for (int x = 0; x < cw; ++x) {
+					// 从原始帧中按裁剪偏移取像素
+					const size_t imgIdx = ((cy + y) * width + (cx + x)) * 3;
+					const size_t pixelIdx = (y * cw + x) * 4;
 					pixels[pixelIdx + 0] = imgData[imgIdx + 0]; // R
 					pixels[pixelIdx + 1] = imgData[imgIdx + 1]; // G
 					pixels[pixelIdx + 2] = imgData[imgIdx + 2]; // B
@@ -375,16 +438,24 @@ namespace {
 				}
 			}
 
-			error = gifski_add_frame_rgba(g, current_frame, width, height, pixels.data(), delay);
+			// 计算累计时间戳（秒），delay 为毫秒/帧
+			// gifski API 要求 PTS 为秒，首帧 PTS=0，后续帧递增
+			double pts = current_frame * (delay / 1000.0);
+			error = gifski_add_frame_rgba(g, current_frame, cw, ch, pixels.data(), pts);
 			if (error != GIFSKI_OK) {
-				wxLogError("Failed to add frame %zu: %d", i, error);
+				wxLogError("Failed to add frame %d: %d", i, error);
+				gifski_finish(g);
+				fclose(output_file);
 				return false;
 			}
 			++current_frame;
 		}
+		// 循环结束后将进度设置为100%
+		ps->SetProgress(totalFrame, totalFrame);
 
 		// Finish writing the GIF
 		error = gifski_finish(g);
+		fclose(output_file);
 		if (error != GIFSKI_OK) {
 			wxLogError("Failed to finish GIF: %d", error);
 			return false;
@@ -422,15 +493,24 @@ namespace {
 		basepath /= is_dummy ? "dummy" : videoname.stem();
 
 		// Get full path
-		std::string path;
+		// 确定输出目录（使用 agi::fs::path 避免编码转换问题）
+		agi::fs::path output_dir;
 		auto gif_export_path = OPT_GET("Path/GifExport")->GetString();
-		gif_export_path = wxString(gif_export_path.c_str(), wxConvUTF8).ToStdString();
-		if (gif_export_path.empty())
-			path = agi::format("%s", basepath.string());
-		else
-			path = agi::format("%s", gif_export_path);
-		const wxFileName fName(videoname.c_str());
-		boost::filesystem::create_directories(from_wx(path));
+		if (!gif_export_path.empty()) {
+			// 配置文件中存储的是 UTF-8，通过 wxString 正确转换为宽字符路径
+			output_dir = agi::fs::path(wxString(gif_export_path.c_str(), wxConvUTF8).ToStdWstring());
+		} else {
+			output_dir = basepath;
+		}
+		// 确保输出目录存在（带异常保护）
+		try {
+			boost::filesystem::create_directories(output_dir);
+		} catch (const boost::filesystem::filesystem_error& e) {
+			wxLogError("Failed to create output directory: %s", e.what());
+			return;
+		}
+
+		const wxFileName fName(wxString(videoname.wstring()));
 
 		// 设置帧到帧
 		c->videoController->Stop();
@@ -440,12 +520,17 @@ namespace {
 		if (getOnOK()) {
 			DialogProgress progress(nullptr, _("Export gif image"), wxEmptyString);
 			const double delay = static_cast<double>(getEndTime() - getStartTime()) / (getEndFrame() - getStartFrame() + 1);
-			std::string gif_filename = agi::format("%s_[%ld-%ld].gif", path + wxFileName::GetPathSeparator() + fName.GetName(), getStartFrame(), getEndFrame());
+			// 使用 agi::fs::path 构建 GIF 文件路径，确保编码正确
+			// 对文件名进行非法字符清理（dummy 视频名包含冒号等 Windows 非法字符）
+			wxString safe_name = SanitizeFileName(fName.GetName());
+			wxString gif_name = wxString::Format(wxT("%s_[%ld-%ld].gif"),
+				safe_name, getStartFrame(), getEndFrame());
+			agi::fs::path gif_path = output_dir / agi::fs::path(gif_name.ToStdWstring());
 			try {
 				progress.Run(
 					[&](agi::ProgressSink *ps) {
 						CreateGifFromWxImages(
-							c, ps, c->project->VideoProvider()->GetWidth(), c->project->VideoProvider()->GetHeight(), gif_filename, delay, getEndFrame() - getStartFrame() + 1
+							c, ps, c->project->VideoProvider()->GetWidth(), c->project->VideoProvider()->GetHeight(), gif_path.wstring(), delay, getEndFrame() - getStartFrame() + 1
 						);
 					}
 				);
@@ -457,9 +542,9 @@ namespace {
 
 	struct video_to_gif final : validator_video_loaded {
 		CMD_NAME("video/save/gif")
-		STR_MENU("Export gif image")
-		STR_DISP("Export gif image")
-		STR_HELP("Export video clips to gif image")
+		STR_MENU("Export GIF")
+		STR_DISP("Export GIF")
+		STR_HELP("Export video clips as GIF animation")
 		CMD_TYPE(COMMAND_VALIDATE)
 
 		bool Validate(const agi::Context *c) override {
@@ -468,6 +553,143 @@ namespace {
 
 		void operator()(agi::Context *c) override {
 			export_gif(c);
+		}
+	};
+
+	/// 导出视频帧图像序列（JPEG）
+	bool export_clip_image_sequences(const agi::Context *c, agi::ProgressSink *ps, const char *output_filename, long start_frame, long end_frame, const char *img_path) {
+		int current_frame = 1, duration_frame = end_frame - start_frame + 1;
+		std::string output_path;
+		auto clip_export_path = OPT_GET("Path/ClipExport")->GetString();
+		clip_export_path = wxString(clip_export_path.c_str(), wxConvUTF8).ToStdString();
+		if (clip_export_path.empty()) {
+			output_path = agi::wxformat("%s [%ld-%ld]", output_filename, start_frame, end_frame);
+			try {
+				boost::filesystem::create_directories(from_wx(output_path));
+			} catch (const boost::filesystem::filesystem_error& e) {
+				wxLogError("Failed to create output directory: %s", e.what());
+				return false;
+			}
+		} else {
+			output_path = clip_export_path;
+			try {
+				boost::filesystem::create_directories(from_wx(output_path));
+			} catch (const boost::filesystem::filesystem_error& e) {
+				wxLogError("Failed to create output directory: %s", e.what());
+				return false;
+			}
+			wxString filename;
+			const wxDir dir(output_path);
+			bool cont = dir.GetFirst(&filename, wxEmptyString, wxDIR_FILES);
+			while (cont) {
+				const std::string _tmp_file{output_path + wxFileName::GetPathSeparator() + filename};
+				wxRemoveFile(_tmp_file);
+				cont = dir.GetNext(&filename);
+			}
+		}
+
+		wxImage::AddHandler(new wxJPEGHandler);
+		ps->SetMessage(from_wx(agi::wxformat(_("Exporting video clips, frame: [%ld ~ %ld], total: %d, please later"), start_frame, end_frame, duration_frame)));
+		for (int i = start_frame; i <= end_frame; ++i) {
+			std::string image_filename{output_path + wxFileName::GetPathSeparator() + agi::wxformat(std::string(img_path) + "_[%ld-%ld]_%05d.jpg", start_frame, end_frame, current_frame)};
+			wxImage img = GetImage(*c->project->VideoProvider()->GetFrame(i, c->project->Timecodes().TimeAtFrame(i), true));
+			const bool res = img.SaveFile(image_filename, wxBITMAP_TYPE_JPEG);
+			ps->SetProgress(current_frame, duration_frame);
+			if (ps->IsCancelled()) break;
+			if (!res) {
+				return res;
+			}
+			current_frame++;
+		}
+		return true;
+	}
+
+	/// 导出视频帧序列的入口函数
+	void export_clip(agi::Context *c) {
+		auto option = OPT_GET("Path/Screenshot")->GetString();
+		agi::fs::path basepath;
+
+		auto videoname = c->project->VideoName();
+		bool is_dummy = boost::starts_with(videoname.string(), "?dummy");
+
+		// Is it a path specifier and not an actual fixed path?
+		if (option[0] == '?') {
+			// If dummy video is loaded, we can't save to the video location
+			if (boost::starts_with(option, "?video") && is_dummy) {
+				// So try the script location instead
+				option = "?script";
+			}
+			// Find out where the ?specifier points to
+			basepath = c->path->Decode(option);
+			// If where ever that is isn't defined, we can't save there
+			if ((basepath == "\\") || (basepath == "/")) {
+				// So save to the current user's home dir instead
+				basepath = std::string(wxGetHomeDir());
+			}
+		}
+		// Actual fixed (possibly relative) path, decode it
+		else
+			basepath = c->path->MakeAbsolute(option, "?user/");
+
+		basepath /= is_dummy ? "dummy" : videoname.stem();
+
+		// 设置帧范围（使用帧序列专用对话框，无裁剪面板）
+		c->videoController->Stop();
+		ShowFrameSeqExportDialog(c);
+		c->videoSlider->SetFocus();
+
+		// 导出帧图像序列
+		if (getSeqOnOK()) {
+			auto clip_export_path = OPT_GET("Path/ClipExport")->GetString();
+			clip_export_path = wxString(clip_export_path.c_str(), wxConvUTF8).ToStdString();
+			std::string path;
+			if (clip_export_path.empty())
+				path = agi::format("%s", basepath.string());
+			else
+				path = agi::format("%s", clip_export_path);
+			const wxFileName fName(videoname.c_str());
+			// 对文件名进行非法字符清理
+			std::string img_path = SanitizeFileName(fName.GetName()).ToStdString();
+
+			DialogProgress progress(nullptr, _("Export image sequence"), wxEmptyString);
+			try {
+				progress.Run(
+					[&](agi::ProgressSink *ps) {
+						export_clip_image_sequences(c, ps, path.c_str(), getSeqStartFrame(), getSeqEndFrame(), img_path.c_str());
+					}
+				);
+			} catch (agi::Exception &err) {
+				std::cerr << err.GetMessage() << std::endl;
+			}
+		}
+	}
+
+	/// 视频预览右键：导出帧序列
+	struct video_frame_export final : public validator_video_loaded {
+		CMD_NAME("video/frame/save/export")
+		STR_MENU("Export image sequence")
+		STR_DISP("Export image sequence")
+		STR_HELP("Export video frames as JPEG image sequence")
+
+		void operator()(agi::Context *c) override {
+			export_clip(c);
+		}
+	};
+
+	/// 字幕右键：导出帧序列（需要选中行）
+	struct video_save_clip final : validator_video_loaded {
+		CMD_NAME("video/save/clip")
+		STR_MENU("Export image sequence")
+		STR_DISP("Export image sequence")
+		STR_HELP("Export video frames as JPEG image sequence of the selected line")
+		CMD_TYPE(COMMAND_VALIDATE)
+
+		bool Validate(const agi::Context *c) override {
+			return c->project->VideoProvider() && !c->selectionController->GetSelectedSet().empty();
+		}
+
+		void operator()(agi::Context *c) override {
+			export_clip(c);
 		}
 	};
 
@@ -724,399 +946,6 @@ namespace {
 
 		void operator()(agi::Context *c) override {
 			save_snapshot(c, false, true);
-		}
-	};
-
-	bool extract_video_segment(
-		const agi::Context *c, agi::ProgressSink *ps, const char *input_filename, const char *output_filename,
-		long start_frame, long end_frame,
-		const int start_time, const int end_time, const bool output_images, const char *img_path
-	) {
-		AVFormatContext *input_format_context = nullptr;
-		AVCodecContext *decoder_context = nullptr;
-		AVCodecContext *jpgCodecContext = nullptr;
-		const AVStream *input_stream = nullptr;
-		AVFilterContext *buffersink_ctx = nullptr;
-		AVFilterContext *buffersrc_ctx = nullptr;
-		AVFrame *frame = av_frame_alloc();
-		AVPacket *jpgPacket = av_packet_alloc();
-		AVPacket *packet = av_packet_alloc();
-		AVFilterGraph *filter_graph = avfilter_graph_alloc();
-		// av_log_set_level(AV_LOG_DEBUG);
-
-		if (!frame) {
-			std::cerr << "Could not allocate frame." << std::endl;
-			return false;
-		}
-
-		// Open input file and find stream info
-		if (avformat_open_input(&input_format_context, input_filename, nullptr, nullptr) < 0) {
-			std::cerr << "Could not open input file." << std::endl;
-			return false;
-		}
-
-		if (avformat_find_stream_info(input_format_context, nullptr) < 0) {
-			std::cerr << "Could not find stream info." << std::endl;
-			return false;
-		}
-
-		// Find the video stream
-		const int video_stream_index = av_find_best_stream(input_format_context, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
-		if (video_stream_index < 0) {
-			std::cerr << "Could not find video stream in the input file." << std::endl;
-			return false;
-		}
-
-		input_stream = input_format_context->streams[video_stream_index];
-		const AVCodec *decoder = avcodec_find_decoder(input_stream->codecpar->codec_id);
-		if (!decoder) {
-			std::cerr << "Could not find decoder." << std::endl;
-			return false;
-		}
-
-		// Initialize the decoder context
-		decoder_context = avcodec_alloc_context3(decoder);
-		if (!decoder_context) {
-			std::cerr << "Could not allocate decodec context." << std::endl;
-			return false;
-		}
-		if (avcodec_parameters_to_context(decoder_context, input_stream->codecpar) < 0) {
-			std::cerr << "Could not copy codec parameters." << std::endl;
-			return false;
-		}
-
-		if (avcodec_open2(decoder_context, decoder, nullptr) < 0) {
-			std::cerr << "Could not open decoder." << std::endl;
-			return false;
-		}
-
-		const AVCodec *jpgCodec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
-		jpgCodecContext = avcodec_alloc_context3(jpgCodec);
-		if (!jpgCodecContext) {
-			std::cerr << "Could not allocate jpg codec context." << std::endl;
-			return false;
-		}
-
-		const auto video_provider = OPT_GET("Video/Provider")->GetString();
-		int padding = 0;
-		if (video_provider == "FFmpegSource") {
-			const auto hw_name = OPT_GET("Provider/Video/FFmpegSource/HW hw_name")->GetString();
-			if (hw_name == "none") {
-				padding = OPT_GET("Provider/Video/FFmpegSource/ABB")->GetInt();
-			}
-		} else if (video_provider == "VapourSynth") {
-			padding = OPT_GET("Provider/Video/VapourSynth/ABB")->GetInt();
-		}
-
-		// 配置过滤器
-		if (!filter_graph) {
-			std::cerr << "Could not allocate filter." << std::endl;
-			return false;
-		}
-
-		// 创建 buffer 滤镜，用于作为输入
-		const AVFilter *buffersrc = avfilter_get_by_name("buffer");
-		const AVFilter *buffersink = avfilter_get_by_name("buffersink");
-		char args[512];
-		snprintf(
-			args, sizeof(args),
-			"video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
-			decoder_context->width, decoder_context->height, decoder_context->pix_fmt,
-			input_stream->time_base.num, input_stream->time_base.den,
-			decoder_context->sample_aspect_ratio.num, decoder_context->sample_aspect_ratio.den
-		);
-
-		// 创建 buffer 滤镜
-		if (avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in", args, nullptr, filter_graph) < 0) {
-			std::cerr << "Failed to create buffer filter." << std::endl;
-			return false;
-		}
-
-		// 创建 buffer sink 滤镜，用于作为输出
-		if (avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out", nullptr, nullptr, filter_graph) < 0) {
-			std::cerr << "Failed to create buffer sink filter." << std::endl;
-			return false;
-		}
-
-		AVFilterInOut *outputs = avfilter_inout_alloc();
-		AVFilterInOut *inputs = avfilter_inout_alloc();
-
-		outputs->name = av_strdup("in");
-		outputs->filter_ctx = buffersrc_ctx;
-		outputs->pad_idx = 0;
-		outputs->next = nullptr;
-
-		inputs->name = av_strdup("out");
-		inputs->filter_ctx = buffersink_ctx;
-		inputs->pad_idx = 0;
-		inputs->next = nullptr;
-
-		char filter_spec[512];
-		if (padding != 0) {
-			jpgCodecContext->height = decoder_context->height + padding * 2;
-			snprintf(
-				filter_spec, sizeof(filter_spec), "format=yuv420p, pad=width=%d:height=%d:x=0:y=%d:color=black",
-				decoder_context->width, decoder_context->height + padding * 2, padding
-			);
-		} else {
-			jpgCodecContext->height = decoder_context->height;
-			snprintf(
-				filter_spec, sizeof(filter_spec), "format=yuv420p"
-			);
-		}
-
-		if (avfilter_graph_parse_ptr(filter_graph, filter_spec, &inputs, &outputs, nullptr) < 0) {
-			std::cerr << "Could not parse filter graph." << std::endl;
-			return false;
-		}
-
-		// 配置滤镜图表
-		if (avfilter_graph_config(filter_graph, nullptr) < 0) {
-			std::cerr << "Failed to configure filter." << std::endl;
-			return false;
-		}
-
-		avfilter_inout_free(&inputs);
-		avfilter_inout_free(&outputs);
-
-		jpgCodecContext->pix_fmt = AV_PIX_FMT_YUVJ420P;
-		jpgCodecContext->width = decoder_context->width;
-		jpgCodecContext->sample_aspect_ratio = decoder_context->sample_aspect_ratio;
-		jpgCodecContext->time_base = input_stream->time_base;
-		jpgCodecContext->qmin = jpgCodecContext->qmax = 1;
-		if (avcodec_open2(jpgCodecContext, jpgCodec, nullptr) < 0) {
-			std::cerr << "Could not open mjpeg encoder." << std::endl;
-			return false;
-		}
-
-		int current_frame = 1;
-		std::string output_path;
-		auto clip_export_path = OPT_GET("Path/ClipExport")->GetString();
-		clip_export_path = wxString(clip_export_path.c_str(), wxConvUTF8).ToStdString();
-		if (clip_export_path.empty()) {
-			output_path = agi::wxformat("%s [%ld-%ld]", output_filename, start_frame, end_frame);
-			// _mkdir(output_path.c_str());
-			boost::filesystem::create_directories(from_wx(output_path));
-		} else {
-			output_path = clip_export_path;
-			// _mkdir(output_path.c_str());
-			boost::filesystem::create_directories(from_wx(output_path));
-			wxString filename;
-			const wxDir dir(output_path);
-			bool cont = dir.GetFirst(&filename, wxEmptyString, wxDIR_FILES);
-			while (cont) {
-				const std::string _tmp_file{output_path + wxFileName::GetPathSeparator() + filename};
-				wxRemoveFile(_tmp_file);
-				cont = dir.GetNext(&filename);
-			}
-		}
-
-		// Seek to the start time in milliseconds
-		// const auto start_pts = static_cast<int64_t>(floor(start_time / (av_q2d(input_stream->time_base) * AV_TIME_BASE)));
-		// const auto end_pts = static_cast<int64_t>(ceil(end_time / (av_q2d(input_stream->time_base) * AV_TIME_BASE)));
-		// const int64_t start_pts = av_rescale_q(start_time, input_stream->time_base, input_stream->time_base);
-		// const int64_t end_pts = av_rescale_q(end_time, input_stream->time_base, input_stream->time_base);
-		if (avformat_seek_file(input_format_context, video_stream_index, INT64_MIN, start_time, INT64_MAX, 0) < 0) {
-			std::cerr << "Error seeking to the specified start time." << std::endl;
-			return false;
-		}
-
-		// Flush decoder after seeking
-		avcodec_flush_buffers(decoder_context);
-		av_packet_unref(packet);
-		int duration_frame = end_frame - start_frame + 1;
-
-		// Read frames from the file
-		while (av_read_frame(input_format_context, packet) >= 0) {
-			if (packet->stream_index == video_stream_index) {
-				if (avcodec_send_packet(decoder_context, packet) < 0) {
-					std::cerr << "Error sending a packet for decoding." << std::endl;
-					break;
-				}
-
-				if (avcodec_receive_frame(decoder_context, frame) >= 0) {
-					// 关键，这里是与motion插件保持起始帧一致的关键
-					if (frame->pts < start_time) {
-						continue;
-					}
-					// 向滤镜添加帧
-					if (av_buffersrc_add_frame(buffersrc_ctx, frame) < 0) {
-						std::cerr << "Failed to add frame to filter graph." << std::endl;
-						break;
-					}
-					// 取出经过滤镜的帧
-					if (av_buffersink_get_frame(buffersink_ctx, frame) < 0) {
-						std::cerr << "Failed to get frame from filter graph." << std::endl;
-						break;
-					}
-
-					std::string image_filename{output_path + "/" + agi::wxformat(std::string(img_path) + "_[%ld-%ld]_%05d.jpg", getStartFrame(), getEndFrame(), current_frame)};
-
-					int ret = avcodec_send_frame(jpgCodecContext, frame);
-					if (ret < 0) {
-						std::cerr << "Error encoding jpg frame: " << ret << std::endl;
-						break;
-					}
-					ret = avcodec_receive_packet(jpgCodecContext, jpgPacket);
-					if (ret >= 0) {
-						FILE *file = fopen(image_filename.c_str(), "wb");
-						if (file != nullptr) {
-							fwrite(jpgPacket->data, 1, jpgPacket->size, file);
-							fclose(file);
-						}
-						av_packet_unref(jpgPacket);
-					}
-					current_frame++;
-					ps->SetMessage(from_wx(agi::wxformat(_("Exporting video clips, frame: [%ld ~ %ld], total: %d, please later"), start_frame, end_frame, duration_frame)));
-					ps->SetProgress(current_frame, duration_frame);
-					if (ps->IsCancelled()) break;
-					if (current_frame > duration_frame) break;
-				}
-			}
-			av_packet_unref(packet);
-		}
-
-		// Clean up
-		av_packet_free(&jpgPacket);
-		av_packet_free(&packet);
-		avcodec_free_context(&decoder_context);
-		avcodec_free_context(&jpgCodecContext);
-		avformat_close_input(&input_format_context);
-		av_frame_free(&frame);
-		avfilter_graph_free(&filter_graph);
-		if (ps->IsCancelled()) return false;
-		return true;
-	}
-
-	bool export_clip_image_sequences(const agi::Context *c, agi::ProgressSink *ps, const char *output_filename, long start_frame, long end_frame, const char *img_path) {
-		int current_frame = 1, duration_frame = end_frame - start_frame + 1;
-		std::string output_path;
-		auto clip_export_path = OPT_GET("Path/ClipExport")->GetString();
-		clip_export_path = wxString(clip_export_path.c_str(), wxConvUTF8).ToStdString();
-		if (clip_export_path.empty()) {
-			output_path = agi::wxformat("%s [%ld-%ld]", output_filename, start_frame, end_frame);
-			boost::filesystem::create_directories(from_wx(output_path));
-		} else {
-			output_path = clip_export_path;
-			boost::filesystem::create_directories(from_wx(output_path));
-			wxString filename;
-			const wxDir dir(output_path);
-			bool cont = dir.GetFirst(&filename, wxEmptyString, wxDIR_FILES);
-			while (cont) {
-				const std::string _tmp_file{output_path + wxFileName::GetPathSeparator() + filename};
-				wxRemoveFile(_tmp_file);
-				cont = dir.GetNext(&filename);
-			}
-		}
-
-		wxImage::AddHandler(new wxJPEGHandler);
-		for (int i = start_frame; i <= end_frame; ++i) {
-			std::string image_filename{output_path + wxFileName::GetPathSeparator() + agi::wxformat(std::string(img_path) + "_[%ld-%ld]_%05d.jpg", start_frame, end_frame, current_frame)};
-			wxImage img = GetImage(*c->project->VideoProvider()->GetFrame(i, c->project->Timecodes().TimeAtFrame(i), true));
-			const bool res = img.SaveFile(image_filename, wxBITMAP_TYPE_JPEG);
-			ps->SetMessage(from_wx(agi::wxformat(_("Exporting video clips, frame: [%ld ~ %ld], total: %d, please later"), start_frame, end_frame, duration_frame)));
-			ps->SetProgress(i, end_frame);
-			if (ps->IsCancelled()) break;
-			if (!res) {
-				return res;
-			}
-			current_frame++;
-		}
-		return true;
-	}
-
-	void export_clip(agi::Context *c) {
-		auto option = OPT_GET("Path/Screenshot")->GetString();
-		agi::fs::path basepath;
-
-		auto videoname = c->project->VideoName();
-		bool is_dummy = boost::starts_with(videoname.string(), "?dummy");
-
-		// Is it a path specifier and not an actual fixed path?
-		if (option[0] == '?') {
-			// If dummy video is loaded, we can't save to the video location
-			if (boost::starts_with(option, "?video") && is_dummy) {
-				// So try the script location instead
-				option = "?script";
-			}
-			// Find out where the ?specifier points to
-			basepath = c->path->Decode(option);
-			// If where ever that is isn't defined, we can't save there
-			if ((basepath == "\\") || (basepath == "/")) {
-				// So save to the current user's home dir instead
-				basepath = std::string(wxGetHomeDir());
-			}
-		}
-		// Actual fixed (possibly relative) path, decode it
-		else
-			basepath = c->path->MakeAbsolute(option, "?user/");
-
-		basepath /= is_dummy ? "dummy" : videoname.stem();
-
-		// 设置帧到帧
-		c->videoController->Stop();
-		ShowJumpFrameToDialog(c);
-		c->videoSlider->SetFocus();
-
-		// Get full path
-		std::string path;
-		std::string img_path;
-		if (!getOutputImg()) {
-			path = agi::format("%s_[%ld-%ld].mp4", basepath.string(), getStartFrame(), getEndFrame());
-		} else {
-			auto clip_export_path = OPT_GET("Path/ClipExport")->GetString();
-			clip_export_path = wxString(clip_export_path.c_str(), wxConvUTF8).ToStdString();
-			if (clip_export_path.empty())
-				path = agi::format("%s", basepath.string());
-			else
-				path = agi::format("%s", clip_export_path);
-			const wxFileName fName(videoname.c_str());
-			img_path = fName.GetName();
-		}
-
-		if (getOnOK()) {
-			DialogProgress progress(nullptr, _("Export the clip"), wxEmptyString);
-			try {
-				progress.Run(
-					[&](agi::ProgressSink *ps) {
-						// extract_video_segment(
-						// 	c, ps, c->project->VideoName().string().c_str(), path.c_str(),
-						// 	getStartFrame(), getEndFrame(),
-						// 	getStartTime(), getEndTime(), getOutputImg(), img_path.c_str()
-						// );
-						export_clip_image_sequences(c, ps, path.c_str(), getStartFrame(), getEndFrame(), img_path.c_str());
-					}
-				);
-			} catch (agi::Exception &err) {
-				std::cerr << err.GetMessage() << std::endl;
-			}
-		}
-	}
-
-	struct video_frame_export final : public validator_video_loaded {
-		CMD_NAME("video/frame/save/export")
-		STR_MENU("Export the clip")
-		STR_DISP("Export the clip")
-		STR_HELP("Export video clips from frame to frame at a specified time")
-
-		void operator()(agi::Context *c) override {
-			export_clip(c);
-		}
-	};
-
-	struct video_save_clip final : validator_video_loaded {
-		CMD_NAME("video/save/clip")
-		STR_MENU("Export the clip")
-		STR_DISP("Export the clip")
-		STR_HELP("Export video clips from frame to frame at a specified time of the selected line")
-		CMD_TYPE(COMMAND_VALIDATE)
-
-		bool Validate(const agi::Context *c) override {
-			return c->project->VideoProvider() && !c->selectionController->GetSelectedSet().empty();
-		}
-
-		void operator()(agi::Context *c) override {
-			export_clip(c);
 		}
 	};
 
@@ -1392,8 +1221,6 @@ namespace cmd {
 		reg(agi::make_unique<video_frame_save>());
 		reg(agi::make_unique<video_frame_save_raw>());
 		reg(agi::make_unique<video_frame_save_subs>());
-		reg(agi::make_unique<video_frame_export>());
-		reg(agi::make_unique<video_save_clip>());
 		reg(agi::make_unique<video_jump>());
 		reg(agi::make_unique<video_jump_end>());
 		reg(agi::make_unique<video_jump_start>());
@@ -1412,5 +1239,7 @@ namespace cmd {
 		reg(agi::make_unique<video_zoom_in>());
 		reg(agi::make_unique<video_zoom_out>());
 		reg(agi::make_unique<video_to_gif>());
+		reg(agi::make_unique<video_frame_export>());
+		reg(agi::make_unique<video_save_clip>());
 	}
 }
