@@ -105,12 +105,12 @@ jobs:
             -   name: Configure
                 if: steps.Aegisub_cache.outputs.cache-hit != 'true'
                 run: |
-                    $meson_args = "${{ matrix.config.args }}"
+                    $args = @("${{ matrix.config.args }}".Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries))
                     if ("${{ github.event.inputs.version }}" -ne "") {
-                        $meson_args += " -Dversion=${{ github.event.inputs.version }}"
+                        $args += "-Dversion=${{ github.event.inputs.version }}"
                         Write-Host "Using version: ${{ github.event.inputs.version }}"
                     }
-                    meson setup build $meson_args -Dbuildtype=${{ matrix.config.buildtype }}
+                    meson setup build @args -Dbuildtype=${{ matrix.config.buildtype }}
                     meson configure build
                 shell: pwsh
 
