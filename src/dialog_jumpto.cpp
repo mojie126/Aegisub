@@ -308,7 +308,7 @@ namespace {
 			return {px, py};
 		}
 
-		void OnPaint(wxPaintEvent &) override {
+		void OnPaint(wxPaintEvent &) {
 			wxAutoBufferedPaintDC dc(this);
 			wxSize size = GetClientSize();
 			dc.SetBackground(*wxBLACK_BRUSH);
