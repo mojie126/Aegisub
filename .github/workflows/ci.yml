@@ -102,34 +102,13 @@ jobs:
                     Get-Location | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
                     popd
 
-            -   name: Generate version header
-                run: |
-                    powershell -File tools/version.ps1 -BuildRoot build -VersionOverride "${{ github.event.inputs.version }}"
-
-            -   name: Read version header
-                id: read_version
-                run: |
-                    $version_content = Get-Content "build/git_version.h" -Raw
-                    if ($version_content -match '#define INSTALLER_VERSION "([^"]+)"') {
-                        $installer_version = $matches[1]
-                        echo "INSTALLER_VERSION=$installer_version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-                        Write-Host "Version from git_version.h: $installer_version"
-                    }
-                shell: pwsh
-
             -   name: Configure
                 if: steps.Aegisub_cache.outputs.cache-hit != 'true'
                 run: |
                     $meson_args = "${{ matrix.config.args }}"
-                    # 使用传入的版本号或环境变量中读取的版本号
                     if (\"${{ github.event.inputs.version }}\" -ne \"\") {
-                        $version = \"${{ github.event.inputs.version }}\"
-                    } elseif (\"$env:INSTALLER_VERSION\" -ne \"\") {
-                        $version = \"$env:INSTALLER_VERSION\"
-                    }
-                    if ($version) {
-                        $meson_args += \" -Dversion=$version\"
-                        Write-Host \"Using version: $version\"
+                        $meson_args += \" -Dversion=${{ github.event.inputs.version }}\"
+                        Write-Host \"Using version: ${{ github.event.inputs.version }}\"
                     }
                     meson setup build $meson_args -Dbuildtype=${{ matrix.config.buildtype }}
                     meson configure build
