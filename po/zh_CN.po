@@ -7424,6 +7424,13 @@ msgstr "裁剪区域（左键拖选，右键清除）："
 msgid "No video preview"
 msgstr "无视频预览"
 
+#. motion_processor.cpp - 摩卡追踪错误消息
+msgid "Absolute start frame is out of range (before selection start)"
+msgstr "绝对起始帧超出范围（早于选区开始）"
+
+msgid "Absolute start frame is out of range (beyond tracking data end)"
+msgstr "绝对起始帧超出范围（晚于追踪数据结束）"
+
 #~ msgid "    Subtitle format handler: %s"
 #~ msgstr "    字幕格式处理器： %s"
 
