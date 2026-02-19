@@ -1,4 +1,4 @@
-project('libmimalloc', 'c', version : '2.1.7')
+project('libmimalloc', 'c', version : '2.2.7')
 mimalloc_static_dir = include_directories('include', '.')
 mimalloc_static_sys = include_directories(is_system : true)
 mimalloc_static_inc = [mimalloc_static_dir, mimalloc_static_sys]
@@ -30,7 +30,7 @@ mimalloc_static = static_library(
 	install : true,
 	override_options : ['cpp_std=c++17'],
 	objects : [],
-	install_dir : 'lib/mimalloc-2.1',
+	install_dir : 'lib/mimalloc-2',
 	cpp_args : [
 		'/DWIN32',
 		'/D_WINDOWS',

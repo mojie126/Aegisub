@@ -146,11 +146,11 @@ std::string merge_adjacent_blocks(const std::string& text);
 /// @param callback 回调函数，参数为标签块内容，返回修改后的内容
 /// @return 处理后的完整文本
 std::string run_callback_on_overrides(const std::string& text,
-	std::function<std::string(const std::string&, int)> callback);
+	const std::function<std::string(const std::string&, int)>& callback);
 
 /// 对首个标签块执行回调操作
 std::string run_callback_on_first_override(const std::string& text,
-	std::function<std::string(const std::string&)> callback);
+	const std::function<std::string(const std::string&)>& callback);
 
 /// 确保行文本以标签块开头
 std::string ensure_leading_override(const std::string& text);

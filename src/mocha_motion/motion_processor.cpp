@@ -13,6 +13,7 @@
 #include <regex>
 #include <wx/log.h>
 #include <wx/intl.h>
+#include <libaegisub/log.h>
 
 namespace mocha {
 	MotionProcessor::MotionProcessor(const MotionOptions &options, int res_x, int res_y)
@@ -91,9 +92,15 @@ namespace mocha {
 		double a3 = get_prop("alpha3");
 		double a4 = get_prop("alpha4");
 
-		// 如果所有 alpha 都为 0（完全不透明），只需一个 \alpha
+		// 快捷方式：如果所有样式透明度都为0且块内没有任何单独的alpha标签，使用 \alpha&H00&
+		// 修复：避免在已有 \1a-\4a 单独标签时仍插入 \alpha 导致冗余
 		if (a1 == 0 && a2 == 0 && a3 == 0 && a4 == 0) {
-			return "\\alpha&H00&";
+			// 检查是否已存在任何单独的 alpha 标签
+			bool has_any_alpha = std::regex_search(block, std::regex(R"(\\[1234]a&H[0-9A-Fa-f]{2}&)"));
+			if (!has_any_alpha) {
+				return "\\alpha&H00&";
+			}
+			// 如果已有单独的 alpha 标签，走后续逐个检查逻辑
 		}
 
 		std::string result;
@@ -291,10 +298,30 @@ namespace mocha {
 
 			// 8. 处理 \r 重置标签（重新获取样式属性并添加缺少的标签）
 			// 对应 MoonScript: \r 后对该块使用重置样式的属性添加缺失标签
+			//
+			// 双重防御机制，防止第三方扩展标签被误识别为 \r 重置：
+			//
+			//   第一道防线 - 正则负向前瞻（静态过滤）：
+			//     (?!nd[sxyz\d]) 排除已知的 VSFilterMod \rnd 系列扩展标签
+			//     （\rnd、\rndx、\rndy、\rndz、\rnds），使正则直接不匹配。
+			//
+			//   第二道防线 - 样式名校验（运行时验证）：
+			//     当正则匹配到 \r<text> 且 text 非空时，查询样式集合验证
+			//     该文本是否为合法样式名。若样式不存在，判定为非 \r 重置
+			//     （可能是未知的第三方扩展标签），跳过缺失标签补全。
+			//     此机制解决负向前瞻无法预见所有未来扩展标签的局限性。
+			//
+			// 与 MoonScript 原版行为的差异：
+			//   MoonScript 中 getMissingTags 在 if styles[resetStyle] 之外调用，
+			//   即使样式不存在也会使用行属性补全标签。此处有意偏离该行为，
+			//   因为误将扩展标签当作 \r 重置而插入补全标签（如 \alpha&H00&）
+			//   会触发 affectedBy 覆盖，造成不可逆的标签值错误。
+			//   遗漏对不存在样式名的 \r 补全影响极小（罕见的拼写错误场景），
+			//   而误识别扩展标签的后果严重（透明度等属性丢失）。
 			line.run_callback_on_overrides(
 				[this, &line, style](const std::string &block, int) {
 					std::string result = block;
-					std::regex reset_re(R"(\\r([^\\}]*)(.*))");
+					std::regex reset_re(R"(\\r(?!nd[sxyz\d])([^\\}]*)(.*))");
 					std::smatch m;
 					if (std::regex_search(result, m, reset_re)) {
 						std::string reset_style = m[1].str();
@@ -303,16 +330,22 @@ namespace mocha {
 						const AssStyle *rs = nullptr;
 						if (style_lookup_) {
 							if (!reset_style.empty()) {
-								// \r<stylename>：使用指定样式
+								// \r<stylename>：查询样式集合验证
 								rs = style_lookup_(reset_style);
+								if (!rs) {
+									// 样式不存在：判定为非 \r 重置，可能是第三方扩展标签
+									LOG_D("mocha/processor") << "\\r tag skipped: style '"
+										<< reset_style << "' not found in style collection, "
+										<< "likely a third-party extension tag";
+									return result;
+								}
 							} else {
 								// \r（无参数）：重置为行的原始样式
 								rs = style;
 							}
 						}
-						// MoonScript 中 getMissingTags 在 if styles[resetStyle] 块之外调用，
-						// 即无论样式是否存在都会执行。样式存在时使用重置样式属性，
-						// 样式不存在时使用行的当前属性。
+						// 提取重置目标样式的属性用于标签补全
+						// style_lookup_ 未设置时回退为行的当前属性
 						std::map<std::string, double> reset_props;
 						if (rs) {
 							reset_props = extract_style_properties(rs);

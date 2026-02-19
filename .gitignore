@@ -20,8 +20,8 @@ tools/repack-thes-dict.dSYM
 # Meson
 build*/
 subprojects/avisynth
-subprojects/bestsource/
-subprojects/boost*/
+subprojects/bestsource
+subprojects/boost*
 subprojects/cairo*
 subprojects/dav1d
 subprojects/ffmpeg
@@ -48,4 +48,10 @@ subprojects/hunspell-*
 subprojects/uchardet-*
 subprojects/vapoursynth
 subprojects/xxHash-*
+subprojects/mimalloc
+subprojects/hunspell
+subprojects/x264
+subprojects/checkasm
+subprojects/checkasm.wrap
+subprojects/.wraplock
 .idea
