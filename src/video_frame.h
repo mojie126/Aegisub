@@ -30,3 +30,9 @@ struct VideoFrame {
 
 wxImage GetImage(VideoFrame const& frame);
 wxImage GetImageWithAlpha(VideoFrame const& frame);
+
+/// 为图像添加上下黑边填充（用于 ABB 黑边功能）
+/// @param img 原始图像
+/// @param padding 上下各添加的黑色像素行数
+/// @return 添加黑边后的新图像；padding <= 0 时返回原图副本
+wxImage AddPaddingToImage(const wxImage &img, int padding);

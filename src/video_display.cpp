@@ -206,29 +206,7 @@ void VideoDisplay::Render() try {
 	if (!viewport_height || !viewport_width)
 		PositionVideo();
 
-	int render_left = viewport_left;
-	int render_bottom = viewport_bottom;
-	int render_width = viewport_width;
-	int render_height = viewport_height;
-	int render_padding = 0;
-
-	if (auto provider = con->project->VideoProvider()) {
-		const int padding = GetFFMSPaddingPixels(provider);
-		const int padded_height = provider->GetHeight();
-		const int content_height = padded_height - padding * 2;
-		if (padding > 0 && padded_height > 0 && content_height > 0) {
-			render_padding = static_cast<int>(
-				(static_cast<long long>(viewport_height) * padding + padded_height / 2) / padded_height
-			);
-			render_padding = mid(0, render_padding, viewport_height / 2);
-			if (render_padding > 0) {
-				render_bottom += render_padding;
-				render_height = std::max(1, viewport_height - render_padding * 2);
-			}
-		}
-	}
-
-	videoOut->Render(render_left, render_bottom, render_width, render_height);
+	videoOut->Render(viewport_left, viewport_bottom, viewport_width, viewport_height);
 
 	int client_w, client_h;
 	GetClientSize(&client_w, &client_h);
@@ -237,31 +215,6 @@ void VideoDisplay::Render() try {
 	E(glMatrixMode(GL_PROJECTION));
 	E(glLoadIdentity());
 	E(glOrtho(0.0f, std::max(client_w, 1), std::max(client_h, 1), 0.0f, -1000.0f, 1000.0f));
-
-	if (render_padding > 0) {
-		const float left = static_cast<float>(viewport_left) / scale_factor;
-		const float right = static_cast<float>(viewport_left + viewport_width) / scale_factor;
-		const float top = static_cast<float>(viewport_top) / scale_factor;
-		const float bottom = static_cast<float>(viewport_top + viewport_height) / scale_factor;
-		const float bar_h = static_cast<float>(render_padding) / scale_factor;
-
-		E(glDisable(GL_TEXTURE_2D));
-		E(glColor4f(0.0f, 0.0f, 0.0f, 1.0f));
-		glBegin(GL_QUADS);
-		// top bar
-		glVertex2f(left, top);
-		glVertex2f(right, top);
-		glVertex2f(right, top + bar_h);
-		glVertex2f(left, top + bar_h);
-		// bottom bar
-		glVertex2f(left, bottom - bar_h);
-		glVertex2f(right, bottom - bar_h);
-		glVertex2f(right, bottom);
-		glVertex2f(left, bottom);
-		glEnd();
-		if (GLenum err = glGetError()) throw OpenGlException("glBegin(GL_QUADS)", err);
-		E(glColor4f(1.0f, 1.0f, 1.0f, 1.0f));
-	}
 
 	if (OPT_GET("Video/Overscan Mask")->GetBool()) {
 		double ar = con->videoController->GetAspectRatioValue();

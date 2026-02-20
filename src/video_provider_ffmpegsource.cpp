@@ -93,8 +93,12 @@ public:
 	int GetWidth() const override  { return (VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 180 == -90) ? Height : Width; }
 	int GetHeight() const override { return ((VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 180 == -90) ? Width : Height) + Padding * 2; }
 	double GetDAR() const override {
+		// SAR 未定义或为 1:1 时返回 0，使用 Default AR（自动跟随像素尺寸），
+		// 避免 ABB 变更后旧 Custom AR 值导致显示比例失真
+		if (VideoInfo->SARDen <= 0 || VideoInfo->SARNum <= 0 || VideoInfo->SARNum == VideoInfo->SARDen)
+			return 0;
 		const bool rotated = VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 180 == -90;
-		const double sar = (VideoInfo->SARDen > 0 && VideoInfo->SARNum > 0) ? static_cast<double>(VideoInfo->SARNum) / VideoInfo->SARDen : 1.0;
+		const double sar = static_cast<double>(VideoInfo->SARNum) / VideoInfo->SARDen;
 		if (rotated)
 			return static_cast<double>(Height) / ((static_cast<double>(Width + Padding * 2)) * sar);
 		return (static_cast<double>(Width) * sar) / static_cast<double>(Height + Padding * 2);
@@ -103,7 +107,10 @@ public:
 	int GetWidth() const override                  { return Width; }
 	int GetHeight() const override                 { return Height + Padding * 2; }
 	double GetDAR() const override {
-		const double sar = (VideoInfo->SARDen > 0 && VideoInfo->SARNum > 0) ? static_cast<double>(VideoInfo->SARNum) / VideoInfo->SARDen : 1.0;
+		// SAR 未定义或为 1:1 时返回 0，使用 Default AR
+		if (VideoInfo->SARDen <= 0 || VideoInfo->SARNum <= 0 || VideoInfo->SARNum == VideoInfo->SARDen)
+			return 0;
+		const double sar = static_cast<double>(VideoInfo->SARNum) / VideoInfo->SARDen;
 		return (static_cast<double>(Width) * sar) / static_cast<double>(Height + Padding * 2);
 	}
 #endif
@@ -384,6 +391,22 @@ void FFmpegSourceVideoProvider::GetFrame(int n, VideoFrame &out) {
 		out.pitch = 4 * Height;
 	}
 #endif
+
+	// 在帧数据中嵌入ABB黑边行，使帧尺寸与 GetWidth()/GetHeight() 一致
+	if (Padding > 0) {
+		const size_t final_pitch = out.pitch;
+		const int final_h = out.height;
+		const int padded_h = final_h + Padding * 2;
+		const size_t padded_bytes = final_pitch * static_cast<size_t>(padded_h);
+
+		std::vector<unsigned char> padded_data(padded_bytes, 0);
+		const size_t offset = static_cast<size_t>(Padding) * final_pitch;
+		std::memcpy(padded_data.data() + offset, out.data.data(),
+			final_pitch * static_cast<size_t>(final_h));
+
+		out.data = std::move(padded_data);
+		out.height = padded_h;
+	}
 }
 }
 

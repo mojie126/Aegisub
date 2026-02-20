@@ -34,6 +34,11 @@ namespace {
 		{nullptr}
 	};
 
+	const char *added_hotkeys_video_space[][3] = {
+		{"play/toggle/av", "Video", "Space"},
+		{nullptr}
+	};
+
 	const char *added_hotkeys_7035[][3] = {
 		{"audio/play/line", "Audio", "R"},
 		{nullptr}
@@ -169,6 +174,12 @@ void init() {
 	if (boost::find(migrations, "space -> play/toggle/av") == end(migrations)) {
 		migrate_space_to_play_toggle_av();
 		migrations.emplace_back("space -> play/toggle/av");
+	}
+
+	// 确保 Video 上下文中存在 Space → play/toggle/av 快捷键
+	if (boost::find(migrations, "video_space_play") == end(migrations)) {
+		migrate_hotkeys(added_hotkeys_video_space);
+		migrations.emplace_back("video_space_play");
 	}
 
 	OPT_SET("App/Hotkey Migrations")->SetListString(std::move(migrations));
