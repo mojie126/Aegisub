@@ -57,9 +57,19 @@ class VideoOutGL {
 	int textureRows = 0;
 	/// The number of columns of textures
 	int textureCols = 0;
+	/// Whether pixel unpack buffers are supported by the current OpenGL context
+	bool supportsPixelUnpackBuffer = false;
+	/// Ring buffers used for asynchronous upload to textures
+	std::vector<GLuint> uploadPboIds;
+	/// Allocated byte size for each upload PBO
+	size_t uploadPboSize = 0;
+	/// Current PBO write index in uploadPboIds
+	size_t uploadPboIndex = 0;
 
 	void DetectOpenGLCapabilities();
 	void InitTextures(int width, int height, GLenum format, int bpp, bool flipped);
+	void EnsureUploadPbo(size_t requiredSize);
+	void ReleaseUploadPbo();
 
 	VideoOutGL(const VideoOutGL &) = delete;
 	VideoOutGL& operator=(const VideoOutGL&) = delete;

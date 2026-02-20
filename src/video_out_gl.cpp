@@ -20,6 +20,8 @@
 ///
 
 #include <algorithm>
+#include <cstdint>
+#include <cstring>
 #include <utility>
 
 #include <libaegisub/log.h>
@@ -75,6 +77,28 @@ static bool TestTexture(int width, int height, GLint format) {
 	return format != 0;
 }
 
+/// @brief Checks if a specific OpenGL extension is available in the current context.
+static bool HasOpenGLExtension(const char *extension_name) {
+	if (!extension_name || !*extension_name)
+		return false;
+
+	const char *extensions = reinterpret_cast<const char *>(glGetString(GL_EXTENSIONS));
+	if (!extensions)
+		return false;
+
+	const size_t needle_len = std::strlen(extension_name);
+	const char *cursor = extensions;
+	while ((cursor = std::strstr(cursor, extension_name)) != nullptr) {
+		const char before = cursor == extensions ? ' ' : cursor[-1];
+		const char after = cursor[needle_len];
+		if (before == ' ' && (after == ' ' || after == '\0'))
+			return true;
+		cursor += needle_len;
+	}
+
+	return false;
+}
+
 VideoOutGL::VideoOutGL() { }
 
 /// @brief Runtime detection of required OpenGL capabilities
@@ -93,6 +117,40 @@ void VideoOutGL::DetectOpenGLCapabilities() {
 
 	// Test for rectangular texture support
 	supportsRectangularTextures = TestTexture(maxTextureSize, maxTextureSize >> 1, internalFormat);
+
+	// PBO is used as the first step of the direct-GPU upload architecture.
+	supportsPixelUnpackBuffer = HasOpenGLExtension("GL_ARB_pixel_buffer_object");
+	LOG_I("video/out/gl") << "Pixel unpack buffer support: " << (supportsPixelUnpackBuffer ? "yes" : "no");
+}
+
+void VideoOutGL::ReleaseUploadPbo() {
+	if (uploadPboIds.empty())
+		return;
+
+	glDeleteBuffers(static_cast<GLsizei>(uploadPboIds.size()), uploadPboIds.data());
+	while (glGetError()) { }
+	uploadPboIds.clear();
+	uploadPboSize = 0;
+	uploadPboIndex = 0;
+}
+
+void VideoOutGL::EnsureUploadPbo(size_t requiredSize) {
+	if (!supportsPixelUnpackBuffer || requiredSize == 0)
+		return;
+
+	if (!uploadPboIds.empty() && uploadPboSize == requiredSize)
+		return;
+
+	ReleaseUploadPbo();
+	uploadPboIds.resize(2, 0);
+	CHECK_INIT_ERROR(glGenBuffers(static_cast<GLsizei>(uploadPboIds.size()), uploadPboIds.data()));
+	for (GLuint pbo : uploadPboIds) {
+		CHECK_INIT_ERROR(glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo));
+		CHECK_INIT_ERROR(glBufferData(GL_PIXEL_UNPACK_BUFFER, static_cast<GLsizeiptr>(requiredSize), nullptr, GL_STREAM_DRAW));
+	}
+	CHECK_INIT_ERROR(glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0));
+	uploadPboSize = requiredSize;
+	uploadPboIndex = 0;
 }
 
 /// @brief If needed, create the grid of textures for displaying frames of the given format
@@ -119,6 +177,7 @@ void VideoOutGL::InitTextures(int width, int height, GLenum format, int bpp, boo
 		textureIdList.clear();
 		textureList.clear();
 	}
+	ReleaseUploadPbo();
 
 	// Create the textures
 	int textureArea = maxTextureSize - 2;
@@ -258,17 +317,35 @@ void VideoOutGL::UploadFrameData(VideoFrame const& frame) {
 	// Set row length only when pitch differs from tightly packed BGRA.
 	const int tight_pitch = static_cast<int>(frame.width) * 4;
 	const bool needs_row_length = static_cast<int>(frame.pitch) != tight_pitch;
+	const size_t frame_bytes = frame.pitch * frame.height;
+	const bool can_use_pbo = supportsPixelUnpackBuffer && frame_bytes > 0 && frame.data.size() >= frame_bytes;
+	const bool use_pbo = can_use_pbo;
+	if (use_pbo) {
+		EnsureUploadPbo(frame_bytes);
+		CHECK_ERROR(glBindBuffer(GL_PIXEL_UNPACK_BUFFER, uploadPboIds[uploadPboIndex]));
+		// Orphan previous storage to avoid CPU/GPU sync stalls.
+		CHECK_ERROR(glBufferData(GL_PIXEL_UNPACK_BUFFER, static_cast<GLsizeiptr>(frame_bytes), nullptr, GL_STREAM_DRAW));
+		CHECK_ERROR(glBufferSubData(GL_PIXEL_UNPACK_BUFFER, 0, static_cast<GLsizeiptr>(frame_bytes), frame.data.data()));
+	}
+
 	if (needs_row_length)
 		CHECK_ERROR(glPixelStorei(GL_UNPACK_ROW_LENGTH, frame.pitch / 4));
 
 	for (auto& ti : textureList) {
 		CHECK_ERROR(glBindTexture(GL_TEXTURE_2D, ti.textureID));
+		const void *upload_ptr = use_pbo
+			? reinterpret_cast<void *>(static_cast<uintptr_t>(ti.dataOffset))
+			: static_cast<const void *>(&frame.data[ti.dataOffset]);
 		CHECK_ERROR(glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, ti.sourceW,
-			ti.sourceH, GL_BGRA_EXT, GL_UNSIGNED_BYTE, &frame.data[ti.dataOffset]));
+			ti.sourceH, GL_BGRA_EXT, GL_UNSIGNED_BYTE, upload_ptr));
 	}
 
 	if (needs_row_length)
 		CHECK_ERROR(glPixelStorei(GL_UNPACK_ROW_LENGTH, 0));
+	if (use_pbo) {
+		CHECK_ERROR(glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0));
+		uploadPboIndex = (uploadPboIndex + 1) % uploadPboIds.size();
+	}
 }
 
 void VideoOutGL::Render(int dx1, int dy1, int dx2, int dy2) {
@@ -280,6 +357,7 @@ void VideoOutGL::Render(int dx1, int dy1, int dx2, int dy2) {
 }
 
 VideoOutGL::~VideoOutGL() {
+	ReleaseUploadPbo();
 	if (textureIdList.size() > 0) {
 		glDeleteTextures(textureIdList.size(), &textureIdList[0]);
 		glDeleteLists(dl, 1);
