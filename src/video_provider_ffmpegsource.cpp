@@ -43,6 +43,8 @@
 #include <libaegisub/fs.h>
 #include <libaegisub/make_unique.h>
 
+#include <cstring>
+
 namespace {
 /// @class FFmpegSourceVideoProvider
 /// @brief Implements video loading through the FFMS library.
@@ -59,6 +61,7 @@ class FFmpegSourceVideoProvider final : public VideoProvider, FFmpegSourceProvid
 	std::vector<int> KeyFramesList; ///< list of keyframes
 	agi::vfr::Framerate Timecodes;  ///< vfr object
 	std::string ColorSpace;         ///< Colorspace name
+	int Padding = 0;                ///< vertical black border size in pixels (top and bottom)
 
 	char FFMSErrMsg[1024];          ///< FFMS error message
 	FFMS_ErrorInfo ErrInfo;         ///< FFMS error codes/messages
@@ -88,12 +91,21 @@ public:
 
 #if FFMS_VERSION >= ((2 << 24) | (24 << 16) | (0 << 8) | 0)
 	int GetWidth() const override  { return (VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 180 == -90) ? Height : Width; }
-	int GetHeight() const override { return (VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 180 == -90) ? Width : Height; }
-	double GetDAR() const override { return (VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 180 == -90) ? 1 / DAR : DAR; }
+	int GetHeight() const override { return ((VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 180 == -90) ? Width : Height) + Padding * 2; }
+	double GetDAR() const override {
+		const bool rotated = VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 180 == -90;
+		const double sar = (VideoInfo->SARDen > 0 && VideoInfo->SARNum > 0) ? static_cast<double>(VideoInfo->SARNum) / VideoInfo->SARDen : 1.0;
+		if (rotated)
+			return static_cast<double>(Height) / ((static_cast<double>(Width + Padding * 2)) * sar);
+		return (static_cast<double>(Width) * sar) / static_cast<double>(Height + Padding * 2);
+	}
 #else
 	int GetWidth() const override                  { return Width; }
-	int GetHeight() const override                 { return Height; }
-	double GetDAR() const override                 { return DAR; }
+	int GetHeight() const override                 { return Height + Padding * 2; }
+	double GetDAR() const override {
+		const double sar = (VideoInfo->SARDen > 0 && VideoInfo->SARNum > 0) ? static_cast<double>(VideoInfo->SARNum) / VideoInfo->SARDen : 1.0;
+		return (static_cast<double>(Width) * sar) / static_cast<double>(Height + Padding * 2);
+	}
 #endif
 
 	agi::vfr::Framerate GetFPS() const override    { return Timecodes; }
@@ -213,8 +225,10 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 
 	const auto hw_name_str = OPT_GET("Provider/Video/FFmpegSource/HW hw_name")->GetString();
 	const auto hw_name = hw_name_str.c_str();
-	const auto padding = OPT_GET("Provider/Video/FFmpegSource/ABB")->GetInt();
-	VideoSource = FFMS_CreateVideoSource(filename.string().c_str(), TrackNumber, Index, Threads, SeekMode, &ErrInfo, hw_name, padding);
+	Padding = OPT_GET("Provider/Video/FFmpegSource/ABB")->GetInt();
+	if (Padding < 0)
+		Padding = 0;
+	VideoSource = FFMS_CreateVideoSource(filename.string().c_str(), TrackNumber, Index, Threads, SeekMode, &ErrInfo, hw_name, 0);
 	if (!VideoSource)
 		throw VideoOpenError(std::string("Failed to open video track: ") + ErrInfo.Buffer);
 
@@ -238,8 +252,14 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 
 	SetColorSpace(colormatrix);
 
+	int output_resizer = FFMS_RESIZER_BICUBIC;
+	const bool hw_enabled = !hw_name_str.empty() && hw_name_str != "none";
+	// For HW decode + black border workflow, prefer faster colorspace conversion.
+	if (hw_enabled && Padding > 0)
+		output_resizer = FFMS_RESIZER_FAST_BILINEAR;
+
 	const int TargetFormat[] = { FFMS_GetPixFmt("bgra"), -1 };
-	if (FFMS_SetOutputFormatV2(VideoSource, TargetFormat, Width, Height, FFMS_RESIZER_BICUBIC, &ErrInfo))
+	if (FFMS_SetOutputFormatV2(VideoSource, TargetFormat, Width, Height, output_resizer, &ErrInfo))
 		throw VideoOpenError(std::string("Failed to set output format: ") + ErrInfo.Buffer);
 
 	// get frame info data
@@ -279,54 +299,86 @@ void FFmpegSourceVideoProvider::GetFrame(int n, VideoFrame &out) {
 	if (!frame)
 		throw VideoDecodeError(std::string("Failed to retrieve frame: ") +  ErrInfo.Buffer);
 
-	out.data.assign(frame->Data[0], frame->Data[0] + frame->Linesize[0] * Height);
+	const size_t row_bytes = static_cast<size_t>(Width) * 4;
+	const size_t tight_frame_bytes = row_bytes * static_cast<size_t>(Height);
+	const uint8_t *src_base = frame->Data[0];
+	int src_pitch = frame->Linesize[0];
+
+	// Normalize negative line size to top-down order.
+	if (src_pitch < 0) {
+		src_base += static_cast<ptrdiff_t>(Height - 1) * static_cast<ptrdiff_t>(src_pitch);
+		src_pitch = -src_pitch;
+	}
+	if (src_pitch < static_cast<int>(row_bytes))
+		throw VideoDecodeError("Retrieved frame pitch is smaller than expected row size.");
+
+	if (out.data.size() != tight_frame_bytes)
+		out.data.resize(tight_frame_bytes);
+
+	if (tight_frame_bytes > 0) {
+		if (src_pitch == static_cast<int>(row_bytes)) {
+			std::memcpy(out.data.data(), src_base, tight_frame_bytes);
+		}
+		else {
+			for (int y = 0; y < Height; ++y) {
+				std::memcpy(
+					out.data.data() + row_bytes * y,
+					src_base + static_cast<ptrdiff_t>(src_pitch) * static_cast<ptrdiff_t>(y),
+					row_bytes
+				);
+			}
+		}
+	}
 	out.flipped = false;
 	out.width = Width;
 	out.height = Height;
-	out.pitch = frame->Linesize[0];
+	out.pitch = row_bytes;
 #if FFMS_VERSION >= ((2 << 24) | (31 << 16) | (0 << 8) | 0)
 	// Handle flip
 	if (VideoInfo->Flip > 0)
 		for (int x = 0; x < Height; ++x)
 			for (int y = 0; y < Width / 2; ++y)
 				for (int ch = 0; ch < 4; ++ch)
-					std::swap(out.data[frame->Linesize[0] * x + 4 * y + ch], out.data[frame->Linesize[0] * x + 4 * (Width - 1 - y) + ch]);
+					std::swap(out.data[out.pitch * x + 4 * y + ch], out.data[out.pitch * x + 4 * (Width - 1 - y) + ch]);
 
 	else if (VideoInfo->Flip < 0)
 		for (int x = 0; x < Height / 2; ++x)
 			for (int y = 0; y < Width; ++y)
 				for (int ch = 0; ch < 4; ++ch)
-					std::swap(out.data[frame->Linesize[0] * x + 4 * y + ch], out.data[frame->Linesize[0] * (Height - 1 - x) + 4 * y + ch]);
+					std::swap(out.data[out.pitch * x + 4 * y + ch], out.data[out.pitch * (Height - 1 - x) + 4 * y + ch]);
 #endif
 #if FFMS_VERSION >= ((2 << 24) | (24 << 16) | (0 << 8) | 0)
 	// Handle rotation
 	if (VideoInfo->Rotation % 360 == 180 || VideoInfo->Rotation % 360 == -180) {
+		const size_t src_row_pitch = out.pitch;
 		std::vector<unsigned char> data(std::move(out.data));
 		out.data.resize(Width * Height * 4);
 		for (int x = 0; x < Height; ++x)
 			for (int y = 0; y < Width; ++y)
 				for (int ch = 0; ch < 4; ++ch)
-					out.data[4 * (Width * x + y) + ch] = data[frame->Linesize[0] * (Height - 1 - x) + 4 * (Width - 1 - y) + ch];
+					out.data[4 * (Width * x + y) + ch] = data[src_row_pitch * (Height - 1 - x) + 4 * (Width - 1 - y) + ch];
 		out.pitch = 4 * Width;
 	}
 	else if (VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 360 == -270) {
+		const size_t src_row_pitch = out.pitch;
 		std::vector<unsigned char> data(std::move(out.data));
 		out.data.resize(Width * Height * 4);
 		for (int x = 0; x < Width; ++x)
 			for (int y = 0; y < Height; ++y)
 				for (int ch = 0; ch < 4; ++ch)
-					out.data[4 * (Height * x + y) + ch] = data[frame->Linesize[0] * y + 4 * (Width - 1 - x) + ch];
+					out.data[4 * (Height * x + y) + ch] = data[src_row_pitch * y + 4 * (Width - 1 - x) + ch];
 		out.width = Height;
 		out.height = Width;
 		out.pitch = 4 * Height;
 	}
 	else if (VideoInfo->Rotation % 180 == 270 || VideoInfo->Rotation % 360 == -90) {
+		const size_t src_row_pitch = out.pitch;
 		std::vector<unsigned char> data(std::move(out.data));
 		out.data.resize(Width * Height * 4);
 		for (int x = 0; x < Width; ++x)
 			for (int y = 0; y < Height; ++y)
 				for (int ch = 0; ch < 4; ++ch)
-					out.data[4 * (Height * x + y) + ch] = data[frame->Linesize[0] * (Height - 1 - y) + 4 * x + ch];
+					out.data[4 * (Height * x + y) + ch] = data[src_row_pitch * (Height - 1 - y) + 4 * x + ch];
 		out.width = Height;
 		out.height = Width;
 		out.pitch = 4 * Height;

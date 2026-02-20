@@ -49,8 +49,7 @@
 			"R"
 		],
 		"audio/play/selection" : [
-			"S",
-			"Space"
+			"S"
 		],
 		"audio/play/selection/after" : [
 			"W"
@@ -69,6 +68,9 @@
 		],
 		"audio/play/toggle" : [
 			"B"
+		],
+		"play/toggle/av" : [
+			"Space"
 		],
 		"audio/scroll/left" : [
 			"A"
@@ -212,6 +214,9 @@
 		],
 		"video/play" : [
 			"Ctrl-P"
+		],
+		"play/toggle/av" : [
+			"Space"
 		],
 		"video/zoom/in" : [
 			"Ctrl-KP_Add"

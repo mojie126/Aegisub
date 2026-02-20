@@ -255,6 +255,31 @@ struct audio_play_toggle final : public validate_audio_open {
 	}
 };
 
+struct play_toggle_av final : public Command {
+	CMD_NAME("play/toggle/av")
+	STR_MENU("Play/pause audio and video")
+	STR_DISP("Play/pause audio and video")
+	STR_HELP("Toggle playback for audio and video together when video is loaded")
+	CMD_TYPE(COMMAND_VALIDATE)
+
+	bool Validate(const agi::Context *c) override {
+		return c->project->AudioProvider() || c->project->VideoProvider();
+	}
+
+	void operator()(agi::Context *c) override {
+		if (c->audioController->IsPlaying() || c->videoController->IsPlaying()) {
+			c->audioController->Stop();
+			c->videoController->Stop();
+			return;
+		}
+
+		if (c->project->VideoProvider())
+			c->videoController->Play();
+		else if (c->project->AudioProvider())
+			c->audioController->PlayPrimaryRange();
+	}
+};
+
 struct audio_stop final : public Command {
 	CMD_NAME("audio/stop")
 	CMD_ICON(button_stop)
@@ -570,6 +595,7 @@ namespace cmd {
 		reg(agi::make_unique<audio_play_selection>());
 		reg(agi::make_unique<audio_play_to_end>());
 		reg(agi::make_unique<audio_play_toggle>());
+		reg(agi::make_unique<play_toggle_av>());
 		reg(agi::make_unique<audio_save_clip>());
 		reg(agi::make_unique<audio_scroll_left>());
 		reg(agi::make_unique<audio_scroll_right>());
