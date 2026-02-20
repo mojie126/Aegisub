@@ -349,19 +349,36 @@ namespace {
 		return fwrite(buf, 1, buf_len, f) == buf_len ? GIFSKI_OK : 1;
 	}
 
-	bool CreateGifFromWxImages(const agi::Context *c, agi::ProgressSink *ps, const int width, const int height, const std::wstring &outputPath, const double delay, const int totalFrame) {
+	bool CreateGifFromWxImages(const agi::Context *c, agi::ProgressSink *ps, const std::wstring &outputPath, const double delay, const int totalFrame) {
+		const int start_frame = getStartFrame();
+		const int end_frame = getEndFrame();
+		if (start_frame > end_frame) {
+			wxLogError("Invalid frame range for GIF export");
+			return false;
+		}
+
+		wxImage first_img = GetImage(*c->project->VideoProvider()->GetFrame(
+			start_frame, c->project->Timecodes().TimeAtFrame(start_frame), false));
+		if (!first_img.IsOk() || first_img.GetData() == nullptr) {
+			wxLogError("Failed to decode first frame for GIF export");
+			return false;
+		}
+
+		const int source_width = first_img.GetWidth();
+		const int source_height = first_img.GetHeight();
+
 		// 确定实际输出尺寸（全帧或裁剪区域）
 		bool crop = getHasCropRegion();
 		int cx = crop ? getCropX() : 0;
 		int cy = crop ? getCropY() : 0;
-		int cw = crop ? getCropW() : width;
-		int ch = crop ? getCropH() : height;
+		int cw = crop ? getCropW() : source_width;
+		int ch = crop ? getCropH() : source_height;
 
 		// 裁剪区域边界校验
 		if (cx < 0) cx = 0;
 		if (cy < 0) cy = 0;
-		if (cx + cw > width) cw = width - cx;
-		if (cy + ch > height) ch = height - cy;
+		if (cx + cw > source_width) cw = source_width - cx;
+		if (cy + ch > source_height) ch = source_height - cy;
 		if (cw <= 0 || ch <= 0) {
 			wxLogError("Invalid crop region");
 			return false;
@@ -420,16 +437,37 @@ namespace {
 		// Add frames to gifski
 		uint32_t current_frame = 0;
 		ps->SetMessage(from_wx(agi::wxformat(_("Exporting gif image, please later..."))));
-		for (int i = getStartFrame(); i <= getEndFrame(); ++i) {
-			const wxImage &img = GetImage(*c->project->VideoProvider()->GetFrame(i, c->project->Timecodes().TimeAtFrame(i), false));
+		for (int i = start_frame; i <= end_frame; ++i) {
+			const wxImage *img = nullptr;
+			wxImage decoded_img;
+			if (i == start_frame) {
+				img = &first_img;
+			}
+			else {
+				decoded_img = GetImage(*c->project->VideoProvider()->GetFrame(i, c->project->Timecodes().TimeAtFrame(i), false));
+				img = &decoded_img;
+			}
+			if (!img->IsOk() || img->GetData() == nullptr) {
+				wxLogError("Failed to decode frame %d for GIF export", i);
+				gifski_finish(g);
+				fclose(output_file);
+				return false;
+			}
+			if (img->GetWidth() != source_width || img->GetHeight() != source_height) {
+				wxLogError("Inconsistent frame size detected during GIF export");
+				gifski_finish(g);
+				fclose(output_file);
+				return false;
+			}
+
 			ps->SetProgress(current_frame, totalFrame);
 			if (ps->IsCancelled()) break;
 			std::vector<uint8_t> pixels(cw * ch * 4);
-			const unsigned char *imgData = img.GetData();
+			const unsigned char *imgData = img->GetData();
 			for (int y = 0; y < ch; ++y) {
 				for (int x = 0; x < cw; ++x) {
 					// 从原始帧中按裁剪偏移取像素
-					const size_t imgIdx = ((cy + y) * width + (cx + x)) * 3;
+					const size_t imgIdx = ((cy + y) * source_width + (cx + x)) * 3;
 					const size_t pixelIdx = (y * cw + x) * 4;
 					pixels[pixelIdx + 0] = imgData[imgIdx + 0]; // R
 					pixels[pixelIdx + 1] = imgData[imgIdx + 1]; // G
@@ -530,7 +568,7 @@ namespace {
 				progress.Run(
 					[&](agi::ProgressSink *ps) {
 						CreateGifFromWxImages(
-							c, ps, c->project->VideoProvider()->GetWidth(), c->project->VideoProvider()->GetHeight(), gif_path.wstring(), delay, getEndFrame() - getStartFrame() + 1
+							c, ps, gif_path.wstring(), delay, getEndFrame() - getStartFrame() + 1
 						);
 					}
 				);
