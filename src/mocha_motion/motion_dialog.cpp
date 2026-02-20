@@ -465,14 +465,28 @@ namespace mocha {
 						// 对应 MoonScript: if relativeFrame > 0 and relativeFrame <= lineCollection.totalFrames
 						if (relative_frame > 0 && relative_frame <= total_frames) {
 							spin_start_frame->SetValue(relative_frame);
-							// 对应 MoonScript: interface.clip.startFrame.value = relativeFrame
-							clip_options_.start_frame = relative_frame;
+							// clip 起始帧需与 clip 自身的 relative 模式匹配
+							// 主对话框以相对模式计算：若 clip 也是相对模式则直接赋值，
+							// 否则转换为绝对帧号
+							if (clip_options_.relative) {
+								clip_options_.start_frame = relative_frame;
+							} else {
+								clip_options_.start_frame = relative_frame + coll_start - 1;
+							}
 						}
 					} else {
 						// 绝对模式：直接使用视频光标帧号
 						spin_start_frame->SetValue(current_video_frame);
-						// 对应 MoonScript: interface.clip.startFrame.value = currentVideoFrame
-						clip_options_.start_frame = current_video_frame;
+						// clip 起始帧需与 clip 自身的 relative 模式匹配
+						// 主对话框以绝对模式计算：若 clip 也是绝对模式则直接赋值，
+						// 否则转换为相对帧号
+						if (clip_options_.relative) {
+							int rel = current_video_frame - coll_start + 1;
+							if (rel < 1) rel = 1;
+							clip_options_.start_frame = rel;
+						} else {
+							clip_options_.start_frame = current_video_frame;
+						}
 					}
 				} else if (!result.options.relative) {
 					// 没有选中行但绝对模式：直接使用视频光标帧号
@@ -625,6 +639,20 @@ namespace mocha {
 				opts.z_rotation = false;
 				opts.z_position = false;
 				opts.clip_only = true;
+			}
+
+			// SRS 数据不包含旋转/深度信息，3D 选项无效时提醒用户
+			if (has_main_data && result.main_data.is_srs()) {
+				const bool has_3d_option = opts.x_rotation || opts.y_rotation || opts.z_rotation || opts.z_position;
+				if (has_3d_option) {
+					wxMessageBox(
+						_(
+							"SRS (Shake Rotoshape) data does not contain rotation or depth information. "
+							"3D-related options (X/Y/Z Rotation, Z Position) will have no effect."
+						),
+						_("Warning"), wxICON_WARNING
+					);
+				}
 			}
 
 			result.script_res_x = script_res_x;
@@ -841,22 +869,29 @@ namespace mocha {
 			type_sizer->Add(chk_cvc, 0, wxALL, inner_pad);
 			type_sizer->Add(chk_crv, 0, wxALL, inner_pad);
 
-			// 起始帧
+			// 起始帧（布局与主对话框 cfg_row1 保持一致）
 			auto *frame_sizer = new wxBoxSizer(wxHORIZONTAL);
-			auto *chk_crel = new wxCheckBox(&clip_dlg, wxID_ANY, _("Relative"));
+			auto *chk_crel = new wxCheckBox(&clip_dlg, wxID_ANY, _("Relat&ive"));
 			chk_crel->SetValue(clip_options_.relative);
+			chk_crel->SetToolTip(_("Relative: start frame is an index into tracking data (1=first). Absolute: start frame is a video frame number, auto-converted to relative."));
 
-			auto *lbl_csf = new wxStaticText(&clip_dlg, wxID_ANY, _("Start Frame:"));
+			auto *lbl_csf = new wxStaticText(
+				&clip_dlg, wxID_ANY,
+				clip_options_.relative ? _("Start Frame (relative):") : _("Start Frame (absolute):")
+			);
 			auto *spin_csf = new wxSpinCtrl(
 				&clip_dlg, wxID_ANY,
 				wxString::Format("%d", clip_options_.start_frame),
 				wxDefaultPosition, wxSize(clip_dlg.FromDIP(70), -1),
 				wxSP_ARROW_KEYS, -99999, 99999, clip_options_.start_frame
 			);
+			spin_csf->SetToolTip(
+				_("Relative mode: 1=first frame, -1=last frame, 0=auto-adjusted to 1.\nAbsolute mode: video frame number where tracking data starts.")
+			);
 
-			frame_sizer->Add(chk_crel, 0, wxALL, inner_pad);
-			frame_sizer->Add(lbl_csf, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, clip_dlg.FromDIP(8));
-			frame_sizer->Add(spin_csf, 0, wxALL, inner_pad);
+			frame_sizer->Add(chk_crel, 0, wxALIGN_CENTER_VERTICAL | wxALL, inner_pad);
+			frame_sizer->Add(lbl_csf, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, inner_pad);
+			frame_sizer->Add(spin_csf, 0, wxALIGN_CENTER_VERTICAL | wxLEFT | wxTOP | wxBOTTOM, inner_pad);
 
 			// 按钮
 			auto *btn_row = new wxBoxSizer(wxHORIZONTAL);
@@ -894,10 +929,44 @@ namespace mocha {
 			chk_crv->Bind(wxEVT_CHECKBOX, [&](wxCommandEvent &) { update_clip_deps(); });
 			update_clip_deps();
 
+			// 相对/绝对模式切换：更新标签文字并转换帧号数值
+			// 与主对话框 UpdateDependencies() 中的 relative↔absolute 逻辑保持一致
+			bool clip_last_relative = clip_options_.relative;
+			chk_crel->Bind(
+				wxEVT_CHECKBOX, [&, lbl_csf, spin_csf, chk_crel](wxCommandEvent &) {
+					const bool rel = chk_crel->IsChecked();
+					// 更新标签文字
+					if (rel) {
+						lbl_csf->SetLabel(_("Start Frame (relative):"));
+					} else {
+						lbl_csf->SetLabel(_("Start Frame (absolute):"));
+					}
+					// 检测模式切换并转换帧号
+					if (rel != clip_last_relative) {
+						clip_last_relative = rel;
+						if (collection_start_frame_ > 0) {
+							const int old_val = spin_csf->GetValue();
+							if (rel) {
+								// 绝对 → 相对: relative = absolute - collection_start + 1
+								int new_val = old_val - collection_start_frame_ + 1;
+								if (new_val < 1) new_val = 1;
+								spin_csf->SetValue(new_val);
+							} else {
+								// 相对 → 绝对: absolute = relative + collection_start - 1
+								const int effective_rel = (old_val <= 0) ? 1 : old_val;
+								const int new_val = effective_rel + collection_start_frame_ - 1;
+								spin_csf->SetValue(new_val);
+							}
+						}
+					}
+					frame_sizer->Layout();
+				}
+			);
+
 			// 实时数据验证：文本变化时解析数据并更新状态标签
 			// 与主对话框 UpdateDataStatus() 功能一致
 			auto update_clip_status = [&]() {
-				std::string raw = clip_text->GetValue().ToStdString();
+				const std::string raw = clip_text->GetValue().ToStdString();
 				if (raw.empty()) {
 					clip_lbl_status->SetForegroundColour(
 						wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT)
@@ -916,13 +985,13 @@ namespace mocha {
 				}
 
 				// 与选中行帧数比较
-				AssDialogue *active = ctx->selectionController->GetActiveLine();
+				const AssDialogue *active = ctx->selectionController->GetActiveLine();
 				if (active && ctx->project->VideoProvider()) {
-					int sf = ctx->videoController->FrameAtTime(active->Start, agi::vfr::START);
-					int ef = ctx->videoController->FrameAtTime(active->End, agi::vfr::END);
-					int needed = ef - sf;
+					const int sf = ctx->videoController->FrameAtTime(active->Start, agi::vfr::START);
+					const int ef = ctx->videoController->FrameAtTime(active->End, agi::vfr::END);
+					const int needed = ef - sf;
 
-					wxString msg = wxString::Format(
+					const wxString msg = wxString::Format(
 						_("Data frames: %d | Line needs: %d frames | Source: %dx%d"),
 						temp.length(), needed, temp.source_width(), temp.source_height()
 					);
@@ -934,7 +1003,7 @@ namespace mocha {
 					}
 					clip_lbl_status->SetLabel(msg);
 				} else {
-					wxString msg = wxString::Format(
+					const wxString msg = wxString::Format(
 						_("Data frames: %d | Source: %dx%d"),
 						temp.length(), temp.source_width(), temp.source_height()
 					);
@@ -976,7 +1045,7 @@ namespace mocha {
 				}, wxID_CLEAR
 			);
 
-			int ret = clip_dlg.ShowModal();
+			const int ret = clip_dlg.ShowModal();
 
 			if (ret == wxID_OK) {
 				// 收集 clip 选项
@@ -1004,6 +1073,28 @@ namespace mocha {
 								_("Clip data loaded: %d frames (%s)"), temp.length(), type_str
 							)
 						);
+
+						// SRS 数据仅包含绘图命令，Z 旋转和矩形 clip 无法应用
+						if (temp.is_srs()) {
+							if (clip_options_.z_rotation) {
+								wxMessageBox(
+									_(
+										"SRS (Shake Rotoshape) clip data does not contain rotation information. "
+										"The Z Rotation option for clip will have no effect."
+									),
+									_("Warning"), wxICON_WARNING
+								);
+							}
+							if (clip_options_.rect_clip && !clip_options_.vect_clip) {
+								wxMessageBox(
+									_(
+										"SRS (Shake Rotoshape) data only supports vector clip. "
+										"Rectangular clip option will have no effect."
+									),
+									_("Warning"), wxICON_WARNING
+								);
+							}
+						}
 					} else {
 						has_clip_data_ = false;
 						lbl_clip_status->SetForegroundColour(*wxRED);

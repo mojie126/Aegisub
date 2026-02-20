@@ -7337,8 +7337,8 @@ msgstr "矢量裁剪"
 msgid "Convert rectangular clip to vector clip"
 msgstr "将矩形clip转换为矢量clip"
 
-msgid "Relative"
-msgstr "相对"
+#~ msgid "Relative"
+#~ msgstr "相对"
 
 msgid "Clear Data"
 msgstr "清除数据"
@@ -7528,3 +7528,15 @@ msgstr "绝对起始帧超出范围（晚于追踪数据结束）"
 
 #~ msgid "You already have timecodes loaded. Would you like to replace them with timecodes from the video file?"
 #~ msgstr "你已经加载过时间码。是否要用视频文件中的时间码替换？"
+
+#. motion_dialog.cpp - SRS 数据无3D信息警告
+msgid "SRS (Shake Rotoshape) data does not contain rotation or depth information. 3D-related options (X/Y/Z Rotation, Z Position) will have no effect."
+msgstr "SRS (Shake Rotoshape) 数据不包含旋转或深度信息。3D相关选项（X/Y/Z旋转、Z位置）将不会生效。"
+
+#. motion_dialog.cpp - clip 对话框 SRS Z旋转警告
+msgid "SRS (Shake Rotoshape) clip data does not contain rotation information. The Z Rotation option for clip will have no effect."
+msgstr "SRS (Shake Rotoshape) clip数据不包含旋转信息。clip的Z旋转选项将不会生效。"
+
+#. motion_dialog.cpp - clip 对话框 SRS 矩形clip警告
+msgid "SRS (Shake Rotoshape) data only supports vector clip. Rectangular clip option will have no effect."
+msgstr "SRS (Shake Rotoshape) 数据仅支持矢量clip。矩形clip选项将不会生效。"
