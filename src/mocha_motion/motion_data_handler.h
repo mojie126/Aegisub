@@ -105,23 +105,33 @@ public:
 	// 仅 TSR 数据使用
 	std::vector<double> x_position;
 	std::vector<double> y_position;
+	std::vector<double> z_position;
 	std::vector<double> x_scale;
 	std::vector<double> y_scale;
+	std::vector<double> x_rotation;
+	std::vector<double> y_rotation;
 	std::vector<double> z_rotation;
 
 	// 参考帧状态（仅 TSR 使用）
 	int start_frame = 0;
 	double x_start_position = 0;
 	double y_start_position = 0;
+	double z_start_position = 0;
 	double x_start_scale = 0;
 	double y_start_scale = 0;
+	double x_start_rotation = 0;
+	double y_start_rotation = 0;
 	double z_start_rotation = 0;
 
 	// 当前帧计算结果（仅 TSR 使用）
 	double x_current_position = 0;
 	double y_current_position = 0;
+	double z_current_position = 0;
 	double x_ratio = 1.0;
 	double y_ratio = 1.0;
+	double x_rotation_diff = 0;
+	double y_rotation_diff = 0;
+	double z_position_diff = 0;
 	double z_rotation_diff = 0;
 
 private:

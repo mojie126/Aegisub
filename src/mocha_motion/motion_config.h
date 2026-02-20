@@ -23,7 +23,8 @@ namespace mocha {
 ///
 /// MoonScript 版配置键名（main section）：
 ///   xPosition, yPosition, origin, absPos, xScale, border, shadow, blur,
-///   blurScale, zRotation, writeConf, relative, startFrame, linear, clipOnly,
+///   blurScale, xRotation, yRotation, zRotation, zPosition,
+///   writeConf, relative, startFrame, linear, clipOnly,
 ///   rectClip, vectClip, rcToVc, killTrans
 ///
 /// C++ 扩展键名（MoonScript 版会忽略）：

@@ -111,12 +111,39 @@ void MotionHandler::setup_callbacks() {
 			}
 		}
 
+		if (options_.x_rotation) {
+			// \frx
+			callbacks_.push_back({
+				R"((\\frx)([-.0-9]+))",
+				std::regex(R"((\\frx)([-.0-9]+))"),
+				[this](const std::string& v, int f) { return cb_rotate_x(v, f); }
+			});
+		}
+
+		if (options_.y_rotation) {
+			// \fry
+			callbacks_.push_back({
+				R"((\\fry)([-.0-9]+))",
+				std::regex(R"((\\fry)([-.0-9]+))"),
+				[this](const std::string& v, int f) { return cb_rotate_y(v, f); }
+			});
+		}
+
 		if (options_.z_rotation) {
 			// \frz 或 \fr
 			callbacks_.push_back({
-				R"((\\frz?)([-.0-9]+))",
-				std::regex(R"((\\frz?)([-.0-9]+))"),
-				[this](const std::string& v, int f) { return cb_rotate(v, f); }
+				R"((\\frz|\\fr)([-.0-9]+))",
+				std::regex(R"((\\frz|\\fr)([-.0-9]+))"),
+				[this](const std::string& v, int f) { return cb_rotate_z(v, f); }
+			});
+		}
+
+		if (options_.z_position) {
+			// \z 深度
+			callbacks_.push_back({
+				R"((\\z)([-.0-9]+))",
+				std::regex(R"((\\z)([-.0-9]+))"),
+				[this](const std::string& v, int f) { return cb_z_position(v, f); }
 			});
 		}
 	}
@@ -629,14 +656,39 @@ std::string MotionHandler::cb_blur(const std::string& value, int frame) {
 	return buf;
 }
 
-std::string MotionHandler::cb_rotate(const std::string& value, int frame) {
-	// 对应 MoonScript rotate()
-	// rotation += zRotationDiff
+std::string MotionHandler::cb_rotate_x(const std::string& value, int frame) {
+	double rot = std::stod(value);
+	rot += main_data_->x_rotation_diff;
+
+	char buf[32];
+	std::snprintf(buf, sizeof(buf), "%g", math::round(rot, 2));
+	return buf;
+}
+
+std::string MotionHandler::cb_rotate_y(const std::string& value, int frame) {
+	double rot = std::stod(value);
+	rot += main_data_->y_rotation_diff;
+	char buf[32];
+	std::snprintf(buf, sizeof(buf), "%g", math::round(rot, 2));
+	return buf;
+}
+
+std::string MotionHandler::cb_rotate_z(const std::string& value, int frame) {
 	double rot = std::stod(value);
 	rot += main_data_->z_rotation_diff;
 
 	char buf[32];
 	std::snprintf(buf, sizeof(buf), "%g", math::round(rot, 2));
+	return buf;
+}
+
+std::string MotionHandler::cb_z_position(const std::string& value, int frame) {
+	// 3D 深度：\z += zPositionDiff
+	double z = std::stod(value);
+	z += main_data_->z_position_diff;
+
+	char buf[32];
+	std::snprintf(buf, sizeof(buf), "%g", math::round(z, 2));
 	return buf;
 }
 

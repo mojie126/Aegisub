@@ -86,7 +86,10 @@ namespace mocha {
 			read_bool("shadow", opts.shadow);
 			read_bool("blur", opts.blur);
 			read_double("blurScale", opts.blur_scale);
+			read_bool("xRotation", opts.x_rotation);
+			read_bool("yRotation", opts.y_rotation);
 			read_bool("zRotation", opts.z_rotation);
+			read_bool("zPosition", opts.z_position);
 			read_bool("writeConf", opts.write_conf);
 			read_bool("relative", opts.relative);
 			read_int("startFrame", opts.start_frame);
@@ -146,7 +149,10 @@ namespace mocha {
 			main_obj["shadow"] = json::UnknownElement(opts.shadow);
 			main_obj["blur"] = json::UnknownElement(opts.blur);
 			main_obj["blurScale"] = json::UnknownElement(opts.blur_scale);
+			main_obj["xRotation"] = json::UnknownElement(opts.x_rotation);
+			main_obj["yRotation"] = json::UnknownElement(opts.y_rotation);
 			main_obj["zRotation"] = json::UnknownElement(opts.z_rotation);
+			main_obj["zPosition"] = json::UnknownElement(opts.z_position);
 			main_obj["writeConf"] = json::UnknownElement(opts.write_conf);
 			main_obj["relative"] = json::UnknownElement(opts.relative);
 			main_obj["startFrame"] = json::UnknownElement((int64_t) opts.start_frame);

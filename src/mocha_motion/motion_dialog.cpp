@@ -82,8 +82,11 @@ namespace mocha {
 			wxTextCtrl *txt_blur_scale = nullptr; // 模糊衰减系数
 			wxStaticText *lbl_blur_scale = nullptr;
 
-			// 旋转
-			wxCheckBox *chk_rotation = nullptr;
+			// 3D 通道
+			wxCheckBox *chk_x_rotation = nullptr;
+			wxCheckBox *chk_y_rotation = nullptr;
+			wxCheckBox *chk_z_rotation = nullptr;
+			wxCheckBox *chk_z_position = nullptr;
 
 			// Clip 选项复选框
 			wxCheckBox *chk_rect_clip = nullptr;
@@ -206,9 +209,7 @@ namespace mocha {
 			chk_shadow->SetValue(true);
 			chk_shadow->SetToolTip(_("Scale shadow offset with the line (requires Scale)"));
 
-			scale_row1->Add(chk_scale, 0, wxALL, inner_pad);
-			scale_row1->Add(chk_border, 0, wxALL, inner_pad);
-			scale_row1->Add(chk_shadow, 0, wxALL, inner_pad);
+			scale_row1->Add(chk_scale, 0, wxALIGN_CENTER_VERTICAL | wxALL, inner_pad);
 
 			auto *scale_row2 = new wxBoxSizer(wxHORIZONTAL);
 			chk_blur = new wxCheckBox(&d, wxID_ANY, _("Bl&ur(\\blur)"));
@@ -231,22 +232,32 @@ namespace mocha {
 				)
 			);
 
-			scale_row2->Add(chk_blur, 0, wxALL, inner_pad);
-			scale_row2->Add(lbl_blur_scale, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, d.FromDIP(8));
-			scale_row2->Add(txt_blur_scale, 0, wxALL, inner_pad);
+			const int compact_gap = d.FromDIP(4);
+			scale_row2->Add(chk_border, 0, wxALIGN_CENTER_VERTICAL | wxALL, inner_pad);
+			scale_row2->Add(chk_shadow, 0, wxALIGN_CENTER_VERTICAL | wxALL, inner_pad);
+			scale_row2->Add(chk_blur, 0, wxALIGN_CENTER_VERTICAL | wxALL, inner_pad);
+			scale_row2->Add(lbl_blur_scale, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, compact_gap);
+			scale_row2->Add(txt_blur_scale, 0, wxALIGN_CENTER_VERTICAL | wxLEFT | wxTOP | wxBOTTOM, compact_gap);
 
 			scale_sizer->Add(scale_row1, 0, wxEXPAND);
 			scale_sizer->Add(scale_row2, 0, wxEXPAND);
 
-			// ====== 旋转 + Clip 并排 ======
-			auto *rot_clip_sizer = new wxBoxSizer(wxHORIZONTAL);
-
-			// 旋转
-			auto *rot_box = new wxStaticBox(&d, wxID_ANY, _("Rotation (\\frz)"));
+			// 3D 通道
+			auto *rot_box = new wxStaticBox(&d, wxID_ANY, _("3D (\\frx, \\fry, \\frz, \\z)"));
 			auto *rot_sizer = new wxStaticBoxSizer(rot_box, wxHORIZONTAL);
-			chk_rotation = new wxCheckBox(&d, wxID_ANY, _("&Rotation"));
-			chk_rotation->SetToolTip(_("Apply Z-axis rotation data to the selected lines"));
-			rot_sizer->Add(chk_rotation, 0, wxALL, inner_pad);
+			chk_x_rotation = new wxCheckBox(&d, wxID_ANY, _("X Rot(\\frx)"));
+			chk_x_rotation->SetToolTip(_("Apply X-axis rotation data to the selected lines"));
+			chk_y_rotation = new wxCheckBox(&d, wxID_ANY, _("Y Rot(\\fry)"));
+			chk_y_rotation->SetToolTip(_("Apply Y-axis rotation data to the selected lines"));
+			chk_z_rotation = new wxCheckBox(&d, wxID_ANY, _("Z Rot(\\frz)"));
+			chk_z_rotation->SetToolTip(_("Apply Z-axis rotation data to the selected lines"));
+			chk_z_position = new wxCheckBox(&d, wxID_ANY, _("Z Pos(\\z)"));
+			chk_z_position->SetToolTip(_("Apply Z position (depth) data to the selected lines"));
+
+			rot_sizer->Add(chk_x_rotation, 0, wxALIGN_CENTER_VERTICAL | wxALL, inner_pad);
+			rot_sizer->Add(chk_y_rotation, 0, wxALIGN_CENTER_VERTICAL | wxALL, inner_pad);
+			rot_sizer->Add(chk_z_rotation, 0, wxALIGN_CENTER_VERTICAL | wxALL, inner_pad);
+			rot_sizer->Add(chk_z_position, 0, wxALIGN_CENTER_VERTICAL | wxALL, inner_pad);
 
 			// Clip
 			auto *clip_box = new wxStaticBox(&d, wxID_ANY, _("Clip (\\clip)"));
@@ -271,9 +282,6 @@ namespace mocha {
 			clip_sizer->Add(chk_rect_clip, 0, wxALL, inner_pad);
 			clip_sizer->Add(chk_vect_clip, 0, wxALL, inner_pad);
 			clip_sizer->Add(chk_rc_to_vc, 0, wxALL, inner_pad);
-
-			rot_clip_sizer->Add(rot_sizer, 0, wxEXPAND | wxRIGHT, inner_pad);
-			rot_clip_sizer->Add(clip_sizer, 1, wxEXPAND);
 
 			// ====== 独立 clip 追踪 ======
 			// 对应 MoonScript: "Track \\clip separately" 按钮切换到 clip 对话框
@@ -347,9 +355,9 @@ namespace mocha {
 				_("Relative mode: 1=first frame, -1=last frame, 0=auto-adjusted to 1.\nAbsolute mode: video frame number where tracking data starts.")
 			);
 
-			cfg_row1->Add(chk_relative, 0, wxALL, inner_pad);
-			cfg_row1->Add(lbl_start_frame, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, d.FromDIP(8));
-			cfg_row1->Add(spin_start_frame, 0, wxALL, inner_pad);
+			cfg_row1->Add(chk_relative, 0, wxALIGN_CENTER_VERTICAL | wxALL, inner_pad);
+			cfg_row1->Add(lbl_start_frame, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, compact_gap);
+			cfg_row1->Add(spin_start_frame, 0, wxALIGN_CENTER_VERTICAL | wxLEFT | wxTOP | wxBOTTOM, compact_gap);
 
 			auto *cfg_row2 = new wxBoxSizer(wxHORIZONTAL);
 			chk_preview = new wxCheckBox(&d, wxID_ANY, _("Convenient preview"));
@@ -390,7 +398,8 @@ namespace mocha {
 			main_sizer->Add(data_sizer, 1, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, pad);
 			main_sizer->Add(pos_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, pad);
 			main_sizer->Add(scale_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, pad);
-			main_sizer->Add(rot_clip_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, pad);
+			main_sizer->Add(rot_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, pad);
+			main_sizer->Add(clip_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, pad);
 			main_sizer->Add(clip_sep_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, pad);
 			main_sizer->Add(mode_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, pad);
 			main_sizer->Add(config_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, pad);
@@ -407,7 +416,10 @@ namespace mocha {
 			chk_shadow->SetValue(result.options.shadow);
 			chk_blur->SetValue(result.options.blur);
 			txt_blur_scale->SetValue(wxString::Format("%.2f", result.options.blur_scale));
-			chk_rotation->SetValue(result.options.z_rotation);
+			chk_x_rotation->SetValue(result.options.x_rotation);
+			chk_y_rotation->SetValue(result.options.y_rotation);
+			chk_z_rotation->SetValue(result.options.z_rotation);
+			chk_z_position->SetValue(result.options.z_position);
 			chk_rect_clip->SetValue(result.options.rect_clip);
 			chk_vect_clip->SetValue(result.options.vect_clip);
 			chk_rc_to_vc->SetValue(result.options.rc_to_vc);
@@ -515,7 +527,10 @@ namespace mocha {
 			opts.border = chk_border->IsChecked() && opts.x_scale;
 			opts.shadow = chk_shadow->IsChecked() && opts.x_scale;
 			opts.blur = chk_blur->IsChecked() && opts.x_scale;
-			opts.z_rotation = chk_rotation->IsChecked();
+			opts.x_rotation = chk_x_rotation->IsChecked();
+			opts.y_rotation = chk_y_rotation->IsChecked();
+			opts.z_rotation = chk_z_rotation->IsChecked();
+			opts.z_position = chk_z_position->IsChecked();
 			opts.rect_clip = chk_rect_clip->IsChecked();
 			opts.vect_clip = chk_vect_clip->IsChecked();
 			opts.rc_to_vc = chk_rc_to_vc->IsChecked();
@@ -605,7 +620,10 @@ namespace mocha {
 				opts.border = false;
 				opts.shadow = false;
 				opts.blur = false;
+				opts.x_rotation = false;
+				opts.y_rotation = false;
 				opts.z_rotation = false;
+				opts.z_position = false;
 				opts.clip_only = true;
 			}
 
@@ -652,7 +670,10 @@ namespace mocha {
 			chk_origin->Enable(!clip_only);
 			chk_abs_pos->Enable(!clip_only);
 			chk_scale->Enable(!clip_only);
-			chk_rotation->Enable(!clip_only);
+			chk_x_rotation->Enable(!clip_only);
+			chk_y_rotation->Enable(!clip_only);
+			chk_z_rotation->Enable(!clip_only);
+			chk_z_position->Enable(!clip_only);
 			// 仅裁剪模式下也要级联禁用缩放子项
 			if (clip_only) {
 				chk_border->Enable(false);
@@ -793,9 +814,9 @@ namespace mocha {
 			chk_cs->SetValue(clip_options_.x_scale);
 			chk_cs->SetToolTip(_("Apply scale data to clip"));
 
-			auto *chk_cr = new wxCheckBox(&clip_dlg, wxID_ANY, _("Rotation"));
+			auto *chk_cr = new wxCheckBox(&clip_dlg, wxID_ANY, _("Z Rotation"));
 			chk_cr->SetValue(clip_options_.z_rotation);
-			chk_cr->SetToolTip(_("Apply rotation data to clip"));
+			chk_cr->SetToolTip(_("Apply Z-axis rotation data to clip"));
 
 			opt_sizer->Add(chk_cx, 0, wxALL, inner_pad);
 			opt_sizer->Add(chk_cy, 0, wxALL, inner_pad);
