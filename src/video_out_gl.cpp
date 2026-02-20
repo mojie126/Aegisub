@@ -33,6 +33,13 @@
 #include <GL/glcorearb.h>
 #endif
 
+#ifdef __WIN32__
+#define glGetProc(name) wglGetProcAddress(name)
+#elif !defined(__APPLE__)
+#include <GL/glx.h>
+#define glGetProc(name) glXGetProcAddress((const GLubyte *)(name))
+#endif
+
 #include "video_out_gl.h"
 #include "utils.h"
 #include "video_frame.h"
@@ -43,6 +50,33 @@ BOOST_NOINLINE void throw_error(GLenum err, const char *msg) {
 	LOG_E("video/out/gl") << msg << " failed with error code " << err;
 	throw Exception(msg, err);
 }
+
+#if !defined(__APPLE__)
+struct PboFunctions {
+	PFNGLBINDBUFFERPROC BindBuffer = nullptr;
+	PFNGLDELETEBUFFERSPROC DeleteBuffers = nullptr;
+	PFNGLGENBUFFERSPROC GenBuffers = nullptr;
+	PFNGLBUFFERDATAPROC BufferData = nullptr;
+	PFNGLBUFFERSUBDATAPROC BufferSubData = nullptr;
+	bool initialized = false;
+	bool available = false;
+};
+
+static PboFunctions &GetPboFunctions() {
+	static PboFunctions funcs;
+	if (funcs.initialized)
+		return funcs;
+
+	funcs.initialized = true;
+	funcs.BindBuffer = reinterpret_cast<PFNGLBINDBUFFERPROC>(glGetProc("glBindBuffer"));
+	funcs.DeleteBuffers = reinterpret_cast<PFNGLDELETEBUFFERSPROC>(glGetProc("glDeleteBuffers"));
+	funcs.GenBuffers = reinterpret_cast<PFNGLGENBUFFERSPROC>(glGetProc("glGenBuffers"));
+	funcs.BufferData = reinterpret_cast<PFNGLBUFFERDATAPROC>(glGetProc("glBufferData"));
+	funcs.BufferSubData = reinterpret_cast<PFNGLBUFFERSUBDATAPROC>(glGetProc("glBufferSubData"));
+	funcs.available = funcs.BindBuffer && funcs.DeleteBuffers && funcs.GenBuffers && funcs.BufferData && funcs.BufferSubData;
+	return funcs;
+}
+#endif
 }
 
 #define DO_CHECK_ERROR(cmd, Exception, msg) \
@@ -119,7 +153,13 @@ void VideoOutGL::DetectOpenGLCapabilities() {
 	supportsRectangularTextures = TestTexture(maxTextureSize, maxTextureSize >> 1, internalFormat);
 
 	// PBO is used as the first step of the direct-GPU upload architecture.
+#if defined(__APPLE__)
+	supportsPixelUnpackBuffer = false;
+#else
+	const auto &pbo = GetPboFunctions();
 	supportsPixelUnpackBuffer = HasOpenGLExtension("GL_ARB_pixel_buffer_object");
+	supportsPixelUnpackBuffer = supportsPixelUnpackBuffer && pbo.available;
+#endif
 	LOG_I("video/out/gl") << "Pixel unpack buffer support: " << (supportsPixelUnpackBuffer ? "yes" : "no");
 }
 
@@ -127,7 +167,11 @@ void VideoOutGL::ReleaseUploadPbo() {
 	if (uploadPboIds.empty())
 		return;
 
-	glDeleteBuffers(static_cast<GLsizei>(uploadPboIds.size()), uploadPboIds.data());
+#if !defined(__APPLE__)
+	const auto &pbo = GetPboFunctions();
+	if (pbo.available)
+		pbo.DeleteBuffers(static_cast<GLsizei>(uploadPboIds.size()), uploadPboIds.data());
+#endif
 	while (glGetError()) { }
 	uploadPboIds.clear();
 	uploadPboSize = 0;
@@ -143,12 +187,21 @@ void VideoOutGL::EnsureUploadPbo(size_t requiredSize) {
 
 	ReleaseUploadPbo();
 	uploadPboIds.resize(2, 0);
-	CHECK_INIT_ERROR(glGenBuffers(static_cast<GLsizei>(uploadPboIds.size()), uploadPboIds.data()));
-	for (GLuint pbo : uploadPboIds) {
-		CHECK_INIT_ERROR(glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo));
-		CHECK_INIT_ERROR(glBufferData(GL_PIXEL_UNPACK_BUFFER, static_cast<GLsizeiptr>(requiredSize), nullptr, GL_STREAM_DRAW));
+#if !defined(__APPLE__)
+	const auto &funcs = GetPboFunctions();
+	if (!funcs.available)
+		throw VideoOutInitException("Pixel unpack buffer functions are unavailable.");
+	funcs.GenBuffers(static_cast<GLsizei>(uploadPboIds.size()), uploadPboIds.data());
+	if (GLenum err = glGetError()) throw VideoOutInitException("glGenBuffers", err);
+	for (GLuint pbo_id : uploadPboIds) {
+		funcs.BindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo_id);
+		if (GLenum err = glGetError()) throw VideoOutInitException("glBindBuffer", err);
+		funcs.BufferData(GL_PIXEL_UNPACK_BUFFER, static_cast<GLsizeiptr>(requiredSize), nullptr, GL_STREAM_DRAW);
+		if (GLenum err = glGetError()) throw VideoOutInitException("glBufferData", err);
 	}
-	CHECK_INIT_ERROR(glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0));
+	funcs.BindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+	if (GLenum err = glGetError()) throw VideoOutInitException("glBindBuffer", err);
+#endif
 	uploadPboSize = requiredSize;
 	uploadPboIndex = 0;
 }
@@ -322,10 +375,16 @@ void VideoOutGL::UploadFrameData(VideoFrame const& frame) {
 	const bool use_pbo = can_use_pbo;
 	if (use_pbo) {
 		EnsureUploadPbo(frame_bytes);
-		CHECK_ERROR(glBindBuffer(GL_PIXEL_UNPACK_BUFFER, uploadPboIds[uploadPboIndex]));
+#if !defined(__APPLE__)
+		const auto &pbo = GetPboFunctions();
+		pbo.BindBuffer(GL_PIXEL_UNPACK_BUFFER, uploadPboIds[uploadPboIndex]);
+		if (GLenum err = glGetError()) throw VideoOutRenderException("glBindBuffer", err);
 		// Orphan previous storage to avoid CPU/GPU sync stalls.
-		CHECK_ERROR(glBufferData(GL_PIXEL_UNPACK_BUFFER, static_cast<GLsizeiptr>(frame_bytes), nullptr, GL_STREAM_DRAW));
-		CHECK_ERROR(glBufferSubData(GL_PIXEL_UNPACK_BUFFER, 0, static_cast<GLsizeiptr>(frame_bytes), frame.data.data()));
+		pbo.BufferData(GL_PIXEL_UNPACK_BUFFER, static_cast<GLsizeiptr>(frame_bytes), nullptr, GL_STREAM_DRAW);
+		if (GLenum err = glGetError()) throw VideoOutRenderException("glBufferData", err);
+		pbo.BufferSubData(GL_PIXEL_UNPACK_BUFFER, 0, static_cast<GLsizeiptr>(frame_bytes), frame.data.data());
+		if (GLenum err = glGetError()) throw VideoOutRenderException("glBufferSubData", err);
+#endif
 	}
 
 	if (needs_row_length)
@@ -343,7 +402,11 @@ void VideoOutGL::UploadFrameData(VideoFrame const& frame) {
 	if (needs_row_length)
 		CHECK_ERROR(glPixelStorei(GL_UNPACK_ROW_LENGTH, 0));
 	if (use_pbo) {
-		CHECK_ERROR(glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0));
+#if !defined(__APPLE__)
+		const auto &pbo = GetPboFunctions();
+		pbo.BindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+		if (GLenum err = glGetError()) throw VideoOutRenderException("glBindBuffer", err);
+#endif
 		uploadPboIndex = (uploadPboIndex + 1) % uploadPboIds.size();
 	}
 }
