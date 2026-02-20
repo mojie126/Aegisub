@@ -74,6 +74,41 @@ namespace {
 		if (changed)
 			hotkey::inst->SetHotkeyMap(std::move(hk_map));
 	}
+
+	void migrate_space_to_play_toggle_av() {
+		auto hk_map = hotkey::inst->GetHotkeyMap();
+		bool changed = false;
+
+		auto remap_space = [&](const char *source_command, const char *context) {
+			bool has_target_space = false;
+			for (auto const& hotkey : boost::make_iterator_range(hk_map.equal_range("play/toggle/av"))) {
+				if (hotkey.second.Context() == context && hotkey.second.Str() == "Space") {
+					has_target_space = true;
+					break;
+				}
+			}
+
+			for (auto it = hk_map.lower_bound(source_command); it != hk_map.upper_bound(source_command); ) {
+				if (it->second.Context() == context && it->second.Str() == "Space") {
+					if (!has_target_space) {
+						hk_map.insert({"play/toggle/av", agi::hotkey::Combo(context, "play/toggle/av", "Space")});
+						has_target_space = true;
+					}
+					it = hk_map.erase(it);
+					changed = true;
+				}
+				else {
+					++it;
+				}
+			}
+		};
+
+		remap_space("audio/play/selection", "Audio");
+		remap_space("video/play", "Video");
+
+		if (changed)
+			hotkey::inst->SetHotkeyMap(std::move(hk_map));
+	}
 }
 
 namespace hotkey {
@@ -130,6 +165,11 @@ void init() {
 		migrations.emplace_back("app/minimize");
 	}
 #endif
+
+	if (boost::find(migrations, "space -> play/toggle/av") == end(migrations)) {
+		migrate_space_to_play_toggle_av();
+		migrations.emplace_back("space -> play/toggle/av");
+	}
 
 	OPT_SET("App/Hotkey Migrations")->SetListString(std::move(migrations));
 }

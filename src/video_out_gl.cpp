@@ -255,8 +255,11 @@ void VideoOutGL::UploadFrameData(VideoFrame const& frame) {
 
 	InitTextures(frame.width, frame.height, GL_BGRA_EXT, 4, frame.flipped);
 
-	// Set the row length, needed to be able to upload partial rows
-	CHECK_ERROR(glPixelStorei(GL_UNPACK_ROW_LENGTH, frame.pitch / 4));
+	// Set row length only when pitch differs from tightly packed BGRA.
+	const int tight_pitch = static_cast<int>(frame.width) * 4;
+	const bool needs_row_length = static_cast<int>(frame.pitch) != tight_pitch;
+	if (needs_row_length)
+		CHECK_ERROR(glPixelStorei(GL_UNPACK_ROW_LENGTH, frame.pitch / 4));
 
 	for (auto& ti : textureList) {
 		CHECK_ERROR(glBindTexture(GL_TEXTURE_2D, ti.textureID));
@@ -264,7 +267,8 @@ void VideoOutGL::UploadFrameData(VideoFrame const& frame) {
 			ti.sourceH, GL_BGRA_EXT, GL_UNSIGNED_BYTE, &frame.data[ti.dataOffset]));
 	}
 
-	CHECK_ERROR(glPixelStorei(GL_UNPACK_ROW_LENGTH, 0));
+	if (needs_row_length)
+		CHECK_ERROR(glPixelStorei(GL_UNPACK_ROW_LENGTH, 0));
 }
 
 void VideoOutGL::Render(int dx1, int dy1, int dx2, int dy2) {
