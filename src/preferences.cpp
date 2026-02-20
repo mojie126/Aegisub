@@ -492,7 +492,7 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 	// 添加黑边
 	p->OptionAdd(ffms, _("Add black borders"), "Provider/Video/FFmpegSource/ABB", 0)
 		->SetToolTip(
-			_("Does not take effect when using hardware acceleration.")
+			_("Expands logical video height with black borders for script alignment/resolution. Decoded frame data is unchanged.")
 		);
 
 	// 硬件加速选项
@@ -677,6 +677,79 @@ public:
 	bool HasEditorCtrl() const override { return true; }
 };
 
+class DescriptionRenderer final : public wxDataViewCustomRenderer {
+	wxString value;
+
+public:
+	DescriptionRenderer()
+	: wxDataViewCustomRenderer("string", wxDATAVIEW_CELL_INERT)
+	{
+	}
+
+	bool SetValue(wxVariant const& var) override {
+		value = var.GetString();
+		return true;
+	}
+
+	bool Render(wxRect rect, wxDC *dc, int state) override {
+		if (value.empty())
+			return true;
+
+		const int line_height = GetTextExtent("Mg").y + 2;
+		size_t start = 0;
+		int y = rect.y;
+		while (true) {
+			size_t end = value.find('\n', start);
+			wxString line = end == wxString::npos ? value.Mid(start) : value.Mid(start, end - start);
+			if (line.empty())
+				line = " ";
+
+			wxRect line_rect(rect.x, y, rect.width, line_height);
+			RenderText(line, 0, line_rect, dc, state);
+			y += line_height;
+
+			if (end == wxString::npos || y >= rect.GetBottom())
+				break;
+			start = end + 1;
+			if (start > value.length())
+				break;
+		}
+
+		return true;
+	}
+
+	wxSize GetSize() const override {
+		if (value.empty())
+			return wxSize(80, 20);
+
+		const int line_height = GetTextExtent("Mg").y + 2;
+		int max_width = 0;
+		int lines = 0;
+		size_t start = 0;
+		while (true) {
+			size_t end = value.find('\n', start);
+			wxString line = end == wxString::npos ? value.Mid(start) : value.Mid(start, end - start);
+			if (line.empty())
+				line = " ";
+
+			wxSize line_size = GetTextExtent(line);
+			if (line_size.x > max_width)
+				max_width = line_size.x;
+			++lines;
+
+			if (end == wxString::npos)
+				break;
+			start = end + 1;
+			if (start > value.length())
+				break;
+		}
+
+		return wxSize(max_width, lines * line_height);
+	}
+
+	bool GetValue(wxVariant &) const override { return false; }
+};
+
 static void edit_item(wxDataViewCtrl *dvc, wxDataViewItem item) {
 	dvc->EditItem(item, dvc->GetColumn(0));
 }
@@ -709,7 +782,11 @@ Interface_Hotkeys::Interface_Hotkeys(wxTreebook *book, Preferences *parent)
 	quick_search->Bind(wxEVT_TEXT, &Interface_Hotkeys::OnUpdateFilter, this);
 	quick_search->Bind(wxEVT_SEARCHCTRL_CANCEL_BTN, [=](wxCommandEvent&) { quick_search->SetValue(""); });
 
-	dvc = new wxDataViewCtrl(this, -1);
+	long dvc_style = wxDV_ROW_LINES | wxDV_VERT_RULES;
+#ifdef wxDV_VARIABLE_LINE_HEIGHT
+	dvc_style |= wxDV_VARIABLE_LINE_HEIGHT;
+#endif
+	dvc = new wxDataViewCtrl(this, -1, wxDefaultPosition, wxDefaultSize, dvc_style);
 	dvc->AssociateModel(model.get());
 #ifndef __APPLE__
 	dvc->AppendColumn(new wxDataViewColumn(_("Hotkey"), new HotkeyRenderer, 0, book->FromDIP(125), wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE));
@@ -720,7 +797,7 @@ Interface_Hotkeys::Interface_Hotkeys(wxTreebook *book, Preferences *parent)
 	dvc->AppendColumn(col);
 	dvc->AppendColumn(new wxDataViewColumn("Command", new wxDataViewIconTextRenderer("wxDataViewIconText", wxDATAVIEW_CELL_EDITABLE), 1, 250, wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE));
 #endif
-	dvc->AppendTextColumn(_("Description"), 2, wxDATAVIEW_CELL_INERT, 300, wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE);
+	dvc->AppendColumn(new wxDataViewColumn(_("Description"), new DescriptionRenderer, 2, book->FromDIP(300), wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE));
 
 	wxSizer *buttons = new wxBoxSizer(wxHORIZONTAL);
 	buttons->Add(quick_search, wxSizerFlags(1).Expand().Border());
