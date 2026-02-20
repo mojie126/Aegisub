@@ -188,6 +188,10 @@ namespace {
 				);
 				if (vf) {
 					preview_ = GetImage(*vf);
+					// 为预览图添加 ABB 黑边填充，使其与 video_w_/video_h_ 一致
+					const int img_padding = (video_h_ - preview_.GetHeight()) / 2;
+					if (img_padding > 0)
+						preview_ = AddPaddingToImage(preview_, img_padding);
 					has_preview_ = true;
 				}
 			}
@@ -219,8 +223,7 @@ namespace {
 			if (range_changed && playing_) {
 				CancelDecode();
 				total_frames_ = static_cast<size_t>(end_frame_ - start_frame_ + 1);
-				decoded_count_ = 0;
-				{
+				decoded_count_ = 0; {
 					std::lock_guard<std::mutex> lock(cache_mutex_);
 					frame_cache_.clear();
 					frame_cache_.reserve(total_frames_);
@@ -249,9 +252,7 @@ namespace {
 			playing_ = true;
 			current_frame_ = 0;
 			total_frames_ = static_cast<size_t>(end_frame_ - start_frame_ + 1);
-			decoded_count_ = 0;
-
-			{
+			decoded_count_ = 0; {
 				std::lock_guard<std::mutex> lock(cache_mutex_);
 				frame_cache_.clear();
 				frame_cache_.reserve(total_frames_);
@@ -438,7 +439,7 @@ namespace {
 			if (!playing_) return;
 
 			size_t count = decoded_count_.load();
-			if (count == 0) return;  // 等待首帧解码完成
+			if (count == 0) return; // 等待首帧解码完成
 
 			{
 				std::lock_guard<std::mutex> lock(cache_mutex_);
@@ -467,6 +468,10 @@ namespace {
 				);
 				if (vf && !cancel_decode_.load()) {
 					wxImage img = GetImage(*vf);
+					// 为解码帧添加 ABB 黑边填充，保持与 video_w_/video_h_ 一致
+					int decode_padding = (video_h_ - img.GetHeight()) / 2;
+					if (decode_padding > 0)
+						img = AddPaddingToImage(img, decode_padding);
 					std::lock_guard<std::mutex> lock(cache_mutex_);
 					frame_cache_.push_back(std::move(img));
 					decoded_count_.store(frame_cache_.size());
@@ -656,12 +661,14 @@ namespace {
 		editStartFrame->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditStartFrame, this);
 		editEndFrame->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditEndFrame, this);
 		editGifQuality->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditGifQuality, this);
-		playBtn->Bind(wxEVT_TOGGLEBUTTON, [this](wxCommandEvent &) {
-			// 切换播放前同步帧范围
-			cropPanel->SetFrameRange(startFrame, endFrame);
-			cropPanel->TogglePlayback();
-			playBtn->SetLabel(cropPanel->IsPlaying() ? _("Stop Preview") : _("Loop Preview"));
-		});
+		playBtn->Bind(
+			wxEVT_TOGGLEBUTTON, [this](wxCommandEvent &) {
+				// 切换播放前同步帧范围
+				cropPanel->SetFrameRange(startFrame, endFrame);
+				cropPanel->TogglePlayback();
+				playBtn->SetLabel(cropPanel->IsPlaying() ? _("Stop Preview") : _("Loop Preview"));
+			}
+		);
 	}
 
 	void DialogJumpFrameTo::OnInitDialog(wxInitDialogEvent &) {

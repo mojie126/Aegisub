@@ -364,6 +364,12 @@ namespace {
 			return false;
 		}
 
+		// 计算 ABB 黑边填充量（provider 报告的高度与实际帧高度之差的一半）
+		const int padded_h = c->project->VideoProvider()->GetHeight();
+		const int frame_padding = (padded_h - first_img.GetHeight()) / 2;
+		if (frame_padding > 0)
+			first_img = AddPaddingToImage(first_img, frame_padding);
+
 		const int source_width = first_img.GetWidth();
 		const int source_height = first_img.GetHeight();
 
@@ -445,6 +451,9 @@ namespace {
 			}
 			else {
 				decoded_img = GetImage(*c->project->VideoProvider()->GetFrame(i, c->project->Timecodes().TimeAtFrame(i), false));
+				// 为后续帧添加与首帧相同的黑边填充
+				if (frame_padding > 0)
+					decoded_img = AddPaddingToImage(decoded_img, frame_padding);
 				img = &decoded_img;
 			}
 			if (!img->IsOk() || img->GetData() == nullptr) {
@@ -627,10 +636,19 @@ namespace {
 		}
 
 		wxImage::AddHandler(new wxJPEGHandler);
+		// 计算 ABB 黑边填充量
+		const int seq_padded_h = c->project->VideoProvider()->GetHeight();
+		int seq_frame_padding = 0;
+
 		ps->SetMessage(from_wx(agi::wxformat(_("Exporting video clips, frame: [%ld ~ %ld], total: %d, please later"), start_frame, end_frame, duration_frame)));
 		for (int i = start_frame; i <= end_frame; ++i) {
 			std::string image_filename{output_path + wxFileName::GetPathSeparator() + agi::wxformat(std::string(img_path) + "_[%ld-%ld]_%05d.jpg", start_frame, end_frame, current_frame)};
 			wxImage img = GetImage(*c->project->VideoProvider()->GetFrame(i, c->project->Timecodes().TimeAtFrame(i), true));
+			// 首帧时计算填充量，后续帧复用
+			if (i == start_frame)
+				seq_frame_padding = (seq_padded_h - img.GetHeight()) / 2;
+			if (seq_frame_padding > 0)
+				img = AddPaddingToImage(img, seq_frame_padding);
 			const bool res = img.SaveFile(image_filename, wxBITMAP_TYPE_JPEG);
 			ps->SetProgress(current_frame, duration_frame);
 			if (ps->IsCancelled()) break;

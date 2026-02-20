@@ -80,7 +80,18 @@ void Project::ReloadAudio() {
 
 void Project::ReloadVideo() {
 	if (video_provider) {
+		// 保存旧维度，用于检测 ABB 等设置变更导致的尺寸变化
+		const int old_w = video_provider->GetWidth();
+		const int old_h = video_provider->GetHeight();
 		DoLoadVideo(video_file);
+		// 视频维度变化时（如 ABB 改变），需要更新显示宽高比
+		if (video_provider && (video_provider->GetWidth() != old_w || video_provider->GetHeight() != old_h)) {
+			const double dar = video_provider->GetDAR();
+			if (dar > 0)
+				context->videoController->SetAspectRatio(dar);
+			else
+				context->videoController->SetAspectRatio(AspectRatio::Default);
+		}
 		context->videoController->JumpToFrame(context->videoController->GetFrameN());
 	}
 }
