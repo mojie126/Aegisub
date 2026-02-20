@@ -676,6 +676,14 @@ msgstr "播放选择部分音频或停止"
 msgid "Play selection, or stop playback if it's already playing"
 msgstr "播放选择部分音频，或停止回放如果已经在播放中"
 
+#: ../src/command/audio.cpp:260 ../src/command/audio.cpp:261
+msgid "Play/pause audio and video"
+msgstr "播放/暂停音频和视频"
+
+#: ../src/command/audio.cpp:262
+msgid "Toggle playback for audio and video together when video is loaded"
+msgstr "已加载视频时，同时切换音频和视频的播放状态"
+
 #: ../src/command/audio.cpp:261 ../src/command/audio.cpp:262
 msgid "Stop playing"
 msgstr "停止播放"
@@ -6899,8 +6907,8 @@ msgstr "指令"
 msgid "Add black borders"
 msgstr "添加黑边"
 
-msgid "Does not take effect when using hardware acceleration."
-msgstr "使用硬件加速时不生效。"
+msgid "Expands logical video height with black borders for script alignment/resolution. Decoded frame data is unchanged."
+msgstr "通过添加黑边扩展逻辑视频高度，用于脚本对齐/分辨率；不会修改解码后的帧数据。"
 
 msgid "Decoding the full track to ensure perfect frame accuracy. This will take a while!"
 msgstr "解码全轨道，确保完美的帧精度。这需要一段时间！"
@@ -7118,9 +7126,27 @@ msgstr ""
 "模糊缩放比例衰减（或增幅）系数。"
 "1.0=完整追踪比例，0.5=半效果。"
 
-#. 旋转（组标题）
-msgid "Rotation (\\frz)"
-msgstr "旋转 (\\frz)"
+#. 3D 通道（组标题）
+msgid "3D (\\frx, \\fry, \\frz, \\z)"
+msgstr "3D (\\frx, \\fry, \\frz, \\z)"
+
+msgid "X Rot(\\frx)"
+msgstr "X旋转(\\frx)"
+
+msgid "Y Rot(\\fry)"
+msgstr "Y旋转(\\fry)"
+
+msgid "Z Rot(\\frz)"
+msgstr "Z旋转(\\frz)"
+
+msgid "Z Pos(\\z)"
+msgstr "Z轴(\\z)"
+
+msgid "Apply X-axis rotation data to the selected lines"
+msgstr "将X轴旋转数据应用到选中行"
+
+msgid "Apply Y-axis rotation data to the selected lines"
+msgstr "将Y轴旋转数据应用到选中行"
 
 #. 旋转复选框
 msgid "&Rotation"
@@ -7128,6 +7154,9 @@ msgstr "旋转(&R)"
 
 msgid "Apply Z-axis rotation data to the selected lines"
 msgstr "将Z轴旋转数据应用到选中行"
+
+msgid "Apply Z position (depth) data to the selected lines"
+msgstr "将Z轴位置（深度）数据应用到选中行"
 
 #. 裁剪选项（组标题）
 msgid "Clip (\\clip)"
@@ -7289,12 +7318,12 @@ msgstr "将Y轴位置数据应用到clip"
 msgid "Apply scale data to clip"
 msgstr "将缩放数据应用到clip"
 
-#. clip 对话框中的旋转标签（不带快捷键前缀，区别于主对话框的 "&Rotation"）
-msgid "Rotation"
-msgstr "旋转"
+#. clip 对话框中的旋转标签
+msgid "Z Rotation"
+msgstr "Z轴旋转"
 
-msgid "Apply rotation data to clip"
-msgstr "将旋转数据应用到clip"
+msgid "Apply Z-axis rotation data to clip"
+msgstr "将Z轴旋转数据应用到clip"
 
 msgid "Clip Type:"
 msgstr "Clip类型："
