@@ -101,8 +101,17 @@ private:
 	/// 模糊回调：缩放比例 * 衰减系数
 	std::string cb_blur(const std::string& value, int frame);
 
-	/// 旋转回调：加上 zRotationDiff
-	std::string cb_rotate(const std::string& value, int frame);
+	/// X 轴旋转回调：加上 xRotationDiff
+	std::string cb_rotate_x(const std::string& value, int frame);
+
+	/// Y 轴旋转回调：加上 yRotationDiff
+	std::string cb_rotate_y(const std::string& value, int frame);
+
+	/// Z 轴旋转回调：加上 zRotationDiff
+	std::string cb_rotate_z(const std::string& value, int frame);
+
+	/// 深度回调：加上 zPositionDiff
+	std::string cb_z_position(const std::string& value, int frame);
 
 	/// 矩形 clip 回调
 	std::string cb_rect_clip(const std::string& value, int frame);

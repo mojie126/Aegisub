@@ -77,7 +77,11 @@ bool DataHandler::parse(const std::string& raw_data, int script_res_x, int scrip
 	if (length_ == 0 ||
 		static_cast<int>(x_position.size()) != length_ ||
 		static_cast<int>(y_position.size()) != length_ ||
+		static_cast<int>(z_position.size()) != length_ ||
 		static_cast<int>(x_scale.size()) != length_ ||
+		static_cast<int>(y_scale.size()) != length_ ||
+		static_cast<int>(x_rotation.size()) != length_ ||
+		static_cast<int>(y_rotation.size()) != length_ ||
 		static_cast<int>(z_rotation.size()) != length_) {
 		return false;
 	}
@@ -127,7 +131,7 @@ void DataHandler::tableize(const std::string& raw_data) {
 ///   - 以制表符或空格开头的行为数据行
 ///   - Position 段: 帧号 X Y [Z] → 缩放后存入 x_position/y_position
 ///   - Scale 段: 帧号 缩放值 → 存入 x_scale（y_scale 共享同一数组）
-///   - Rotation 段: 帧号 旋转值 → 取反后存入 z_rotation
+///   - Rotation 段: 帧号 旋转值 → 取反后存入 x/y/z_rotation
 ///     （AE 的旋转方向与 ASS 相反，需要取反）
 ///
 /// 长度以 Position 段的数据行数为准
@@ -135,11 +139,15 @@ void DataHandler::parse_sections() {
 	// 初始化数据数组
 	x_position.clear();
 	y_position.clear();
+	z_position.clear();
 	x_scale.clear();
+	y_scale.clear();
+	x_rotation.clear();
+	y_rotation.clear();
 	z_rotation.clear();
 
 	int length = 0;
-	int section = 0; // 0=无, 1=Position, 2=Scale, 3=Rotation
+	int section = 0; // 0=无, 1=Position, 2=Scale, 3=XRot, 4=YRot, 5=ZRot
 
 	for (const auto& line : raw_lines_) {
 		// 检查是否是段落标题（不以空白开头）
@@ -148,8 +156,12 @@ void DataHandler::parse_sections() {
 				section = 1;
 			} else if (line == "Scale") {
 				section = 2;
-			} else if (line == "Rotation") {
+			} else if (line == "X Rotation") {
 				section = 3;
+			} else if (line == "Y Rotation") {
+				section = 4;
+			} else if (line == "Rotation" || line == "Z Rotation") {
+				section = 5;
 			} else {
 				section = 0;
 			}
@@ -158,36 +170,65 @@ void DataHandler::parse_sections() {
 			if (section == 0) continue;
 
 			std::istringstream ss(line);
-			double value1 = 0, value2 = 0, value3 = 0;
-			if (!(ss >> value1 >> value2)) continue;
+			double ignored_frame = 0;
+			if (!(ss >> ignored_frame)) continue;
+			(void)ignored_frame;
+
+			std::vector<double> values;
+			double value = 0;
+			while (ss >> value)
+				values.push_back(value);
+
+			if (values.empty())
+				continue;
 
 			switch (section) {
 				case 1: // Position
-					if (ss >> value3) {
-						// 有第三个值（Y坐标）
-						x_position.push_back(x_pos_scale_ * value2);
-						y_position.push_back(y_pos_scale_ * value3);
-					} else {
-						// 只有两个值
-						x_position.push_back(x_pos_scale_ * value2);
-						y_position.push_back(y_pos_scale_ * 0);
-					}
+					x_position.push_back(x_pos_scale_ * values[0]);
+					y_position.push_back(y_pos_scale_ * (values.size() >= 2 ? values[1] : 0.0));
+					z_position.push_back(values.size() >= 3 ? values[2] : 0.0);
 					++length;
 					break;
 				case 2: // Scale
-					x_scale.push_back(value2);
+					x_scale.push_back(values[0]);
+					y_scale.push_back(values.size() >= 2 ? values[1] : values[0]);
 					break;
-				case 3: // Rotation
+				case 3: // X Rotation
 					// AE 导出的旋转值需要取反
-					z_rotation.push_back(-value2);
+					x_rotation.push_back(-values[0]);
+					break;
+				case 4: // Y Rotation
+					// AE 导出的旋转值需要取反
+					y_rotation.push_back(-values[0]);
+					break;
+				case 5: // Z Rotation
+					// AE 导出的旋转值需要取反
+					z_rotation.push_back(-values[0]);
 					break;
 			}
 		}
 	}
 
-	// y_scale 与 x_scale 共享（对应 MoonScript: @yScale = @xScale）
-	y_scale = x_scale;
 	length_ = length;
+
+	auto fill_to_length = [length](std::vector<double>& vec, double value) {
+		if (static_cast<int>(vec.size()) < length) {
+			vec.resize(length, value);
+		}
+	};
+
+	fill_to_length(z_position, 0.0);
+	fill_to_length(x_scale, 100.0);
+	if (static_cast<int>(y_scale.size()) < length) {
+		size_t old_size = y_scale.size();
+		y_scale.resize(length, 100.0);
+		for (size_t i = old_size; i < y_scale.size() && i < x_scale.size(); ++i) {
+			y_scale[i] = x_scale[i];
+		}
+	}
+	fill_to_length(x_rotation, 0.0);
+	fill_to_length(y_rotation, 0.0);
+	fill_to_length(z_rotation, 0.0);
 }
 
 void DataHandler::add_reference_frame(int frame) {
@@ -199,6 +240,9 @@ void DataHandler::add_reference_frame(int frame) {
 	int idx = frame - 1;
 	x_start_position = x_position[idx];
 	y_start_position = y_position[idx];
+	z_start_position = z_position[idx];
+	x_start_rotation = x_rotation[idx];
+	y_start_rotation = y_rotation[idx];
 	z_start_rotation = z_rotation[idx];
 	x_start_scale = x_scale[idx];
 	y_start_scale = y_scale[idx];
@@ -211,8 +255,12 @@ void DataHandler::calculate_current_state(int frame) {
 	int idx = frame - 1;
 	x_current_position = x_position[idx];
 	y_current_position = y_position[idx];
+	z_current_position = z_position[idx];
 	x_ratio = (x_start_scale != 0) ? x_scale[idx] / x_start_scale : 1.0;
 	y_ratio = (y_start_scale != 0) ? y_scale[idx] / y_start_scale : 1.0;
+	x_rotation_diff = x_rotation[idx] - x_start_rotation;
+	y_rotation_diff = y_rotation[idx] - y_start_rotation;
+	z_position_diff = z_position[idx] - z_start_position;
 	z_rotation_diff = z_rotation[idx] - z_start_rotation;
 }
 
@@ -225,9 +273,18 @@ void DataHandler::strip_fields(const MotionOptions& options) {
 	if (!options.y_position) {
 		std::fill(y_position.begin(), y_position.end(), y_start_position);
 	}
+	if (!options.z_position) {
+		std::fill(z_position.begin(), z_position.end(), z_start_position);
+	}
 	if (!options.x_scale) {
 		std::fill(x_scale.begin(), x_scale.end(), x_start_scale);
 		y_scale = x_scale;
+	}
+	if (!options.x_rotation) {
+		std::fill(x_rotation.begin(), x_rotation.end(), x_start_rotation);
+	}
+	if (!options.y_rotation) {
+		std::fill(y_rotation.begin(), y_rotation.end(), y_start_rotation);
 	}
 	if (!options.z_rotation) {
 		std::fill(z_rotation.begin(), z_rotation.end(), z_start_rotation);
@@ -249,8 +306,11 @@ void DataHandler::reverse_data() {
 	// 用于反向追踪场景：Mocha 从最后一帧向第一帧追踪时，导出的数据是倒序的
 	std::reverse(x_position.begin(), x_position.end());
 	std::reverse(y_position.begin(), y_position.end());
+	std::reverse(z_position.begin(), z_position.end());
 	std::reverse(x_scale.begin(), x_scale.end());
 	std::reverse(y_scale.begin(), y_scale.end());
+	std::reverse(x_rotation.begin(), x_rotation.end());
+	std::reverse(y_rotation.begin(), y_rotation.end());
 	std::reverse(z_rotation.begin(), z_rotation.end());
 }
 
