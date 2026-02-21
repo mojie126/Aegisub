@@ -34,6 +34,7 @@
 
 namespace agi { struct Context; }
 class wxTextCtrl;
+class wxToggleButton;
 
 /// @class VideoBox
 /// @brief The box containing the video display and associated controls
@@ -42,9 +43,15 @@ class VideoBox final : public wxPanel {
 	agi::Context *context;     ///< Project context
 	wxTextCtrl *VideoPosition; ///< Current frame/time
 	wxTextCtrl *VideoSubsPos;  ///< Time relative to the active subtitle line
+	wxToggleButton *hdrToggle; ///< HDR色彩映射切换按钮
+	bool hw_hdr_available_ = false; ///< 当前是否支持HDR色彩映射
 
 	/// Update VideoPosition and VideoSubsPos
 	void UpdateTimeBoxes();
+
+	/// 根据当前视频提供器状态更新HDR按钮的启用/禁用状态
+	/// 仅在使用FFmpegSource硬件解码时启用HDR切换
+	void UpdateHDRToggleState();
 
 public:
 	VideoBox(wxWindow *parent, bool isDetached, agi::Context *context);

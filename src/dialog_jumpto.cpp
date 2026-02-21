@@ -37,11 +37,13 @@
 #include "format.h"
 #include "include/aegisub/context.h"
 #include "libresrc/libresrc.h"
+#include "options.h"
 #include "project.h"
 #include "timeedit_ctrl.h"
 #include "validators.h"
 #include "video_controller.h"
 #include "video_frame.h"
+#include "video_out_gl.h"
 
 #include <libaegisub/ass/time.h>
 
@@ -174,7 +176,8 @@ namespace {
 		CropSelectionPanel(wxWindow *parent, agi::Context *c, wxWindowID id = wxID_ANY)
 			: wxPanel(parent, id, wxDefaultPosition, wxSize(-1, -1), wxFULL_REPAINT_ON_RESIZE)
 			, ctx_(c)
-			, timer_(this) {
+			, timer_(this)
+			, hdr_sub_(OPT_SUB("Video/HDR/Tone Mapping", &CropSelectionPanel::OnHDROptionChanged, this)) {
 			wxWindowBase::SetBackgroundStyle(wxBG_STYLE_PAINT);
 
 			// 获取当前视频帧作为预览
@@ -192,6 +195,11 @@ namespace {
 					const int img_padding = (video_h_ - preview_.GetHeight()) / 2;
 					if (img_padding > 0)
 						preview_ = AddPaddingToImage(preview_, img_padding);
+					// 保存原始帧数据（未应用HDR），用于HDR选项切换时重新派生
+					raw_preview_ = preview_.Copy();
+					// 启用HDR时对预览帧应用色调映射
+					if (OPT_GET("Video/HDR/Tone Mapping")->GetBool())
+						VideoOutGL::ApplyHDRLutToImage(preview_);
 					has_preview_ = true;
 				}
 			}
@@ -460,6 +468,7 @@ namespace {
 
 		/// 后台线程：预解码帧范围内所有帧到缓存
 		void DecodeFrames() {
+			const bool hdr_enabled = OPT_GET("Video/HDR/Tone Mapping")->GetBool();
 			for (size_t i = 0; i < total_frames_ && !cancel_decode_.load(); ++i) {
 				long frame = start_frame_ + static_cast<long>(i);
 				auto vf = ctx_->project->VideoProvider()->GetFrame(
@@ -472,6 +481,9 @@ namespace {
 					int decode_padding = (video_h_ - img.GetHeight()) / 2;
 					if (decode_padding > 0)
 						img = AddPaddingToImage(img, decode_padding);
+					// 启用HDR时对解码帧应用色调映射
+					if (hdr_enabled)
+						VideoOutGL::ApplyHDRLutToImage(img);
 					std::lock_guard<std::mutex> lock(cache_mutex_);
 					frame_cache_.push_back(std::move(img));
 					decoded_count_.store(frame_cache_.size());
@@ -511,6 +523,34 @@ namespace {
 		std::mutex cache_mutex_;
 		std::atomic<size_t> decoded_count_{0};
 		size_t total_frames_ = 0;
+
+		/// HDR选项监听
+		wxImage raw_preview_;            ///< 未应用HDR的原始预览帧
+		agi::signal::Connection hdr_sub_; ///< HDR选项变化订阅
+
+		/// HDR选项变化回调：重新派生预览帧并刷新播放缓存
+		void OnHDROptionChanged(agi::OptionValue const& opt) {
+			const bool hdr_on = opt.GetBool();
+			// 非播放状态时：从原始帧重新派生预览
+			if (!playing_ && has_preview_ && raw_preview_.IsOk()) {
+				preview_ = raw_preview_.Copy();
+				if (hdr_on)
+					VideoOutGL::ApplyHDRLutToImage(preview_);
+				Refresh();
+			}
+			// 播放状态时：重新解码以应用/移除HDR
+			if (playing_) {
+				CancelDecode();
+				current_frame_ = 0;
+				decoded_count_ = 0; {
+					std::lock_guard<std::mutex> lock(cache_mutex_);
+					frame_cache_.clear();
+					frame_cache_.reserve(total_frames_);
+				}
+				cancel_decode_ = false;
+				decode_thread_ = std::thread(&CropSelectionPanel::DecodeFrames, this);
+			}
+		}
 	};
 
 	struct DialogJumpFrameTo {

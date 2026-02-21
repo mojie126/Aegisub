@@ -51,6 +51,7 @@
 #include "../video_controller.h"
 #include "../video_display.h"
 #include "../video_frame.h"
+#include "../video_out_gl.h"
 #include "../gifski/inc/gifski.h"
 
 #include <libaegisub/ass/time.h>
@@ -332,11 +333,17 @@ namespace {
 
 	wxImage get_image(agi::Context *c, bool raw, bool subsonly = false) {
 		auto frame = c->videoController->GetFrameN();
+		wxImage img;
 		if (subsonly) {
-			return GetImageWithAlpha(c->project->VideoProvider()->GetSubtitles(c->project->Timecodes().TimeAtFrame(frame)));
+			img = GetImageWithAlpha(c->project->VideoProvider()->GetSubtitles(c->project->Timecodes().TimeAtFrame(frame)));
 		} else {
-			return GetImage(*c->project->VideoProvider()->GetFrame(frame, c->project->Timecodes().TimeAtFrame(frame), raw));
+			img = GetImage(*c->project->VideoProvider()->GetFrame(frame, c->project->Timecodes().TimeAtFrame(frame), raw));
 		}
+		// 如果HDR色彩映射已启用，对导出图像应用CPU侧LUT色彩映射
+		if (OPT_GET("Video/HDR/Tone Mapping")->GetBool() && !subsonly) {
+			VideoOutGL::ApplyHDRLutToImage(img);
+		}
+		return img;
 	}
 
 	// gifski write callback：将数据写入 FILE*
@@ -363,6 +370,11 @@ namespace {
 			wxLogError("Failed to decode first frame for GIF export");
 			return false;
 		}
+
+		// 如果HDR色彩映射已启用，对GIF导出帧应用CPU侧LUT色彩映射
+		const bool gif_hdr_enabled = OPT_GET("Video/HDR/Tone Mapping")->GetBool();
+		if (gif_hdr_enabled)
+			VideoOutGL::ApplyHDRLutToImage(first_img);
 
 		// 计算 ABB 黑边填充量（provider 报告的高度与实际帧高度之差的一半）
 		const int padded_h = c->project->VideoProvider()->GetHeight();
@@ -451,6 +463,9 @@ namespace {
 			}
 			else {
 				decoded_img = GetImage(*c->project->VideoProvider()->GetFrame(i, c->project->Timecodes().TimeAtFrame(i), false));
+				// 如果HDR色彩映射已启用，对后续帧也应用LUT
+				if (gif_hdr_enabled)
+					VideoOutGL::ApplyHDRLutToImage(decoded_img);
 				// 为后续帧添加与首帧相同的黑边填充
 				if (frame_padding > 0)
 					decoded_img = AddPaddingToImage(decoded_img, frame_padding);
@@ -639,11 +654,15 @@ namespace {
 		// 计算 ABB 黑边填充量
 		const int seq_padded_h = c->project->VideoProvider()->GetHeight();
 		int seq_frame_padding = 0;
+		// 如果HDR色彩映射已启用，对图片序列导出帧应用CPU侧LUT色彩映射
+		const bool seq_hdr_enabled = OPT_GET("Video/HDR/Tone Mapping")->GetBool();
 
 		ps->SetMessage(from_wx(agi::wxformat(_("Exporting video clips, frame: [%ld ~ %ld], total: %d, please later"), start_frame, end_frame, duration_frame)));
 		for (int i = start_frame; i <= end_frame; ++i) {
 			std::string image_filename{output_path + wxFileName::GetPathSeparator() + agi::wxformat(std::string(img_path) + "_[%ld-%ld]_%05d.jpg", start_frame, end_frame, current_frame)};
 			wxImage img = GetImage(*c->project->VideoProvider()->GetFrame(i, c->project->Timecodes().TimeAtFrame(i), true));
+			if (seq_hdr_enabled)
+				VideoOutGL::ApplyHDRLutToImage(img);
 			// 首帧时计算填充量，后续帧复用
 			if (i == start_frame)
 				seq_frame_padding = (seq_padded_h - img.GetHeight()) / 2;
