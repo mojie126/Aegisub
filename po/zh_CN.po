@@ -7319,11 +7319,11 @@ msgid "Apply scale data to clip"
 msgstr "将缩放数据应用到clip"
 
 #. clip 对话框中的旋转标签
-msgid "Z Rotation"
-msgstr "Z轴旋转"
+msgid "Clip Rotation (Z-axis)"
+msgstr "Clip旋转（Z轴）"
 
-msgid "Apply Z-axis rotation data to clip"
-msgstr "将Z轴旋转数据应用到clip"
+msgid "Apply Z-axis rotation data to clip (2D plane rotation only)"
+msgstr "将Z轴旋转数据应用到clip（仅限2D平面旋转）"
 
 msgid "Clip Type:"
 msgstr "Clip类型："
@@ -7534,9 +7534,18 @@ msgid "SRS (Shake Rotoshape) data does not contain rotation or depth information
 msgstr "SRS (Shake Rotoshape) 数据不包含旋转或深度信息。3D相关选项（X/Y/Z旋转、Z位置）将不会生效。"
 
 #. motion_dialog.cpp - clip 对话框 SRS Z旋转警告
-msgid "SRS (Shake Rotoshape) clip data does not contain rotation information. The Z Rotation option for clip will have no effect."
-msgstr "SRS (Shake Rotoshape) clip数据不包含旋转信息。clip的Z旋转选项将不会生效。"
+msgid "SRS (Shake Rotoshape) clip data does not contain rotation information. The Clip Rotation option will have no effect."
+msgstr "SRS (Shake Rotoshape) clip数据不包含旋转信息。Clip旋转选项将不会生效。"
 
 #. motion_dialog.cpp - clip 对话框 SRS 矩形clip警告
 msgid "SRS (Shake Rotoshape) data only supports vector clip. Rectangular clip option will have no effect."
 msgstr "SRS (Shake Rotoshape) 数据仅支持矢量clip。矩形clip选项将不会生效。"
+
+#. video_box.cpp - HDR色彩映射开关提示
+msgid "Enable HDR to SDR tone mapping (PQ EOTF inverse). Note: This provides approximate HDR color representation, not true HDR display."
+msgstr "启用HDR到SDR色调映射(PQ EOTF逆变换)。注意:这仅提供近似的HDR色彩表现，而非真正的HDR显示。"
+
+#. video_box.cpp - HDR不可用时的提示
+msgid "HDR tone mapping unavailable. Requires hardware decoding (FFmpegSource) or VapourSynth video provider."
+msgstr "HDR色调映射不可用。需要开启硬件解码(FFmpegSource)或使用VapourSynth视频源。"
+
