@@ -26,6 +26,9 @@ struct VideoFrame {
 	size_t height;
 	size_t pitch;
 	bool flipped;
+	bool hflipped = false;   // GPU水平翻转标志，由视频提供者设置，渲染时glOrtho投影变换处理
+	int rotation = 0;        // GPU旋转角度(0/90/270)，由视频提供者设置，渲染时FBO后处理
+	int padding = 0;         // GPU黑边上下各padding行像素，由视频提供者设置，GPU侧渲染处理
 };
 
 wxImage GetImage(VideoFrame const& frame);

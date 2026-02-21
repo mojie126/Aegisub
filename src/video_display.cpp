@@ -54,6 +54,7 @@
 #include <libaegisub/make_unique.h>
 
 #include <algorithm>
+#include <cctype>
 #include <limits>
 #include <wx/combobox.h>
 #include <wx/menu.h>
@@ -205,6 +206,14 @@ void VideoDisplay::Render() try {
 
 	if (!viewport_height || !viewport_width)
 		PositionVideo();
+
+	std::string color_space = con->project->VideoProvider()->GetColorSpace();
+	std::string color_space_lower = color_space;
+	std::transform(color_space_lower.begin(), color_space_lower.end(), color_space_lower.begin(),
+		[](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+	const bool likely_hdr = color_space_lower.find("2020") != std::string::npos ||
+		color_space_lower.find("bt2020") != std::string::npos;
+	videoOut->SetHDRInputHint(likely_hdr);
 
 	videoOut->Render(viewport_left, viewport_bottom, viewport_width, viewport_height);
 
@@ -491,6 +500,13 @@ void VideoDisplay::SetVideoZoom(int step) {
 
 	videoZoomValue = newVideoZoom;
 	UpdateSize();
+}
+
+void VideoDisplay::SetHDRMapping(bool enable) {
+	if (!videoOut)
+		videoOut = agi::make_unique<VideoOutGL>();
+	videoOut->EnableHDRToneMapping(enable);
+	Render();
 }
 
 void VideoDisplay::SetZoomFromBox(wxCommandEvent &) {

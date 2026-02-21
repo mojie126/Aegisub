@@ -173,6 +173,10 @@ public:
 	/// @brief Get the current zoom level
 	double GetZoom() const { return windowZoomValue; }
 
+	/// @brief Enable/Disable HDR to SDR tone mapping
+	/// @param enable Whether to enable HDR tone mapping
+	void SetHDRMapping(bool enable);
+
 	/// @brief Reset the video pan
 	void ResetPan();
 

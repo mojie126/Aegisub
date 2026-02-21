@@ -337,76 +337,39 @@ void FFmpegSourceVideoProvider::GetFrame(int n, VideoFrame &out) {
 		}
 	}
 	out.flipped = false;
+	out.hflipped = false;
+	out.rotation = 0;
 	out.width = Width;
 	out.height = Height;
 	out.pitch = row_bytes;
 #if FFMS_VERSION >= ((2 << 24) | (31 << 16) | (0 << 8) | 0)
-	// Handle flip
+	// GPU翻转：通过标志位传递到渲染阶段，由glOrtho投影变换处理，避免CPU逐像素交换
 	if (VideoInfo->Flip > 0)
-		for (int x = 0; x < Height; ++x)
-			for (int y = 0; y < Width / 2; ++y)
-				for (int ch = 0; ch < 4; ++ch)
-					std::swap(out.data[out.pitch * x + 4 * y + ch], out.data[out.pitch * x + 4 * (Width - 1 - y) + ch]);
-
+		out.hflipped = true;
 	else if (VideoInfo->Flip < 0)
-		for (int x = 0; x < Height / 2; ++x)
-			for (int y = 0; y < Width; ++y)
-				for (int ch = 0; ch < 4; ++ch)
-					std::swap(out.data[out.pitch * x + 4 * y + ch], out.data[out.pitch * (Height - 1 - x) + 4 * y + ch]);
+		out.flipped = true;
 #endif
 #if FFMS_VERSION >= ((2 << 24) | (24 << 16) | (0 << 8) | 0)
-	// Handle rotation
-	if (VideoInfo->Rotation % 360 == 180 || VideoInfo->Rotation % 360 == -180) {
-		const size_t src_row_pitch = out.pitch;
-		std::vector<unsigned char> data(std::move(out.data));
-		out.data.resize(Width * Height * 4);
-		for (int x = 0; x < Height; ++x)
-			for (int y = 0; y < Width; ++y)
-				for (int ch = 0; ch < 4; ++ch)
-					out.data[4 * (Width * x + y) + ch] = data[src_row_pitch * (Height - 1 - x) + 4 * (Width - 1 - y) + ch];
-		out.pitch = 4 * Width;
-	}
-	else if (VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 360 == -270) {
-		const size_t src_row_pitch = out.pitch;
-		std::vector<unsigned char> data(std::move(out.data));
-		out.data.resize(Width * Height * 4);
-		for (int x = 0; x < Width; ++x)
-			for (int y = 0; y < Height; ++y)
-				for (int ch = 0; ch < 4; ++ch)
-					out.data[4 * (Height * x + y) + ch] = data[src_row_pitch * y + 4 * (Width - 1 - x) + ch];
-		out.width = Height;
-		out.height = Width;
-		out.pitch = 4 * Height;
-	}
-	else if (VideoInfo->Rotation % 180 == 270 || VideoInfo->Rotation % 360 == -90) {
-		const size_t src_row_pitch = out.pitch;
-		std::vector<unsigned char> data(std::move(out.data));
-		out.data.resize(Width * Height * 4);
-		for (int x = 0; x < Width; ++x)
-			for (int y = 0; y < Height; ++y)
-				for (int ch = 0; ch < 4; ++ch)
-					out.data[4 * (Height * x + y) + ch] = data[src_row_pitch * (Height - 1 - y) + 4 * x + ch];
-		out.width = Height;
-		out.height = Width;
-		out.pitch = 4 * Height;
+	{
+		// GPU旋转：通过标志位传递到渲染阶段，由FBO后处理或glOrtho投影处理
+		int rot = VideoInfo->Rotation % 360;
+		if (rot < 0) rot += 360;
+		if (rot == 180) {
+			// 180°旋转等价于水平+垂直翻转的组合
+			out.hflipped = !out.hflipped;
+			out.flipped = !out.flipped;
+		} else if (rot == 90 || rot == 270) {
+			out.rotation = rot;
+			// 90/270°旋转不在CPU端交换宽高，保持原始数据维度
+			// GetWidth/GetHeight已提供旋转后的显示维度给viewport计算
+		}
 	}
 #endif
 
-	// 在帧数据中嵌入ABB黑边行，使帧尺寸与 GetWidth()/GetHeight() 一致
-	if (Padding > 0) {
-		const size_t final_pitch = out.pitch;
-		const int final_h = out.height;
-		const int padded_h = final_h + Padding * 2;
-		const size_t padded_bytes = final_pitch * static_cast<size_t>(padded_h);
-
-		std::vector<unsigned char> padded_data(padded_bytes, 0);
-		const size_t offset = static_cast<size_t>(Padding) * final_pitch;
-		std::memcpy(padded_data.data() + offset, out.data.data(),
-			final_pitch * static_cast<size_t>(final_h));
-
-		out.data = std::move(padded_data);
-		out.height = padded_h;
-	}
+	// GPU黑边（ABB）处理：不再CPU嵌入黑边数据，只在GPU侧通过glViewport和glClear渲染
+	// 这样避免CPU memcpy，始终走硬解GPU直通路径
+	out.padding = Padding;
+	// 注意：out.width、out.height保持原内容尺寸，GPU侧Render()会根据padding调整viewport绘制黑边
 }
 }
 
