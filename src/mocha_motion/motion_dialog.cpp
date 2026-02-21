@@ -841,14 +841,13 @@ namespace mocha {
 			auto *chk_cs = new wxCheckBox(&clip_dlg, wxID_ANY, _("Scale"));
 			chk_cs->SetValue(clip_options_.x_scale);
 			chk_cs->SetToolTip(_("Apply scale data to clip"));
-
-			auto *chk_cr = new wxCheckBox(&clip_dlg, wxID_ANY, _("Z Rotation"));
-			chk_cr->SetValue(clip_options_.z_rotation);
-			chk_cr->SetToolTip(_("Apply Z-axis rotation data to clip"));
-
 			opt_sizer->Add(chk_cx, 0, wxALL, inner_pad);
 			opt_sizer->Add(chk_cy, 0, wxALL, inner_pad);
 			opt_sizer->Add(chk_cs, 0, wxALL, inner_pad);
+
+			auto *chk_cr = new wxCheckBox(&clip_dlg, wxID_ANY, _("Clip Rotation (Z-axis)"));
+			chk_cr->SetValue(clip_options_.z_rotation);
+			chk_cr->SetToolTip(_("Apply Z-axis rotation data to clip (2D plane rotation only)"));
 			opt_sizer->Add(chk_cr, 0, wxALL, inner_pad);
 
 			// clip 类型选项
@@ -1080,7 +1079,7 @@ namespace mocha {
 								wxMessageBox(
 									_(
 										"SRS (Shake Rotoshape) clip data does not contain rotation information. "
-										"The Z Rotation option for clip will have no effect."
+										"The Clip Rotation option will have no effect."
 									),
 									_("Warning"), wxICON_WARNING
 								);
