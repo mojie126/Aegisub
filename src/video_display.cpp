@@ -207,13 +207,10 @@ void VideoDisplay::Render() try {
 	if (!viewport_height || !viewport_width)
 		PositionVideo();
 
-	std::string color_space = con->project->VideoProvider()->GetColorSpace();
-	std::string color_space_lower = color_space;
-	std::transform(color_space_lower.begin(), color_space_lower.end(), color_space_lower.begin(),
-		[](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-	const bool likely_hdr = color_space_lower.find("2020") != std::string::npos ||
-		color_space_lower.find("bt2020") != std::string::npos;
-	videoOut->SetHDRInputHint(likely_hdr);
+	// 基于视频源的传输特性和元数据检测HDR类型，替代原字符串匹配方式
+	const HDRType hdr_type = con->project->VideoProvider()->GetHDRType();
+	const bool likely_hdr = (hdr_type != HDRType::SDR);
+	videoOut->SetHDRInputHint(likely_hdr, hdr_type);
 
 	videoOut->Render(viewport_left, viewport_bottom, viewport_width, viewport_height);
 

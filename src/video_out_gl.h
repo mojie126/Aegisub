@@ -23,6 +23,9 @@
 
 #include <vector>
 
+// 前向声明HDRType枚举（定义在video_provider.h中）
+enum class HDRType : int;
+
 struct VideoFrame;
 class wxImage;
 
@@ -60,6 +63,8 @@ class VideoOutGL {
 	bool hdrToneMappingEnabled = false;
 	/// Whether current source is likely HDR (used to avoid applying PQ LUT on SDR)
 	bool hdrInputLikelyHdr = false;
+	/// 当前视频源的HDR类型（SDR/PQ/HLG/DolbyVision），用于选择对应LUT文件
+	int hdrInputType = 0;
 	/// HDR LUT 3D texture ID (for tone mapping)
 	GLuint hdrLutTextureID = 0;
 	/// HDR LUT 3D size
@@ -142,14 +147,26 @@ public:
 
 	/// @brief 对wxImage应用CPU侧HDR LUT色彩映射（用于截图/导出路径）
 	/// @param img 输入输出图像，原地修改RGB像素
+	/// @param type HDR类型，决定使用哪个LUT文件（PQ2SDR或DV2SDR）
 	/// @return 是否成功应用了LUT色彩映射
 	/// @details 使用三线性插值从3D LUT查表，将PQ编码的HDR像素映射到SDR色彩空间。
 	///          如果LUT未加载或不可用，返回false且图像不变。
-	static bool ApplyHDRLutToImage(wxImage& img);
+	static bool ApplyHDRLutToImage(wxImage& img, HDRType type);
 
-	/// @brief Set whether current input appears to be HDR source
+	/// @brief 根据HDR类型返回LUT文件名
+	/// @param type HDR类型
+	/// @return 对应的cube文件名（如PQ2SDR.cube）
+	static std::string GetLutFilename(HDRType type);
+
+	/// @brief 查找cube LUT文件的完整路径
+	/// @param filename cube文件名（如PQ2SDR.cube）
+	/// @return 找到的文件完整路径，未找到时返回空字符串
+	static std::string FindCubeLutPath(const std::string &filename);
+
+	/// @brief Set whether current input appears to be HDR source and its type
 	/// @param isHdr True when source colorspace suggests BT.2020/HDR workflow
-	void SetHDRInputHint(bool isHdr) { hdrInputLikelyHdr = isHdr; }
+	/// @param type HDR type detected from video metadata
+	void SetHDRInputHint(bool isHdr, HDRType type);
 
 	VideoOutGL();
 	~VideoOutGL();

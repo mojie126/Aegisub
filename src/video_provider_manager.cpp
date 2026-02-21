@@ -56,6 +56,10 @@ std::string colormatrix_description(int cs, int cr) {
 			return str + ".601";
 		case AGI_CS_SMPTE240M:
 			return str + ".240M";
+		case AGI_CS_BT2020_NCL:
+			return str + ".2020ncl";
+		case AGI_CS_BT2020_CL:
+			return str + ".2020cl";
 		default:
 			return "";
 	}
@@ -82,6 +86,10 @@ std::pair<int, int> parse_colormatrix(std::string matrix) {
 			cs = AGI_CS_FCC;
 		} else if (parts[1] == "240M") {
 			cs = AGI_CS_SMPTE240M;
+		} else if (parts[1] == "2020ncl") {
+			cs = AGI_CS_BT2020_NCL;
+		} else if (parts[1] == "2020cl") {
+			cs = AGI_CS_BT2020_CL;
 		}
 	}
 

@@ -41,6 +41,7 @@
 #include "video_frame.h"
 
 #include <libaegisub/fs.h>
+#include <libaegisub/log.h>
 #include <libaegisub/make_unique.h>
 
 #include <cstring>
@@ -57,6 +58,10 @@ class FFmpegSourceVideoProvider final : public VideoProvider, FFmpegSourceProvid
 	int Height = -1;                ///< height in pixels
 	int VideoCS = -1;               ///< Reported colorspace of first frame (or guessed if unspecified)
 	int VideoCR = -1;               ///< Reported colorrange of first frame (or guessed if unspecified)
+	int VideoTransfer = -1;         ///< 传输特性（PQ=16, HLG=18等，对应AVColorTransferCharacteristic）
+	int VideoColorPrimaries = -1;   ///< 色域原色（BT.2020=9，对应AVColorPrimaries）
+	bool hasDolbyVision = false;    ///< 是否检测到Dolby Vision（帧级RPU或流级DOVI_CONF）
+	bool hasFrameLevelRPU = false;  ///< 首帧是否包含帧级Dolby Vision RPU元数据
 	double DAR;                     ///< display aspect ratio
 	std::vector<int> KeyFramesList; ///< list of keyframes
 	agi::vfr::Framerate Timecodes;  ///< vfr object
@@ -128,6 +133,20 @@ public:
 	std::string GetDecoderName() const override    { return "FFmpegSource"; }
 	bool WantsCaching() const override             { return true; }
 	bool HasAudio() const override                 { return has_audio; }
+	bool IsHWDecoding() const override {
+		auto hw_name = OPT_GET("Provider/Video/FFmpegSource/HW hw_name")->GetString();
+		return !hw_name.empty() && hw_name != "none";
+	}
+	HDRType GetHDRType() const override {
+		// 帧级RPU存在 → 返回DolbyVision（可使用DV专用LUT）
+		if (hasFrameLevelRPU) return HDRType::DolbyVision;
+		// 流级DOVI_CONF存在但无帧级RPU → 仍视为DolbyVision，使用DV2SDR.cube
+		if (hasDolbyVision) return HDRType::DolbyVision;
+		// 检测传输特性：PQ (SMPTE ST 2084) = 16, HLG (ARIB STD-B67) = 18
+		if (VideoTransfer == 16) return HDRType::PQ;
+		if (VideoTransfer == 18) return HDRType::HLG;
+		return HDRType::SDR;
+	}
 };
 
 FFmpegSourceVideoProvider::FFmpegSourceVideoProvider(agi::fs::path const& filename, std::string const& colormatrix, agi::BackgroundRunner *br) try
@@ -255,6 +274,49 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 
 	VideoCS = TempFrame->ColorSpace;
 	VideoCR = TempFrame->ColorRange;
+	VideoTransfer = TempFrame->TransferCharateristics;
+	VideoColorPrimaries = TempFrame->ColorPrimaries;
+	hasFrameLevelRPU = (TempFrame->DolbyVisionRPUSize > 0);
+	hasDolbyVision = hasFrameLevelRPU;
+
+	// 硬件解码时帧级色彩属性可能为 UNSPECIFIED，从流参数回退
+	if ((VideoTransfer <= 0 || VideoTransfer == 2 /*AVCOL_TRC_UNSPECIFIED*/)
+		&& VideoInfo->StreamTransferCharacteristics > 0
+		&& VideoInfo->StreamTransferCharacteristics != 2)
+		VideoTransfer = VideoInfo->StreamTransferCharacteristics;
+	if ((VideoCS <= 0 || VideoCS == 2 /*AVCOL_SPC_UNSPECIFIED*/)
+		&& VideoInfo->StreamColorSpace > 0
+		&& VideoInfo->StreamColorSpace != 2)
+		VideoCS = VideoInfo->StreamColorSpace;
+	if ((VideoColorPrimaries <= 0 || VideoColorPrimaries == 2 /*AVCOL_PRI_UNSPECIFIED*/)
+		&& VideoInfo->StreamColorPrimaries > 0
+		&& VideoInfo->StreamColorPrimaries != 2)
+		VideoColorPrimaries = VideoInfo->StreamColorPrimaries;
+
+	// 流级别 Dolby Vision 配置记录检测（帧级 RPU 在硬件解码时可能缺失）
+	if (!hasDolbyVision && VideoInfo->HasDolbyVision)
+		hasDolbyVision = true;
+
+	LOG_D("provider/video/ffms") << "HDR detection: TransferCharateristics=" << VideoTransfer
+		<< " ColorSpace=" << VideoCS << " ColorRange=" << VideoCR
+		<< " ColorPrimaries=" << VideoColorPrimaries
+		<< " FrameColorPrimaries=" << TempFrame->ColorPrimaries
+		<< " DolbyVisionRPUSize=" << TempFrame->DolbyVisionRPUSize
+		<< " hasDolbyVision=" << hasDolbyVision
+		<< " hasFrameLevelRPU=" << hasFrameLevelRPU
+		<< " StreamTransfer=" << VideoInfo->StreamTransferCharacteristics
+		<< " StreamColorSpace=" << VideoInfo->StreamColorSpace
+		<< " StreamColorPrimaries=" << VideoInfo->StreamColorPrimaries
+		<< " HasDV=" << VideoInfo->HasDolbyVision
+		<< " DVProfile=" << VideoInfo->DolbyVisionProfile;
+
+	// 从 FFMS_VideoProperties 获取 HDR 元数据辅助检测
+	LOG_D("provider/video/ffms") << "VideoProperties: HasMasteringDisplayPrimaries=" << VideoInfo->HasMasteringDisplayPrimaries
+		<< " HasMasteringDisplayLuminance=" << VideoInfo->HasMasteringDisplayLuminance
+		<< " HasContentLightLevel=" << VideoInfo->HasContentLightLevel
+		<< " MaxLuminance=" << VideoInfo->MasteringDisplayMaxLuminance
+		<< " ContentLightLevelMax=" << VideoInfo->ContentLightLevelMax;
+
 	ColorMatrix::guess_colorspace(VideoCS, VideoCR, Width, Height);
 
 	SetColorSpace(colormatrix);

@@ -198,8 +198,10 @@ namespace {
 					// 保存原始帧数据（未应用HDR），用于HDR选项切换时重新派生
 					raw_preview_ = preview_.Copy();
 					// 启用HDR时对预览帧应用色调映射
-					if (OPT_GET("Video/HDR/Tone Mapping")->GetBool())
-						VideoOutGL::ApplyHDRLutToImage(preview_);
+					if (OPT_GET("Video/HDR/Tone Mapping")->GetBool()) {
+						const HDRType preview_hdr_type = ctx_->project->VideoProvider()->GetHDRType();
+						VideoOutGL::ApplyHDRLutToImage(preview_, preview_hdr_type);
+					}
 					has_preview_ = true;
 				}
 			}
@@ -482,8 +484,10 @@ namespace {
 					if (decode_padding > 0)
 						img = AddPaddingToImage(img, decode_padding);
 					// 启用HDR时对解码帧应用色调映射
-					if (hdr_enabled)
-						VideoOutGL::ApplyHDRLutToImage(img);
+					if (hdr_enabled) {
+						const HDRType decode_hdr_type = ctx_->project->VideoProvider()->GetHDRType();
+						VideoOutGL::ApplyHDRLutToImage(img, decode_hdr_type);
+					}
 					std::lock_guard<std::mutex> lock(cache_mutex_);
 					frame_cache_.push_back(std::move(img));
 					decoded_count_.store(frame_cache_.size());
@@ -534,8 +538,10 @@ namespace {
 			// 非播放状态时：从原始帧重新派生预览
 			if (!playing_ && has_preview_ && raw_preview_.IsOk()) {
 				preview_ = raw_preview_.Copy();
-				if (hdr_on)
-					VideoOutGL::ApplyHDRLutToImage(preview_);
+				if (hdr_on) {
+					const HDRType refresh_hdr_type = ctx_->project->VideoProvider()->GetHDRType();
+					VideoOutGL::ApplyHDRLutToImage(preview_, refresh_hdr_type);
+				}
 				Refresh();
 			}
 			// 播放状态时：重新解码以应用/移除HDR

@@ -204,7 +204,14 @@ def wrap_lwlibavsource(filename: str, padding: str, cachedir: str | None = None,
     clip = core.std.AddBorders(clip, left=0, right=0, top=padding, bottom=padding)
 
     progress_set_message("Getting timecodes and keyframes from the index file")
-    return clip, info_from_lwindex(cachefile)
+    result = info_from_lwindex(cachefile)
+
+    # 向Aegisub报告硬件解码状态（基于prefer_hw参数）
+    # prefer_hw: 0=禁用, 1=d3d11va, 2=dxva2, 3=自动
+    hw_requested = kwargs.get("prefer_hw", 3)
+    result["hw_decode"] = 1 if hw_requested > 0 else 0
+
+    return clip, result
 
 
 def make_keyframes(clip: vs.VideoNode, use_scxvid: bool = False,

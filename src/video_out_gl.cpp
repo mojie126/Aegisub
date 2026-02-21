@@ -29,6 +29,7 @@
 #include <vector>
 
 #include <libaegisub/log.h>
+#include <libaegisub/fs.h>
 
 // These must be included before local headers.
 #ifdef __APPLE__
@@ -45,13 +46,23 @@
 #endif
 
 #include "video_out_gl.h"
+#include "include/aegisub/video_provider.h"
 #include "cube/lut.hpp"
+#include "options.h"
 #include "utils.h"
 
+#include <libaegisub/path.h>
 #include <wx/image.h>
 #include "video_frame.h"
 
 namespace {
+
+/// 获取当前CPU侧缓存的LUT类型（与GetCpuCubeLut配对使用）
+static HDRType &GetCpuCubeLutType() {
+	static HDRType type = HDRType::SDR;
+	return type;
+}
+
 template<typename Exception>
 BOOST_NOINLINE void throw_error(GLenum err, const char *msg) {
 	LOG_E("video/out/gl") << msg << " failed with error code " << err;
@@ -240,6 +251,36 @@ static std::unique_ptr<octoon::image::flut> &GetCpuCubeLut() {
 	return cpu_lut;
 }
 
+std::string VideoOutGL::GetLutFilename(HDRType type) {
+	switch (type) {
+		case HDRType::DolbyVision: return "DV2SDR.cube";
+		case HDRType::HLG:        return "HLG2SDR.cube";
+		case HDRType::PQ:
+		default:                   return "PQ2SDR.cube";
+	}
+}
+
+std::string VideoOutGL::FindCubeLutPath(const std::string &filename) {
+	// 优先从?data/cube/路径查找（安装版和便携版均可用）
+	if (config::path) {
+		auto data_path = config::path->Decode("?data/cube/" + filename);
+		if (agi::fs::FileExists(data_path))
+			return data_path.string();
+	}
+	// 开发环境回退路径
+	std::vector<std::string> fallback_paths = {
+		"data/cube/" + filename,
+		"src/cube/" + filename,
+		"../src/cube/" + filename,
+		"../../src/cube/" + filename
+	};
+	for (const auto& p : fallback_paths) {
+		std::ifstream f(p);
+		if (f.good()) return p;
+	}
+	return "";
+}
+
 VideoOutGL::VideoOutGL() { }
 
 void VideoOutGL::EnableHDRToneMapping(bool enable) {
@@ -250,6 +291,19 @@ void VideoOutGL::EnableHDRToneMapping(bool enable) {
 
 	// 先设置标志，GL资源在Render()中延迟初始化（此时GL上下文保证激活）
 	hdrToneMappingEnabled = true;
+}
+
+void VideoOutGL::SetHDRInputHint(bool isHdr, HDRType type) {
+	hdrInputLikelyHdr = isHdr;
+	int newType = static_cast<int>(type);
+	if (hdrInputType != newType) {
+		hdrInputType = newType;
+		// HDR类型变更时，需重新加载对应LUT（GPU和CPU缓存都清除）
+		if (hdrLutLoaded) {
+			ReleaseHDRLUT();
+			LOG_I("video/out/gl") << "HDR type changed, LUT will be reloaded on next render";
+		}
+	}
 }
 
 /// @brief Runtime detection of required OpenGL capabilities
@@ -933,8 +987,8 @@ VideoOutGL::~VideoOutGL() {
 }
 
 void VideoOutGL::LoadHDRLUT() {
-	// 从PQ2SDR.cube文件加载3D LUT纹理
-	// 该文件是预编译的PQ(Perceptual Quantizer) → SDR(Standard Dynamic Range)映射表
+	// 根据hdrInputType选择LUT文件：HLG用HLG2SDR.cube，PQ用PQ2SDR.cube，DV用DV2SDR.cube
+	// DV因动态RPU无法用静态LUT映射，回退到PQ基础层以保持色彩稳定
 	// 使用octoon库解析.cube格式，上传为GPU 3D纹理供shader采样
 
 	if (hdrLutLoaded) return;
@@ -948,32 +1002,17 @@ void VideoOutGL::LoadHDRLUT() {
 			return;
 		}
 
-		// 尝试从build目录（meson构建输出）或src目录（原始源树）读取LUT文件
-		std::vector<std::string> lutPaths = {
-			"data/cube/PQ2SDR.cube",        // 相对于运行目录
-			"src/cube/PQ2SDR.cube",         // 相对于build目录
-			"../src/cube/PQ2SDR.cube",      // 从build/目录向上
-			"../../src/cube/PQ2SDR.cube"    // 从build/xxx/向上
-		};
+		// 根据HDR类型选择LUT文件名，DV使用DV2SDR.cube
+		HDRType currentType = static_cast<HDRType>(hdrInputType);
+		std::string lutFilename = GetLutFilename(currentType);
 
-		std::string lutPath;
-		std::ifstream lutFile;
+		std::string lutPath = FindCubeLutPath(lutFilename);
 
-		for (const auto& path : lutPaths) {
-			lutFile.open(path);
-			if (lutFile.good()) {
-				lutPath = path;
-				break;
-			}
-		}
-
-		if (!lutFile.good()) {
-			LOG_W("video/out/gl") << "HDR LUT file not found, HDR tone mapping disabled";
+		if (lutPath.empty()) {
+			LOG_W("video/out/gl") << "HDR LUT file not found: " << lutFilename << ", HDR tone mapping disabled";
 			hdrLutLoaded = false;
 			return;
 		}
-
-		lutFile.close();
 
 		auto lut = octoon::image::flut::parse(lutPath);
 		if (!lut.data || lut.channel < 3 || lut.height == 0 || lut.width != lut.height * lut.height)
@@ -1065,28 +1104,25 @@ void VideoOutGL::ReleaseHDRLUT() {
 	hdrLutLoaded = false;
 }
 
-bool VideoOutGL::ApplyHDRLutToImage(wxImage& img) {
+bool VideoOutGL::ApplyHDRLutToImage(wxImage& img, HDRType type) {
 	if (!img.IsOk() || !img.GetData())
 		return false;
 
-	// 确保CPU侧LUT已加载
+	// 确保CPU侧LUT已加载，且LUT类型与当前请求匹配
 	auto &cpu_lut = GetCpuCubeLut();
+	auto &cached_type = GetCpuCubeLutType();
+	if (cpu_lut && cpu_lut->data && cached_type != type) {
+		// HDR类型变化，需重新加载LUT
+		cpu_lut.reset();
+	}
 	if (!cpu_lut || !cpu_lut->data) {
 		// 尝试从cube文件加载
 		try {
-			std::vector<std::string> lutPaths = {
-				"data/cube/PQ2SDR.cube",
-				"src/cube/PQ2SDR.cube",
-				"../src/cube/PQ2SDR.cube",
-				"../../src/cube/PQ2SDR.cube"
-			};
-			std::string lutPath;
-			for (const auto& path : lutPaths) {
-				std::ifstream f(path);
-				if (f.good()) { lutPath = path; break; }
-			}
+			std::string lutFilename = GetLutFilename(type);
+			std::string lutPath = FindCubeLutPath(lutFilename);
+
 			if (lutPath.empty()) {
-				LOG_W("video/out/gl") << "HDR LUT file not found for CPU export path";
+				LOG_W("video/out/gl") << "HDR LUT file not found for CPU export: " << lutFilename;
 				return false;
 			}
 			auto parsed = octoon::image::flut::parse(lutPath);
@@ -1095,6 +1131,7 @@ bool VideoOutGL::ApplyHDRLutToImage(wxImage& img) {
 				return false;
 			}
 			cpu_lut = std::make_unique<octoon::image::flut>(std::move(parsed));
+			cached_type = type;
 		} catch (const std::exception& e) {
 			LOG_E("video/out/gl") << "Failed to load HDR LUT for CPU export: " << e.what();
 			return false;

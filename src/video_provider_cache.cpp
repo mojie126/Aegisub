@@ -72,6 +72,8 @@ public:
 	std::string GetRealColorSpace() const override { return master->GetRealColorSpace(); }
 	bool ShouldSetVideoProperties() const override { return master->ShouldSetVideoProperties(); }
 	bool HasAudio() const override                 { return master->HasAudio(); }
+	HDRType GetHDRType() const override            { return master->GetHDRType(); }
+	bool IsHWDecoding() const override             { return master->IsHWDecoding(); }
 };
 
 void VideoProviderCache::GetFrame(int n, VideoFrame &out) {

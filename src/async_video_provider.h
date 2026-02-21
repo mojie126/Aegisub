@@ -131,6 +131,8 @@ public:
 	std::vector<int> GetKeyFrames() const { return source_provider->GetKeyFrames(); }
 	std::string GetColorSpace() const     { return source_provider->GetColorSpace(); }
 	std::string GetRealColorSpace() const { return source_provider->GetRealColorSpace(); }
+	HDRType GetHDRType() const            { return source_provider->GetHDRType(); }
+	bool IsHWDecoding() const             { return source_provider->IsHWDecoding(); }
 	std::string GetWarning() const        { return source_provider->GetWarning(); }
 	std::string GetDecoderName() const    { return source_provider->GetDecoderName(); }
 	bool ShouldSetVideoProperties() const { return source_provider->ShouldSetVideoProperties(); }

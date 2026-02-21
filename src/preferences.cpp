@@ -509,6 +509,13 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 	p->OptionAdd(bs, _("Max cache size (MB)"), "Provider/Video/BestSource/Max Cache Size");
 	p->OptionAdd(bs, _("Decoder Threads (0 to autodetect)"), "Provider/Video/BestSource/Threads");
 	p->OptionAdd(bs, _("Seek preroll (Frames)"), "Provider/Video/BestSource/Seek Preroll");
+
+	// 硬件加速选项（与FFmpegSource相同的选择列表）
+	const wxString bs_hw_choices[] = {"cuda", "d3d11va", "dxva2", "none"};
+	const wxArrayString bs_hw_choice_arr(4, bs_hw_choices);
+	p->OptionChoice(bs, _("H/W acceleration"), bs_hw_choice_arr, "Provider/Video/BestSource/HW hw_name");
+
+	// Bool选项放在最后，避免单cell导致后续控件错行
 	p->OptionAdd(bs, _("Apply RFF"), "Provider/Video/BestSource/Apply RFF");
 #endif
 

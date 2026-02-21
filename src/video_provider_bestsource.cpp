@@ -67,6 +67,8 @@ class BSVideoProvider final : public VideoProvider {
 
 	bool is_linear = false;
 
+	HDRType detected_hdr_type_ = HDRType::SDR;  // 检测到的HDR类型
+
 	agi::scoped_holder<SwsContext *> sws_context;
 
 public:
@@ -95,6 +97,11 @@ public:
 	std::string GetDecoderName() const override { return "BestSource"; };
 	bool WantsCaching() const override { return false; };
 	bool HasAudio() const override { return has_audio; };
+	HDRType GetHDRType() const override { return detected_hdr_type_; };
+	bool IsHWDecoding() const override {
+		auto hw_name = OPT_GET("Provider/Video/BestSource/HW hw_name")->GetString();
+		return !hw_name.empty() && hw_name != "none";
+	};
 };
 
 BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string const& colormatrix, agi::BackgroundRunner *br) try
@@ -112,11 +119,15 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 		throw agi::UserCancelException("video loading cancelled by user");
 
 	bool cancelled = false;
+	// 读取硬件加速设备名称
+	const auto bs_hw_name = OPT_GET("Provider/Video/BestSource/HW hw_name")->GetString();
+	const std::string hw_device = (bs_hw_name.empty() || bs_hw_name == "none") ? "" : bs_hw_name;
+	const int extra_hw_frames = hw_device.empty() ? 0 : 32;
 	br->Run([&](agi::ProgressSink *ps) {
 		ps->SetTitle(from_wx(_("Indexing")));
 		ps->SetMessage(from_wx(_("Decoding the full track to ensure perfect frame accuracy. This will take a while!")));
 		try {
-			bs = agi::make_unique<BestVideoSource>(filename.string(), "", 0, static_cast<int>(track_info.first), false, OPT_GET("Provider/Video/BestSource/Threads")->GetInt(), 1, provider_bs::GetCacheFile(filename), &bsopts, [=](int Track, int64_t Current, int64_t Total) {
+			bs = agi::make_unique<BestVideoSource>(filename.string(), hw_device, extra_hw_frames, static_cast<int>(track_info.first), false, OPT_GET("Provider/Video/BestSource/Threads")->GetInt(), 1, provider_bs::GetCacheFile(filename), &bsopts, [=](int Track, int64_t Current, int64_t Total) {
 				ps->SetProgress(Current, Total);
 				return !ps->IsCancelled();
 			});
@@ -169,6 +180,21 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 	video_cr = avframe->color_range;
 	ColorMatrix::guess_colorspace(video_cs, video_cr, properties.Width, properties.Height);
 	pixfmt = (AVPixelFormat) avframe->format;
+
+	// 检测HDR类型：基于帧级别传输特性
+	{
+		int trc = avframe->color_trc;
+		if (trc == 16) {
+			detected_hdr_type_ = HDRType::PQ;
+			LOG_D("bestsource") << "HDR detection: PQ (SMPTE ST 2084), color_trc=" << trc;
+		} else if (trc == 18) {
+			detected_hdr_type_ = HDRType::HLG;
+			LOG_D("bestsource") << "HDR detection: HLG (ARIB STD-B67), color_trc=" << trc;
+		} else {
+			detected_hdr_type_ = HDRType::SDR;
+			LOG_D("bestsource") << "HDR detection: SDR, color_trc=" << trc;
+		}
+	}
 
 	sws_context = sws_getContext(
 			properties.Width, properties.Height, pixfmt,
