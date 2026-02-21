@@ -71,7 +71,11 @@ int prompt(wxWindow *parent, bool ar_changed, int sx, int sy, int vx, int vy) {
 	sizer->Add(btn, wxSizerFlags().Border().Expand());
 
 	unsigned int sel = OPT_GET("Video/Last Script Resolution Mismatch Choice")->GetInt();
-	rb->SetSelection(std::min(sel - 1, rb->GetCount()));
+	// sel为1-based的FIX_*枚举值，需转换为0-based索引并防止越界
+	if (sel > 0 && sel <= rb->GetCount())
+		rb->SetSelection(sel - 1);
+	else
+		rb->SetSelection(0);
 
 	d.SetSizerAndFit(sizer);
 	d.CenterOnParent();
