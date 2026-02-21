@@ -26,7 +26,6 @@ struct MotionOptions {
 	// 位置相关
 	bool x_position = true;      // 应用 X 位置数据
 	bool y_position = true;      // 应用 Y 位置数据
-	bool z_position = false;     // 应用 Z 位置数据（\z 深度）
 	bool origin = false;         // 移动原点
 	bool abs_pos = false;        // 使用绝对位置
 
@@ -37,10 +36,11 @@ struct MotionOptions {
 	bool blur = true;            // 随缩放调整模糊
 	double blur_scale = 1.0;     // 模糊衰减因子
 
-	// 旋转（3D）
+	// 3D（旋转和深度）
 	bool x_rotation = true;      // 应用 X 轴旋转数据（\frx）
 	bool y_rotation = true;      // 应用 Y 轴旋转数据（\fry）
 	bool z_rotation = false;     // 应用 Z 轴旋转数据（\frz）
+	bool z_position = false;     // 应用 Z 轴深度数据（\z），UI归入3D分组
 
 	// Clip 相关
 	bool rect_clip = true;       // 应用矩形 clip
