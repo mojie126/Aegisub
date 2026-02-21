@@ -511,6 +511,13 @@ namespace mocha {
 				ref_frame = 1;
 			else if (ref_frame < 0)
 				ref_frame = main_data.length() + ref_frame + 1;
+			// 正值上界钳位，防止配置残留或 SpinCtrl 截断导致越界
+			if (ref_frame > main_data.length()) {
+				LOG_D("mocha/processor") << "Relative start frame " << ref_frame
+					<< " exceeds data length " << main_data.length() << ", clamped";
+				ref_frame = main_data.length();
+			}
+			if (ref_frame < 1) ref_frame = 1;
 		} else {
 			// 绝对模式：用户输入的是视频绝对帧号，需转换为相对帧号
 			// 对应 MoonScript: startFrame = startFrame - lineCollection.startFrame + 1
@@ -537,6 +544,13 @@ namespace mocha {
 				if (clip_options->relative) {
 					if (clip_ref == 0) clip_ref = 1;
 					else if (clip_ref < 0) clip_ref = clip_data->length() + clip_ref + 1;
+					// 正值上界钳位，防止配置残留导致越界
+					if (clip_ref > clip_data->length()) {
+						LOG_D("mocha/processor") << "Clip relative start frame " << clip_ref
+							<< " exceeds clip data length " << clip_data->length() << ", clamped";
+						clip_ref = clip_data->length();
+					}
+					if (clip_ref < 1) clip_ref = 1;
 				} else {
 					clip_ref = clip_ref - start_frame + 1;
 					if (clip_ref <= 0) clip_ref = 1;

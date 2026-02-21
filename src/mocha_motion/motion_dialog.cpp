@@ -349,7 +349,7 @@ namespace mocha {
 			lbl_start_frame = new wxStaticText(&d, wxID_ANY, _("Start Frame (relative):"));
 			spin_start_frame = new wxSpinCtrl(
 				&d, wxID_ANY, "1", wxDefaultPosition,
-				wxSize(d.FromDIP(70), -1), wxSP_ARROW_KEYS, -99999, 99999, 1
+				wxSize(d.FromDIP(80), -1), wxSP_ARROW_KEYS, -9999999, 9999999, 1
 			);
 			spin_start_frame->SetToolTip(
 				_("Relative mode: 1=first frame, -1=last frame, 0=auto-adjusted to 1.\nAbsolute mode: video frame number where tracking data starts.")
@@ -472,6 +472,15 @@ namespace mocha {
 								clip_options_.start_frame = relative_frame;
 							} else {
 								clip_options_.start_frame = relative_frame + coll_start - 1;
+							}
+						} else {
+							// 视频光标不在选中行范围内，将配置残留值钳位到合理范围
+							int cur_main = spin_start_frame->GetValue();
+							if (total_frames > 0 && cur_main > total_frames) {
+								spin_start_frame->SetValue(1);
+							}
+							if (clip_options_.relative && total_frames > 0 && clip_options_.start_frame > total_frames) {
+								clip_options_.start_frame = 1;
 							}
 						}
 					} else {
@@ -881,8 +890,8 @@ namespace mocha {
 			auto *spin_csf = new wxSpinCtrl(
 				&clip_dlg, wxID_ANY,
 				wxString::Format("%d", clip_options_.start_frame),
-				wxDefaultPosition, wxSize(clip_dlg.FromDIP(70), -1),
-				wxSP_ARROW_KEYS, -99999, 99999, clip_options_.start_frame
+				wxDefaultPosition, wxSize(clip_dlg.FromDIP(80), -1),
+				wxSP_ARROW_KEYS, -9999999, 9999999, clip_options_.start_frame
 			);
 			spin_csf->SetToolTip(
 				_("Relative mode: 1=first frame, -1=last frame, 0=auto-adjusted to 1.\nAbsolute mode: video frame number where tracking data starts.")
