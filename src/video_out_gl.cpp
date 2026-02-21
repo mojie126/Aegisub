@@ -23,6 +23,10 @@
 #include <cstdint>
 #include <cstring>
 #include <utility>
+#include <fstream>
+#include <cmath>
+#include <memory>
+#include <vector>
 
 #include <libaegisub/log.h>
 
@@ -41,7 +45,10 @@
 #endif
 
 #include "video_out_gl.h"
+#include "cube/lut.hpp"
 #include "utils.h"
+
+#include <wx/image.h>
 #include "video_frame.h"
 
 namespace {
@@ -74,6 +81,101 @@ static PboFunctions &GetPboFunctions() {
 	funcs.BufferData = reinterpret_cast<PFNGLBUFFERDATAPROC>(glGetProc("glBufferData"));
 	funcs.BufferSubData = reinterpret_cast<PFNGLBUFFERSUBDATAPROC>(glGetProc("glBufferSubData"));
 	funcs.available = funcs.BindBuffer && funcs.DeleteBuffers && funcs.GenBuffers && funcs.BufferData && funcs.BufferSubData;
+	return funcs;
+}
+
+struct ShaderFunctions {
+	PFNGLCREATESHADERPROC CreateShader = nullptr;
+	PFNGLSHADERSOURCEPROC ShaderSource = nullptr;
+	PFNGLCOMPILESHADERPROC CompileShader = nullptr;
+	PFNGLGETSHADERIVPROC GetShaderiv = nullptr;
+	PFNGLGETSHADERINFOLOGPROC GetShaderInfoLog = nullptr;
+	PFNGLDELETESHADERPROC DeleteShader = nullptr;
+
+	PFNGLCREATEPROGRAMPROC CreateProgram = nullptr;
+	PFNGLATTACHSHADERPROC AttachShader = nullptr;
+	PFNGLLINKPROGRAMPROC LinkProgram = nullptr;
+	PFNGLGETPROGRAMIVPROC GetProgramiv = nullptr;
+	PFNGLGETPROGRAMINFOLOGPROC GetProgramInfoLog = nullptr;
+	PFNGLUSEPROGRAMPROC UseProgram = nullptr;
+	PFNGLDELETEPROGRAMPROC DeleteProgram = nullptr;
+
+	PFNGLGETUNIFORMLOCATIONPROC GetUniformLocation = nullptr;
+	PFNGLUNIFORM1IPROC Uniform1i = nullptr;
+	PFNGLUNIFORM1FPROC Uniform1f = nullptr;
+
+	PFNGLACTIVETEXTUREPROC ActiveTexture = nullptr;
+	PFNGLTEXIMAGE3DPROC TexImage3D = nullptr;
+
+	PFNGLGENFRAMEBUFFERSPROC GenFramebuffers = nullptr;
+	PFNGLDELETEFRAMEBUFFERSPROC DeleteFramebuffers = nullptr;
+	PFNGLBINDFRAMEBUFFERPROC BindFramebuffer = nullptr;
+	PFNGLFRAMEBUFFERTEXTURE2DPROC FramebufferTexture2D = nullptr;
+	PFNGLCHECKFRAMEBUFFERSTATUSPROC CheckFramebufferStatus = nullptr;
+
+	bool initialized = false;
+	/// shader + 纹理基础函数是否可用
+	bool available = false;
+	/// FBO函数是否可用（与available分离，避免FBO不可用时连带禁用shader）
+	bool fboAvailable = false;
+};
+
+static ShaderFunctions &GetShaderFunctions() {
+	static ShaderFunctions funcs;
+	if (funcs.initialized && funcs.available)
+		return funcs;
+
+	funcs.initialized = true;
+	funcs.CreateShader = reinterpret_cast<PFNGLCREATESHADERPROC>(glGetProc("glCreateShader"));
+	funcs.ShaderSource = reinterpret_cast<PFNGLSHADERSOURCEPROC>(glGetProc("glShaderSource"));
+	funcs.CompileShader = reinterpret_cast<PFNGLCOMPILESHADERPROC>(glGetProc("glCompileShader"));
+	funcs.GetShaderiv = reinterpret_cast<PFNGLGETSHADERIVPROC>(glGetProc("glGetShaderiv"));
+	funcs.GetShaderInfoLog = reinterpret_cast<PFNGLGETSHADERINFOLOGPROC>(glGetProc("glGetShaderInfoLog"));
+	funcs.DeleteShader = reinterpret_cast<PFNGLDELETESHADERPROC>(glGetProc("glDeleteShader"));
+
+	funcs.CreateProgram = reinterpret_cast<PFNGLCREATEPROGRAMPROC>(glGetProc("glCreateProgram"));
+	funcs.AttachShader = reinterpret_cast<PFNGLATTACHSHADERPROC>(glGetProc("glAttachShader"));
+	funcs.LinkProgram = reinterpret_cast<PFNGLLINKPROGRAMPROC>(glGetProc("glLinkProgram"));
+	funcs.GetProgramiv = reinterpret_cast<PFNGLGETPROGRAMIVPROC>(glGetProc("glGetProgramiv"));
+	funcs.GetProgramInfoLog = reinterpret_cast<PFNGLGETPROGRAMINFOLOGPROC>(glGetProc("glGetProgramInfoLog"));
+	funcs.UseProgram = reinterpret_cast<PFNGLUSEPROGRAMPROC>(glGetProc("glUseProgram"));
+	funcs.DeleteProgram = reinterpret_cast<PFNGLDELETEPROGRAMPROC>(glGetProc("glDeleteProgram"));
+
+	funcs.GetUniformLocation = reinterpret_cast<PFNGLGETUNIFORMLOCATIONPROC>(glGetProc("glGetUniformLocation"));
+	funcs.Uniform1i = reinterpret_cast<PFNGLUNIFORM1IPROC>(glGetProc("glUniform1i"));
+	funcs.Uniform1f = reinterpret_cast<PFNGLUNIFORM1FPROC>(glGetProc("glUniform1f"));
+
+	funcs.ActiveTexture = reinterpret_cast<PFNGLACTIVETEXTUREPROC>(glGetProc("glActiveTexture"));
+	funcs.TexImage3D = reinterpret_cast<PFNGLTEXIMAGE3DPROC>(glGetProc("glTexImage3D"));
+
+	funcs.GenFramebuffers = reinterpret_cast<PFNGLGENFRAMEBUFFERSPROC>(glGetProc("glGenFramebuffers"));
+	if (!funcs.GenFramebuffers)
+		funcs.GenFramebuffers = reinterpret_cast<PFNGLGENFRAMEBUFFERSPROC>(glGetProc("glGenFramebuffersEXT"));
+	funcs.DeleteFramebuffers = reinterpret_cast<PFNGLDELETEFRAMEBUFFERSPROC>(glGetProc("glDeleteFramebuffers"));
+	if (!funcs.DeleteFramebuffers)
+		funcs.DeleteFramebuffers = reinterpret_cast<PFNGLDELETEFRAMEBUFFERSPROC>(glGetProc("glDeleteFramebuffersEXT"));
+	funcs.BindFramebuffer = reinterpret_cast<PFNGLBINDFRAMEBUFFERPROC>(glGetProc("glBindFramebuffer"));
+	if (!funcs.BindFramebuffer)
+		funcs.BindFramebuffer = reinterpret_cast<PFNGLBINDFRAMEBUFFERPROC>(glGetProc("glBindFramebufferEXT"));
+	funcs.FramebufferTexture2D = reinterpret_cast<PFNGLFRAMEBUFFERTEXTURE2DPROC>(glGetProc("glFramebufferTexture2D"));
+	if (!funcs.FramebufferTexture2D)
+		funcs.FramebufferTexture2D = reinterpret_cast<PFNGLFRAMEBUFFERTEXTURE2DPROC>(glGetProc("glFramebufferTexture2DEXT"));
+	funcs.CheckFramebufferStatus = reinterpret_cast<PFNGLCHECKFRAMEBUFFERSTATUSPROC>(glGetProc("glCheckFramebufferStatus"));
+	if (!funcs.CheckFramebufferStatus)
+		funcs.CheckFramebufferStatus = reinterpret_cast<PFNGLCHECKFRAMEBUFFERSTATUSPROC>(glGetProc("glCheckFramebufferStatusEXT"));
+
+	// shader + 纹理函数可用性（不包含FBO）
+	funcs.available = funcs.CreateShader && funcs.ShaderSource && funcs.CompileShader && funcs.GetShaderiv && funcs.GetShaderInfoLog &&
+		funcs.DeleteShader && funcs.CreateProgram && funcs.AttachShader && funcs.LinkProgram && funcs.GetProgramiv &&
+		funcs.GetProgramInfoLog && funcs.UseProgram && funcs.DeleteProgram && funcs.GetUniformLocation && funcs.Uniform1i && funcs.Uniform1f &&
+		funcs.ActiveTexture && funcs.TexImage3D;
+
+	// FBO函数单独检测
+	funcs.fboAvailable = funcs.GenFramebuffers && funcs.DeleteFramebuffers && funcs.BindFramebuffer &&
+		funcs.FramebufferTexture2D && funcs.CheckFramebufferStatus;
+
+	LOG_I("video/out/gl") << "Shader functions available: " << funcs.available << " FBO available: " << funcs.fboAvailable;
+
 	return funcs;
 }
 #endif
@@ -133,7 +235,22 @@ static bool HasOpenGLExtension(const char *extension_name) {
 	return false;
 }
 
+static std::unique_ptr<octoon::image::flut> &GetCpuCubeLut() {
+	static std::unique_ptr<octoon::image::flut> cpu_lut;
+	return cpu_lut;
+}
+
 VideoOutGL::VideoOutGL() { }
+
+void VideoOutGL::EnableHDRToneMapping(bool enable) {
+	if (!enable) {
+		hdrToneMappingEnabled = false;
+		return;
+	}
+
+	// 先设置标志，GL资源在Render()中延迟初始化（此时GL上下文保证激活）
+	hdrToneMappingEnabled = true;
+}
 
 /// @brief Runtime detection of required OpenGL capabilities
 void VideoOutGL::DetectOpenGLCapabilities() {
@@ -211,15 +328,16 @@ void VideoOutGL::EnsureUploadPbo(size_t requiredSize) {
 /// @param height The frame's height
 /// @param format The frame's format
 /// @param bpp The frame's bytes per pixel
-void VideoOutGL::InitTextures(int width, int height, GLenum format, int bpp, bool flipped) {
+void VideoOutGL::InitTextures(int width, int height, GLenum format, int bpp, bool flipped, bool hflipped) {
 	using namespace std;
 
 	// Do nothing if the frame size and format are unchanged
-	if (width == frameWidth && height == frameHeight && format == frameFormat && flipped == frameFlipped) return;
+	if (width == frameWidth && height == frameHeight && format == frameFormat && flipped == frameFlipped && hflipped == frameHFlipped) return;
 	frameWidth  = width;
 	frameHeight = height;
 	frameFormat = format;
 	frameFlipped = flipped;
+	frameHFlipped = hflipped;
 	LOG_I("video/out/gl") << "Video size: " << width << "x" << height;
 
 	DetectOpenGLCapabilities();
@@ -281,11 +399,13 @@ void VideoOutGL::InitTextures(int width, int height, GLenum format, int bpp, boo
 	CHECK_ERROR(glMatrixMode(GL_PROJECTION));
 	CHECK_ERROR(glLoadIdentity());
 	CHECK_ERROR(glPushMatrix());
-	if (frameFlipped) {
-		CHECK_ERROR(glOrtho(0.0f, frameWidth, 0.0f, frameHeight, -1000.0f, 1000.0f));
-	}
-	else {
-		CHECK_ERROR(glOrtho(0.0f, frameWidth, frameHeight, 0.0f, -1000.0f, 1000.0f));
+	{
+		// 通过glOrtho投影参数实现水平/垂直翻转，无CPU开销
+		double ortho_left   = frameHFlipped ? static_cast<double>(frameWidth)  : 0.0;
+		double ortho_right  = frameHFlipped ? 0.0 : static_cast<double>(frameWidth);
+		double ortho_bottom = frameFlipped  ? 0.0 : static_cast<double>(frameHeight);
+		double ortho_top    = frameFlipped  ? static_cast<double>(frameHeight) : 0.0;
+		CHECK_ERROR(glOrtho(ortho_left, ortho_right, ortho_bottom, ortho_top, -1000.0f, 1000.0f));
 	}
 
 	CHECK_ERROR(glEnable(GL_TEXTURE_2D));
@@ -365,7 +485,23 @@ void VideoOutGL::InitTextures(int width, int height, GLenum format, int bpp, boo
 void VideoOutGL::UploadFrameData(VideoFrame const& frame) {
 	if (frame.height == 0 || frame.width == 0) return;
 
-	InitTextures(frame.width, frame.height, GL_BGRA_EXT, 4, frame.flipped);
+	// 存储原始翻转/旋转状态（用于FBO旋转路径的纹理坐标计算）
+	frameRotation = frame.rotation;
+	frameSourceVFlip = frame.flipped;
+	frameSourceHFlip = frame.hflipped;
+
+	// 90/270°旋转时，翻转推迟到FBO全屏四边形阶段处理，display list不应用翻转
+	bool dl_flipped = frame.flipped;
+	bool dl_hflipped = frame.hflipped;
+	if (frame.rotation == 90 || frame.rotation == 270) {
+		dl_flipped = false;
+		dl_hflipped = false;
+	}
+	InitTextures(frame.width, frame.height, GL_BGRA_EXT, 4, dl_flipped, dl_hflipped);
+	frameVideoPadding = frame.padding;
+
+	// GPU HDR方案：始终上传原始帧数据，色调映射由Render阶段的FBO+shader完成
+	const unsigned char *upload_data = frame.data.data();
 
 	// Set row length only when pitch differs from tightly packed BGRA.
 	const int tight_pitch = static_cast<int>(frame.width) * 4;
@@ -382,7 +518,7 @@ void VideoOutGL::UploadFrameData(VideoFrame const& frame) {
 		// Orphan previous storage to avoid CPU/GPU sync stalls.
 		pbo.BufferData(GL_PIXEL_UNPACK_BUFFER, static_cast<GLsizeiptr>(frame_bytes), nullptr, GL_STREAM_DRAW);
 		if (GLenum err = glGetError()) throw VideoOutRenderException("glBufferData", err);
-		pbo.BufferSubData(GL_PIXEL_UNPACK_BUFFER, 0, static_cast<GLsizeiptr>(frame_bytes), frame.data.data());
+		pbo.BufferSubData(GL_PIXEL_UNPACK_BUFFER, 0, static_cast<GLsizeiptr>(frame_bytes), upload_data);
 		if (GLenum err = glGetError()) throw VideoOutRenderException("glBufferSubData", err);
 #endif
 	}
@@ -394,7 +530,7 @@ void VideoOutGL::UploadFrameData(VideoFrame const& frame) {
 		CHECK_ERROR(glBindTexture(GL_TEXTURE_2D, ti.textureID));
 		const void *upload_ptr = use_pbo
 			? reinterpret_cast<void *>(static_cast<uintptr_t>(ti.dataOffset))
-			: static_cast<const void *>(&frame.data[ti.dataOffset]);
+			: static_cast<const void *>(upload_data + ti.dataOffset);
 		CHECK_ERROR(glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, ti.sourceW,
 			ti.sourceH, GL_BGRA_EXT, GL_UNSIGNED_BYTE, upload_ptr));
 	}
@@ -411,18 +547,751 @@ void VideoOutGL::UploadFrameData(VideoFrame const& frame) {
 	}
 }
 
-void VideoOutGL::Render(int dx1, int dy1, int dx2, int dy2) {
-	CHECK_ERROR(glViewport(dx1, dy1, dx2, dy2));
-	CHECK_ERROR(glCallList(dl));
+void VideoOutGL::Render(int x, int y, int width, int height) {
+	// 参数含义：x,y为左下角坐标，width/height为显示区域尺寸
+	if (width <= 0 || height <= 0)
+		return;
+
+	// 在首帧尚未上传成功前，显示列表可能尚未初始化。
+	if (dl == 0)
+		return;
+
+	// 判断是否走GPU FBO后处理HDR路径
+	bool use_hdr_gpu = false;
+#if !defined(__APPLE__)
+	if (hdrToneMappingEnabled) {
+		// 延迟初始化：在GL上下文已激活的Render()中加载GPU资源
+		const auto &shader = GetShaderFunctions();
+		if (!hdrLutLoaded && shader.available) {
+			try { LoadHDRLUT(); }
+			catch (const std::exception &e) {
+				LOG_E("video/out/gl") << "Deferred LUT load failed: " << e.what();
+			}
+		}
+		if (!hdrShaderLoaded && shader.available) {
+			try { EnsureHDRShader(); }
+			catch (const std::exception &e) {
+				LOG_E("video/out/gl") << "Deferred shader init failed: " << e.what();
+			}
+		}
+
+		if (hdrShaderLoaded && hdrShaderProgram != 0 &&
+			hdrLutLoaded && hdrLutTextureID != 0 &&
+			shader.available && shader.fboAvailable) {
+			use_hdr_gpu = true;
+		}
+	}
+#endif
+
+	// ===== FBO旋转路径（90°/270°，可叠加HDR） =====
+	bool need_rotation = (frameRotation == 90 || frameRotation == 270);
+	bool rotation_rendered = false;
+	if (need_rotation) {
+#if !defined(__APPLE__)
+		const auto &shader = GetShaderFunctions();
+		if (shader.fboAvailable) {
+			bool rot_ok = true;
+			// FBO尺寸使用原始数据维度，避免旋转后纵横比失真
+			int fbo_w = frameWidth;
+			int fbo_h = frameHeight;
+			try {
+				EnsureHDRFbo(fbo_w, fbo_h);
+			}
+			catch (const std::exception &e) {
+				LOG_E("video/out/gl") << "FBO creation for rotation failed: " << e.what();
+				rot_ok = false;
+			}
+
+			if (rot_ok) {
+				// 1. 绑定FBO，渲染场景到FBO纹理（display list无翻转，原始数据方向）
+				shader.BindFramebuffer(GL_FRAMEBUFFER, hdrFboId);
+				if (GLenum err = glGetError()) {
+					LOG_E("video/out/gl") << "glBindFramebuffer for rotation failed: " << err;
+					shader.BindFramebuffer(GL_FRAMEBUFFER, 0);
+					rot_ok = false;
+				}
+			}
+
+			if (rot_ok) {
+				glViewport(0, 0, fbo_w, fbo_h);
+				glCallList(dl);
+
+				// 2. 解绑FBO，切回默认帧缓冲
+				shader.BindFramebuffer(GL_FRAMEBUFFER, 0);
+
+				// 3. 设置显示viewport（含padding处理）
+				// 旋转后，有效帧高度对应原始数据宽度（90/270°时宽高互换）
+				if (frameVideoPadding > 0) {
+					int effective_frame_h = frameWidth;
+					int total_padded_h = std::max(effective_frame_h + frameVideoPadding * 2, 1);
+					int padding_px = (height * frameVideoPadding) / total_padded_h;
+					padding_px = std::max(0, std::min(padding_px, std::max(0, height / 2 - 1)));
+					glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+					glViewport(x, y, width, height);
+					glClear(GL_COLOR_BUFFER_BIT);
+					int content_y = y + padding_px;
+					int content_h = std::max(1, height - 2 * padding_px);
+					glViewport(x, content_y, width, content_h);
+				} else {
+					glViewport(x, y, width, height);
+				}
+
+				// 4. 计算旋转+翻转的纹理坐标（逆变换：显示坐标→源FBO纹理坐标）
+				float tc_bl[2], tc_br[2], tc_tr[2], tc_tl[2];
+				{
+					struct { float x, y; } corners[4] = {{0,0},{1,0},{1,1},{0,1}};
+					float (*tc_arr[])[2] = {&tc_bl, &tc_br, &tc_tr, &tc_tl};
+					for (int i = 0; i < 4; ++i) {
+						float dx = corners[i].x, dy = corners[i].y;
+						// 逆旋转
+						float s2, t2;
+						switch (frameRotation) {
+							case 90:  s2 = 1.0f - dy; t2 = dx; break;
+							case 270: s2 = dy;        t2 = 1.0f - dx; break;
+							default:  s2 = dx;        t2 = dy; break;
+						}
+						// 逆水平翻转
+						float s1 = frameSourceHFlip ? 1.0f - s2 : s2;
+						// 逆垂直翻转
+						float t1 = frameSourceVFlip ? 1.0f - t2 : t2;
+						(*tc_arr[i])[0] = s1;
+						(*tc_arr[i])[1] = t1;
+					}
+				}
+
+				// 5. 绘制旋转的全屏四边形
+				if (use_hdr_gpu) {
+					// HDR shader路径：绑定shader + LUT纹理
+					shader.UseProgram(hdrShaderProgram);
+					shader.ActiveTexture(GL_TEXTURE1);
+					glBindTexture(GL_TEXTURE_3D, hdrLutTextureID);
+					shader.Uniform1i(hdrLutSamplerLoc, 1);
+					shader.ActiveTexture(GL_TEXTURE0);
+					glBindTexture(GL_TEXTURE_2D, hdrFboTexId);
+					shader.Uniform1i(hdrSceneSamplerLoc, 0);
+
+					// LUT坐标缩放和偏移（精确纹素中心映射）
+					float lut_scale = 1.0f, lut_offset = 0.0f;
+					if (hdrLutTextureSize > 0 && hdrLutSize > 1) {
+						lut_scale = static_cast<float>(hdrLutSize - 1) / static_cast<float>(hdrLutTextureSize);
+						lut_offset = 0.5f / static_cast<float>(hdrLutTextureSize);
+					}
+					shader.Uniform1f(hdrLutScaleLoc, lut_scale);
+					shader.Uniform1f(hdrLutOffsetLoc, lut_offset);
+					shader.Uniform1f(hdrUseLutLoc, 1.0f);
+				} else {
+					// 固定管线路径：仅绑定FBO纹理进行旋转渲染
+					glEnable(GL_TEXTURE_2D);
+					glBindTexture(GL_TEXTURE_2D, hdrFboTexId);
+				}
+
+				// 投影设为[0,1]正规化坐标
+				glMatrixMode(GL_PROJECTION);
+				glLoadIdentity();
+				glOrtho(0.0, 1.0, 0.0, 1.0, -1.0, 1.0);
+				glMatrixMode(GL_MODELVIEW);
+				glLoadIdentity();
+
+				glBegin(GL_QUADS);
+					glTexCoord2f(tc_bl[0], tc_bl[1]); glVertex2f(0.0f, 0.0f);
+					glTexCoord2f(tc_br[0], tc_br[1]); glVertex2f(1.0f, 0.0f);
+					glTexCoord2f(tc_tr[0], tc_tr[1]); glVertex2f(1.0f, 1.0f);
+					glTexCoord2f(tc_tl[0], tc_tl[1]); glVertex2f(0.0f, 1.0f);
+				glEnd();
+
+				// 6. 清理shader和纹理绑定
+				if (use_hdr_gpu) {
+					shader.UseProgram(0);
+					shader.ActiveTexture(GL_TEXTURE1);
+					glBindTexture(GL_TEXTURE_3D, 0);
+					shader.ActiveTexture(GL_TEXTURE0);
+					glBindTexture(GL_TEXTURE_2D, 0);
+				} else {
+					glBindTexture(GL_TEXTURE_2D, 0);
+					glDisable(GL_TEXTURE_2D);
+				}
+
+				// 批量检查GL错误（避免每次调用glGetError导致GPU管线同步）
+				if (GLenum err = glGetError())
+					LOG_E("video/out/gl") << "Rotation render path GL error: " << err;
+
+				rotation_rendered = true;
+			}
+		}
+#endif
+		if (!rotation_rendered) {
+			// FBO不可用时回退：直接渲染（旋转不生效，但至少能显示画面）
+			LOG_E("video/out/gl") << "FBO unavailable for rotation, falling back to unrotated render";
+			CHECK_ERROR(glViewport(x, y, width, height));
+			CHECK_ERROR(glCallList(dl));
+			rotation_rendered = true;
+		}
+	}
+
+	if (!rotation_rendered && use_hdr_gpu) {
+#if !defined(__APPLE__)
+		// === FBO后处理路径 ===
+		// 步骤：先将场景渲染到FBO纹理（不绑定shader），再用fullscreen quad + shader采样FBO进行色调映射
+		const auto &shader = GetShaderFunctions();
+
+		try {
+			EnsureHDRFbo(width, height);
+		}
+		catch (const std::exception &e) {
+			LOG_E("video/out/gl") << "FBO creation failed, falling back to normal render: " << e.what();
+			use_hdr_gpu = false;
+		}
+
+		if (use_hdr_gpu) {
+			// 1. 绑定FBO，将场景渲染到FBO纹理
+			shader.BindFramebuffer(GL_FRAMEBUFFER, hdrFboId);
+			if (GLenum err = glGetError()) {
+				LOG_E("video/out/gl") << "glBindFramebuffer failed: " << err;
+				shader.BindFramebuffer(GL_FRAMEBUFFER, 0);
+				use_hdr_gpu = false;
+			}
+		}
+
+		if (use_hdr_gpu) {
+			// FBO内部viewport从(0,0)开始
+			glViewport(0, 0, width, height);
+
+			// 处理黑边padding
+			if (frameVideoPadding > 0) {
+				int total_padded_height = std::max(frameHeight + frameVideoPadding * 2, 1);
+				int padding_screen_pixels = (height * frameVideoPadding) / total_padded_height;
+				padding_screen_pixels = std::max(0, std::min(padding_screen_pixels, std::max(0, height / 2 - 1)));
+				glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+				glClear(GL_COLOR_BUFFER_BIT);
+				int content_y = padding_screen_pixels;
+				int content_height = std::max(1, height - 2 * padding_screen_pixels);
+				glViewport(0, content_y, width, content_height);
+			}
+
+			// 无shader绑定状态调用display list（固定管线渲染）
+			glCallList(dl);
+
+			// 2. 解绑FBO，切回默认帧缓冲
+			shader.BindFramebuffer(GL_FRAMEBUFFER, 0);
+
+			// 3. 设置屏幕viewport
+			glViewport(x, y, width, height);
+
+			// 4. 绑定HDR shader
+			shader.UseProgram(hdrShaderProgram);
+
+			// 5. 绑定3D LUT到纹理单元1
+			shader.ActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_3D, hdrLutTextureID);
+			shader.Uniform1i(hdrLutSamplerLoc, 1);
+
+			// 6. 绑定FBO纹理到纹理单元0
+			shader.ActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, hdrFboTexId);
+			shader.Uniform1i(hdrSceneSamplerLoc, 0);
+
+			// 7. 设置LUT坐标缩放和偏移（精确纹素中心映射）
+			// texcoord = input * (S-1)/T + 0.5/T 确保LUT各采样点精确命中纹素中心
+			float lut_scale = 1.0f;
+			float lut_offset = 0.0f;
+			if (hdrLutTextureSize > 0 && hdrLutSize > 1) {
+				lut_scale = static_cast<float>(hdrLutSize - 1) / static_cast<float>(hdrLutTextureSize);
+				lut_offset = 0.5f / static_cast<float>(hdrLutTextureSize);
+			}
+			shader.Uniform1f(hdrLutScaleLoc, lut_scale);
+			shader.Uniform1f(hdrLutOffsetLoc, lut_offset);
+
+			// 使用3D LUT进行色调映射
+			shader.Uniform1f(hdrUseLutLoc, 1.0f);
+
+			// 8. 绘制全屏四边形，shader从FBO纹理采样并应用LUT
+			glMatrixMode(GL_PROJECTION);
+			glLoadIdentity();
+			glOrtho(0.0, 1.0, 0.0, 1.0, -1.0, 1.0);
+			glMatrixMode(GL_MODELVIEW);
+			glLoadIdentity();
+
+			glBegin(GL_QUADS);
+				glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, 0.0f);
+				glTexCoord2f(1.0f, 0.0f); glVertex2f(1.0f, 0.0f);
+				glTexCoord2f(1.0f, 1.0f); glVertex2f(1.0f, 1.0f);
+				glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f, 1.0f);
+			glEnd();
+
+			// 9. 清理shader和纹理绑定
+			shader.UseProgram(0);
+			shader.ActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_3D, 0);
+			shader.ActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, 0);
+
+			// 批量检查GL错误（避免每次调用glGetError导致GPU管线同步）
+			if (GLenum err = glGetError())
+				LOG_E("video/out/gl") << "HDR render path GL error: " << err;
+		}
+#endif
+	}
+
+	if (!rotation_rendered && !use_hdr_gpu) {
+		// === 常规渲染路径（无HDR后处理）===
+		if (frameVideoPadding > 0) {
+			int total_padded_height = std::max(frameHeight + frameVideoPadding * 2, 1);
+			int padding_screen_pixels = (height * frameVideoPadding) / total_padded_height;
+			padding_screen_pixels = std::max(0, std::min(padding_screen_pixels, std::max(0, height / 2 - 1)));
+			CHECK_ERROR(glClearColor(0.0f, 0.0f, 0.0f, 1.0f));
+			CHECK_ERROR(glViewport(x, y, width, height));
+			CHECK_ERROR(glClear(GL_COLOR_BUFFER_BIT));
+			int content_y = y + padding_screen_pixels;
+			int content_height = std::max(1, height - 2 * padding_screen_pixels);
+			CHECK_ERROR(glViewport(x, content_y, width, content_height));
+		} else {
+			CHECK_ERROR(glViewport(x, y, width, height));
+		}
+
+		CHECK_ERROR(glCallList(dl));
+	}
+
 	CHECK_ERROR(glMatrixMode(GL_MODELVIEW));
 	CHECK_ERROR(glLoadIdentity());
+}
 
+void VideoOutGL::EnsureHDRFbo(int width, int height) {
+	// 若FBO已存在且尺寸一致，无需重建
+	if (hdrFboId != 0 && hdrFboWidth == width && hdrFboHeight == height)
+		return;
+
+	ReleaseHDRFbo();
+
+#if !defined(__APPLE__)
+	const auto &shader = GetShaderFunctions();
+	if (!shader.fboAvailable)
+		throw std::runtime_error("FBO functions not available");
+
+	shader.GenFramebuffers(1, &hdrFboId);
+	if (GLenum err = glGetError()) throw VideoOutRenderException("glGenFramebuffers", err);
+
+	shader.BindFramebuffer(GL_FRAMEBUFFER, hdrFboId);
+	if (GLenum err = glGetError()) throw VideoOutRenderException("glBindFramebuffer", err);
+
+	// 创建FBO颜色附件纹理
+	CHECK_ERROR(glGenTextures(1, &hdrFboTexId));
+	CHECK_ERROR(glBindTexture(GL_TEXTURE_2D, hdrFboTexId));
+	CHECK_ERROR(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr));
+	CHECK_ERROR(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+	CHECK_ERROR(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+	CHECK_ERROR(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+	CHECK_ERROR(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+
+	shader.FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, hdrFboTexId, 0);
+	if (GLenum err = glGetError()) throw VideoOutRenderException("glFramebufferTexture2D", err);
+
+	GLenum status = shader.CheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (status != GL_FRAMEBUFFER_COMPLETE) {
+		shader.BindFramebuffer(GL_FRAMEBUFFER, 0);
+		ReleaseHDRFbo();
+		throw VideoOutRenderException("FBO incomplete", static_cast<int>(status));
+	}
+
+	shader.BindFramebuffer(GL_FRAMEBUFFER, 0);
+	CHECK_ERROR(glBindTexture(GL_TEXTURE_2D, 0));
+
+	hdrFboWidth = width;
+	hdrFboHeight = height;
+	LOG_I("video/out/gl") << "HDR FBO created: " << width << "x" << height;
+#else
+	throw std::runtime_error("FBO not supported on this platform");
+#endif
+}
+
+void VideoOutGL::ReleaseHDRFbo() {
+#if !defined(__APPLE__)
+	const auto &shader = GetShaderFunctions();
+	if (hdrFboId != 0 && shader.DeleteFramebuffers) {
+		shader.DeleteFramebuffers(1, &hdrFboId);
+		while (glGetError()) { }
+	}
+#endif
+	hdrFboId = 0;
+	if (hdrFboTexId != 0) {
+		glDeleteTextures(1, &hdrFboTexId);
+		while (glGetError()) { }
+	}
+	hdrFboTexId = 0;
+	hdrFboWidth = 0;
+	hdrFboHeight = 0;
 }
 
 VideoOutGL::~VideoOutGL() {
 	ReleaseUploadPbo();
+	ReleaseHDRFbo();
+	ReleaseHDRShader();
+	ReleaseHDRLUT();
 	if (textureIdList.size() > 0) {
 		glDeleteTextures(textureIdList.size(), &textureIdList[0]);
 		glDeleteLists(dl, 1);
 	}
+}
+
+void VideoOutGL::LoadHDRLUT() {
+	// 从PQ2SDR.cube文件加载3D LUT纹理
+	// 该文件是预编译的PQ(Perceptual Quantizer) → SDR(Standard Dynamic Range)映射表
+	// 使用octoon库解析.cube格式，上传为GPU 3D纹理供shader采样
+
+	if (hdrLutLoaded) return;
+
+	try {
+#if !defined(__APPLE__)
+		const auto &shader = GetShaderFunctions();
+		if (!shader.available) {
+			LOG_W("video/out/gl") << "GPU shader functions unavailable, cannot load HDR LUT";
+			hdrLutLoaded = false;
+			return;
+		}
+
+		// 尝试从build目录（meson构建输出）或src目录（原始源树）读取LUT文件
+		std::vector<std::string> lutPaths = {
+			"data/cube/PQ2SDR.cube",        // 相对于运行目录
+			"src/cube/PQ2SDR.cube",         // 相对于build目录
+			"../src/cube/PQ2SDR.cube",      // 从build/目录向上
+			"../../src/cube/PQ2SDR.cube"    // 从build/xxx/向上
+		};
+
+		std::string lutPath;
+		std::ifstream lutFile;
+
+		for (const auto& path : lutPaths) {
+			lutFile.open(path);
+			if (lutFile.good()) {
+				lutPath = path;
+				break;
+			}
+		}
+
+		if (!lutFile.good()) {
+			LOG_W("video/out/gl") << "HDR LUT file not found, HDR tone mapping disabled";
+			hdrLutLoaded = false;
+			return;
+		}
+
+		lutFile.close();
+
+		auto lut = octoon::image::flut::parse(lutPath);
+		if (!lut.data || lut.channel < 3 || lut.height == 0 || lut.width != lut.height * lut.height)
+			throw std::runtime_error("Invalid LUT layout from cube parser");
+
+		GetCpuCubeLut() = std::make_unique<octoon::image::flut>(std::move(lut));
+		auto &cpu_lut = GetCpuCubeLut();
+		if (!cpu_lut || !cpu_lut->data)
+			throw std::runtime_error("Failed to cache CPU cube LUT");
+
+		hdrLutSize = static_cast<int>(cpu_lut->height);
+		std::vector<float> lut3d(static_cast<size_t>(hdrLutSize) * hdrLutSize * hdrLutSize * 3);
+
+		// lut.hpp parse()内部变量命名：r=Blue(最慢轴), g=Green(中间轴), b=Red(最快轴)
+		// 2D布局：idx2d = (g * width + r * size + b) = (Green * W + Blue * S + Red)
+		// 重排为3D纹理：x轴=Red, y轴=Green, z轴=Blue
+		// idx3d = Blue * S^2 + Green * S + Red = (r * S + g) * S + b
+		for (int g = 0; g < hdrLutSize; ++g) {
+			for (int r = 0; r < hdrLutSize; ++r) {
+				for (int b = 0; b < hdrLutSize; ++b) {
+					size_t src_idx = (static_cast<size_t>(g) * cpu_lut->width + (static_cast<size_t>(r) * hdrLutSize + b)) * cpu_lut->channel;
+					size_t dst_idx = ((static_cast<size_t>(r) * hdrLutSize + g) * hdrLutSize + b) * 3;
+					lut3d[dst_idx + 0] = cpu_lut->data[src_idx + 0];
+					lut3d[dst_idx + 1] = cpu_lut->data[src_idx + 1];
+					lut3d[dst_idx + 2] = cpu_lut->data[src_idx + 2];
+				}
+			}
+		}
+
+		// 扩展为POT尺寸以兼容不支持NPOT 3D纹理的GPU
+		hdrLutTextureSize = SmallestPowerOf2(hdrLutSize);
+		std::vector<float> lut3d_upload(static_cast<size_t>(hdrLutTextureSize) * hdrLutTextureSize * hdrLutTextureSize * 3, 0.0f);
+		for (int z = 0; z < hdrLutTextureSize; ++z) {
+			int src_z = std::min(z, hdrLutSize - 1);
+			for (int y = 0; y < hdrLutTextureSize; ++y) {
+				int src_y = std::min(y, hdrLutSize - 1);
+				for (int x = 0; x < hdrLutTextureSize; ++x) {
+					int src_x = std::min(x, hdrLutSize - 1);
+					size_t src_idx = ((static_cast<size_t>(src_z) * hdrLutSize + src_y) * hdrLutSize + src_x) * 3;
+					size_t dst_idx = ((static_cast<size_t>(z) * hdrLutTextureSize + y) * hdrLutTextureSize + x) * 3;
+					lut3d_upload[dst_idx + 0] = lut3d[src_idx + 0];
+					lut3d_upload[dst_idx + 1] = lut3d[src_idx + 1];
+					lut3d_upload[dst_idx + 2] = lut3d[src_idx + 2];
+				}
+			}
+		}
+
+		if (hdrLutTextureID != 0) {
+			CHECK_ERROR(glDeleteTextures(1, &hdrLutTextureID));
+			hdrLutTextureID = 0;
+		}
+		CHECK_ERROR(glGenTextures(1, &hdrLutTextureID));
+		if (hdrLutTextureID == 0)
+			throw std::runtime_error("Failed to create HDR LUT texture");
+
+		CHECK_ERROR(glBindTexture(GL_TEXTURE_3D, hdrLutTextureID));
+		CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+		CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+		CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+		CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+		CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
+		shader.TexImage3D(GL_TEXTURE_3D, 0, GL_RGB16F, hdrLutTextureSize, hdrLutTextureSize, hdrLutTextureSize, 0, GL_RGB, GL_FLOAT, lut3d_upload.data());
+		if (GLenum err = glGetError()) throw VideoOutRenderException("glTexImage3D", err);
+		CHECK_ERROR(glBindTexture(GL_TEXTURE_3D, 0));
+
+		hdrLutLoaded = true;
+		LOG_I("video/out/gl") << "HDR LUT texture uploaded: lut=" << hdrLutSize << " tex=" << hdrLutTextureSize << " id=" << hdrLutTextureID;
+
+#else
+		LOG_W("video/out/gl") << "HDR LUT is not enabled on this platform path";
+		hdrLutLoaded = false;
+#endif
+
+	} catch (const std::exception& e) {
+		LOG_E("video/out/gl") << "Failed to load HDR LUT: " << e.what();
+		hdrLutLoaded = false;
+		hdrToneMappingEnabled = false;
+	}
+}
+
+void VideoOutGL::ReleaseHDRLUT() {
+	if (hdrLutTextureID != 0) {
+		CHECK_ERROR(glDeleteTextures(1, &hdrLutTextureID));
+		hdrLutTextureID = 0;
+	}
+	hdrLutSize = 0;
+	hdrLutTextureSize = 0;
+	GetCpuCubeLut().reset();
+	hdrLutLoaded = false;
+}
+
+bool VideoOutGL::ApplyHDRLutToImage(wxImage& img) {
+	if (!img.IsOk() || !img.GetData())
+		return false;
+
+	// 确保CPU侧LUT已加载
+	auto &cpu_lut = GetCpuCubeLut();
+	if (!cpu_lut || !cpu_lut->data) {
+		// 尝试从cube文件加载
+		try {
+			std::vector<std::string> lutPaths = {
+				"data/cube/PQ2SDR.cube",
+				"src/cube/PQ2SDR.cube",
+				"../src/cube/PQ2SDR.cube",
+				"../../src/cube/PQ2SDR.cube"
+			};
+			std::string lutPath;
+			for (const auto& path : lutPaths) {
+				std::ifstream f(path);
+				if (f.good()) { lutPath = path; break; }
+			}
+			if (lutPath.empty()) {
+				LOG_W("video/out/gl") << "HDR LUT file not found for CPU export path";
+				return false;
+			}
+			auto parsed = octoon::image::flut::parse(lutPath);
+			if (!parsed.data || parsed.channel < 3 || parsed.height == 0 || parsed.width != parsed.height * parsed.height) {
+				LOG_E("video/out/gl") << "Invalid LUT layout from cube parser (CPU export)";
+				return false;
+			}
+			cpu_lut = std::make_unique<octoon::image::flut>(std::move(parsed));
+		} catch (const std::exception& e) {
+			LOG_E("video/out/gl") << "Failed to load HDR LUT for CPU export: " << e.what();
+			return false;
+		}
+	}
+
+	if (!cpu_lut || !cpu_lut->data)
+		return false;
+
+	const int S = static_cast<int>(cpu_lut->height);
+	if (S < 2) return false;
+
+	// lut.hpp parse()内部：r=Blue(最慢轴), g=Green(中间轴), b=Red(最快轴)
+	// 2D布局：idx2d = (g * width + r * S + b) * channel
+	// 即：(Green * W + Blue * S + Red) * Ch
+
+	const int w = img.GetWidth();
+	const int h = img.GetHeight();
+	uint8_t* data = img.GetData();
+	const float scale = static_cast<float>(S - 1) / 255.0f;
+
+	for (int i = 0; i < w * h; ++i) {
+		uint8_t* px = data + i * 3;
+		const uint8_t R_in = px[0], G_in = px[1], B_in = px[2];
+
+		// 计算浮点LUT坐标
+		const float fr = R_in * scale;
+		const float fg = G_in * scale;
+		const float fb = B_in * scale;
+
+		// 三线性插值的8个角点索引
+		const int r0 = std::min(static_cast<int>(fr), S - 1);
+		const int g0 = std::min(static_cast<int>(fg), S - 1);
+		const int b0 = std::min(static_cast<int>(fb), S - 1);
+		const int r1 = std::min(r0 + 1, S - 1);
+		const int g1 = std::min(g0 + 1, S - 1);
+		const int b1 = std::min(b0 + 1, S - 1);
+
+		const float dr = fr - r0;
+		const float dg = fg - g0;
+		const float db = fb - b0;
+
+		const int ch = cpu_lut->channel;
+		const int W = static_cast<int>(cpu_lut->width);
+
+		// 宏：从2D布局读取LUT值 (Green * W + Blue * S + Red) * channel
+		#define LUT_IDX(rr, gg, bb) (static_cast<size_t>((gg) * W + (bb) * S + (rr)) * ch)
+
+		const float* d = cpu_lut->data.get();
+
+		// 读取8个角点（浮点精度LUT，值域0.0~1.0）
+		auto lerp = [](float a, float b, float t) -> float { return a + (b - a) * t; };
+
+		for (int c = 0; c < 3; ++c) {
+			float c000 = d[LUT_IDX(r0, g0, b0) + c];
+			float c100 = d[LUT_IDX(r1, g0, b0) + c];
+			float c010 = d[LUT_IDX(r0, g1, b0) + c];
+			float c110 = d[LUT_IDX(r1, g1, b0) + c];
+			float c001 = d[LUT_IDX(r0, g0, b1) + c];
+			float c101 = d[LUT_IDX(r1, g0, b1) + c];
+			float c011 = d[LUT_IDX(r0, g1, b1) + c];
+			float c111 = d[LUT_IDX(r1, g1, b1) + c];
+
+			// 三线性插值：沿Red轴→Green轴→Blue轴
+			float c00 = lerp(c000, c100, dr);
+			float c01 = lerp(c001, c101, dr);
+			float c10 = lerp(c010, c110, dr);
+			float c11 = lerp(c011, c111, dr);
+
+			float c0 = lerp(c00, c10, dg);
+			float c1 = lerp(c01, c11, dg);
+
+			float result = lerp(c0, c1, db);
+			// 浮点LUT值域0.0~1.0，映射到0~255输出
+			px[c] = static_cast<uint8_t>(std::min(std::max(result * 255.0f, 0.0f), 255.0f));
+		}
+
+		#undef LUT_IDX
+	}
+
+	return true;
+}
+
+void VideoOutGL::EnsureHDRShader() {
+	if (hdrShaderLoaded && hdrShaderProgram != 0)
+		return;
+
+#if !defined(__APPLE__)
+	const auto &shader = GetShaderFunctions();
+	if (!shader.available) {
+		LOG_W("video/out/gl") << "HDR shader unavailable: OpenGL shader functions missing";
+		hdrShaderLoaded = false;
+		return;
+	}
+
+	const char *vertex_src =
+		"void main() {\n"
+		"  gl_TexCoord[0] = gl_MultiTexCoord0;\n"
+		"  gl_Position = ftransform();\n"
+		"}\n";
+
+	const char *fragment_src =
+		"uniform sampler2D sceneTex;\n"
+		"uniform sampler3D lutTex;\n"
+		"uniform float lutCoordScale;\n"
+		"uniform float lutCoordOffset;\n"
+		"uniform float useLut;\n"
+		"void main() {\n"
+		"  vec4 src = texture2D(sceneTex, gl_TexCoord[0].xy);\n"
+		"  vec3 mapped = src.rgb / (src.rgb + vec3(1.0));\n"
+		"  if (useLut > 0.5) {\n"
+		"    vec3 lutCoord = clamp(src.rgb, 0.0, 1.0) * lutCoordScale + vec3(lutCoordOffset);\n"
+		"    mapped = texture3D(lutTex, lutCoord).rgb;\n"
+		"  }\n"
+		"  gl_FragColor = vec4(mapped, src.a);\n"
+		"}\n";
+
+	GLuint vs = shader.CreateShader(GL_VERTEX_SHADER);
+	GLuint fs = shader.CreateShader(GL_FRAGMENT_SHADER);
+	if (vs == 0 || fs == 0)
+		throw std::runtime_error("Failed to create HDR shader objects");
+
+	shader.ShaderSource(vs, 1, &vertex_src, nullptr);
+	shader.CompileShader(vs);
+	GLint ok = GL_FALSE;
+	shader.GetShaderiv(vs, GL_COMPILE_STATUS, &ok);
+	if (ok != GL_TRUE) {
+		char logbuf[1024] = {0};
+		shader.GetShaderInfoLog(vs, sizeof(logbuf), nullptr, logbuf);
+		shader.DeleteShader(vs);
+		shader.DeleteShader(fs);
+		throw std::runtime_error(std::string("HDR vertex shader compile failed: ") + logbuf);
+	}
+
+	shader.ShaderSource(fs, 1, &fragment_src, nullptr);
+	shader.CompileShader(fs);
+	shader.GetShaderiv(fs, GL_COMPILE_STATUS, &ok);
+	if (ok != GL_TRUE) {
+		char logbuf[1024] = {0};
+		shader.GetShaderInfoLog(fs, sizeof(logbuf), nullptr, logbuf);
+		shader.DeleteShader(vs);
+		shader.DeleteShader(fs);
+		throw std::runtime_error(std::string("HDR fragment shader compile failed: ") + logbuf);
+	}
+
+	hdrShaderProgram = shader.CreateProgram();
+	if (hdrShaderProgram == 0) {
+		shader.DeleteShader(vs);
+		shader.DeleteShader(fs);
+		throw std::runtime_error("Failed to create HDR shader program");
+	}
+
+	shader.AttachShader(hdrShaderProgram, vs);
+	shader.AttachShader(hdrShaderProgram, fs);
+	shader.LinkProgram(hdrShaderProgram);
+	shader.GetProgramiv(hdrShaderProgram, GL_LINK_STATUS, &ok);
+	shader.DeleteShader(vs);
+	shader.DeleteShader(fs);
+
+	if (ok != GL_TRUE) {
+		char logbuf[1024] = {0};
+		shader.GetProgramInfoLog(hdrShaderProgram, sizeof(logbuf), nullptr, logbuf);
+		shader.DeleteProgram(hdrShaderProgram);
+		hdrShaderProgram = 0;
+		throw std::runtime_error(std::string("HDR shader program link failed: ") + logbuf);
+	}
+
+	hdrSceneSamplerLoc = shader.GetUniformLocation(hdrShaderProgram, "sceneTex");
+	hdrLutSamplerLoc = shader.GetUniformLocation(hdrShaderProgram, "lutTex");
+	hdrLutScaleLoc = shader.GetUniformLocation(hdrShaderProgram, "lutCoordScale");
+	hdrLutOffsetLoc = shader.GetUniformLocation(hdrShaderProgram, "lutCoordOffset");
+	hdrUseLutLoc = shader.GetUniformLocation(hdrShaderProgram, "useLut");
+	if (hdrSceneSamplerLoc < 0 || hdrLutSamplerLoc < 0 || hdrLutScaleLoc < 0 || hdrLutOffsetLoc < 0 || hdrUseLutLoc < 0) {
+		shader.DeleteProgram(hdrShaderProgram);
+		hdrShaderProgram = 0;
+		throw std::runtime_error("HDR shader uniform lookup failed");
+	}
+
+	hdrShaderLoaded = true;
+	LOG_I("video/out/gl") << "HDR shader initialized";
+#else
+	hdrShaderLoaded = false;
+#endif
+}
+
+void VideoOutGL::ReleaseHDRShader() {
+#if !defined(__APPLE__)
+	if (hdrShaderProgram != 0 && GetShaderFunctions().available) {
+		GetShaderFunctions().DeleteProgram(hdrShaderProgram);
+		if (GLenum err = glGetError()) throw VideoOutRenderException("glDeleteProgram", err);
+	}
+#endif
+	hdrShaderProgram = 0;
+	hdrSceneSamplerLoc = -1;
+	hdrLutSamplerLoc = -1;
+	hdrLutScaleLoc = -1;
+	hdrLutOffsetLoc = -1;
+	hdrUseLutLoc = -1;
+	hdrShaderLoaded = false;
 }

@@ -36,12 +36,46 @@ namespace {
 wxImage GetImage(VideoFrame const& frame) {
 	using namespace boost::gil;
 
-	wxImage img(frame.width, frame.height);
-	auto src = interleaved_view(frame.width, frame.height, (bgra8_pixel_t*)frame.data.data(), frame.pitch);
-	auto dst = interleaved_view(frame.width, frame.height, (rgb8_pixel_t*)img.GetData(), 3 * frame.width);
-	if (frame.flipped)
-		src = flipped_up_down_view(src);
-	copy_and_convert_pixels(src, dst, color_converter());
+	// 确定输出维度（90/270°旋转时宽高互换）
+	const bool has_rotation = (frame.rotation == 90 || frame.rotation == 270);
+	const bool has_transform = has_rotation || frame.hflipped || frame.flipped;
+	const size_t out_w = has_rotation ? frame.height : frame.width;
+	const size_t out_h = has_rotation ? frame.width : frame.height;
+
+	wxImage img(out_w, out_h);
+
+	if (has_transform) {
+		// 有变换时，手动逐像素处理（截图/导出路径，性能非关键）
+		uint8_t* dst = img.GetData();
+		for (size_t oy = 0; oy < out_h; ++oy) {
+			for (size_t ox = 0; ox < out_w; ++ox) {
+				size_t sx, sy;
+				// 逆旋转：输出坐标→源数据坐标
+				if (frame.rotation == 90) {
+					sx = oy; sy = frame.height - 1 - ox;
+				} else if (frame.rotation == 270) {
+					sx = frame.width - 1 - oy; sy = ox;
+				} else {
+					sx = ox; sy = oy;
+				}
+				// 逆翻转
+				if (frame.hflipped) sx = frame.width - 1 - sx;
+				if (frame.flipped) sy = frame.height - 1 - sy;
+
+				const uint8_t* src_px = frame.data.data() + sy * frame.pitch + sx * 4;
+				uint8_t* dst_px = dst + (oy * out_w + ox) * 3;
+				dst_px[0] = src_px[2]; // R（源BGRA中offset 2）
+				dst_px[1] = src_px[1]; // G
+				dst_px[2] = src_px[0]; // B
+			}
+		}
+	} else {
+		// 无变换：使用boost::gil高效色彩转换
+		auto src = interleaved_view(frame.width, frame.height, (bgra8_pixel_t*)frame.data.data(), frame.pitch);
+		auto dst = interleaved_view(frame.width, frame.height, (rgb8_pixel_t*)img.GetData(), 3 * frame.width);
+		copy_and_convert_pixels(src, dst, color_converter());
+	}
+
 	return img;
 }
 
@@ -49,13 +83,41 @@ wxImage GetImageWithAlpha(VideoFrame const &frame) {
 	wxImage img = GetImage(frame);
 	img.InitAlpha();
 	uint8_t *dst = img.GetAlpha();
-	const uint8_t *src = frame.data.data() + 3;
-	for (size_t y = 0; y < frame.height; y++) {
-		for (size_t x = 0; x < frame.width; x++) {
-			*(dst++) = *src;
-			src += 4;
+
+	const bool has_rotation = (frame.rotation == 90 || frame.rotation == 270);
+	const bool has_transform = has_rotation || frame.hflipped || frame.flipped;
+	const size_t out_w = img.GetWidth();
+	const size_t out_h = img.GetHeight();
+
+	if (has_transform) {
+		// 有变换时，从正确的源位置读取alpha通道
+		for (size_t oy = 0; oy < out_h; ++oy) {
+			for (size_t ox = 0; ox < out_w; ++ox) {
+				size_t sx, sy;
+				if (frame.rotation == 90) {
+					sx = oy; sy = frame.height - 1 - ox;
+				} else if (frame.rotation == 270) {
+					sx = frame.width - 1 - oy; sy = ox;
+				} else {
+					sx = ox; sy = oy;
+				}
+				if (frame.hflipped) sx = frame.width - 1 - sx;
+				if (frame.flipped) sy = frame.height - 1 - sy;
+
+				dst[oy * out_w + ox] = frame.data[sy * frame.pitch + sx * 4 + 3];
+			}
+		}
+	} else {
+		// 无变换，直接线性读取alpha
+		const uint8_t *src = frame.data.data() + 3;
+		for (size_t y = 0; y < frame.height; y++) {
+			for (size_t x = 0; x < frame.width; x++) {
+				*(dst++) = *src;
+				src += 4;
+			}
 		}
 	}
+
 	return img;
 }
 

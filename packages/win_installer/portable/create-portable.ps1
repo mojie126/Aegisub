@@ -102,6 +102,9 @@ Copy-New-Item $InstallerDepsDir\ffi-experiments\build\download-manager\DownloadM
 Write-Output 'Copying - portable-config'
 Copy-New-Item $SourceRoot\packages\win_installer\portable\config.json  $PortableOutputDir
 
+Write-Output 'Copying - HDR LUT data'
+Copy-New-Item $SourceRoot\src\cube\PQ2SDR.cube  "$PortableOutputDir\data\cube"
+
 
 Write-Output 'Creating portable zip'
 Remove-Item aegisub-portable-64.zip

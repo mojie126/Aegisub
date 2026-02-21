@@ -24,6 +24,7 @@
 #include <vector>
 
 struct VideoFrame;
+class wxImage;
 
 /// @class VideoOutGL
 /// @brief OpenGL based video renderer
@@ -45,6 +46,28 @@ class VideoOutGL {
 	GLenum frameFormat = 0;
 	/// Whether the grid is set up for flipped video
 	bool frameFlipped = false;
+	/// Whether the grid is set up for horizontally flipped video
+	bool frameHFlipped = false;
+	/// 帧旋转角度(0/90/270)，由video provider设置
+	int frameRotation = 0;
+	/// 原始垂直翻转标志（用于FBO旋转路径的纹理坐标计算）
+	bool frameSourceVFlip = false;
+	/// 原始水平翻转标志（用于FBO旋转路径的纹理坐标计算）
+	bool frameSourceHFlip = false;
+	/// GPU黑边上下各行数（由video provider设置的padding信息）
+	int frameVideoPadding = 0;
+	/// Whether HDR to SDR tone mapping is enabled
+	bool hdrToneMappingEnabled = false;
+	/// Whether current source is likely HDR (used to avoid applying PQ LUT on SDR)
+	bool hdrInputLikelyHdr = false;
+	/// HDR LUT 3D texture ID (for tone mapping)
+	GLuint hdrLutTextureID = 0;
+	/// HDR LUT 3D size
+	int hdrLutSize = 0;
+	/// HDR LUT uploaded texture size (power-of-two for compatibility)
+	int hdrLutTextureSize = 0;
+	/// Whether HDR LUT is currently loaded
+	bool hdrLutLoaded = false;
 	/// List of OpenGL texture ids used in the grid
 	std::vector<GLuint> textureIdList;
 	/// List of precalculated texture display information
@@ -65,11 +88,39 @@ class VideoOutGL {
 	size_t uploadPboSize = 0;
 	/// Current PBO write index in uploadPboIds
 	size_t uploadPboIndex = 0;
+	/// FBO ID for HDR post-processing (render scene to FBO, then apply shader)
+	GLuint hdrFboId = 0;
+	/// FBO色彩附件纹理ID
+	GLuint hdrFboTexId = 0;
+	/// FBO当前宽度（与viewport同步，变化时需重建）
+	int hdrFboWidth = 0;
+	/// FBO当前高度
+	int hdrFboHeight = 0;
+	/// Whether HDR post shader is available and linked successfully
+	bool hdrShaderLoaded = false;
+	/// OpenGL program for HDR LUT mapping
+	GLuint hdrShaderProgram = 0;
+	/// Uniform location of scene texture sampler
+	GLint hdrSceneSamplerLoc = -1;
+	/// Uniform location of 3D LUT sampler
+	GLint hdrLutSamplerLoc = -1;
+	/// Uniform location of LUT coordinate scale (for POT expanded LUT)
+	GLint hdrLutScaleLoc = -1;
+	/// Uniform location of LUT coordinate offset (texel center correction for POT)
+	GLint hdrLutOffsetLoc = -1;
+	/// Uniform location of LUT usage switch (0=fallback tonemap, 1=use LUT)
+	GLint hdrUseLutLoc = -1;
 
 	void DetectOpenGLCapabilities();
-	void InitTextures(int width, int height, GLenum format, int bpp, bool flipped);
+	void InitTextures(int width, int height, GLenum format, int bpp, bool flipped, bool hflipped);
 	void EnsureUploadPbo(size_t requiredSize);
 	void ReleaseUploadPbo();
+	void EnsureHDRFbo(int width, int height);
+	void ReleaseHDRFbo();
+	void LoadHDRLUT();
+	void ReleaseHDRLUT();
+	void EnsureHDRShader();
+	void ReleaseHDRShader();
 
 	VideoOutGL(const VideoOutGL &) = delete;
 	VideoOutGL& operator=(const VideoOutGL&) = delete;
@@ -84,6 +135,21 @@ public:
 	/// @param width Width in pixels of viewport
 	/// @param height Height in pixels of viewport
 	void Render(int x, int y, int width, int height);
+
+	/// @brief Enable or disable HDR to SDR tone mapping
+	/// @param enable Whether to apply PQ EOTF inverse for HDR content
+	void EnableHDRToneMapping(bool enable);
+
+	/// @brief 对wxImage应用CPU侧HDR LUT色彩映射（用于截图/导出路径）
+	/// @param img 输入输出图像，原地修改RGB像素
+	/// @return 是否成功应用了LUT色彩映射
+	/// @details 使用三线性插值从3D LUT查表，将PQ编码的HDR像素映射到SDR色彩空间。
+	///          如果LUT未加载或不可用，返回false且图像不变。
+	static bool ApplyHDRLutToImage(wxImage& img);
+
+	/// @brief Set whether current input appears to be HDR source
+	/// @param isHdr True when source colorspace suggests BT.2020/HDR workflow
+	void SetHDRInputHint(bool isHdr) { hdrInputLikelyHdr = isHdr; }
 
 	VideoOutGL();
 	~VideoOutGL();

@@ -668,6 +668,9 @@
 			},
 			"Pattern" : false
 		},
+		"HDR" : {
+			"Tone Mapping" : false
+		},
 		"Last Script Resolution Mismatch Choice" : 2,
 		"Open Audio" : true,
 		"Overscan Mask" : false,

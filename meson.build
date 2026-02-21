@@ -458,3 +458,7 @@ aegisub = executable('aegisub', aegisub_src, version_h, acconf, resrc,
 					 install_dir : bindir,
 					 dependencies : [deps, other_dep],
 					 win_subsystem : 'windows')
+
+# 安装HDR色彩映射所需的3D LUT文件
+install_data('src/cube/PQ2SDR.cube',
+             install_dir : bindir / 'data' / 'cube')
