@@ -31,6 +31,7 @@
 
 #include "ass_dialogue.h"
 #include "ass_file.h"
+#include "async_video_provider.h"
 #include "compat.h"
 #include "format.h"
 #include "include/aegisub/context.h"
@@ -47,6 +48,7 @@
 #include <wx/sizer.h>
 #include <wx/statline.h>
 #include <wx/textctrl.h>
+#include <wx/tglbtn.h>
 #include <wx/toolbar.h>
 
 VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
@@ -69,10 +71,29 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 		choices.Add(fmt_wx("%g%%", i * 12.5));
 	auto zoomBox = new wxComboBox(this, -1, "75%", wxDefaultPosition, wxDefaultSize, choices, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
 
+	// HDR色彩映射切换按钮
+	hdrToggle = new wxToggleButton(this, -1, "HDR", wxDefaultPosition, wxDefaultSize, 0);
+	hdrToggle->SetValue(OPT_GET("Video/HDR/Tone Mapping")->GetBool());
+	hdrToggle->SetToolTip(_("Enable HDR to SDR tone mapping (PQ EOTF inverse). "
+	                        "Note: This provides approximate HDR color representation, "
+	                        "not true HDR display."));
+	hdrToggle->Bind(wxEVT_TOGGLEBUTTON, [=](wxCommandEvent&) {
+		if (!hw_hdr_available_) {
+			// 不可用时还原按钮状态，不执行操作
+			hdrToggle->SetValue(false);
+			return;
+		}
+		OPT_SET("Video/HDR/Tone Mapping")->SetBool(hdrToggle->GetValue());
+		context->videoDisplay->SetHDRMapping(hdrToggle->GetValue());
+		if (context->videoDisplay)
+			context->videoDisplay->SetFocus();
+	});
+
 	auto visualToolBar = toolbar::GetToolbar(this, "visual_tools", context, "Video", true);
 	auto visualSubToolBar = new wxToolBar(this, -1, wxDefaultPosition, wxDefaultSize, wxTB_VERTICAL | wxTB_BOTTOM | wxTB_NODIVIDER | wxTB_FLAT);
 
 	auto videoDisplay = new VideoDisplay(visualSubToolBar, isDetached, zoomBox, this, context);
+	videoDisplay->SetHDRMapping(hdrToggle->GetValue());
 	videoDisplay->MoveBeforeInTabOrder(videoSlider);
 
 	auto toolbarSizer = new wxBoxSizer(wxVERTICAL);
@@ -87,6 +108,7 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 	videoBottomSizer->Add(mainToolbar, wxSizerFlags(0).Center());
 	videoBottomSizer->Add(VideoPosition, wxSizerFlags(1).Center().Border(wxLEFT));
 	videoBottomSizer->Add(VideoSubsPos, wxSizerFlags(1).Center().Border(wxLEFT));
+	videoBottomSizer->Add(hdrToggle, wxSizerFlags(0).Center().Border(wxLEFT));
 	videoBottomSizer->Add(zoomBox, wxSizerFlags(0).Center().Border(wxLEFT | wxRIGHT));
 
 	auto VideoSizer = new wxBoxSizer(wxVERTICAL);
@@ -103,9 +125,51 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 		context->project->AddKeyframesListener(&VideoBox::UpdateTimeBoxes, this),
 		context->project->AddTimecodesListener(&VideoBox::UpdateTimeBoxes, this),
 		context->project->AddVideoProviderListener(&VideoBox::UpdateTimeBoxes, this),
+		context->project->AddVideoProviderListener(&VideoBox::UpdateHDRToggleState, this),
 		context->selectionController->AddSelectionListener(&VideoBox::UpdateTimeBoxes, this),
 		context->videoController->AddSeekListener(&VideoBox::UpdateTimeBoxes, this),
+		OPT_SUB("Provider/Video/FFmpegSource/HW hw_name", &VideoBox::UpdateHDRToggleState, this),
 	});
+
+	// 初始化HDR按钮状态（可能在视频已经打开后才创建VideoBox）
+	UpdateHDRToggleState();
+}
+
+void VideoBox::UpdateHDRToggleState() {
+	auto provider = context->project->VideoProvider();
+	hw_hdr_available_ = false;
+
+	if (provider) {
+		std::string decoder = provider->GetDecoderName();
+		if (decoder == "FFmpegSource") {
+			// FFmpegSource需要硬件解码才能启用HDR色彩映射
+			auto hw_name = OPT_GET("Provider/Video/FFmpegSource/HW hw_name")->GetString();
+			hw_hdr_available_ = !hw_name.empty() && hw_name != "none";
+		} else if (decoder == "VapourSynth") {
+			// VapourSynth标准resize不做PQ→SDR色调映射，允许用户手动启用HDR
+			hw_hdr_available_ = true;
+		}
+	}
+
+	// 始终保持按钮可交互（以便展示tooltip），通过视觉样式区分可用状态
+	hdrToggle->Enable(true);
+
+	if (!hw_hdr_available_) {
+		// 不支持HDR时：关闭映射、同步选项值、视觉灰化、更新提示为禁用原因
+		hdrToggle->SetValue(false);
+		OPT_SET("Video/HDR/Tone Mapping")->SetBool(false);
+		if (context->videoDisplay)
+			context->videoDisplay->SetHDRMapping(false);
+		hdrToggle->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
+		hdrToggle->SetToolTip(_("HDR tone mapping unavailable. "
+		                        "Requires hardware decoding (FFmpegSource) or VapourSynth video provider."));
+	} else {
+		// 支持HDR时恢复正常样式和提示
+		hdrToggle->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
+		hdrToggle->SetToolTip(_("Enable HDR to SDR tone mapping (PQ EOTF inverse). "
+		                        "Note: This provides approximate HDR color representation, "
+		                        "not true HDR display."));
+	}
 }
 
 void VideoBox::UpdateTimeBoxes() {
