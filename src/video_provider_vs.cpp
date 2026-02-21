@@ -41,6 +41,7 @@
 static const char *kf_key = "__aegi_keyframes";
 static const char *tc_key = "__aegi_timecodes";
 static const char *audio_key = "__aegi_hasaudio";
+static const char *hw_decode_key = "__aegi_hw_decode";
 
 namespace {
 class VapourSynthVideoProvider: public VideoProvider {
@@ -57,6 +58,9 @@ class VapourSynthVideoProvider: public VideoProvider {
 	int video_cs = -1;		// Reported or guessed color matrix of first frame
 	int video_cr = -1;		// Reported or guessed color range of first frame
 	bool has_audio = false;
+
+	HDRType detected_hdr_type_ = HDRType::SDR;  // 检测到的HDR类型
+	bool hw_decode_ = false;  // VS脚本是否使用硬件解码（通过__aegi_hw_decode脚本变量获取）
 
 	agi::scoped_holder<const VSFrame *, void (*)(const VSFrame *) noexcept> GetVSFrame(VSNode *node, int n);
 	void SetResizeArg(VSMap *args, const VSMap *props, const char *arg_name, const char *prop_name, int64_t deflt, int64_t unspecified = -1);
@@ -85,6 +89,8 @@ public:
 	bool HasAudio() const override                 { return has_audio; }
 	bool WantsCaching() const override             { return true; }
 	std::string GetDecoderName() const override    { return "VapourSynth"; }
+	HDRType GetHDRType() const override             { return detected_hdr_type_; }
+	bool IsHWDecoding() const override              { return hw_decode_; }
 	bool ShouldSetVideoProperties() const override { return colorspace != "Unknown"; }
 };
 
@@ -153,6 +159,7 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 	vs.GetScriptAPI()->getVariable(script, kf_key, clipinfo);
 	vs.GetScriptAPI()->getVariable(script, tc_key, clipinfo);
 	vs.GetScriptAPI()->getVariable(script, audio_key, clipinfo);
+	vs.GetScriptAPI()->getVariable(script, hw_decode_key, clipinfo);
 
 	int numkf = vs.GetAPI()->mapNumElements(clipinfo, kf_key);
 	int numtc = vs.GetAPI()->mapNumElements(clipinfo, tc_key);
@@ -160,6 +167,13 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 	int64_t audio = vs.GetAPI()->mapGetInt(clipinfo, audio_key, 0, &err1);
 	if (!err1)
 		has_audio = bool(audio);
+
+	// 读取VS脚本报告的硬件解码状态
+	int64_t hw_val = vs.GetAPI()->mapGetInt(clipinfo, hw_decode_key, 0, &err1);
+	if (!err1)
+		hw_decode_ = bool(hw_val);
+	else
+		hw_decode_ = false;  // 脚本未设置时默认非硬解
 
 	if (numkf > 0) {
 		const int64_t *kfs = vs.GetAPI()->mapGetIntArray(clipinfo, kf_key, &err1);
@@ -230,13 +244,32 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 	switch (video_cr_vs) {
 		case VSC_RANGE_FULL:
 			video_cr = AGI_CR_JPEG;
+			break;
 		case VSC_RANGE_LIMITED:
 			video_cr = AGI_CR_MPEG;
+			break;
 		default:
 			video_cr = AGI_CR_UNSPECIFIED;
+			break;
 	}
 	video_cs = vs.GetAPI()->mapGetInt(props, "_Matrix", 0, &err2);
 	ColorMatrix::guess_colorspace(video_cs, video_cr, vi->width, vi->height);
+
+	// 检测HDR类型：基于帧级别传输特性(_Transfer)
+	{
+		int err_transfer;
+		int64_t transfer = vs.GetAPI()->mapGetInt(props, "_Transfer", 0, &err_transfer);
+		if (!err_transfer && transfer == 16) {
+			detected_hdr_type_ = HDRType::PQ;
+			LOG_D("vapoursynth") << "HDR detection: PQ (SMPTE ST 2084), _Transfer=" << transfer;
+		} else if (!err_transfer && transfer == 18) {
+			detected_hdr_type_ = HDRType::HLG;
+			LOG_D("vapoursynth") << "HDR detection: HLG (ARIB STD-B67), _Transfer=" << transfer;
+		} else {
+			detected_hdr_type_ = HDRType::SDR;
+			LOG_D("vapoursynth") << "HDR detection: SDR, _Transfer=" << (err_transfer ? -1 : (int)transfer);
+		}
+	}
 
 	SetColorSpace(colormatrix);
 }

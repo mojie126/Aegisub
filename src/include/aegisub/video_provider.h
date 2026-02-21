@@ -41,6 +41,14 @@
 
 struct VideoFrame;
 
+/// HDR内容类型枚举
+enum class HDRType : int {
+	SDR = 0,            ///< SDR内容（无HDR元数据）
+	PQ = 1,             ///< HDR10 / PQ (SMPTE ST 2084)
+	HLG = 2,            ///< HLG (ARIB STD-B67)
+	DolbyVision = 3     ///< Dolby Vision（含RPU元数据）
+};
+
 /// Color matrix constants matching the constants in ffmpeg
 /// (specifically libavutil's AVColorSpace) and/or H.273.
 typedef enum AGI_ColorSpaces {
@@ -106,6 +114,12 @@ public:
 	///         unknown or meaningless
 	virtual std::string GetColorSpace() const = 0;
 	virtual std::string GetRealColorSpace() const { return GetColorSpace(); }
+
+	/// 获取视频源的HDR类型（基于传输特性和元数据检测）
+	virtual HDRType GetHDRType() const { return HDRType::SDR; }
+
+	/// 是否正在使用硬件解码（由各provider根据自身情况报告）
+	virtual bool IsHWDecoding() const { return false; }
 
 	/// @brief Use this to set any post-loading warnings, such as "being loaded with unreliable seeking"
 	virtual std::string GetWarning() const { return ""; }

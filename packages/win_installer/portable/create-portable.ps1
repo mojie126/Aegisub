@@ -104,6 +104,8 @@ Copy-New-Item $SourceRoot\packages\win_installer\portable\config.json  $Portable
 
 Write-Output 'Copying - HDR LUT data'
 Copy-New-Item $SourceRoot\src\cube\PQ2SDR.cube  "$PortableOutputDir\data\cube"
+Copy-New-Item $SourceRoot\src\cube\HLG2SDR.cube  "$PortableOutputDir\data\cube"
+Copy-New-Item $SourceRoot\src\cube\DV2SDR.cube  "$PortableOutputDir\data\cube"
 
 
 Write-Output 'Creating portable zip'
