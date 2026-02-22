@@ -96,15 +96,7 @@ cc = meson.get_compiler('c')
 deps += cc.find_library('m', required : false)
 deps += cc.find_library('dl', required : false)
 
-if meson.version().version_compare('>=0.60.0')
-	iconv_dep = dependency('iconv', fallback : ['iconv', 'libiconv_dep'])
-else
-	iconv_dep = cc.find_library('iconv', required : false)
-	if not (iconv_dep.found() or cc.has_function('iconv_open'))
-		iconv_sp = subproject('iconv') # this really needs to be replaced with a proper port
-		iconv_dep = iconv_sp.get_variable('libiconv_dep')
-	endif
-endif
+iconv_dep = dependency('iconv', fallback : ['iconv', 'libiconv_dep'])
 deps += iconv_dep
 
 deps += dependency('libass', version : '>=0.9.7',
@@ -134,9 +126,6 @@ endif
 deps += dependency('zlib')
 
 wx_minver = '>=' + get_option('wx_version')
-if host_machine.system() == 'darwin'
-	wx_minver = '>=3.1.0'
-endif
 wx_dep = dependency('wxWidgets', version : wx_minver,
 					required : false,
 					modules : ['std', 'stc', 'gl'])
@@ -154,7 +143,7 @@ else
 	endif
 
 	opt_var = cmake.subproject_options()
-	opt_var.set_override_option('cpp_std', 'c++14')
+	opt_var.set_override_option('cpp_std', 'c++17')
 	opt_var.add_cmake_defines({
 								  'wxBUILD_INSTALL' : false,
 								  'wxBUILD_PRECOMP' : 'OFF', # otherwise breaks project generation w/ meson
@@ -167,23 +156,14 @@ else
 								  'wxBUILD_MONOLITHIC' : true      # otherwise breaks project generation w/ meson
 							  })
 
-	if get_option('wx_version').version_compare('>=3.3.0')
-		wx = cmake.subproject('wxWidgets-master', options : opt_var)
-	else
-		wx = cmake.subproject('wxWidgets', options : opt_var)
-	endif
+	wx = cmake.subproject('wxWidgets', options : opt_var)
 
 	deps += [
 		wx.dependency('wxmono'),
 		wx.dependency('wxregex'),
-		wx.dependency('wxscintilla')
+		wx.dependency('wxscintilla'),
+		wx.dependency('wxlexilla')
 	]
-
-	if get_option('wx_version').version_compare('>=3.3.0')
-		deps += [
-			wx.dependency('wxlexilla')
-		]
-	endif
 
 	if host_machine.system() == 'windows' or host_machine.system() == 'darwin'
 		deps += [
@@ -251,7 +231,7 @@ needs_ffmpeg = false
 
 if get_option('bestsource').enabled()
 	conf.set('WITH_BESTSOURCE', 1)
-	deps += dependency('bestsource', version : '>=6.0',
+	deps += dependency('bestsource', version : '>=16.0',
 					   fallback : ['bestsource', 'bestsource_dep'],
 					   default_options : ['enable_plugin=false'])
 	dep_avail += 'BestSource'
