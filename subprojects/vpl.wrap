@@ -1,6 +1,6 @@
 [wrap-git]
 url = https://github.com/intel/libvpl.git
-revision = v2.11.0
+revision = v2.16.0
 patch_directory = vpl
 
 [provide]

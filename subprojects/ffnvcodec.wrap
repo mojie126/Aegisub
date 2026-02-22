@@ -1,6 +1,6 @@
 [wrap-git]
 url = https://github.com/FFmpeg/nv-codec-headers.git
-revision = n12.2.72.0
+revision = n13.0.19.0
 patch_directory = ffnvcodec
 
 [provide]
