@@ -1,0 +1,20 @@
+--- a/meson.build
++++ b/meson.build
+@@ -2018,8 +2018,14 @@
+       else
+         req = get_option(opt_name)
+         pkg_name = opts.get('pkg', name)
+         if opts.has_key('versions')
+-          foreach version: opts['versions']
+-            dep = dependency(pkg_name, required: false, version: version)
++          _ver_found = false
++          foreach version: opts['versions']
++            if not _ver_found
++              dep = dependency(pkg_name, required: false, version: version)
++              if dep.found()
++                _ver_found = true
++              endif
++            endif
+           endforeach
+ 
+           if not dep.found() and req.enabled()
