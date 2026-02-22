@@ -54,4 +54,10 @@ subprojects/x264
 subprojects/checkasm
 subprojects/checkasm.wrap
 subprojects/.wraplock
+subprojects/yasm
+subprojects/expat-*
+subprojects/vpl
+subprojects/libvpl-*
+subprojects/wxWidgets-master
 .idea
+.vscode
