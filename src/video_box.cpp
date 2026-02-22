@@ -81,7 +81,7 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 	hdrToggle->SetValue(OPT_GET("Video/HDR/Tone Mapping")->GetBool());
 	hdrToggle->SetToolTip(_("Enable HDR/DV to SDR tone mapping.\n"
 	                        "Supported: PQ (HDR10), HLG, Dolby Vision.\n"
-	                        "Requires hardware decoding and HDR/DV source video."));
+	                        "Requires HDR/DV source video."));
 	hdrToggle->Bind(wxEVT_TOGGLEBUTTON, [=](wxCommandEvent&) {
 		if (!hw_hdr_available_) {
 			// 不可用时还原按钮状态，不执行操作
@@ -182,9 +182,9 @@ void VideoBox::UpdateHDRToggleState() {
 		// 由各provider自行报告硬件解码状态
 		hw_decode = provider->IsHWDecoding();
 
-		// HDR/DV视频源 + 硬件解码启用 = 可用色调映射
+		// HDR/DV视频源即可启用色调映射（LUT方案不依赖硬件解码）
 		const bool is_hdr_source = (detected_hdr_type != HDRType::SDR);
-		hw_hdr_available_ = hw_decode && is_hdr_source;
+		hw_hdr_available_ = is_hdr_source;
 	}
 
 	// 始终保持按钮可交互（以便展示tooltip），通过视觉样式区分可用状态
@@ -198,10 +198,10 @@ void VideoBox::UpdateHDRToggleState() {
 			context->videoDisplay->SetHDRMapping(false);
 		hdrToggle->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
 
-		// 统一禁用提示：仅告知需开启硬解和支持的视频格式
+		// 统一禁用提示：仅告知需要支持的视频格式
 		hdrToggle->SetToolTip(
 			_("HDR/DV tone mapping unavailable.\n"
-			  "Requires hardware decoding and HDR/DV source video.\n"
+			  "Requires HDR/DV source video.\n"
 			  "Supported formats: PQ (HDR10), HLG, Dolby Vision."));
 	} else {
 		// 支持HDR/DV时恢复正常样式，提示里显示检测到的具体类型
@@ -214,11 +214,20 @@ void VideoBox::UpdateHDRToggleState() {
 			case HDRType::PQ:          type_name = "PQ (HDR10)"; break;
 			default:                   type_name = "HDR"; break;
 		}
-		hdrToggle->SetToolTip(wxString::Format(
+		wxString tooltip_text = wxString::Format(
 			_("Enable HDR/DV to SDR tone mapping.\n"
 			  "Detected format: %s\n"
 			  "Click to toggle tone mapping on/off."),
-			type_name));
+			type_name);
+
+		// 软解时追加性能警告
+		if (!hw_decode) {
+			tooltip_text += "\n\n";
+			tooltip_text += _("Warning: Software decoding is active.\n"
+			                  "Hardware decoding is recommended for smooth HDR/DV tone mapping playback.");
+		}
+
+		hdrToggle->SetToolTip(tooltip_text);
 	}
 }
 
