@@ -1,7 +1,7 @@
 [wrap-git]
 directory = hunspell
 url = https://github.com/hunspell/hunspell.git
-revision = master
+revision = v1.7.2
 depth = 1
 patch_directory = hunspell
 
