@@ -1,8 +1,5 @@
 regex_sources = files([
     'src/posix_api.cpp',
-    'src/regex.cpp',
-    'src/regex_debug.cpp',
-    'src/static_mutex.cpp',
     'src/wide_posix_api.cpp',
 ])
 
