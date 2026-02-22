@@ -253,7 +253,15 @@ static std::unique_ptr<octoon::image::flut> &GetCpuCubeLut() {
 
 std::string VideoOutGL::GetLutFilename(HDRType type) {
 	switch (type) {
-		case HDRType::DolbyVision: return "DV2SDR.cube";
+		case HDRType::DolbyVision:
+			// TODO: [已知限制] DV Profile 5 内容使用静态 LUT 映射时存在场景间颜色跳变。
+			// 根因：DV P5 每帧 RPU 包含不同的 reshaping 曲线，静态 LUT 无法逆向场景级动态映射。
+			// 可能的解决方案：
+			//   1. 解析每帧 AV_FRAME_DATA_DOVI_METADATA，在 shader 中实现 RPU reshaping（IPT-PQ-C2 → BT.2020 PQ），
+			//      然后改用 PQ2SDR.cube 进行色调映射；
+			//   2. 升级 FFmpeg 至 7.0+，使用 HEVC 解码器 apply_dovi=1 直接输出 BT.2020 PQ；
+			//   3. 使用 libdovi 库解析 RPU 并执行完整的 DV 信号重建。
+			return "DV2SDR.cube";
 		case HDRType::HLG:        return "HLG2SDR.cube";
 		case HDRType::PQ:
 		default:                   return "PQ2SDR.cube";
@@ -261,8 +269,14 @@ std::string VideoOutGL::GetLutFilename(HDRType type) {
 }
 
 std::string VideoOutGL::FindCubeLutPath(const std::string &filename) {
-	// 优先从?data/cube/路径查找（安装版和便携版均可用）
+	// 从?data路径查找（安装版和便携版均可用）
+	// cube文件安装到 bindir/data/cube/，?data指向exe所在目录
 	if (config::path) {
+		// 优先：?data/data/cube/（标准安装布局，exe同级data子目录）
+		auto data_sub_path = config::path->Decode("?data/data/cube/" + filename);
+		if (agi::fs::FileExists(data_sub_path))
+			return data_sub_path.string();
+		// 兼容：?data/cube/（直接放在exe同级cube子目录）
 		auto data_path = config::path->Decode("?data/cube/" + filename);
 		if (agi::fs::FileExists(data_path))
 			return data_path.string();
@@ -988,7 +1002,6 @@ VideoOutGL::~VideoOutGL() {
 
 void VideoOutGL::LoadHDRLUT() {
 	// 根据hdrInputType选择LUT文件：HLG用HLG2SDR.cube，PQ用PQ2SDR.cube，DV用DV2SDR.cube
-	// DV因动态RPU无法用静态LUT映射，回退到PQ基础层以保持色彩稳定
 	// 使用octoon库解析.cube格式，上传为GPU 3D纹理供shader采样
 
 	if (hdrLutLoaded) return;
@@ -1157,7 +1170,7 @@ bool VideoOutGL::ApplyHDRLutToImage(wxImage& img, HDRType type) {
 		uint8_t* px = data + i * 3;
 		const uint8_t R_in = px[0], G_in = px[1], B_in = px[2];
 
-		// 计算浮点LUT坐标
+		// 归一化到 [0, 1] 并计算浮点LUT坐标
 		const float fr = R_in * scale;
 		const float fg = G_in * scale;
 		const float fb = B_in * scale;
