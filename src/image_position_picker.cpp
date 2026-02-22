@@ -62,12 +62,14 @@ void ImagePositionPicker::paintEvent(wxPaintEvent& evt)
  * manager throws away your drawing when the window comes to the
  * background, and expects you will redraw it when the window comes
  * back (by sending a paint event).
+ *
+ * wxWidgets 3.3+ 默认启用 composited 双缓冲，wxClientDC 绘制不再生效。
+ * 改为触发标准重绘流程。
  */
 void ImagePositionPicker::paintNow()
 {
-	// depending on your system you may need to look at double-buffered dcs
-	wxClientDC dc(this);
-	render(dc);
+	Refresh();
+	Update();
 }
 
 /*
