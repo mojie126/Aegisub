@@ -7545,11 +7545,11 @@ msgstr "SRS (Shake Rotoshape) 数据仅支持矢量clip。矩形clip选项将不
 msgid ""
 "Enable HDR/DV to SDR tone mapping.\n"
 "Supported: PQ (HDR10), HLG, Dolby Vision.\n"
-"Requires hardware decoding and HDR/DV source video."
+"Requires HDR/DV source video."
 msgstr ""
 "启用 HDR/DV 到 SDR 色调映射。\n"
 "支持格式：PQ (HDR10)、HLG、杜比视界。\n"
-"需要开启硬件解码且视频源为 HDR/DV 格式。"
+"需要视频源为 HDR/DV 格式。"
 
 #. video_box.cpp - HDR/DV可用时的提示（含检测到的格式类型）
 msgid ""
@@ -7564,11 +7564,11 @@ msgstr ""
 #. video_box.cpp - HDR/DV不可用：统一提示
 msgid ""
 "HDR/DV tone mapping unavailable.\n"
-"Requires hardware decoding and HDR/DV source video.\n"
+"Requires HDR/DV source video.\n"
 "Supported formats: PQ (HDR10), HLG, Dolby Vision."
 msgstr ""
 "HDR/DV 色调映射不可用。\n"
-"需要开启硬件解码，且视频源为 HDR/DV 格式。\n"
+"需要视频源为 HDR/DV 格式。\n"
 "支持格式：PQ (HDR10)、HLG、杜比视界。"
 
 #. video_box.cpp - LUT文件缺失弹窗
@@ -7584,4 +7584,12 @@ msgstr ""
 #. video_box.cpp - LUT文件缺失弹窗标题
 msgid "HDR/DV Tone Mapping"
 msgstr "HDR/DV 色调映射"
+
+#. video_box.cpp - 软解码时HDR/DV按钮性能警告
+msgid ""
+"Warning: Software decoding is active.\n"
+"Hardware decoding is recommended for smooth HDR/DV tone mapping playback."
+msgstr ""
+"警告：当前使用软件解码。\n"
+"建议启用硬件解码以获得流畅的 HDR/DV 色调映射播放体验。"
 

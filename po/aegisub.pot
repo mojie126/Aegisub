@@ -6860,3 +6860,41 @@ msgstr ""
 msgid "This will install Aegisub {#BUILD_GIT_VERSION_STRING} on your computer.%n%nAegisub is covered by the GNU General Public License version 2. This means you may use the application for any purpose without charge, but that no warranties of any kind are given either.%n%nSee the Aegisub website for information on obtaining the source code."
 msgstr ""
 
+#: ../src/video_box.cpp
+msgid ""
+"Enable HDR/DV to SDR tone mapping.\n"
+"Supported: PQ (HDR10), HLG, Dolby Vision.\n"
+"Requires HDR/DV source video."
+msgstr ""
+
+#: ../src/video_box.cpp
+msgid ""
+"Enable HDR/DV to SDR tone mapping.\n"
+"Detected format: %s\n"
+"Click to toggle tone mapping on/off."
+msgstr ""
+
+#: ../src/video_box.cpp
+msgid ""
+"HDR/DV tone mapping unavailable.\n"
+"Requires HDR/DV source video.\n"
+"Supported formats: PQ (HDR10), HLG, Dolby Vision."
+msgstr ""
+
+#: ../src/video_box.cpp
+msgid ""
+"LUT file \"%s\" not found.\n"
+"HDR/DV tone mapping requires the corresponding LUT file.\n"
+"Please place the file in the data/cube/ directory."
+msgstr ""
+
+#: ../src/video_box.cpp
+msgid "HDR/DV Tone Mapping"
+msgstr ""
+
+#: ../src/video_box.cpp
+msgid ""
+"Warning: Software decoding is active.\n"
+"Hardware decoding is recommended for smooth HDR/DV tone mapping playback."
+msgstr ""
+
