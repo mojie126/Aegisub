@@ -181,10 +181,16 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 	ColorMatrix::guess_colorspace(video_cs, video_cr, properties.Width, properties.Height);
 	pixfmt = (AVPixelFormat) avframe->format;
 
-	// 检测HDR类型：基于帧级别传输特性
+	// 检测HDR类型：优先检测 Dolby Vision 帧级 RPU，再检测传输特性
 	{
-		int trc = avframe->color_trc;
-		if (trc == 16) {
+		// BestVideoFrame 构造时已将 AV_FRAME_DATA_DOVI_RPU_BUFFER 提取到 DolbyVisionRPU 字段
+		bool has_dovi = (frame->DolbyVisionRPU != nullptr && frame->DolbyVisionRPUSize > 0);
+		int trc = frame->Transfer;  // 直接使用 BestVideoFrame 的 Transfer 字段
+
+		if (has_dovi) {
+			detected_hdr_type_ = HDRType::DolbyVision;
+			LOG_D("bestsource") << "HDR detection: DolbyVision (frame-level RPU, size=" << frame->DolbyVisionRPUSize << "), Transfer=" << trc;
+		} else if (trc == 16) {
 			detected_hdr_type_ = HDRType::PQ;
 			LOG_D("bestsource") << "HDR detection: PQ (SMPTE ST 2084), color_trc=" << trc;
 		} else if (trc == 18) {
