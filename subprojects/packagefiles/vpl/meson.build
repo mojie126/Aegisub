@@ -1,4 +1,4 @@
-project('vpl', 'cpp', version : '2.11.0')
+project('vpl', 'cpp', version : '2.16.0')
 
 usage_args = []
 
