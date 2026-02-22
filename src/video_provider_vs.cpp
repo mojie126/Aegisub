@@ -20,10 +20,12 @@
 #include "compat.h"
 #include "options.h"
 #include "video_frame.h"
+#include "dovi_probe.h"
 
 #include <libaegisub/access.h>
 #include <libaegisub/background_runner.h>
 #include <libaegisub/format.h>
+#include <libaegisub/fs.h>
 #include <libaegisub/keyframe.h>
 #include <libaegisub/log.h>
 #include <libaegisub/make_unique.h>
@@ -255,11 +257,18 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 	video_cs = vs.GetAPI()->mapGetInt(props, "_Matrix", 0, &err2);
 	ColorMatrix::guess_colorspace(video_cs, video_cr, vi->width, vi->height);
 
-	// 检测HDR类型：基于帧级别传输特性(_Transfer)
+	// 检测HDR类型：优先检测 Dolby Vision RPU 帧属性，再检测传输特性(_Transfer)
 	{
-		int err_transfer;
+		int err_transfer, err_dovi;
 		int64_t transfer = vs.GetAPI()->mapGetInt(props, "_Transfer", 0, &err_transfer);
-		if (!err_transfer && transfer == 16) {
+
+		// 检查 _DolbyVisionRPU 帧属性（由 vs-dovi、dovi_tool 等 VS 插件设置）
+		vs.GetAPI()->mapGetData(props, "_DolbyVisionRPU", 0, &err_dovi);
+
+		if (!err_dovi) {
+			detected_hdr_type_ = HDRType::DolbyVision;
+			LOG_D("vapoursynth") << "HDR detection: DolbyVision (_DolbyVisionRPU found), _Transfer=" << (err_transfer ? -1 : (int)transfer);
+		} else if (!err_transfer && transfer == 16) {
 			detected_hdr_type_ = HDRType::PQ;
 			LOG_D("vapoursynth") << "HDR detection: PQ (SMPTE ST 2084), _Transfer=" << transfer;
 		} else if (!err_transfer && transfer == 18) {
@@ -269,6 +278,25 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 			detected_hdr_type_ = HDRType::SDR;
 			LOG_D("vapoursynth") << "HDR detection: SDR, _Transfer=" << (err_transfer ? -1 : (int)transfer);
 		}
+
+		// 帧属性检测未找到DV/HDR时，使用 libavformat 流级探测作为后备
+		// LWLibavSource 等源滤镜可能不暴露 _DolbyVisionRPU 或正确的 _Transfer
+#ifdef WITH_FFMPEG
+		if (detected_hdr_type_ == HDRType::SDR && !agi::fs::HasExtension(filename, "py") && !agi::fs::HasExtension(filename, "vpy")) {
+			DoviProbeResult probe = ProbeDolbyVision(filename.string());
+			if (probe.has_dovi) {
+				detected_hdr_type_ = HDRType::DolbyVision;
+				LOG_D("vapoursynth") << "HDR detection (stream probe): DolbyVision, profile=" << probe.dv_profile
+					<< " transfer=" << probe.transfer << " primaries=" << probe.color_primaries;
+			} else if (probe.transfer == 16) {
+				detected_hdr_type_ = HDRType::PQ;
+				LOG_D("vapoursynth") << "HDR detection (stream probe): PQ, transfer=" << probe.transfer;
+			} else if (probe.transfer == 18) {
+				detected_hdr_type_ = HDRType::HLG;
+				LOG_D("vapoursynth") << "HDR detection (stream probe): HLG, transfer=" << probe.transfer;
+			}
+		}
+#endif
 	}
 
 	SetColorSpace(colormatrix);
