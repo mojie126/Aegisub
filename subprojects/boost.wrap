@@ -1,6 +1,6 @@
 [wrap-file]
-directory = boost_1_85_0
-source_url = https://archives.boost.io/release/1.85.0/source/boost_1_85_0.tar.gz
-source_filename = boost_1_85_0.tar.gz
-source_hash = be0d91732d5b0cc6fbb275c7939974457e79b54d6f07ce2e3dfdd68bef883b0b
+directory = boost_1_90_0
+source_url = https://archives.boost.io/release/1.90.0/source/boost_1_90_0.tar.gz
+source_filename = boost_1_90_0.tar.gz
+source_hash = 5e93d582aff26868d581a52ae78c7d8edf3f3064742c6e77901a1f18a437eea9
 patch_directory = boost
