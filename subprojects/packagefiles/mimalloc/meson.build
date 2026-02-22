@@ -1,4 +1,4 @@
-project('libmimalloc', 'c', version : '2.2.7')
+project('libmimalloc', 'c', version : '3.2.8')
 mimalloc_static_dir = include_directories('include', '.')
 mimalloc_static_sys = include_directories(is_system : true)
 mimalloc_static_inc = [mimalloc_static_dir, mimalloc_static_sys]
@@ -7,6 +7,7 @@ mimalloc_static_src = files(
 	'src/alloc-aligned.c',
 	'src/alloc-posix.c',
 	'src/arena.c',
+	'src/arena-meta.c',
 	'src/bitmap.c',
 	'src/heap.c',
 	'src/init.c',
@@ -14,10 +15,11 @@ mimalloc_static_src = files(
 	'src/options.c',
 	'src/os.c',
 	'src/page.c',
+	'src/page-map.c',
 	'src/random.c',
-	'src/segment.c',
-	'src/segment-map.c',
 	'src/stats.c',
+	'src/theap.c',
+	'src/threadlocal.c',
 	'src/prim/prim.c'
 )
 mimalloc_static = static_library(
@@ -30,7 +32,7 @@ mimalloc_static = static_library(
 	install : true,
 	override_options : ['cpp_std=c++17'],
 	objects : [],
-	install_dir : 'lib/mimalloc-2',
+	install_dir : 'lib/mimalloc-3',
 	cpp_args : [
 		'/DWIN32',
 		'/D_WINDOWS',
