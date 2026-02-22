@@ -261,6 +261,8 @@ endif
 if needs_ffmpeg
 	conf.set('WITH_FFMPEG', 1)
 	deps += [
+		dependency('libavformat', default_options : ['tests=disabled']),
+		dependency('libavcodec', default_options : ['tests=disabled']),
 		dependency('libavutil', default_options : ['tests=disabled']),
 		dependency('libswscale', default_options : ['tests=disabled']),
 	]
