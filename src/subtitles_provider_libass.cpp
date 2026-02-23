@@ -224,4 +224,9 @@ void CacheFonts() {
 		ass_renderer_done(ass_renderer);
 	});
 }
+
+void Cleanup() {
+	// 释放字体缓存队列，避免在静态析构阶段 io_context 已销毁后才析构 strand
+	cache_queue.reset();
+}
 }
