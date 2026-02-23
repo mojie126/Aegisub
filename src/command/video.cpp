@@ -646,7 +646,7 @@ namespace {
 			const wxDir dir(output_path);
 			bool cont = dir.GetFirst(&filename, wxEmptyString, wxDIR_FILES);
 			while (cont) {
-				const std::string _tmp_file{output_path + wxFileName::GetPathSeparator() + filename};
+				const std::string _tmp_file{(wxString(output_path) + wxFileName::GetPathSeparator() + filename).ToStdString()};
 				wxRemoveFile(_tmp_file);
 				cont = dir.GetNext(&filename);
 			}
@@ -662,7 +662,7 @@ namespace {
 
 		ps->SetMessage(from_wx(agi::wxformat(_("Exporting video clips, frame: [%ld ~ %ld], total: %d, please later"), start_frame, end_frame, duration_frame)));
 		for (int i = start_frame; i <= end_frame; ++i) {
-			std::string image_filename{output_path + wxFileName::GetPathSeparator() + agi::wxformat(std::string(img_path) + "_[%ld-%ld]_%05d.jpg", start_frame, end_frame, current_frame)};
+			std::string image_filename{(wxString(output_path) + wxFileName::GetPathSeparator() + agi::wxformat(std::string(img_path) + "_[%ld-%ld]_%05d.jpg", start_frame, end_frame, current_frame)).ToStdString()};
 			wxImage img = GetImage(*c->project->VideoProvider()->GetFrame(i, c->project->Timecodes().TimeAtFrame(i), true));
 			if (seq_hdr_enabled)
 				VideoOutGL::ApplyHDRLutToImage(img, seq_hdr_type);
