@@ -1,0 +1,196 @@
+#define png_sRGB_table wx_png_sRGB_table
+#define png_sRGB_base wx_png_sRGB_base
+#define png_sRGB_delta wx_png_sRGB_delta
+#define png_zstream_error wx_png_zstream_error
+#define png_free_buffer_list wx_png_free_buffer_list
+#define png_fixed wx_png_fixed
+#define png_fixed_ITU wx_png_fixed_ITU
+#define png_user_version_check wx_png_user_version_check
+#define png_malloc_base wx_png_malloc_base
+#define png_malloc_array wx_png_malloc_array
+#define png_realloc_array wx_png_realloc_array
+#define png_create_png_struct wx_png_create_png_struct
+#define png_destroy_png_struct wx_png_destroy_png_struct
+#define png_free_jmpbuf wx_png_free_jmpbuf
+#define png_zalloc wx_png_zalloc
+#define png_zfree wx_png_zfree
+#define png_default_read_data wx_png_default_read_data
+#define png_push_fill_buffer wx_png_push_fill_buffer
+#define png_default_write_data wx_png_default_write_data
+#define png_default_flush wx_png_default_flush
+#define png_reset_crc wx_png_reset_crc
+#define png_write_data wx_png_write_data
+#define png_read_sig wx_png_read_sig
+#define png_read_chunk_header wx_png_read_chunk_header
+#define png_read_data wx_png_read_data
+#define png_crc_read wx_png_crc_read
+#define png_crc_finish wx_png_crc_finish
+#define png_calculate_crc wx_png_calculate_crc
+#define png_flush wx_png_flush
+#define png_write_IHDR wx_png_write_IHDR
+#define png_write_PLTE wx_png_write_PLTE
+#define png_compress_IDAT wx_png_compress_IDAT
+#define png_write_IEND wx_png_write_IEND
+#define png_write_gAMA_fixed wx_png_write_gAMA_fixed
+#define png_write_sBIT wx_png_write_sBIT
+#define png_write_cHRM_fixed wx_png_write_cHRM_fixed
+#define png_write_cICP wx_png_write_cICP
+#define png_write_cLLI_fixed wx_png_write_cLLI_fixed
+#define png_write_mDCV_fixed wx_png_write_mDCV_fixed
+#define png_write_sRGB wx_png_write_sRGB
+#define png_write_eXIf wx_png_write_eXIf
+#define png_write_iCCP wx_png_write_iCCP
+#define png_write_sPLT wx_png_write_sPLT
+#define png_write_tRNS wx_png_write_tRNS
+#define png_write_bKGD wx_png_write_bKGD
+#define png_write_hIST wx_png_write_hIST
+#define png_write_tEXt wx_png_write_tEXt
+#define png_write_zTXt wx_png_write_zTXt
+#define png_write_iTXt wx_png_write_iTXt
+#define png_set_text_2 wx_png_set_text_2
+#define png_write_oFFs wx_png_write_oFFs
+#define png_write_pCAL wx_png_write_pCAL
+#define png_write_pHYs wx_png_write_pHYs
+#define png_write_tIME wx_png_write_tIME
+#define png_write_sCAL_s wx_png_write_sCAL_s
+#define png_write_finish_row wx_png_write_finish_row
+#define png_write_start_row wx_png_write_start_row
+#define png_combine_row wx_png_combine_row
+#define png_do_read_interlace wx_png_do_read_interlace
+#define png_do_write_interlace wx_png_do_write_interlace
+#define png_read_filter_row wx_png_read_filter_row
+#define png_write_find_filter wx_png_write_find_filter
+#define png_read_IDAT_data wx_png_read_IDAT_data
+#define png_read_finish_IDAT wx_png_read_finish_IDAT
+#define png_read_finish_row wx_png_read_finish_row
+#define png_read_start_row wx_png_read_start_row
+#define png_zlib_inflate wx_png_zlib_inflate
+#define png_read_transform_info wx_png_read_transform_info
+#define png_do_strip_channel wx_png_do_strip_channel
+#define png_do_swap wx_png_do_swap
+#define png_do_packswap wx_png_do_packswap
+#define png_do_invert wx_png_do_invert
+#define png_do_bgr wx_png_do_bgr
+#define png_handle_unknown wx_png_handle_unknown
+#define png_handle_chunk wx_png_handle_chunk
+#define png_chunk_unknown_handling wx_png_chunk_unknown_handling
+#define png_do_read_transformations wx_png_do_read_transformations
+#define png_do_write_transformations wx_png_do_write_transformations
+#define png_init_read_transformations wx_png_init_read_transformations
+#define png_push_read_chunk wx_png_push_read_chunk
+#define png_push_read_sig wx_png_push_read_sig
+#define png_push_check_crc wx_png_push_check_crc
+#define png_push_save_buffer wx_png_push_save_buffer
+#define png_push_restore_buffer wx_png_push_restore_buffer
+#define png_push_read_IDAT wx_png_push_read_IDAT
+#define png_process_IDAT_data wx_png_process_IDAT_data
+#define png_push_process_row wx_png_push_process_row
+#define png_push_have_info wx_png_push_have_info
+#define png_push_have_end wx_png_push_have_end
+#define png_push_have_row wx_png_push_have_row
+#define png_push_read_end wx_png_push_read_end
+#define png_process_some_data wx_png_process_some_data
+#define png_read_push_finish_row wx_png_read_push_finish_row
+#define png_icc_check_length wx_png_icc_check_length
+#define png_icc_check_header wx_png_icc_check_header
+#define png_icc_check_tag_table wx_png_icc_check_tag_table
+#define png_set_rgb_coefficients wx_png_set_rgb_coefficients
+#define png_check_IHDR wx_png_check_IHDR
+#define png_do_check_palette_indexes wx_png_do_check_palette_indexes
+#define png_fixed_error wx_png_fixed_error
+#define png_safecat wx_png_safecat
+#define png_format_number wx_png_format_number
+#define png_warning_parameter wx_png_warning_parameter
+#define png_warning_parameter_unsigned wx_png_warning_parameter_unsigned
+#define png_warning_parameter_signed wx_png_warning_parameter_signed
+#define png_formatted_warning wx_png_formatted_warning
+#define png_app_warning wx_png_app_warning
+#define png_app_error wx_png_app_error
+#define png_chunk_report wx_png_chunk_report
+#define png_ascii_from_fp wx_png_ascii_from_fp
+#define png_ascii_from_fixed wx_png_ascii_from_fixed
+#define png_check_fp_number wx_png_check_fp_number
+#define png_check_fp_string wx_png_check_fp_string
+#define png_muldiv wx_png_muldiv
+#define png_reciprocal wx_png_reciprocal
+#define png_reciprocal2 wx_png_reciprocal2
+#define png_gamma_significant wx_png_gamma_significant
+#define png_resolve_file_gamma wx_png_resolve_file_gamma
+#define png_gamma_correct wx_png_gamma_correct
+#define png_gamma_16bit_correct wx_png_gamma_16bit_correct
+#define png_gamma_8bit_correct wx_png_gamma_8bit_correct
+#define png_destroy_gamma_table wx_png_destroy_gamma_table
+#define png_build_gamma_table wx_png_build_gamma_table
+#define png_set_rgb_coefficients wx_png_set_rgb_coefficients
+#define png_XYZ_from_xy wx_png_XYZ_from_xy
+#define png_xy_from_XYZ wx_png_xy_from_XYZ
+#define png_safe_error wx_png_safe_error
+#define png_safe_warning wx_png_safe_warning
+#define png_safe_execute wx_png_safe_execute
+#define png_image_error wx_png_image_error
+#define png_check_keyword wx_png_check_keyword
+
+/* 架构相关的 SIMD 优化函数重命名
+ * 原始 pngprefix.h 遗漏了这些函数的前缀定义, 导致与外部 libpng 链接时发生
+ * 符号冲突。关键影响: png_init_filter_functions_sse2 会通过 pp->read_filter[]
+ * 访问 png_struct 成员, 若链接到与 wxWidgets 内嵌版本布局不同的外部 libpng,
+ * 将在错误偏移处写入函数指针, 导致堆损坏(STATUS_HEAP_CORRUPTION)。
+ * 参考: pngpriv.h 中 PNG_INTERNAL_FUNCTION 声明的 SIMD 函数列表 */
+
+/* SSE2 (x86/x64) */
+#define png_init_filter_functions_sse2 wx_png_init_filter_functions_sse2
+#define png_read_filter_row_sub3_sse2 wx_png_read_filter_row_sub3_sse2
+#define png_read_filter_row_sub4_sse2 wx_png_read_filter_row_sub4_sse2
+#define png_read_filter_row_avg3_sse2 wx_png_read_filter_row_avg3_sse2
+#define png_read_filter_row_avg4_sse2 wx_png_read_filter_row_avg4_sse2
+#define png_read_filter_row_paeth3_sse2 wx_png_read_filter_row_paeth3_sse2
+#define png_read_filter_row_paeth4_sse2 wx_png_read_filter_row_paeth4_sse2
+
+/* NEON (ARM) */
+#define png_init_filter_functions_neon wx_png_init_filter_functions_neon
+#define png_read_filter_row_sub3_neon wx_png_read_filter_row_sub3_neon
+#define png_read_filter_row_sub4_neon wx_png_read_filter_row_sub4_neon
+#define png_read_filter_row_avg3_neon wx_png_read_filter_row_avg3_neon
+#define png_read_filter_row_avg4_neon wx_png_read_filter_row_avg4_neon
+#define png_read_filter_row_paeth3_neon wx_png_read_filter_row_paeth3_neon
+#define png_read_filter_row_paeth4_neon wx_png_read_filter_row_paeth4_neon
+#define png_read_filter_row_up_neon wx_png_read_filter_row_up_neon
+
+/* MSA (MIPS) */
+#define png_init_filter_functions_mips wx_png_init_filter_functions_mips
+#define png_read_filter_row_sub3_msa wx_png_read_filter_row_sub3_msa
+#define png_read_filter_row_sub4_msa wx_png_read_filter_row_sub4_msa
+#define png_read_filter_row_avg3_msa wx_png_read_filter_row_avg3_msa
+#define png_read_filter_row_avg4_msa wx_png_read_filter_row_avg4_msa
+#define png_read_filter_row_paeth3_msa wx_png_read_filter_row_paeth3_msa
+#define png_read_filter_row_paeth4_msa wx_png_read_filter_row_paeth4_msa
+#define png_read_filter_row_up_msa wx_png_read_filter_row_up_msa
+
+/* MMI (MIPS) */
+#define png_read_filter_row_sub3_mmi wx_png_read_filter_row_sub3_mmi
+#define png_read_filter_row_sub4_mmi wx_png_read_filter_row_sub4_mmi
+#define png_read_filter_row_avg3_mmi wx_png_read_filter_row_avg3_mmi
+#define png_read_filter_row_avg4_mmi wx_png_read_filter_row_avg4_mmi
+#define png_read_filter_row_paeth3_mmi wx_png_read_filter_row_paeth3_mmi
+#define png_read_filter_row_paeth4_mmi wx_png_read_filter_row_paeth4_mmi
+#define png_read_filter_row_up_mmi wx_png_read_filter_row_up_mmi
+
+/* VSX (PowerPC) */
+#define png_init_filter_functions_vsx wx_png_init_filter_functions_vsx
+#define png_read_filter_row_sub3_vsx wx_png_read_filter_row_sub3_vsx
+#define png_read_filter_row_sub4_vsx wx_png_read_filter_row_sub4_vsx
+#define png_read_filter_row_avg3_vsx wx_png_read_filter_row_avg3_vsx
+#define png_read_filter_row_avg4_vsx wx_png_read_filter_row_avg4_vsx
+#define png_read_filter_row_paeth3_vsx wx_png_read_filter_row_paeth3_vsx
+#define png_read_filter_row_paeth4_vsx wx_png_read_filter_row_paeth4_vsx
+#define png_read_filter_row_up_vsx wx_png_read_filter_row_up_vsx
+
+/* LSX (LoongArch) */
+#define png_init_filter_functions_lsx wx_png_init_filter_functions_lsx
+#define png_read_filter_row_sub3_lsx wx_png_read_filter_row_sub3_lsx
+#define png_read_filter_row_sub4_lsx wx_png_read_filter_row_sub4_lsx
+#define png_read_filter_row_avg3_lsx wx_png_read_filter_row_avg3_lsx
+#define png_read_filter_row_avg4_lsx wx_png_read_filter_row_avg4_lsx
+#define png_read_filter_row_paeth3_lsx wx_png_read_filter_row_paeth3_lsx
+#define png_read_filter_row_paeth4_lsx wx_png_read_filter_row_paeth4_lsx
+#define png_read_filter_row_up_lsx wx_png_read_filter_row_up_lsx
