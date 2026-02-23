@@ -41,6 +41,8 @@
 namespace agi { namespace vfr { class Framerate; } }
 namespace agi { struct Context; }
 namespace agi { class Time; }
+namespace agi { class OptionValue; }
+namespace cmd { class Command; }
 class AssDialogue;
 class AssStyle;
 class RetinaHelper;
@@ -105,6 +107,15 @@ class SubsEditBox final : public wxPanel {
 	wxSizer *bottom_sizer;
 
 	std::unique_ptr<RetinaHelper> retina_helper;
+
+	/// 图标按钮列表，用于响应图标大小变更
+	std::vector<std::pair<wxBitmapButton*, cmd::Command*>> icon_buttons;
+
+	/// 图标大小变更信号连接
+	agi::signal::Connection icon_size_slot;
+
+	/// 图标大小变更时刷新按钮
+	void OnIconSizeChange(agi::OptionValue const& opt);
 
 	void SetControlsState(bool state);
 	/// @brief Update times of selected lines

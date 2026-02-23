@@ -268,6 +268,9 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 		context->initialLineState->AddChangeListener(&SubsEditBox::OnLineInitialTextChanged, this),
 	 });
 
+	// 监听图标大小变更，实时刷新编辑框按钮
+	icon_size_slot = OPT_SUB("App/Toolbar Icon Size", &SubsEditBox::OnIconSizeChange, this);
+
 	context->textSelectionController->SetControl(edit_ctrl);
 	edit_ctrl->SetFocus();
 
@@ -276,6 +279,15 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 		split_box->SetValue(true);
 		DoOnSplit(true);
 	}
+}
+
+void SubsEditBox::OnIconSizeChange(agi::OptionValue const& opt) {
+	int icon_size = opt.GetInt();
+	double scale = retina_helper->GetScaleFactor();
+	for (auto& [btn, command] : icon_buttons) {
+		btn->SetBitmapLabel(command->Icon(icon_size, scale));
+	}
+	middle_right_sizer->Layout();
 }
 
 SubsEditBox::~SubsEditBox() {
@@ -315,6 +327,9 @@ void SubsEditBox::MakeButton(const char *cmd_name) {
 
 	middle_right_sizer->Add(btn, wxSizerFlags().Expand());
 	btn->Bind(wxEVT_BUTTON, std::bind(&SubsEditBox::CallCommand, this, cmd_name));
+
+	// 记录按钮与命令的映射，供图标大小变更时刷新
+	icon_buttons.push_back({btn, command});
 }
 
 wxButton *SubsEditBox::MakeBottomButton(const char *cmd_name) {

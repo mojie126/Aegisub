@@ -119,6 +119,21 @@ VideoDisplay::VideoDisplay(wxToolBar *toolbar, bool freeSize, wxComboBox *zoomBo
 		con->videoController->AddARChangeListener(&VideoDisplay::UpdateSize, this),
 	});
 
+	// 监听图标大小变更，刷新视觉工具子工具栏
+	connections.push_back(OPT_SUB("App/Toolbar Icon Size", [this](agi::OptionValue const&) {
+		if (tool && toolBar) {
+			int subtool = tool->GetSubTool();
+			toolBar->Show(false);
+			toolBar->ClearTools();
+			tool->SetToolbar(toolBar);
+			tool->SetSubTool(subtool);
+			if (!this->freeSize)
+				UpdateSize();
+			else
+				GetGrandParent()->Layout();
+		}
+	}));
+
 	Bind(wxEVT_PAINT, std::bind(&VideoDisplay::Render, this));
 	Bind(wxEVT_SIZE, &VideoDisplay::OnSizeEvent, this);
 	Bind(wxEVT_CONTEXT_MENU, &VideoDisplay::OnContextMenu, this);
