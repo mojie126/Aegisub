@@ -1,25 +1,21 @@
 diff --git a/meson.build b/meson.build
 --- a/meson.build
 +++ b/meson.build
-@@ -2507,12 +2507,12 @@
- # Manual check for libx264
- if conf.get('libx264') == 1
-   if is_msvc
--    if not cc.links('#include <stdint.h>\n' + cpp_cond.format('x264.h', 'X264_BUILD >= 155'), name: 'libx264 version')
-+    if not cc.links('#include <stdint.h>\n' + cpp_cond.format('x264.h', 'X264_BUILD >= 155'), dependencies: libx264_extra_deps, name: 'libx264 version')
-       warning('libx264 version must be >= 1.55')
-       conf.set('libx264', 0)
-     endif
-   else
--    if not cc.links('#include <stdint.h>\n' + cpp_cond.format('x264.h', 'X264_BUILD >= 158'), name: 'libx264 version')
-+    if not cc.links('#include <stdint.h>\n' + cpp_cond.format('x264.h', 'X264_BUILD >= 158'), dependencies: libx264_extra_deps, name: 'libx264 version')
-       warning('libx264 version must be >= 1.58')
-       conf.set('libx264', 0)
-     endif
-@@ -2520,6 +2520,6 @@
-   endif
--  conf.set10('libx264_hdr10', cc.links('#include <stdint.h>\n' + cpp_cond.format('x264.h', 'X264_BUILD >= 163'), name: 'libx264 version'))
--  conf.set10('libx262', cc.links('#include <stdint.h>\n' + cpp_cond.format('x264.h', 'X264_MPEG2'), name: 'supports MPEG2 inside x264'))
-+  conf.set10('libx264_hdr10', cc.links('#include <stdint.h>\n' + cpp_cond.format('x264.h', 'X264_BUILD >= 163'), dependencies: libx264_extra_deps, name: 'libx264 version'))
-+  conf.set10('libx262', cc.links('#include <stdint.h>\n' + cpp_cond.format('x264.h', 'X264_MPEG2'), dependencies: libx264_extra_deps, name: 'supports MPEG2 inside x264'))
- endif
+@@ -2208,8 +2208,14 @@
+       else
+         req = get_option(opt_name)
+         pkg_name = opts.get('pkg', name)
+         if opts.has_key('versions')
+-          foreach version: opts['versions']
+-            dep = dependency(pkg_name, required: false, version: version, static: conf.get('static').is_odd())
++          _ver_found = false
++          foreach version: opts['versions']
++            if not _ver_found
++              dep = dependency(pkg_name, required: false, version: version, static: conf.get('static').is_odd())
++              if dep.found()
++                _ver_found = true
++              endif
++            endif
+           endforeach
+ 
+           if not dep.found() and req.enabled()

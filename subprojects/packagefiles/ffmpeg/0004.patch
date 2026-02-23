@@ -1,0 +1,28 @@
+diff --git a/libavutil/meson.build b/libavutil/meson.build
+index 9166554..5460b80 100644
+--- a/libavutil/meson.build
++++ b/libavutil/meson.build
+@@ -308,18 +308,12 @@ libavutil_ver = configure_file(
+   configuration: ver_conf,
+ )
+ 
+-ffversion_h = custom_target('ffversion.h',
++# 使用 configure_file 替代 custom_target，避免 Meson 1.10.x 子项目 custom_target 构建规则缺失
++ffversion_data = configuration_data()
++ffversion_data.set_quoted('FFMPEG_VERSION', meson.project_version())
++ffversion_h = configure_file(
+   output: 'ffversion.h',
+-  build_always_stale: true,
+-  command: [
+-    find_program('version.py', required: true),
+-    '--git',
+-    find_program('git', required: true),
+-    meson.project_source_root(),
+-    '@OUTPUT@',
+-    ''
+-  ],
+-  build_by_default: true,
++  configuration: ffversion_data,
+   install_dir: join_paths(get_option('includedir'), 'libavutil'),
+   install: true,
+ )

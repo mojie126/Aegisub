@@ -1,0 +1,85 @@
+diff --git a/include/meson.build b/include/meson.build
+index e597184..188c8c7 100644
+--- a/include/meson.build
++++ b/include/meson.build
+@@ -23,12 +23,14 @@
+ # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ 
+ # Revision file (vcs_version.h) generation
+-dav1d_git_dir = join_paths(dav1d_src_root, '.git')
+-rev_target = vcs_tag(command: [
+-        'git', '--git-dir', dav1d_git_dir, 'describe', '--long', '--always'
+-    ],
++# 使用 configure_file 替代 vcs_tag，修复 Meson 1.10.1 子项目中
++# vcs_tag() 不生成构建规则的问题
++vcs_version_data = configuration_data()
++vcs_version_data.set('VCS_TAG', meson.project_version())
++rev_target = configure_file(
+     input: 'vcs_version.h.in',
+-    output: 'vcs_version.h'
++    output: 'vcs_version.h',
++    configuration: vcs_version_data,
+ )
+ 
+ subdir('dav1d')
+diff --git a/src/meson.build b/src/meson.build
+index 108b762..94037e7 100644
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -76,7 +76,7 @@ libdav1d_tmpl_sources = files(
+ 
+ libdav1d_arch_tmpl_sources = {}
+ 
+-libdav1d_bitdepth_objs = []
++libdav1d_bitdepth_libs = []
+ 
+ # ASM specific sources
+ libdav1d_asm_objs = []
+@@ -333,31 +333,29 @@ endif
+ #
+ 
+ # Helper library for each bitdepth
+-libdav1d_bitdepth_objs = []
++libdav1d_bitdepth_libs = []
+ foreach bitdepth : dav1d_bitdepths
+-    libdav1d_bitdepth_objs += static_library(
++    libdav1d_bitdepth_libs += static_library(
+         'dav1d_bitdepth_@0@'.format(bitdepth),
+         libdav1d_tmpl_sources, config_h_target,
+         include_directories: dav1d_inc_dirs,
+         dependencies : [stdatomic_dependencies],
+         c_args : ['-DBITDEPTH=@0@'.format(bitdepth)] + libdav1d_flags,
+         install : false,
+-        build_by_default : false,
+-    ).extract_all_objects(recursive: true)
++    )
+ endforeach
+ 
+ # Helper library for each bitdepth and architecture-specific flags
+ foreach bitdepth : dav1d_bitdepths
+     foreach subarch : libdav1d_arch_tmpl_sources.keys()
+-        libdav1d_bitdepth_objs += static_library(
++        libdav1d_bitdepth_libs += static_library(
+             'dav1d_arch_bitdepth_@0@_@1@'.format(bitdepth,subarch),
+             libdav1d_arch_tmpl_sources[subarch], config_h_target,
+             include_directories: dav1d_inc_dirs,
+             dependencies : [stdatomic_dependencies],
+             c_args : ['-DBITDEPTH=@0@'.format(bitdepth)] + libdav1d_flags + arch_flags.get(subarch, []),
+             install : false,
+-            build_by_default : false,
+-        ).extract_all_objects(recursive: true)
++        )
+     endforeach
+ endforeach
+ 
+@@ -375,9 +373,7 @@ libdav1d = library('dav1d',
+     rev_target,
+     config_h_target,
+ 
+-    objects : [
+-        libdav1d_bitdepth_objs,
+-        ],
++    link_whole : libdav1d_bitdepth_libs,
+ 
+     include_directories : dav1d_inc_dirs,
+     dependencies : [

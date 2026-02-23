@@ -1,0 +1,45 @@
+diff --git a/meson.build b/meson.build
+index e5ef264..d68d94e 100644
+--- a/meson.build
++++ b/meson.build
+@@ -3566,7 +3566,7 @@ foreach built_lib : built_libs
+     sources += get_variable('lib@0@_@1@_slib_sources'.format(built_lib[0], arch), [])
+   endif
+ 
+-  if host_system == 'windows'
++  if host_system == 'windows' and get_option('default_library') != 'static'
+     # In subproject mode, the file that will be read (if present)
+     # is the config.h of the *root* project, instead of our config.h.
+     # This is because -I folder take effect *after* the .rc
+@@ -3752,7 +3752,7 @@ foreach built_lib : built_libs
+ 
+   special_files = []
+   special_includes = []
+-  special_objects = []
++  special_link_libs = []
+ 
+   foreach k, v : special_sources
+     foreach src : v
+@@ -3776,11 +3776,11 @@ foreach built_lib : built_libs
+       install: false,
+       override_options: global_overrides,
+     )
+-    special_objects = special_static_lib.extract_all_objects(recursive: true)
++    special_link_libs = [special_static_lib]
+   endif
+ 
+   static_lib = static_library('@0@-static'.format(built_lib[0]), sources + gen_objects + [config_h, config_components_h],
+-    objects: special_objects,
++    link_whole: special_link_libs,
+     dependencies: deps,
+     include_directories: common_incs,
+     link_with: link_with,
+@@ -3808,7 +3808,7 @@ foreach built_lib : built_libs
+   endif
+ 
+   lib = library(built_lib[0],
+-    objects: static_lib.extract_all_objects(recursive: true),
++    link_whole: [static_lib],
+     dependencies: deps,
+     soversion: version,
+     include_directories: common_incs,

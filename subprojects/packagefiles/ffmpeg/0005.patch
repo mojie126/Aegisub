@@ -1,0 +1,14 @@
+--- a/meson.build
++++ b/meson.build
+@@ -3728,9 +3728,9 @@
+     cuda_objects = asm_gen.process(cuda_sources)
+     if conf.get('ptx_compression') == 1
+       gz_objs = gzip_gen.process(cuda_objects)
+-      gen_objects = bin2c.process(gz_objs)
++      gen_objects += bin2c.process(gz_objs)
+     else
+-      gen_objects = bin2c_with_extension.process(cuda_objects)
++      gen_objects += bin2c_with_extension.process(cuda_objects)
+     endif
+   endif
+ 
