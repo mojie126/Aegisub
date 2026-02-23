@@ -14,12 +14,16 @@
 
 #include "libresrc.h"
 
+#ifdef _WIN32
+#include <windows.h>
+// GetDpiForSystem 需要 _WIN32_WINNT >= 0x0A00，此处手动声明以兼容当前 SDK 设置
+extern "C" UINT WINAPI GetDpiForSystem(void);
+#endif
 #include <wx/bitmap.h>
 #include <wx/icon.h>
 #include <wx/image.h>
 #include <wx/intl.h>
 #include <wx/mstream.h>
-#include <wx/app.h>
 
 // 检查操作系统版本
 bool IsWindows10OrGreater() {
@@ -45,7 +49,6 @@ float getScaleFactor() {
 
 wxBitmap libresrc_getimage(const unsigned char *buff, size_t size, double scale, int dir) {
 	wxMemoryInputStream mem(buff, size);
-	#if wxCHECK_VERSION(3, 1, 5)
 	const auto wx_image = wxImage(mem);
 	wxBitmap wx_bitmap;
 	const float scaleFactor = getScaleFactor();
@@ -59,18 +62,6 @@ wxBitmap libresrc_getimage(const unsigned char *buff, size_t size, double scale,
 	if (scaleFactor > 1.5f)
 		wx_bitmap.GetGDIImageData()->SetSize(wx_image.GetWidth() / 2, wx_image.GetHeight() / 2);
 	return wx_bitmap;
-	#else
-	if (dir != wxLayout_RightToLeft)
-	#if wxCHECK_VERSION(3, 1, 0)
-		// Since wxWidgets 3.1.0, there is an undocumented third parameter in the ctor of wxBitmap from wxImage
-		// This "scale" parameter sets the logical scale factor of the created wxBitmap
-		return wxBitmap(wxImage(mem), wxBITMAP_SCREEN_DEPTH, scale);
-	return wxBitmap(wxImage(mem).Mirror(), wxBITMAP_SCREEN_DEPTH, scale);
-	#else
-		return wxBitmap(wxImage(mem));
-	return wxBitmap(wxImage(mem).Mirror());
-	#endif
-	#endif
 }
 
 wxIcon libresrc_geticon(const unsigned char *buff, size_t size) {
