@@ -6862,39 +6862,43 @@ msgstr ""
 
 #: ../src/video_box.cpp
 msgid ""
-"Enable HDR/DV to SDR tone mapping.\n"
+"Enable HDR to SDR tone mapping.\n"
 "Supported: PQ (HDR10), HLG, Dolby Vision.\n"
-"Requires HDR/DV source video."
+"Requires HDR source video."
 msgstr ""
 
 #: ../src/video_box.cpp
 msgid ""
-"Enable HDR/DV to SDR tone mapping.\n"
+"Enable HDR to SDR tone mapping.\n"
 "Detected format: %s\n"
 "Click to toggle tone mapping on/off."
 msgstr ""
 
 #: ../src/video_box.cpp
 msgid ""
-"HDR/DV tone mapping unavailable.\n"
-"Requires HDR/DV source video.\n"
+"HDR tone mapping unavailable.\n"
+"Requires HDR source video.\n"
 "Supported formats: PQ (HDR10), HLG, Dolby Vision."
 msgstr ""
 
 #: ../src/video_box.cpp
 msgid ""
 "LUT file \"%s\" not found.\n"
-"HDR/DV tone mapping requires the corresponding LUT file.\n"
+"HDR tone mapping requires the corresponding LUT file.\n"
 "Please place the file in the data/cube/ directory."
 msgstr ""
 
 #: ../src/video_box.cpp
-msgid "HDR/DV Tone Mapping"
+msgid "HDR Tone Mapping"
 msgstr ""
 
 #: ../src/video_box.cpp
 msgid ""
 "Warning: Software decoding is active.\n"
-"Hardware decoding is recommended for smooth HDR/DV tone mapping playback."
+"Hardware decoding is recommended for smooth HDR tone mapping playback."
+msgstr ""
+
+#: ../src/video_box.cpp
+msgid "Note: Dolby Vision tone mapping may be less stable."
 msgstr ""
 
