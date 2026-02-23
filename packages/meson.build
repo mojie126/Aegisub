@@ -6,6 +6,10 @@ if host_machine.system() == 'windows'
                command: [installer_setup, meson.project_build_root(), meson.project_source_root()])
     portable_setup = find_program(meson.project_source_root() / 'packages/win_installer/portable/create-portable.ps1')
     run_target('win-portable', command: [portable_setup, meson.project_build_root(), meson.project_source_root()])
+
+    # 下载 VapourSynth 插件到 build/vapoursynth/，供开发环境使用
+    vs_plugins_setup = find_program(meson.project_source_root() / 'tools/setup-vs-plugins.ps1')
+    run_target('setup-vs-plugins', command: [vs_plugins_setup, meson.project_build_root()])
 elif host_machine.system() == 'darwin'
     fontconfig_conf = run_command('pkg-config', '--variable=confdir', 'fontconfig').stdout().strip()
     bundle_app_sh = find_program(meson.project_source_root() / 'tools/osx-bundle.sh')
