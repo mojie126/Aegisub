@@ -191,8 +191,13 @@ else
 	endif
 endif
 
-deps += dependency('icu-uc', components : 'uc', allow_fallback : true, version : '>=4.8.1.1')
-deps += dependency('icu-i18n', components : 'i18n', allow_fallback : true, version : '>=4.8.1.1')
+# ICU 数据库（子项目构建时需要，系统 ICU 自带数据则无需）
+icu_data_dep = dependency('icu-data', required : false)
+if icu_data_dep.found()
+	deps += icu_data_dep
+endif
+deps += dependency('icu-uc', allow_fallback : true, version : '>=4.8.1.1')
+deps += dependency('icu-i18n', allow_fallback : true, version : '>=4.8.1.1')
 
 foreach dep : [
 	# audio, in order of precedence
