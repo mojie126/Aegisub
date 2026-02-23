@@ -368,6 +368,9 @@ int AegisubApp::OnExit() {
 
 	AssExportFilterChain::Clear();
 
+	// 释放 libass 字体缓存队列（文件作用域静态变量，必须在 dispatch 线程池销毁前释放）
+	libass::Cleanup();
+
 	// Keep this last!
 	delete agi::log::log;
 	crash_writer::Cleanup();

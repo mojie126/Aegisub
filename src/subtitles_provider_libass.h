@@ -23,4 +23,6 @@ namespace agi { class BackgroundRunner; }
 namespace libass {
 	std::unique_ptr<SubtitlesProvider> Create(std::string const&, agi::BackgroundRunner *br);
 	void CacheFonts();
+	/// 释放字体缓存队列，必须在 dispatch 线程池销毁前调用
+	void Cleanup();
 }
