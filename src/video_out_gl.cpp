@@ -254,13 +254,14 @@ static std::unique_ptr<octoon::image::flut> &GetCpuCubeLut() {
 std::string VideoOutGL::GetLutFilename(HDRType type) {
 	switch (type) {
 		case HDRType::DolbyVision:
-			// TODO: [已知限制] DV Profile 5 内容使用静态 LUT 映射时存在场景间颜色跳变。
-			// 根因：DV P5 每帧 RPU 包含不同的 reshaping 曲线，静态 LUT 无法逆向场景级动态映射。
-			// 可能的解决方案：
-			//   1. 解析每帧 AV_FRAME_DATA_DOVI_METADATA，在 shader 中实现 RPU reshaping（IPT-PQ-C2 → BT.2020 PQ），
-			//      然后改用 PQ2SDR.cube 进行色调映射；
-			//   2. 升级 FFmpeg 至 7.0+，使用 HEVC 解码器 apply_dovi=1 直接输出 BT.2020 PQ；
-			//   3. 使用 libdovi 库解析 RPU 并执行完整的 DV 信号重建。
+			// [已知限制] DV Profile 5 内容使用静态 LUT 映射时不同场景间色彩可能存在差异。
+			// 根因：DV P5 每帧 RPU 包含不同的 reshaping 曲线，静态 LUT 无法补偿场景级动态映射。
+			// 当前 meson-ports FFmpeg 7.1 的 HEVC 解码器不支持 apply_dovi（AVOption 列表无此项），
+			// RPU 虽被解析并附加为帧侧数据，但不执行像素级 reshape。
+			// 可能的改进方向：
+			//   1. 集成 libplacebo，利用其内置的 DV RPU 应用实现完整的色调映射；
+			//   2. 手动解析 AV_FRAME_DATA_DOVI_METADATA reshaping 曲线，在 shader 中实现
+			//      IPT-PQ-C2 → BT.2020 PQ 转换后改用 PQ2SDR.cube。
 			return "DV2SDR.cube";
 		case HDRType::HLG:        return "HLG2SDR.cube";
 		case HDRType::PQ:
