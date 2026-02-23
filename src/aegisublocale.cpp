@@ -55,6 +55,8 @@ wxTranslations *AegisubLocale::GetTranslations() {
 	if (!translations) {
 		wxTranslations::Set(translations = new wxTranslations);
 		wxFileTranslationsLoader::AddCatalogLookupPathPrefix(config::path->Decode("?data/locale/").wstring());
+		// 开发环境下 meson 生成的 .mo 文件位于 build/po/<lang>/LC_MESSAGES/，添加此路径作为备用搜索位置
+		wxFileTranslationsLoader::AddCatalogLookupPathPrefix(config::path->Decode("?data/po/").wstring());
 #if !defined(_WIN32) && !defined(__APPLE__) && !defined(APPIMAGE_BUILD)
 		wxFileTranslationsLoader::AddCatalogLookupPathPrefix(P_LOCALE);
 #endif
