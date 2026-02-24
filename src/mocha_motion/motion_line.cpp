@@ -78,7 +78,7 @@ bool MotionLine::extract_metrics(int style_align, int style_margin_l, int style_
 		}
 	}
 
-	// 提取 \move 标签
+	// 提取 \move 标签（6 参数完整形式）
 	std::regex move_re(R"(\\move\(([.\d\-]+),([.\d\-]+),([.\d\-]+),([.\d\-]+),([.\d\-]+),([.\d\-]+)\))");
 	if (!has_pos && std::regex_search(search_text, match, move_re)) {
 		move = MoveData{
@@ -86,6 +86,19 @@ bool MotionLine::extract_metrics(int style_align, int style_margin_l, int style_
 			std::stod(match[3].str()), std::stod(match[4].str()),
 			std::stoi(match[5].str()), std::stoi(match[6].str())
 		};
+	}
+
+	// 提取 \move 标签（4 参数省略形式，t1=0, t2=duration）
+	// ASS 规范允许 \move(x1,y1,x2,y2)，省略时间参数时默认全程移动
+	if (!has_pos && !move.has_value()) {
+		std::regex move4_re(R"(\\move\(([.\d\-]+),([.\d\-]+),([.\d\-]+),([.\d\-]+)\))");
+		if (std::regex_search(search_text, match, move4_re)) {
+			move = MoveData{
+				std::stod(match[1].str()), std::stod(match[2].str()),
+				std::stod(match[3].str()), std::stod(match[4].str()),
+				0, duration
+			};
+		}
 	}
 
 	if (!has_pos && !move.has_value()) {

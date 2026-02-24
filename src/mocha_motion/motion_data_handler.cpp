@@ -278,7 +278,7 @@ void DataHandler::strip_fields(const MotionOptions& options) {
 	}
 	if (!options.x_scale) {
 		std::fill(x_scale.begin(), x_scale.end(), x_start_scale);
-		y_scale = x_scale;
+		std::fill(y_scale.begin(), y_scale.end(), y_start_scale);
 	}
 	if (!options.x_rotation) {
 		std::fill(x_rotation.begin(), x_rotation.end(), x_start_rotation);
