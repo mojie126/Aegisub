@@ -7055,6 +7055,14 @@ msgstr "数据帧数: %d | 源: %dx%d | FPS: %.2f"
 msgid "Data frames: %d | Source: %dx%d"
 msgstr "数据帧数: %d | 源: %dx%d"
 
+#. SRS 数据状态（含帧比较）
+msgid "Data frames: %d | Line needs: %d frames | Type: SRS"
+msgstr "数据帧数: %d | 选中行需要: %d 帧 | 类型: SRS"
+
+#. SRS 数据状态（无视频时）
+msgid "Data frames: %d | Type: SRS"
+msgstr "数据帧数: %d | 类型: SRS"
+
 #. 位置选项（组标题）
 msgid "Position (\\pos)"
 msgstr "位置 (\\pos)"
