@@ -115,6 +115,8 @@ namespace mocha {
 
 			/// 选中行集合的起始帧号（绝对），用于相对/绝对帧号互转
 			int collection_start_frame_ = 0;
+			/// 选中行集合的结束帧号（绝对），用于计算全选择范围帧数
+			int collection_end_frame_ = 0;
 			/// 上一次的 relative 状态，用于检测切换
 			bool last_relative_ = true;
 
@@ -446,17 +448,19 @@ namespace mocha {
 				int current_video_frame = ctx->videoController->GetFrameN();
 
 				// 始终计算选中行集合的起始帧，用于后续相对/绝对帧号互转
+				// 注意：与 subtitle.cpp 保持一致，统一使用 agi::vfr::START 计算帧号
 				auto selected_set = ctx->selectionController->GetSelectedSet();
 				if (!selected_set.empty()) {
 					int coll_start = INT_MAX;
 					int coll_end = 0;
 					for (const auto *line : selected_set) {
 						int sf = ctx->videoController->FrameAtTime(line->Start, agi::vfr::START);
-						int ef = ctx->videoController->FrameAtTime(line->End, agi::vfr::END);
+						int ef = ctx->videoController->FrameAtTime(line->End, agi::vfr::START);
 						if (sf < coll_start) coll_start = sf;
 						if (ef > coll_end) coll_end = ef;
 					}
 					collection_start_frame_ = coll_start;
+					collection_end_frame_ = coll_end;
 
 					if (result.options.relative) {
 						// 相对模式：计算选中行集合的起始帧和结束帧，得到相对偏移
@@ -506,6 +510,11 @@ namespace mocha {
 
 			// 记录初始 relative 状态，用于后续切换检测
 			last_relative_ = result.options.relative;
+
+			// 帧范围计算完毕后刷新数据状态
+			// OnPaste 在 collection 帧范围初始化之前调用，此时帧比较条件不成立，
+			// 需在帧范围就绪后重新检测以显示完整的帧数比较信息
+			UpdateDataStatus();
 
 			// 绑定文本变化事件，实时更新数据验证状态
 			data_text->Bind(wxEVT_TEXT, [this](wxCommandEvent &) { UpdateDataStatus(); });
@@ -992,17 +1001,22 @@ namespace mocha {
 					return;
 				}
 
-				// 与选中行帧数比较
-				const AssDialogue *active = ctx->selectionController->GetActiveLine();
-				if (active && ctx->project->VideoProvider()) {
-					const int sf = ctx->videoController->FrameAtTime(active->Start, agi::vfr::START);
-					const int ef = ctx->videoController->FrameAtTime(active->End, agi::vfr::END);
-					const int needed = ef - sf;
+				// 使用全选择范围帧数比较（与主对话框 UpdateDataStatus 和 subtitle.cpp 保持一致）
+				if (collection_end_frame_ > collection_start_frame_ && ctx->project->VideoProvider()) {
+					const int needed = collection_end_frame_ - collection_start_frame_;
 
-					const wxString msg = wxString::Format(
-						_("Data frames: %d | Line needs: %d frames | Source: %dx%d"),
-						temp.length(), needed, temp.source_width(), temp.source_height()
-					);
+					wxString msg;
+					if (temp.is_srs()) {
+						msg = wxString::Format(
+							_("Data frames: %d | Line needs: %d frames | Type: SRS"),
+							temp.length(), needed
+						);
+					} else {
+						msg = wxString::Format(
+							_("Data frames: %d | Line needs: %d frames | Source: %dx%d"),
+							temp.length(), needed, temp.source_width(), temp.source_height()
+						);
+					}
 
 					if (temp.length() == needed) {
 						clip_lbl_status->SetForegroundColour(wxColour(0, 128, 0));
@@ -1144,19 +1158,24 @@ namespace mocha {
 			}
 
 			// 检查视频是否已加载，以计算选中行帧数
-			const AssDialogue *active = ctx->selectionController->GetActiveLine();
-			if (active && ctx->project->VideoProvider()) {
-				// 计算选中行的起止帧和所需帧数
-				const int sf = ctx->videoController->FrameAtTime(active->Start, agi::vfr::START);
-				const int ef = ctx->videoController->FrameAtTime(active->End, agi::vfr::START);
-				// 帧数计算对应 MoonScript: totalFrames = endFrame - startFrame
-				// MoonScript frame_from_ms 内部使用 agi::vfr::START 模式
-				const int needed = ef - sf;
+			if (collection_end_frame_ > collection_start_frame_ && ctx->project->VideoProvider()) {
+				// 使用全选择范围计算所需帧数（与 subtitle.cpp 实际处理逻辑一致）
+				// 对应 MoonScript: totalFrames = endFrame - startFrame
+				const int needed = collection_end_frame_ - collection_start_frame_;
 
-				const wxString msg = wxString::Format(
-					_("Data frames: %d | Line needs: %d frames | Source: %dx%d"),
-					temp.length(), needed, temp.source_width(), temp.source_height()
-				);
+				wxString msg;
+				if (temp.is_srs()) {
+					// SRS 数据不含 Source Width/Height，不显示分辨率信息
+					msg = wxString::Format(
+						_("Data frames: %d | Line needs: %d frames | Type: SRS"),
+						temp.length(), needed
+					);
+				} else {
+					msg = wxString::Format(
+						_("Data frames: %d | Line needs: %d frames | Source: %dx%d"),
+						temp.length(), needed, temp.source_width(), temp.source_height()
+					);
+				}
 
 				if (temp.length() == needed) {
 					// 帧数匹配：显示绿色提示
@@ -1168,10 +1187,18 @@ namespace mocha {
 				lbl_status->SetLabel(msg);
 			} else {
 				// 无视频时只显示数据信息
-				const wxString msg = wxString::Format(
-					_("Data frames: %d | Source: %dx%d | FPS: %.2f"),
-					temp.length(), temp.source_width(), temp.source_height(), temp.frame_rate()
-				);
+				wxString msg;
+				if (temp.is_srs()) {
+					msg = wxString::Format(
+						_("Data frames: %d | Type: SRS"),
+						temp.length()
+					);
+				} else {
+					msg = wxString::Format(
+						_("Data frames: %d | Source: %dx%d | FPS: %.2f"),
+						temp.length(), temp.source_width(), temp.source_height(), temp.frame_rate()
+					);
+				}
 				lbl_status->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
 				lbl_status->SetLabel(msg);
 			}
