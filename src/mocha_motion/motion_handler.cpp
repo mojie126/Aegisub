@@ -288,7 +288,8 @@ namespace mocha {
 
 		MotionLine new_line = line;
 		new_line.text = text;
-		new_line.transforms_tokenized = false;
+		// 保留 transforms_tokenized 状态（从 line 复制），
+		// 由 postprocess_lines 中 dont_touch_transforms() 负责还原占位符
 		new_line.was_linear = true;
 		result.push_back(std::move(new_line));
 	}
