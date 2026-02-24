@@ -373,8 +373,8 @@ namespace {
 			processor.cross_line_combine(all_result_lines);
 
 			// 阶段 2：记录选中行之后的插入位置
-			// selected_lines 已按反序排列，最后一个元素是正序中最后的行
-			// 在该行之后插入新行
+			// selected_lines 已按反序排列（最晚行在前），最后一个元素是正序中最早的行
+			// 在该行的位置插入新行（删除原始行后，插入位置自动调整到正确位置）
 			AssDialogue *last_selected = selected_lines.back();
 
 			// 使用行的索引而非迭代器，避免删除行时迭代器失效
@@ -382,7 +382,7 @@ namespace {
 			int idx = 0;
 			for (const auto &event : c->ass->Events) {
 				if (&event == last_selected) {
-					insert_index = idx + 1; // 最后一个选中行之后
+					insert_index = idx + 1; // 该行之后
 					break;
 				}
 				++idx;
