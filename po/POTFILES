@@ -21,6 +21,8 @@ src/command/keyframe.cpp
 src/command/recent.cpp
 src/command/subtitle.cpp
 src/command/timecode.cpp
+src/mocha_motion/motion_dialog.cpp
+src/mocha_motion/motion_processor.cpp
 src/command/time.cpp
 src/command/tool.cpp
 src/command/video.cpp

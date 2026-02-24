@@ -6902,3 +6902,436 @@ msgstr ""
 msgid "Note: Dolby Vision tone mapping may be less stable."
 msgstr ""
 
+
+#. ====== Mocha Motion 对话框（motion_dialog.cpp）======
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Mocha Motion"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Tracking Data"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Paste AE keyframe data or enter file path (no quotes):"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "No data loaded"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Position (\\pos)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "&X"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Apply X position tracking data (\\pos X component)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "&Y"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Apply Y position tracking data (\\pos Y component)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "&Origin(\\org)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Move the origin point along with position data"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Absolut&e"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Set position to exactly that of the tracking data with no processing"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Scale (\\fscx, \\fscy)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "&Scale"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "&Border(\\bord)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Scale border width with the line (requires Scale)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Shado&w(\\shad)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Scale shadow offset with the line (requires Scale)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Bl&ur(\\blur)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Scale blur with the line (requires Scale, does not scale \\be)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Factor:"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "3D (\\frx, \\fry, \\frz, \\z)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "X Rot(\\frx)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Apply X-axis rotation data to the selected lines"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Y Rot(\\fry)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Apply Y-axis rotation data to the selected lines"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Z Rot(\\frz)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Apply Z-axis rotation data to the selected lines"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Z Pos(\\z)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Apply Z position (depth) data to the selected lines"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Clip (\\clip)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Rect C&lip"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Apply tracking data to rectangular \\clip in the line"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "&Vect Clip"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Apply tracking data to vector \\clip in the line"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "R->V"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Track \\clip separately"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "No separate clip data"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Processing Mode"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "&Multi-line(\\t)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Si&ngle-line(\\move)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "&Clip Only"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Configuration"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Relat&ive"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid ""
+"Relative: start frame is an index into tracking data (1=first). Absolute: start frame is a video frame number, auto-converted to relative."
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Start Frame (relative):"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid ""
+"Relative mode: 1=first frame, -1=last frame, 0=auto-adjusted to 1.\n"
+"Absolute mode: video frame number where tracking data starts."
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Convenient preview"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Reverse tracking"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Save config"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Save current options to configuration file for next use."
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Apply"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Paste from Clipboard"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Failed to parse tracking data. Please check the data format or file path."
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "No tracking data provided."
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Warning"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Start Frame (absolute):"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Clip Tracking Data"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Paste clip tracking data or enter file path:"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Data to apply:"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Apply X position data to clip"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Apply Y position data to clip"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Apply scale data to clip"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Clip Rotation (Z-axis)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Apply Z-axis rotation data to clip (2D plane rotation only)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Clip Type:"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Rect Clip"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Vect Clip"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Convert rectangular clip to vector clip"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Clear Data"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Remove independent clip tracking data"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "OK"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Invalid data format or file path"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Data frames: %d | Line needs: %d frames | Type: SRS"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Data frames: %d | Line needs: %d frames | Source: %dx%d"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Data frames: %d | Source: %dx%d"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Clip data loaded: %d frames (%s)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Clip data invalid"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Data frames: %d | Type: SRS"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid "Data frames: %d | Source: %dx%d | FPS: %.2f"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid ""
+"Supports Adobe After Effects keyframe data. You can also enter a file path to load data from file."
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid ""
+"Apply scaling data to the selected lines. When unchecked, Border/Shadow/Blur options are also disabled."
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid ""
+"Factor to attenuate (or amplify) blur scale ratio. 1.0 = full tracking ratio, 0.5 = half effect."
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid ""
+"Convert rectangular clip to vector clip before tracking. Automatically enables both Rect Clip and Vect Clip."
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid ""
+"Open a separate dialog to provide independent tracking data for clips. This allows clips to move independently from the main subtitle."
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid ""
+"Generate per-frame subtitle lines with interpolated \\t tags. When enabled, \\t tags are evaluated and replaced at each frame; when disabled, \\t times are shifted."
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid ""
+"Use \\move + \\t to create linear transition (single output line), instead of generating per-frame lines."
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid ""
+"Only apply tracking to clip tags. Ignores position, scale, rotation, border, shadow, and blur."
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid ""
+"Annotate original subtitle to preview tracking effect, then click [Play Current Line] to preview."
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid ""
+"Reverse tracking data order. Use when Mocha tracked from last frame to first frame."
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid ""
+"SRS (Shake Rotoshape) data does not contain rotation or depth information. 3D-related options (X/Y/Z Rotation, Z Position) will have no effect."
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid ""
+"Tracking data for clips, independent from main tracking data. Supports AE keyframe and Shake Rotoshape formats."
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid ""
+"SRS (Shake Rotoshape) clip data does not contain rotation information. The Clip Rotation option will have no effect."
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
+msgid ""
+"SRS (Shake Rotoshape) data only supports vector clip. Rectangular clip option will have no effect."
+msgstr ""
+
+#. ====== Mocha Motion 处理器（motion_processor.cpp）======
+
+#: ../src/mocha_motion/motion_processor.cpp
+msgid "Absolute start frame is out of range (before selection start)"
+msgstr ""
+
+#: ../src/mocha_motion/motion_processor.cpp
+msgid "Absolute start frame is out of range (beyond tracking data end)"
+msgstr ""
+
+#. ====== Mocha Motion 命令入口（subtitle.cpp）======
+
+#: ../src/command/subtitle.cpp
+msgid ""
+"The trace data is asymmetrical with the selected row data and requires %d frames"
+msgstr ""
+
+#: ../src/command/subtitle.cpp
+msgid ""
+"The clip tracking data is asymmetrical with the selected row data and requires %d frames"
+msgstr ""
+
+#: ../src/command/subtitle.cpp
+msgid "Applying Mocha-Motion"
+msgstr ""
+
+#: ../src/command/subtitle.cpp
+msgid "Processing lines..."
+msgstr ""
+
+#: ../src/command/subtitle.cpp
+msgid "Processing line %d / %d ..."
+msgstr ""
