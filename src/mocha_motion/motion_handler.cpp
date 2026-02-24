@@ -325,7 +325,7 @@ namespace mocha {
 			int raw_end_ms = ms_from_frame(collection_start_frame + frame);
 
 			int new_start_time = static_cast<int>(std::floor(std::max(0, raw_start_ms) / 10.0)) * 10;
-			int new_end_time = static_cast<int>(std::floor(raw_end_ms / 10.0)) * 10;
+			int new_end_time = static_cast<int>(std::floor(std::max(0, raw_end_ms) / 10.0)) * 10;
 
 			// 当前帧相对于行首帧的时间偏移
 			int first_frame_ms = ms_from_frame(collection_start_frame + rel_start - 1);
@@ -526,6 +526,12 @@ namespace mocha {
 													int begin_time, int end_time) {
 		std::string result = text;
 
+		// 保存起始帧/结束帧各自的位置偏移量，防止回调间状态污染
+		// 绝对位置模式下 cb_absolute_position 会设置 x_delta_/y_delta_，
+		// 后续 clip 回调需要使用对应帧的偏移量而非上一个回调遗留的值
+		double saved_start_x_delta = 0, saved_start_y_delta = 0;
+		double saved_end_x_delta = 0, saved_end_y_delta = 0;
+
 		for (const auto &entry : callbacks_) {
 			std::string temp;
 			std::sregex_iterator it(result.begin(), result.end(), entry.pattern);
@@ -539,13 +545,21 @@ namespace mocha {
 				std::string tag = m[1].str();
 				std::string value = m[2].str();
 
-				// 计算起始帧值
+				// 恢复起始帧偏移量再计算起始帧值
+				x_delta_ = saved_start_x_delta;
+				y_delta_ = saved_start_y_delta;
 				main_data_->calculate_current_state(start_frame);
 				std::string start_value = entry.callback(value, start_frame);
+				saved_start_x_delta = x_delta_;
+				saved_start_y_delta = y_delta_;
 
-				// 计算结束帧值
+				// 恢复结束帧偏移量再计算结束帧值
+				x_delta_ = saved_end_x_delta;
+				y_delta_ = saved_end_y_delta;
 				main_data_->calculate_current_state(end_frame);
 				std::string end_value = entry.callback(value, end_frame);
+				saved_end_x_delta = x_delta_;
+				saved_end_y_delta = y_delta_;
 
 				// 生成 tag+startVal+\t(beginTime,endTime,tag+endVal)
 				char buf[256];
@@ -675,7 +689,8 @@ namespace mocha {
 	std::string MotionHandler::cb_scale(const std::string &value, int frame) {
 		// 对应 MoonScript scale()
 		// scale *= xRatio
-		double scale_val = std::stod(value);
+		double scale_val;
+		try { scale_val = std::stod(value); } catch (...) { return value; }
 		scale_val *= main_data_->x_ratio;
 
 		char buf[32];
@@ -687,7 +702,8 @@ namespace mocha {
 		// 对应 MoonScript blur()
 		// ratio = 1 - (1 - xRatio) * blurScale
 		// result = blur * ratio
-		double blur_val = std::stod(value);
+		double blur_val;
+		try { blur_val = std::stod(value); } catch (...) { return value; }
 		double ratio = main_data_->x_ratio;
 		ratio = 1.0 - (1.0 - ratio) * options_.blur_scale;
 		blur_val *= ratio;
@@ -698,7 +714,8 @@ namespace mocha {
 	}
 
 	std::string MotionHandler::cb_rotate_x(const std::string &value, int frame) {
-		double rot = std::stod(value);
+		double rot;
+		try { rot = std::stod(value); } catch (...) { return value; }
 		rot += main_data_->x_rotation_diff;
 
 		char buf[32];
@@ -707,7 +724,8 @@ namespace mocha {
 	}
 
 	std::string MotionHandler::cb_rotate_y(const std::string &value, int frame) {
-		double rot = std::stod(value);
+		double rot;
+		try { rot = std::stod(value); } catch (...) { return value; }
 		rot += main_data_->y_rotation_diff;
 		char buf[32];
 		std::snprintf(buf, sizeof(buf), "%g", math::round(rot, 2));
@@ -715,7 +733,8 @@ namespace mocha {
 	}
 
 	std::string MotionHandler::cb_rotate_z(const std::string &value, int frame) {
-		double rot = std::stod(value);
+		double rot;
+		try { rot = std::stod(value); } catch (...) { return value; }
 		rot += main_data_->z_rotation_diff;
 
 		char buf[32];
@@ -725,7 +744,8 @@ namespace mocha {
 
 	std::string MotionHandler::cb_z_position(const std::string &value, int frame) {
 		// 3D 深度：\z += zPositionDiff
-		double z = std::stod(value);
+		double z;
+		try { z = std::stod(value); } catch (...) { return value; }
 		z += main_data_->z_position_diff;
 
 		char buf[32];
