@@ -22,9 +22,9 @@ class wxImage;
 
 struct VideoFrame {
 	std::vector<unsigned char> data;
-	size_t width;
-	size_t height;
-	size_t pitch;
+	int width;
+	int height;
+	int pitch;
 	bool flipped;
 	bool hflipped = false;   // GPU水平翻转标志，由视频提供者设置，渲染时glOrtho投影变换处理
 	int rotation = 0;        // GPU旋转角度(0/90/270)，由视频提供者设置，渲染时FBO后处理
