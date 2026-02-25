@@ -40,7 +40,6 @@ namespace agi { class BackgroundRunner; }
 #include <libaegisub/fs.h>
 #include <libaegisub/path.h>
 #include <libaegisub/dispatch.h>
-#include <libaegisub/make_unique.h>
 #include <libaegisub/background_runner.h>
 #include <libaegisub/log.h>
 #include <libaegisub/format.h>
@@ -127,7 +126,7 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 		ps->SetTitle(from_wx(_("Indexing")));
 		ps->SetMessage(from_wx(_("Decoding the full track to ensure perfect frame accuracy. This will take a while!")));
 		try {
-			bs = agi::make_unique<BestVideoSource>(filename.string(), hw_device, extra_hw_frames, static_cast<int>(track_info.first), 0, OPT_GET("Provider/Video/BestSource/Threads")->GetInt(), 1, provider_bs::GetCacheFile(filename), &bsopts, [=](int Track, int64_t Current, int64_t Total) {
+			bs = std::make_unique<BestVideoSource>(filename.string(), hw_device, extra_hw_frames, static_cast<int>(track_info.first), 0, OPT_GET("Provider/Video/BestSource/Threads")->GetInt(), 1, provider_bs::GetCacheFile(filename), &bsopts, [=](int Track, int64_t Current, int64_t Total) {
 				ps->SetProgress(Current, Total);
 				return !ps->IsCancelled();
 			});
@@ -259,8 +258,8 @@ void BSVideoProvider::GetFrame(int n, VideoFrame &out) {
 
 }
 
-std::unique_ptr<VideoProvider> CreateBSVideoProvider(agi::fs::path const& path, std::string const& colormatrix, agi::BackgroundRunner *br) {
-	return agi::make_unique<BSVideoProvider>(path, colormatrix, br);
+std::unique_ptr<VideoProvider> CreateBSVideoProvider(std::filesystem::path const& path, std::string_view colormatrix, agi::BackgroundRunner *br) {
+	return std::make_unique<BSVideoProvider>(path, std::string(colormatrix), br);
 }
 
 #endif /* WITH_BESTSOURCE */

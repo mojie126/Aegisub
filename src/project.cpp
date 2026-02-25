@@ -42,11 +42,9 @@
 #include <libaegisub/fs.h>
 #include <libaegisub/keyframe.h>
 #include <libaegisub/log.h>
-#include <libaegisub/make_unique.h>
 #include <libaegisub/path.h>
 
 #include <boost/algorithm/string/case_conv.hpp>
-#include <boost/filesystem/operations.hpp>
 #include <wx/msgdlg.h>
 
 Project::Project(agi::Context *c) : context(c) {
@@ -68,10 +66,11 @@ Project::Project(agi::Context *c) : context(c) {
 Project::~Project() { }
 
 void Project::UpdateRelativePaths() {
-	context->ass->Properties.audio_file     = context->path->MakeRelative(audio_file, "?script").generic_string();
-	context->ass->Properties.video_file     = context->path->MakeRelative(video_file, "?script").generic_string();
-	context->ass->Properties.timecodes_file = context->path->MakeRelative(timecodes_file, "?script").generic_string();
-	context->ass->Properties.keyframes_file = context->path->MakeRelative(keyframes_file, "?script").generic_string();
+	using namespace std::string_view_literals;
+	context->ass->Properties.audio_file     = context->path->MakeRelative(audio_file, "?script"sv).generic_string();
+	context->ass->Properties.video_file     = context->path->MakeRelative(video_file, "?script"sv).generic_string();
+	context->ass->Properties.timecodes_file = context->path->MakeRelative(timecodes_file, "?script"sv).generic_string();
+	context->ass->Properties.keyframes_file = context->path->MakeRelative(keyframes_file, "?script"sv).generic_string();
 }
 
 void Project::ReloadAudio() {
@@ -105,7 +104,7 @@ void Project::ShowError(std::string const& message) {
 	ShowError(to_wx(message));
 }
 
-void Project::SetPath(agi::fs::path& var, const char *token, const char *mru, agi::fs::path const& value) {
+void Project::SetPath(std::filesystem::path& var, const char *token, const char *mru, std::filesystem::path const& value) {
 	var = value;
 	if (*token)
 		context->path->SetToken(token, value);
@@ -114,7 +113,7 @@ void Project::SetPath(agi::fs::path& var, const char *token, const char *mru, ag
 	UpdateRelativePaths();
 }
 
-bool Project::DoLoadSubtitles(agi::fs::path const& path, std::string encoding, ProjectProperties &properties) {
+bool Project::DoLoadSubtitles(std::filesystem::path const& path, std::string encoding, ProjectProperties &properties) {
 	try {
 		if (encoding.empty())
 			encoding = CharSetDetect::GetEncoding(path);
@@ -138,7 +137,7 @@ bool Project::DoLoadSubtitles(agi::fs::path const& path, std::string encoding, P
 	}
 
 	try {
-		properties = context->subsController->Load(path, encoding);
+		properties = context->subsController->Load(path, encoding.c_str());
 	}
 	catch (agi::UserCancelException const&) { return false; }
 	catch (agi::fs::FileNotFound const&) {
@@ -172,7 +171,7 @@ bool Project::DoLoadSubtitles(agi::fs::path const& path, std::string encoding, P
 	return true;
 }
 
-void Project::LoadSubtitles(agi::fs::path path, std::string encoding, bool load_linked) {
+void Project::LoadSubtitles(std::filesystem::path path, std::string encoding, bool load_linked) {
 	ProjectProperties properties;
 	if (DoLoadSubtitles(path, encoding, properties) && load_linked)
 		LoadUnloadFiles(properties);
@@ -202,7 +201,7 @@ void Project::LoadUnloadFiles(ProjectProperties properties) {
 		wxString str = _("Do you want to load/unload the associated files?");
 		str += "\n";
 
-		auto append_file = [&](agi::fs::path const& p, wxString const& unload, wxString const& load) {
+		auto append_file = [&](std::filesystem::path const& p, wxString const& unload, wxString const& load) {
 			if (p.empty())
 				str += "\n" + unload;
 			else
@@ -252,7 +251,7 @@ void Project::LoadUnloadFiles(ProjectProperties properties) {
 		DoLoadAudio(video, true);
 }
 
-void Project::DoLoadAudio(agi::fs::path const& path, bool quiet) {
+void Project::DoLoadAudio(std::filesystem::path const& path, bool quiet) {
 	if (!progress)
 		progress = new DialogProgress(context->parent);
 
@@ -288,7 +287,7 @@ void Project::DoLoadAudio(agi::fs::path const& path, bool quiet) {
 	AnnounceAudioProviderModified(audio_provider.get());
 }
 
-void Project::LoadAudio(agi::fs::path path) {
+void Project::LoadAudio(std::filesystem::path path) {
 	DoLoadAudio(path, false);
 }
 
@@ -298,13 +297,13 @@ void Project::CloseAudio() {
 	SetPath(audio_file, "?audio", "", "");
 }
 
-bool Project::DoLoadVideo(agi::fs::path const& path) {
+bool Project::DoLoadVideo(std::filesystem::path const& path) {
 	if (!progress)
 		progress = new DialogProgress(context->parent);
 
 	try {
 		auto old_matrix = context->ass->GetScriptInfo("YCbCr Matrix");
-		video_provider = agi::make_unique<AsyncVideoProvider>(path, old_matrix, context->videoController.get(), progress);
+		video_provider = std::make_unique<AsyncVideoProvider>(path, old_matrix, context->videoController.get(), progress);
 	}
 	catch (agi::UserCancelException const&) { return false; }
 	catch (agi::fs::FileSystemError const& err) {
@@ -342,7 +341,7 @@ bool Project::DoLoadVideo(agi::fs::path const& path) {
 	return true;
 }
 
-void Project::LoadVideo(agi::fs::path path) {
+void Project::LoadVideo(std::filesystem::path path) {
 	if (path.empty()) return;
 	if (!DoLoadVideo(path)) return;
 	if (OPT_GET("Video/Open Audio")->GetBool() && audio_file != video_file && video_provider->HasAudio())
@@ -366,13 +365,13 @@ void Project::CloseVideo() {
 	context->ass->Properties.video_position = 0;
 }
 
-void Project::DoLoadTimecodes(agi::fs::path const& path) {
+void Project::DoLoadTimecodes(std::filesystem::path const& path) {
 	timecodes = agi::vfr::Framerate(path);
 	SetPath(timecodes_file, "", "Timecodes", path);
 	AnnounceTimecodesModified(timecodes);
 }
 
-void Project::LoadTimecodes(agi::fs::path path) {
+void Project::LoadTimecodes(std::filesystem::path path) {
 	try {
 		DoLoadTimecodes(path);
 	}
@@ -392,13 +391,13 @@ void Project::CloseTimecodes() {
 	AnnounceTimecodesModified(timecodes);
 }
 
-void Project::DoLoadKeyframes(agi::fs::path const& path) {
+void Project::DoLoadKeyframes(std::filesystem::path const& path) {
 	keyframes = agi::keyframe::Load(path);
 	SetPath(keyframes_file, "", "Keyframes", path);
 	AnnounceKeyframesModified(keyframes);
 }
 
-void Project::LoadKeyframes(agi::fs::path path) {
+void Project::LoadKeyframes(std::filesystem::path path) {
 	try {
 		DoLoadKeyframes(path);
 	}
@@ -422,7 +421,7 @@ void Project::CloseKeyframes() {
 	AnnounceKeyframesModified(keyframes);
 }
 
-void Project::LoadList(std::vector<agi::fs::path> const& files) {
+void Project::LoadList(std::vector<std::filesystem::path> const& files) {
 	// Keep these lists sorted
 
 	// Video formats
@@ -483,7 +482,7 @@ void Project::LoadList(std::vector<agi::fs::path> const& files) {
 		});
 	};
 
-	agi::fs::path audio, video, subs, timecodes, keyframes;
+	std::filesystem::path audio, video, subs, timecodes, keyframes;
 	for (auto file : files) {
 		if (file.is_relative()) file = absolute(file);
 		if (!agi::fs::FileExists(file)) continue;

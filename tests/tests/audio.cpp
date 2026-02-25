@@ -18,13 +18,10 @@
 
 #include <libaegisub/audio/provider.h>
 #include <libaegisub/fs.h>
-#include <libaegisub/make_unique.h>
 #include <libaegisub/path.h>
 #include <libaegisub/util.h>
 
-#include <boost/filesystem/fstream.hpp>
-
-namespace bfs = boost::filesystem;
+#include <fstream>
 
 TEST(lagi_audio, dummy_blank) {
 	auto provider = agi::CreateDummyAudioProvider("dummy-audio:", nullptr);
@@ -122,7 +119,7 @@ TEST(lagi_audio, save_audio_clip) {
 	agi::SaveAudioClip(*provider, path, 60 * 60 * 1000, (60 * 60 + 10) * 1000);
 
 	{
-		bfs::ifstream s(path, std::ios_base::binary);
+		std::ifstream s(path, std::ios_base::binary);
 		ASSERT_TRUE(s.good());
 		s.seekg(0, std::ios::end);
 		// 10 seconds of 44.1 kHz samples per second of 16-bit mono, plus 44 bytes of header
@@ -141,7 +138,7 @@ TEST(lagi_audio, save_audio_clip_out_of_audio_range) {
 	// Start time after end of clip: empty file
 	agi::SaveAudioClip(*provider, path, end_time, end_time + 1);
 	{
-		bfs::ifstream s(path, std::ios_base::binary);
+		std::ifstream s(path, std::ios_base::binary);
 		ASSERT_TRUE(s.good());
 		s.seekg(0, std::ios::end);
 		EXPECT_EQ(44, s.tellg());
@@ -151,7 +148,7 @@ TEST(lagi_audio, save_audio_clip_out_of_audio_range) {
 	// Start time >= end time: empty file
 	agi::SaveAudioClip(*provider, path, end_time - 1, end_time - 1);
 	{
-		bfs::ifstream s(path, std::ios_base::binary);
+		std::ifstream s(path, std::ios_base::binary);
 		ASSERT_TRUE(s.good());
 		s.seekg(0, std::ios::end);
 		EXPECT_EQ(44, s.tellg());
@@ -161,7 +158,7 @@ TEST(lagi_audio, save_audio_clip_out_of_audio_range) {
 	// Start time during clip, end time after end of clip: save only the part that exists
 	agi::SaveAudioClip(*provider, path, end_time - 1000, end_time + 1000);
 	{
-		bfs::ifstream s(path, std::ios_base::binary);
+		std::ifstream s(path, std::ios_base::binary);
 		ASSERT_TRUE(s.good());
 		s.seekg(0, std::ios::end);
 		// 1 second of 44.1 kHz samples per second of 16-bit mono, plus 44 bytes of header
@@ -172,21 +169,21 @@ TEST(lagi_audio, save_audio_clip_out_of_audio_range) {
 
 TEST(lagi_audio, get_with_volume) {
 	TestAudioProvider<> provider;
-	int16_t buff[4];
+	uint16_t buff[4];
 
-	provider.GetInt16MonoAudioWithVolume(buff, 0, 4, 1.0);
+	provider.GetAudioWithVolume(buff, 0, 4, 1.0);
 	EXPECT_EQ(0, buff[0]);
 	EXPECT_EQ(1, buff[1]);
 	EXPECT_EQ(2, buff[2]);
 	EXPECT_EQ(3, buff[3]);
 
-	provider.GetInt16MonoAudioWithVolume(buff, 0, 4, 0.0);
+	provider.GetAudioWithVolume(buff, 0, 4, 0.0);
 	EXPECT_EQ(0, buff[0]);
 	EXPECT_EQ(0, buff[1]);
 	EXPECT_EQ(0, buff[2]);
 	EXPECT_EQ(0, buff[3]);
 
-	provider.GetInt16MonoAudioWithVolume(buff, 0, 4, 2.0);
+	provider.GetAudioWithVolume(buff, 0, 4, 2.0);
 	EXPECT_EQ(0, buff[0]);
 	EXPECT_EQ(2, buff[1]);
 	EXPECT_EQ(4, buff[2]);
@@ -195,13 +192,13 @@ TEST(lagi_audio, get_with_volume) {
 
 TEST(lagi_audio, volume_should_clamp_rather_than_wrap) {
 	TestAudioProvider<> provider;
-	int16_t buff[1];
-	provider.GetInt16MonoAudioWithVolume(buff, 30000, 1, 2.0);
+	uint16_t buff[1];
+	provider.GetAudioWithVolume(buff, 30000, 1, 2.0);
 	EXPECT_EQ(SHRT_MAX, buff[0]);
 }
 
 TEST(lagi_audio, ram_cache) {
-	auto provider = agi::CreateRAMAudioProvider(agi::make_unique<TestAudioProvider<>>());
+	auto provider = agi::CreateRAMAudioProvider(std::make_unique<TestAudioProvider<>>());
 	EXPECT_EQ(1, provider->GetChannels());
 	EXPECT_EQ(90 * 48000, provider->GetNumSamples());
 	EXPECT_EQ(48000, provider->GetSampleRate());
@@ -218,7 +215,7 @@ TEST(lagi_audio, ram_cache) {
 }
 
 TEST(lagi_audio, hd_cache) {
-	auto provider = agi::CreateHDAudioProvider(agi::make_unique<TestAudioProvider<>>(), agi::Path().Decode("?temp"));
+	auto provider = agi::CreateHDAudioProvider(std::make_unique<TestAudioProvider<>>(), agi::Path().Decode("?temp"));
 	while (provider->GetDecodedSamples() != provider->GetNumSamples()) agi::util::sleep_for(0);
 
 	uint16_t buff[512];
@@ -229,27 +226,27 @@ TEST(lagi_audio, hd_cache) {
 }
 
 TEST(lagi_audio, convert_8bit) {
-	auto provider = agi::CreateConvertAudioProvider(agi::make_unique<TestAudioProvider<uint8_t>>());
+	auto provider = agi::CreateConvertAudioProvider(std::make_unique<TestAudioProvider<uint8_t>>());
 
 	int16_t data[256];
-	provider->GetInt16MonoAudio(data, 0, 256);
+	provider->GetAudio(data, 0, 256);
 	for (int i = 0; i < 256; ++i)
 		ASSERT_EQ((i - 128) * 256, data[i]);
 }
 
 TEST(lagi_audio, convert_32bit) {
-	auto src = agi::make_unique<TestAudioProvider<uint32_t>>(100000);
+	auto src = std::make_unique<TestAudioProvider<uint32_t>>(100000);
 	src->bias = INT_MIN;
 	auto provider = agi::CreateConvertAudioProvider(std::move(src));
 
 	int16_t sample;
-	provider->GetInt16MonoAudio(&sample, 0, 1);
+	provider->GetAudio(&sample, 0, 1);
 	EXPECT_EQ(SHRT_MIN, sample);
 
-	provider->GetInt16MonoAudio(&sample, 1LL << 31, 1);
+	provider->GetAudio(&sample, 1LL << 31, 1);
 	EXPECT_EQ(0, sample);
 
-	provider->GetInt16MonoAudio(&sample, (1LL << 32) - 1, 1);
+	provider->GetAudio(&sample, (1LL << 32) - 1, 1);
 	EXPECT_EQ(SHRT_MAX, sample);
 }
 
@@ -271,7 +268,7 @@ TEST(lagi_audio, sample_doubling) {
 		}
 	};
 
-	auto provider = agi::CreateConvertAudioProvider(agi::make_unique<AudioProvider>());
+	auto provider = agi::CreateConvertAudioProvider(std::make_unique<AudioProvider>());
 	EXPECT_EQ(40000, provider->GetSampleRate());
 
 	int16_t samples[6];
@@ -309,11 +306,11 @@ TEST(lagi_audio, stereo_downmix) {
 		}
 	};
 
-	auto provider = agi::CreateConvertAudioProvider(agi::make_unique<AudioProvider>());
-	EXPECT_EQ(2, provider->GetChannels());
+	auto provider = agi::CreateConvertAudioProvider(std::make_unique<AudioProvider>());
+	EXPECT_EQ(1, provider->GetChannels());
 
 	int16_t samples[100];
-	provider->GetInt16MonoAudio(samples, 0, 100);
+	provider->GetAudio(samples, 0, 100);
 	for (int i = 0; i < 100; ++i)
 		EXPECT_EQ(i, samples[i]);
 }
@@ -333,27 +330,27 @@ struct FloatAudioProvider : agi::AudioProvider {
 		auto out = static_cast<Float *>(buf);
 		for (int64_t end = start + count; start < end; ++start) {
 			auto shifted = start + SHRT_MIN;
-			*out++ = (Float)(shifted) / (-SHRT_MIN);
+			*out++ = (Float)(1.0 * shifted / (shifted < 0 ? -SHRT_MIN : SHRT_MAX));
 		}
 	}
 };
 
 TEST(lagi_audio, float_conversion) {
-	auto provider = agi::CreateConvertAudioProvider(agi::make_unique<FloatAudioProvider<float>>());
-	EXPECT_TRUE(provider->AreSamplesFloat());
+	auto provider = agi::CreateConvertAudioProvider(std::make_unique<FloatAudioProvider<float>>());
+	EXPECT_FALSE(provider->AreSamplesFloat());
 
 	int16_t samples[1 << 16];
-	provider->GetInt16MonoAudio(samples, 0, 1 << 16);
+	provider->GetAudio(samples, 0, 1 << 16);
 	for (int i = 0; i < (1 << 16); ++i)
 		ASSERT_EQ(i + SHRT_MIN, samples[i]);
 }
 
 TEST(lagi_audio, double_conversion) {
-	auto provider = agi::CreateConvertAudioProvider(agi::make_unique<FloatAudioProvider<double>>());
-	EXPECT_TRUE(provider->AreSamplesFloat());
+	auto provider = agi::CreateConvertAudioProvider(std::make_unique<FloatAudioProvider<double>>());
+	EXPECT_FALSE(provider->AreSamplesFloat());
 
 	int16_t samples[1 << 16];
-	provider->GetInt16MonoAudio(samples, 0, 1 << 16);
+	provider->GetAudio(samples, 0, 1 << 16);
 	for (int i = 0; i < (1 << 16); ++i)
 		ASSERT_EQ(i + SHRT_MIN, samples[i]);
 }
@@ -393,8 +390,8 @@ TEST(lagi_audio, pcm_truncated) {
 
 	char file[1000];
 
-	{ bfs::ifstream s(path, std::ios_base::binary); s.read(file, sizeof file); }
-	{ bfs::ofstream s(path, std::ios_base::binary); s.write(file, sizeof file); }
+	{ std::ifstream s(path, std::ios_base::binary); s.read(file, sizeof file); }
+	{ std::ofstream s(path, std::ios_base::binary); s.write(file, sizeof file); }
 
 	{
 		auto provider = agi::CreatePCMAudioProvider(path, nullptr);
@@ -419,7 +416,7 @@ TEST(lagi_audio, pcm_truncated) {
 #define RIFF "RIFF\0\0\0\x60WAVE"
 #define FMT_VALID "fmt \x10\0\0\0\1\0\1\0\x10\0\0\0\x20\0\0\0\2\0\x10\0"
 #define DATA_VALID "data\1\0\0\0\0\0"
-#define WRITE(str) do { bfs::ofstream s(path, std::ios_base::binary); s.write(str, sizeof(str) - 1); } while (false)
+#define WRITE(str) do { std::ofstream s(path, std::ios_base::binary); s.write(str, sizeof(str) - 1); } while (false)
 
 TEST(lagi_audio, pcm_incomplete) {
 	auto path = agi::Path().Decode("?temp/pcm_incomplete");
@@ -427,7 +424,7 @@ TEST(lagi_audio, pcm_incomplete) {
 	agi::fs::Remove(path);
 	ASSERT_THROW(agi::CreatePCMAudioProvider(path, nullptr), agi::fs::FileNotFound);
 
-	{bfs::ofstream(path, std::ios_base::binary); }
+	{std::ofstream(path, std::ios_base::binary); }
 	ASSERT_THROW(agi::CreatePCMAudioProvider(path, nullptr), agi::AudioDataNotFound);
 
 	// Invalid tags
@@ -443,7 +440,7 @@ TEST(lagi_audio, pcm_incomplete) {
 	// -1 for nul term, -3 so that longest file is still invalid
 	for (size_t i = 0; i < sizeof(valid_file) - 4; ++i) {
 		{
-			bfs::ofstream s(path, std::ios_base::binary);
+			std::ofstream s(path, std::ios_base::binary);
 			s.write(valid_file, i);
 		}
 		ASSERT_THROW(agi::CreatePCMAudioProvider(path, nullptr), agi::AudioDataNotFound);
@@ -531,14 +528,14 @@ TEST(lagi_audio, wave64_truncated) {
 	// Should be invalid until there's an entire sample
 	for (size_t i = 0; i < sizeof(WAVE64_FILE) - 4; ++i) {
 		{
-			bfs::ofstream s(path, std::ios_base::binary);
+			std::ofstream s(path, std::ios_base::binary);
 			s.write(WAVE64_FILE, i);
 		}
 		ASSERT_THROW(agi::CreatePCMAudioProvider(path, nullptr), agi::AudioDataNotFound);
 	}
 
 	{
-		bfs::ofstream s(path, std::ios_base::binary);
+		std::ofstream s(path, std::ios_base::binary);
 		s.write(WAVE64_FILE, sizeof(WAVE64_FILE) - 3);
 	}
 	ASSERT_NO_THROW(agi::CreatePCMAudioProvider(path, nullptr));

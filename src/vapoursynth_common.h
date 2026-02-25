@@ -17,7 +17,7 @@
 #ifdef WITH_VAPOURSYNTH
 #include "VSScript4.h"
 
-#include <libaegisub/fs_fwd.h>
+#include <libaegisub/fs.h>
 
 int OpenScriptOrVideo(const VSAPI *api, const VSSCRIPTAPI *sapi, VSScript *script, agi::fs::path const& filename, std::string default_script);
 void VSCleanCache();

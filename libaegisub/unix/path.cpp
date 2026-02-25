@@ -19,7 +19,6 @@
 #include <libaegisub/exception.h>
 #include <libaegisub/util_osx.h>
 
-#include <boost/filesystem/operations.hpp>
 #include <pwd.h>
 
 #ifndef __APPLE__
@@ -70,13 +69,13 @@ std::string exe_dir() {
 namespace agi {
 void Path::FillPlatformSpecificPaths() {
 #ifndef __APPLE__
-	agi::fs::path home = home_dir();
+	std::filesystem::path home = home_dir();
 	SetToken("?user", home/".aegisub");
 	SetToken("?local", home/".aegisub");
 
 #ifdef APPIMAGE_BUILD
-	agi::fs::path exe = exe_dir();
-	agi::fs::path data_from_bin = agi::fs::path(P_DATA).lexically_relative(P_BIN);
+	std::filesystem::path exe = exe_dir();
+	std::filesystem::path data_from_bin = std::filesystem::path(P_DATA).lexically_relative(P_BIN);
 	SetToken("?data", (exe != "" ? exe/data_from_bin : home/".aegisub").make_preferred());
 #else
 	SetToken("?data", P_DATA);
@@ -84,13 +83,13 @@ void Path::FillPlatformSpecificPaths() {
 	SetToken("?dictionary", "/usr/share/hunspell");
 
 #else
-	agi::fs::path app_support = agi::util::GetApplicationSupportDirectory();
+	std::filesystem::path app_support = agi::util::GetApplicationSupportDirectory();
 	SetToken("?user", app_support/"Aegisub");
 	SetToken("?local", app_support/"Aegisub");
 	SetToken("?data", agi::util::GetBundleSharedSupportDirectory());
 	SetToken("?dictionary", Decode("?data/dictionaries"));
 #endif
-	SetToken("?temp", boost::filesystem::temp_directory_path());
+	SetToken("?temp", std::filesystem::temp_directory_path());
 }
 
 }

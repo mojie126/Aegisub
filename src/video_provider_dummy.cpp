@@ -38,13 +38,10 @@
 #include "video_frame.h"
 
 #include <libaegisub/color.h>
-#include <libaegisub/exception.h>
-#include <libaegisub/make_unique.h>
 #include <libaegisub/split.h>
 #include <libaegisub/util.h>
 
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/filesystem/path.hpp>
 #include <libaegisub/format.h>
 #include <boost/gil.hpp>
 
@@ -130,7 +127,7 @@ void DummyVideoProvider::GetFrame(int, VideoFrame &frame) {
 }
 
 namespace agi { class BackgroundRunner; }
-std::unique_ptr<VideoProvider> CreateDummyVideoProvider(agi::fs::path const& filename, std::string const&, agi::BackgroundRunner *) {
+std::unique_ptr<VideoProvider> CreateDummyVideoProvider(std::filesystem::path const& filename, std::string_view, agi::BackgroundRunner *) {
 	// Use filename.generic_string here so forward slashes stay as they are
 	if (!boost::starts_with(filename.generic_string(), "?dummy"))
 		return {};
@@ -157,5 +154,5 @@ std::unique_ptr<VideoProvider> CreateDummyVideoProvider(agi::fs::path const& fil
 
 	bool pattern = toks[i] == "c";
 
-	return agi::make_unique<DummyVideoProvider>(fps, frames, width, height, agi::Color(red, green, blue), pattern);
+	return std::make_unique<DummyVideoProvider>(fps, frames, width, height, agi::Color(red, green, blue), pattern);
 }

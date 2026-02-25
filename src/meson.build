@@ -132,7 +132,6 @@ aegisub_src = files(
     'subtitle_format_ebu3264.cpp',
     'subtitle_format_encore.cpp',
     'subtitle_format_microdvd.cpp',
-    'subtitle_format_mkv.cpp',
     'subtitle_format_srt.cpp',
     'subtitle_format_ssa.cpp',
     'subtitle_format_transtation.cpp',

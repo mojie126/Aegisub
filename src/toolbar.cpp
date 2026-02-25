@@ -29,6 +29,7 @@
 #include <libaegisub/json.h>
 #include <libaegisub/log.h>
 #include <libaegisub/signal.h>
+#include <libaegisub/string.h>
 
 #include <boost/interprocess/streams/bufferstream.hpp>
 #include <vector>
@@ -156,6 +157,16 @@ namespace {
 			Realize();
 		}
 
+		wxString GetTooltip(cmd::Command *command) {
+			wxString ret = command->StrHelp();
+
+			std::vector<std::string> hotkeys = hotkey::get_hotkey_strs(ht_context, command->name());
+			if (!hotkeys.empty())
+				ret += to_wx(" (" + agi::Join("/", hotkeys) + ")");
+
+			return ret;
+		}
+
 	public:
 		Toolbar(wxWindow *parent, std::string name, agi::Context *c, std::string ht_context, bool vertical)
 		: wxToolBar(parent, -1, wxDefaultPosition, wxDefaultSize, wxTB_NODIVIDER | wxTB_FLAT | (vertical ? wxTB_VERTICAL : wxTB_HORIZONTAL))
@@ -165,7 +176,7 @@ namespace {
 		, retina_helper(parent)
 		, icon_size(OPT_GET("App/Toolbar Icon Size")->GetInt())
 		, icon_size_slot(OPT_SUB("App/Toolbar Icon Size", &Toolbar::OnIconSizeChange, this))
-		, scale_factor_slot(retina_helper.AddScaleFactorListener([=](double scale) {
+		, scale_factor_slot(retina_helper.AddScaleFactorListener([=, this](double scale) {
 			RegenerateToolbar();
 		}))
 		, hotkeys_changed_slot(hotkey::inst->AddHotkeyChangeListener(&Toolbar::RegenerateToolbar, this))
@@ -185,7 +196,7 @@ namespace {
 		, icon_size_slot(OPT_SUB("App/Toolbar Icon Size", &Toolbar::OnIconSizeChange, this))
 #else
 		, icon_size(32)
-		, icon_size_slot(retina_helper.AddScaleFactorListener([=](double scale) {
+		, icon_size_slot(retina_helper.AddScaleFactorListener([=, this](double scale) {
 			RegenerateToolbar();
 		}))
 #endif

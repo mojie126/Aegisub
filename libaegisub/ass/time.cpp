@@ -39,7 +39,7 @@ static void decompose_time(int ms_time, int& h, int& m, int& s, int& ms) {
 namespace agi {
 Time::Time(int time) : time(util::mid(0, time, MAX_TIME)) { }
 
-Time::Time(std::string const& text) {
+Time::Time(std::string_view text) {
 	int after_decimal = -1;
 	int current = 0;
 	for (char c : text) {

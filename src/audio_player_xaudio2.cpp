@@ -35,7 +35,6 @@
 #include <libaegisub/audio/provider.h>
 #include <libaegisub/scoped_ptr.h>
 #include <libaegisub/log.h>
-#include <libaegisub/make_unique.h>
 
 #ifndef XAUDIO2_REDIST
 #include <xaudio2.h>
@@ -603,7 +602,7 @@ XAudio2Player::XAudio2Player(agi::AudioProvider* provider) :AudioPlayer(provider
 		BufferLength = 5;
 
 	try {
-		thread = agi::make_unique<XAudio2Thread>(provider, WantedLatency, BufferLength);
+		thread = std::make_unique<XAudio2Thread>(provider, WantedLatency, BufferLength);
 	}
 	catch (const char* msg) {
 		LOG_E("audio/player/xaudio2") << msg;
@@ -688,7 +687,7 @@ void XAudio2Player::SetVolume(double vol) {
 }
 
 std::unique_ptr<AudioPlayer> CreateXAudio2Player(agi::AudioProvider* provider, wxWindow*) {
-	return agi::make_unique<XAudio2Player>(provider);
+	return std::make_unique<XAudio2Player>(provider);
 }
 
 #endif // WITH_XAUDIO2

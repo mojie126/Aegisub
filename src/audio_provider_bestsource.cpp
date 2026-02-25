@@ -30,7 +30,6 @@
 #include "options.h"
 
 #include <libaegisub/fs.h>
-#include <libaegisub/make_unique.h>
 #include <libaegisub/background_runner.h>
 #include <libaegisub/log.h>
 
@@ -67,7 +66,7 @@ BSAudioProvider::BSAudioProvider(agi::fs::path const& filename, agi::BackgroundR
 		ps->SetTitle(from_wx(_("Indexing")));
 		ps->SetMessage(from_wx(_("Indexing file... This will take a while!")));
 		try {
-			bs = agi::make_unique<BestAudioSource>(filename.string(), static_cast<int>(track), -1, 0, 1, provider_bs::GetCacheFile(filename), &bsopts, 0, [=](int Track, int64_t Current, int64_t Total) {
+			bs = std::make_unique<BestAudioSource>(filename.string(), static_cast<int>(track), -1, 0, 1, provider_bs::GetCacheFile(filename), &bsopts, 0, [=](int Track, int64_t Current, int64_t Total) {
 				ps->SetProgress(Current, Total);
 				return !ps->IsCancelled();
 			});
@@ -101,7 +100,7 @@ void BSAudioProvider::FillBuffer(void *Buf, int64_t Start, int64_t Count) const 
 }
 
 std::unique_ptr<agi::AudioProvider> CreateBSAudioProvider(agi::fs::path const& file, agi::BackgroundRunner *br) {
-	return agi::make_unique<BSAudioProvider>(file, br);
+	return std::make_unique<BSAudioProvider>(file, br);
 }
 
 #endif /* WITH_BESTSOURCE */

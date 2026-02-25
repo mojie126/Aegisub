@@ -29,7 +29,6 @@
 #include "../visual_tool_scale.h"
 #include "../visual_tool_vector_clip.h"
 
-#include <libaegisub/make_unique.h>
 
 namespace {
 	using cmd::Command;
@@ -47,7 +46,7 @@ namespace {
 		}
 
 		void operator()(agi::Context *c) override {
-			c->videoDisplay->SetTool(agi::make_unique<T>(c->videoDisplay, c));
+			c->videoDisplay->SetTool(std::make_unique<T>(c->videoDisplay, c));
 		}
 	};
 
@@ -64,7 +63,7 @@ namespace {
 		}
 
 		void operator()(agi::Context *c) override {
-			c->videoDisplay->SetTool(agi::make_unique<VisualToolVectorClip>(c->videoDisplay, c));
+			c->videoDisplay->SetTool(std::make_unique<VisualToolVectorClip>(c->videoDisplay, c));
 			c->videoDisplay->SetSubTool(M);
 		}
 	};
@@ -91,7 +90,7 @@ namespace {
 
 		void operator()(agi::Context *c) override {
 			if (!c->videoDisplay->ToolIsType(typeid(VisualToolPerspective)))
-				c->videoDisplay->SetTool(agi::make_unique<VisualToolPerspective>(c->videoDisplay, c));
+				c->videoDisplay->SetTool(std::make_unique<VisualToolPerspective>(c->videoDisplay, c));
 			c->videoDisplay->SetSubTool(UpdateSubTool(c->videoDisplay->GetSubTool()));
 		}
 	};
@@ -330,30 +329,30 @@ namespace {
 
 namespace cmd {
 	void init_visual_tools() {
-		reg(agi::make_unique<visual_mode_cross>());
-		reg(agi::make_unique<visual_mode_drag>());
-		reg(agi::make_unique<visual_mode_rotate_z>());
-		reg(agi::make_unique<visual_mode_rotate_xy>());
-		reg(agi::make_unique<visual_mode_perspective>());
-		reg(agi::make_unique<visual_mode_scale>());
-		reg(agi::make_unique<visual_mode_clip>());
-		reg(agi::make_unique<visual_mode_vector_clip>());
+		reg(std::make_unique<visual_mode_cross>());
+		reg(std::make_unique<visual_mode_drag>());
+		reg(std::make_unique<visual_mode_rotate_z>());
+		reg(std::make_unique<visual_mode_rotate_xy>());
+		reg(std::make_unique<visual_mode_perspective>());
+		reg(std::make_unique<visual_mode_scale>());
+		reg(std::make_unique<visual_mode_clip>());
+		reg(std::make_unique<visual_mode_vector_clip>());
 
-		reg(agi::make_unique<visual_mode_perspective_plane>());
-		reg(agi::make_unique<visual_mode_perspective_lock_inner>());
-		reg(agi::make_unique<visual_mode_perspective_grid>());
-		reg(agi::make_unique<visual_mode_perspective_orgmode_center>());
-		reg(agi::make_unique<visual_mode_perspective_orgmode_nofax>());
-		reg(agi::make_unique<visual_mode_perspective_orgmode_keep>());
-		reg(agi::make_unique<visual_mode_perspective_orgmode_cycle>());
+		reg(std::make_unique<visual_mode_perspective_plane>());
+		reg(std::make_unique<visual_mode_perspective_lock_inner>());
+		reg(std::make_unique<visual_mode_perspective_grid>());
+		reg(std::make_unique<visual_mode_perspective_orgmode_center>());
+		reg(std::make_unique<visual_mode_perspective_orgmode_nofax>());
+		reg(std::make_unique<visual_mode_perspective_orgmode_keep>());
+		reg(std::make_unique<visual_mode_perspective_orgmode_cycle>());
 
-		reg(agi::make_unique<visual_mode_vclip_drag>());
-		reg(agi::make_unique<visual_mode_vclip_line>());
-		reg(agi::make_unique<visual_mode_vclip_bicubic>());
-		reg(agi::make_unique<visual_mode_vclip_convert>());
-		reg(agi::make_unique<visual_mode_vclip_insert>());
-		reg(agi::make_unique<visual_mode_vclip_remove>());
-		reg(agi::make_unique<visual_mode_vclip_freehand>());
-		reg(agi::make_unique<visual_mode_vclip_freehand_smooth>());
+		reg(std::make_unique<visual_mode_vclip_drag>());
+		reg(std::make_unique<visual_mode_vclip_line>());
+		reg(std::make_unique<visual_mode_vclip_bicubic>());
+		reg(std::make_unique<visual_mode_vclip_convert>());
+		reg(std::make_unique<visual_mode_vclip_insert>());
+		reg(std::make_unique<visual_mode_vclip_remove>());
+		reg(std::make_unique<visual_mode_vclip_freehand>());
+		reg(std::make_unique<visual_mode_vclip_freehand_smooth>());
 	}
 }

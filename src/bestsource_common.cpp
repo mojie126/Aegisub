@@ -85,7 +85,7 @@ std::string GetCacheFile(agi::fs::path const& filename) {
 	boost::crc_32_type hash;
 	hash.process_bytes(filename.string().c_str(), filename.string().size());
 
-	auto result = config::path->Decode("?local/bsindex/" + filename.filename().string() + "_" + std::to_string(hash.checksum()) + "_" + std::to_string(agi::fs::ModifiedTime(filename)));
+	auto result = config::path->Decode("?local/bsindex/" + filename.filename().string() + "_" + std::to_string(hash.checksum()) + "_" + std::to_string(agi::fs::ModifiedTime(filename).time_since_epoch().count()));
 	agi::fs::CreateDirectory(result.parent_path());
 
 	return result.string();
