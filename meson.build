@@ -14,8 +14,8 @@ if host_machine.system() == 'windows'
 		add_global_arguments('-DCSRI_NO_EXPORT', language : 'c')
 	endif
 
-	sys_nasm = find_program('nasm', required : false)
-	if not sys_nasm.found()
+	if get_option('fallback_nasm') or \
+	   not find_program('nasm', required : false).found()
 		nasm = subproject('nasm').get_variable('nasm')
 		meson.override_find_program('nasm', nasm)
 	endif
@@ -77,6 +77,10 @@ if get_option('build_appimage')
 	conf.set('APPIMAGE_BUILD', 1)
 endif
 conf.set('WITH_UPDATE_CHECKER', get_option('enable_update_checker'))
+if get_option('enable_update_checker')
+	conf.set_quoted('UPDATE_CHECKER_SERVER', get_option('update_server'))
+	conf.set_quoted('UPDATE_CHECKER_BASE_URL', get_option('update_url'))
+endif
 
 deps = []
 deps_inc = []
