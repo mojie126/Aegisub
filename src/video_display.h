@@ -166,7 +166,6 @@ class VideoDisplay final : public wxGLCanvas {
 
 	void Pan(Vector2D delta);	// Takes delta in logical pixels
 	void VideoZoom(double newVideoZoom, wxPoint zoomCenter);
-	void ResetVideoZoom();
 
 public:
 	/// @brief Constructor
@@ -194,6 +193,8 @@ public:
 
 	/// @brief Reset the video pan
 	void ResetPan();
+
+	void ResetVideoZoom();
 
 	/// Get the last seen position of the mouse in script coordinates
 	Vector2D GetMousePosition() const;
