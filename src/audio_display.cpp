@@ -1326,7 +1326,7 @@ void AudioDisplay::OnSelectionChanged()
 	RefreshRect(scrollbar->GetBounds(), false);
 }
 
-void AudioDisplay::OnScrollTimer(wxTimerEvent &event)
+void AudioDisplay::OnScrollTimer(wxTimerEvent &)
 {
 	if (!audio_marker) return;
 
