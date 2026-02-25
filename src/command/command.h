@@ -130,7 +130,7 @@ DEFINE_EXCEPTION(CommandNotFound, CommandError);
 		///
 		/// This function should be overridden iff the command's type flags
 		/// include COMMAND_VALIDATE
-		virtual bool Validate(const agi::Context *c) { return true; }
+		virtual bool Validate(const agi::Context *) { return true; }
 
 		/// Is the selectable value represented by this command currently selected?
 		/// @param c Project context
@@ -139,7 +139,7 @@ DEFINE_EXCEPTION(CommandNotFound, CommandError);
 		///
 		/// This function should be overridden iff the command's type flags
 		/// include COMMAND_TOGGLE or COMMAND_RADIO
-		virtual bool IsActive(const agi::Context *c) { return false; }
+		virtual bool IsActive(const agi::Context *) { return false; }
 
 		/// Destructor
 		virtual ~Command() = default;
