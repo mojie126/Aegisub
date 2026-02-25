@@ -272,6 +272,8 @@ opt_src = [
                   'video_provider_avs.cpp']],
 
     ['Hunspell', 'spellchecker_hunspell.cpp'],
+
+    ['libportal', 'xdg_desktop_portal_utils.cpp'],
 ]
 
 foreach opt: opt_src
