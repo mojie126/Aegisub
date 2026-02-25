@@ -84,12 +84,30 @@ conf.set('WITH_UPDATE_CHECKER', get_option('enable_update_checker'))
 if get_option('enable_update_checker')
 	conf.set_quoted('UPDATE_CHECKER_SERVER', get_option('update_server'))
 	conf.set_quoted('UPDATE_CHECKER_BASE_URL', get_option('update_url'))
+
+	curl_disable = ['tool', 'dict', 'file', 'ftp', 'gopher', 'imap', 'ldap', 'ldaps', 'mqtt', 'pop3', 'rtmp', 'rtsp', 'smb', 'smtp', 'telnet', 'tftp']
+	curl_options = []
+	foreach opt : curl_disable
+		curl_options += opt + '=disabled'
+	endforeach
+	if host_machine.system() == 'windows'
+		curl_options += 'schannel=enabled'
+	elif host_machine.system() == 'darwin'
+		curl_options += 'secure-transport=enabled'
+	else
+		curl_options += 'openssl=enabled'
+	endif
 endif
 
 deps = []
 deps_inc = []
 dep_avail = []
 add_project_arguments('-DMI_MALLOC=1', language : ['cpp', 'c'])
+
+if get_option('enable_update_checker')
+	deps += dependency('libcurl', allow_fallback: true, default_options: curl_options)
+endif
+
 deps += dependency('mimalloc_static')
 deps += dependency('ffnvcodec')
 #deps += dependency('vpl')
