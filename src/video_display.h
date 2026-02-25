@@ -88,17 +88,11 @@ class VideoDisplay final : public wxGLCanvas {
 
 	/// The current window zoom level, where 1.0 = 100%
 	double windowZoomValue;
-	/// The current video zoom level, where 1.0 = 100% relative to the display window size
-	double videoZoomValue;
 
 	/// The last position of the mouse, when dragging
 	Vector2D pan_last_pos;
 	/// True if middle mouse button is down, and we should update pan_{x,y}
 	bool panning = false;
-	/// The current video pan offset width
-	int pan_x = 0;
-	/// The current video pan offset height
-	int pan_y = 0;
 
 	/// The zoom level of the video inside the video display.
 	double videoZoomValue = 1;

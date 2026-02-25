@@ -258,7 +258,7 @@ void BSVideoProvider::GetFrame(int n, VideoFrame &out) {
 
 }
 
-std::unique_ptr<VideoProvider> CreateBSVideoProvider(std::filesystem::path const& path, std::string_view colormatrix, agi::BackgroundRunner *br) {
+std::unique_ptr<VideoProvider> CreateBSVideoProvider(agi::fs::path const& path, std::string_view colormatrix, agi::BackgroundRunner *br) {
 	return std::make_unique<BSVideoProvider>(path, std::string(colormatrix), br);
 }
 

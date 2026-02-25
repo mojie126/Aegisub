@@ -234,10 +234,11 @@ void VideoDisplay::Render() try {
 	const bool likely_hdr = (hdr_type != HDRType::SDR);
 	videoOut->SetHDRInputHint(likely_hdr, hdr_type);
 
-	videoOut->Render(viewport_left, viewport_bottom, viewport_width, viewport_height);
-
 	int client_w, client_h;
 	GetClientSize(&client_w, &client_h);
+
+	videoOut->Render(client_w * scale_factor, client_h * scale_factor, viewport_left, viewport_bottom, viewport_width, viewport_height);
+
 	E(glViewport(0, 0, client_w * scale_factor, client_h * scale_factor));
 
 	E(glMatrixMode(GL_PROJECTION));

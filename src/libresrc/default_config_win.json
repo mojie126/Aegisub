@@ -1,0 +1,10 @@
+{
+	"Audio" : {
+		"Player" : "DirectSound"
+	},
+	"Provider" : {
+		"VapourSynth" : {
+			"Autoload User Plugins": false
+		}
+	}
+}

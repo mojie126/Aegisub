@@ -32,3 +32,4 @@ option('update_url', type : 'string', value : '/trunk', description : 'Base path
 
 option('build_osx_bundle', type : 'boolean', value : false, description : 'Package Aegisub.app on OSX')
 option('build_appimage', type : 'boolean', value : false, description : 'Prepare for AppImage packaging')
+option('official_release', type : 'boolean', value : false, description : 'Mark this as an official release build')

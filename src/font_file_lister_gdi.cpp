@@ -209,7 +209,7 @@ CollectionResult GdiFontFileLister::GetFontPaths(std::string const& facename, in
 	if (normalized_path.empty())
 		return ret;
 
-	ret.paths.push_back(std::filesystem::path(normalized_path));
+	ret.paths.push_back(agi::fs::path(normalized_path));
 
 	return ret;
 }

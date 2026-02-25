@@ -43,7 +43,7 @@ struct factory {
 	std::function<bool(agi::fs::path const&)> wants_to_open = [](auto p) { return false; };
 };
 
-const std::initializer_list<factory> providers = {
+const factory providers[] = {
 	{"Dummy", CreateDummyAudioProvider, true},
 	{"PCM", CreatePCMAudioProvider, true},
 #ifdef WITH_FFMS2
