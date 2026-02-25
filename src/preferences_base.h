@@ -27,9 +27,16 @@ class wxSizer;
 class wxString;
 class wxTreebook;
 
+/// @brief 偏好设置页面分区，包含 sizer 和父控件
+/// @details wxWidgets 3.3 要求 wxStaticBoxSizer 内的控件使用静态框作为父控件
+struct PageSection {
+	wxFlexGridSizer *sizer;
+	wxWindow *box;
+};
+
 class OptionPage : public wxScrolled<wxPanel> {
 	template<class T>
-	void Add(wxSizer *sizer, wxString const& label, T *control);
+	void Add(PageSection section, wxString const& label, T *control);
 public:
 	enum Style {
 		PAGE_DEFAULT    =   0x00000000,
@@ -39,14 +46,14 @@ public:
 
 	wxSizer *sizer;
 	Preferences *parent;
-	wxFlexGridSizer *PageSizer(wxString name);
+	PageSection PageSizer(wxString name);
 
-	void CellSkip(wxFlexGridSizer *flex);
-	wxControl *OptionAdd(wxFlexGridSizer *flex, const wxString &name, const char *opt_name, double min=0, double max=INT_MAX, double inc=1);
-	wxTextCtrl *OptionAddMultiline(wxSizer *flex, const char *opt_name);
-	void OptionChoice(wxFlexGridSizer *flex, const wxString &name, const wxArrayString &choices, const char *opt_name, bool translate = false);
-	void OptionBrowse(wxFlexGridSizer *flex, const wxString &name, const char *opt_name, wxControl *enabler = nullptr, bool do_enable = false);
-	void OptionFont(wxSizer *sizer, std::string opt_prefix);
+	void CellSkip(PageSection section);
+	wxControl *OptionAdd(PageSection section, const wxString &name, const char *opt_name, double min=0, double max=INT_MAX, double inc=1);
+	wxTextCtrl *OptionAddMultiline(PageSection section, const char *opt_name);
+	void OptionChoice(PageSection section, const wxString &name, const wxArrayString &choices, const char *opt_name, bool translate = false);
+	void OptionBrowse(PageSection section, const wxString &name, const char *opt_name, wxControl *enabler = nullptr, bool do_enable = false);
+	void OptionFont(PageSection section, std::string opt_prefix);
 
 	/// Enable ctrl only when cbx is checked
 	void EnableIfChecked(wxControl *cbx, wxControl *ctrl);
