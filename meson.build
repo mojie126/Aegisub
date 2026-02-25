@@ -356,8 +356,8 @@ else
 	def_audio = ''
 endif
 
-conf_platform = configuration_data()
-conf_platform.set('DEFAULT_PLAYER_AUDIO', def_audio)
+conf_meson = configuration_data()
+conf_meson.set('DEFAULT_PLAYER_AUDIO', def_audio)
 
 luajit = dependency('luajit', version : '>=2.0.0', required : get_option('system_luajit'))
 if luajit.found() and luajit.type_name() != 'internal'
