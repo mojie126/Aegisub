@@ -97,7 +97,7 @@ void Project::ReloadVideo() {
 }
 
 void Project::ShowError(wxString const& message) {
-	wxMessageBox(message, "Error loading file", wxOK | wxICON_ERROR | wxCENTER, context->parent);
+	wxMessageBox(message, _("Error loading file"), wxOK | wxICON_ERROR | wxCENTER, context->parent);
 }
 
 void Project::ShowError(std::string const& message) {
@@ -123,7 +123,7 @@ bool Project::DoLoadSubtitles(agi::fs::path const& path, std::string encoding, P
 	}
 	catch (agi::fs::FileNotFound const&) {
 		config::mru->Remove("Subtitle", path);
-		ShowError(path.string() + " not found.");
+		ShowError(fmt_tl("%s not found.", path.string()));
 		return false;
 	}
 
@@ -142,7 +142,7 @@ bool Project::DoLoadSubtitles(agi::fs::path const& path, std::string encoding, P
 	catch (agi::UserCancelException const&) { return false; }
 	catch (agi::fs::FileNotFound const&) {
 		config::mru->Remove("Subtitle", path);
-		ShowError(path.string() + " not found.");
+		ShowError(fmt_tl("%s not found.", path.string()));
 		return false;
 	}
 	catch (agi::Exception const& e) {
@@ -154,7 +154,7 @@ bool Project::DoLoadSubtitles(agi::fs::path const& path, std::string encoding, P
 		return false;
 	}
 	catch (...) {
-		ShowError(wxString("Unknown error"));
+		ShowError(_("Unknown error"));
 		return false;
 	}
 
@@ -330,7 +330,7 @@ bool Project::DoLoadVideo(agi::fs::path const& path) {
 
 	std::string warning = video_provider->GetWarning();
 	if (!warning.empty())
-		wxMessageBox(to_wx(warning), "Warning", wxICON_WARNING | wxOK);
+		wxMessageBox(to_wx(warning), _("Warning"), wxICON_WARNING | wxOK);
 
 	video_has_subtitles = false;
 	if (agi::fs::HasExtension(path, "mkv"))
@@ -380,7 +380,7 @@ void Project::LoadTimecodes(agi::fs::path path) {
 		config::mru->Remove("Timecodes", path);
 	}
 	catch (agi::vfr::Error const& e) {
-		ShowError("Failed to parse timecodes file: " + e.GetMessage());
+		ShowError(_("Failed to parse timecodes file: ") + to_wx(e.GetMessage()));
 		config::mru->Remove("Timecodes", path);
 	}
 }
@@ -406,11 +406,11 @@ void Project::LoadKeyframes(agi::fs::path path) {
 		config::mru->Remove("Keyframes", path);
 	}
 	catch (agi::keyframe::KeyframeFormatParseError const& e) {
-		ShowError("Failed to parse keyframes file: " + e.GetMessage());
+		ShowError(_("Failed to parse keyframes file: ") + to_wx(e.GetMessage()));
 		config::mru->Remove("Keyframes", path);
 	}
 	catch (agi::keyframe::UnknownKeyframeFormatError const& e) {
-		ShowError("Keyframes file in unknown format: " + e.GetMessage());
+		ShowError(_("Keyframes file in unknown format: ") + to_wx(e.GetMessage()));
 		config::mru->Remove("Keyframes", path);
 	}
 }
