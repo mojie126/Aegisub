@@ -865,8 +865,10 @@ namespace {
 				lua_gc(L, LUA_GCCOLLECT, 0);
 			});
 		} catch (agi::UserCancelException const&) {
+			// UserCancelException 可在闭包执行后由后台运行器抛出
+			// 脚本未报错时，需弹出返回值以清空栈
 			if (!failed)
-				lua_pop(L, 2);
+				lua_pop(L, nresults);
 			throw;
 		}
 		if (failed)
