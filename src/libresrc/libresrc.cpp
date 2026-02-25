@@ -14,13 +14,18 @@
 
 #include "libresrc.h"
 
+#include <map>
+#include <tuple>
+
 #ifdef _WIN32
 #include <windows.h>
 // GetDpiForSystem 需要 _WIN32_WINNT >= 0x0A00，此处手动声明以兼容当前 SDK 设置
 extern "C" UINT WINAPI GetDpiForSystem(void);
 #endif
 #include <wx/bitmap.h>
+#include <wx/bmpbndl.h>
 #include <wx/icon.h>
+#include <wx/iconbndl.h>
 #include <wx/image.h>
 #include <wx/intl.h>
 #include <wx/mstream.h>
@@ -69,4 +74,43 @@ wxIcon libresrc_geticon(const unsigned char *buff, size_t size) {
 	wxIcon icon;
 	icon.CopyFromBitmap(wxBitmap(wxImage(mem)));
 	return icon;
+}
+
+wxBitmapBundle libresrc_getbitmapbundle(const LibresrcBlob *images, size_t count, int height, int dir) {
+	// 此函数应仅在GUI线程调用，使用thread_local确保安全
+	thread_local std::map<std::tuple<const LibresrcBlob *, int, int>, wxBitmapBundle> cache;
+	auto key = std::make_tuple(images, height, dir);
+
+	if (auto cached = cache.find(key); cached != cache.end()) {
+		return cached->second;
+	}
+
+	wxVector<wxBitmap> bitmaps;
+	bitmaps.reserve(count);
+	for (size_t i = 0; i < count; i++) {
+		bitmaps.push_back(libresrc_getimage(images[i].data, images[i].size, 1.0, dir));
+		bitmaps.back().SetScaleFactor(double(images[i].scale) / height);
+	}
+
+	auto bundle = wxBitmapBundle::FromBitmaps(bitmaps);
+	cache[key] = bundle;
+
+	return bundle;
+}
+
+wxIconBundle libresrc_geticonbundle(const LibresrcBlob *images, size_t count) {
+	thread_local std::map<const LibresrcBlob *, wxIconBundle> cache;
+
+	if (auto cached = cache.find(images); cached != cache.end()) {
+		return cached->second;
+	}
+
+	wxIconBundle bundle;
+	for (size_t i = 0; i < count; i++) {
+		bundle.AddIcon(libresrc_geticon(images[i].data, images[i].size));
+	}
+
+	cache[images] = bundle;
+
+	return bundle;
 }

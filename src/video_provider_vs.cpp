@@ -426,7 +426,7 @@ void VapourSynthVideoProvider::GetFrame(int n, VideoFrame &out) {
 }
 
 namespace agi { class BackgroundRunner; }
-std::unique_ptr<VideoProvider> CreateVapourSynthVideoProvider(std::filesystem::path const& path, std::string_view colormatrix, agi::BackgroundRunner *br) {
+std::unique_ptr<VideoProvider> CreateVapourSynthVideoProvider(agi::fs::path const& path, std::string_view colormatrix, agi::BackgroundRunner *br) {
 	return std::make_unique<VapourSynthVideoProvider>(path, std::string(colormatrix), br);
 }
 #endif // WITH_VAPOURSYNTH

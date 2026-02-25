@@ -496,7 +496,7 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 
 	const wxString log_levels[] = { wxTRANSLATE("Quiet"), wxTRANSLATE("Panic"), wxTRANSLATE("Fatal"), wxTRANSLATE("Error"), wxTRANSLATE("Warning"), wxTRANSLATE("Info"), wxTRANSLATE("Verbose"), wxTRANSLATE("Debug") };
 	wxArrayString log_levels_choice(8, log_levels);
-	p->OptionChoice(ffms, _("Debug log verbosity"), log_levels_choice, "Provider/FFmpegSource/Log Level", true);
+	p->OptionChoice(ffms, _("Debug log verbosity"), log_levels_choice, "Provider/FFmpegSource/Log Level");
 
 	// 添加黑边
 	p->OptionAdd(ffms, _("Add black borders"), "Provider/Video/FFmpegSource/ABB", 0)

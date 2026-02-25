@@ -616,8 +616,8 @@ void VideoOutGL::UploadFrameData(VideoFrame const& frame) {
 	}
 }
 
-void VideoOutGL::Render(int x, int y, int width, int height) {
-	// 参数含义：x,y为左下角坐标，width/height为显示区域尺寸
+void VideoOutGL::Render(int client_width, int client_height, int x, int y, int width, int height) {
+	// 参数含义：client_width/height为客户区尺寸，x,y为左下角坐标，width/height为显示区域尺寸
 	if (width <= 0 || height <= 0)
 		return;
 

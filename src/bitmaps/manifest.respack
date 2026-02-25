@@ -31,6 +31,11 @@ button/arrow_up_stop_24.png
 button/arrow_up_stop_32.png
 button/arrow_up_stop_48.png
 button/arrow_up_stop_64.png
+button/assdraw_16.png
+button/assdraw_24.png
+button/assdraw_32.png
+button/assdraw_48.png
+button/assdraw_64.png
 button/attach_button_16.png
 button/attach_button_24.png
 button/attach_button_32.png
@@ -251,6 +256,11 @@ button/font_collector_button_24.png
 button/font_collector_button_32.png
 button/font_collector_button_48.png
 button/font_collector_button_64.png
+button/forums_button_16.png
+button/forums_button_24.png
+button/forums_button_32.png
+button/forums_button_48.png
+button/forums_button_64.png
 button/irc_button_16.png
 button/irc_button_24.png
 button/irc_button_32.png
@@ -266,6 +276,11 @@ button/kara_mode_24.png
 button/kara_mode_32.png
 button/kara_mode_48.png
 button/kara_mode_64.png
+button/kara_split_16.png
+button/kara_split_24.png
+button/kara_split_32.png
+button/kara_split_48.png
+button/kara_split_64.png
 button/kara_split_accept_16.png
 button/kara_split_accept_24.png
 button/kara_split_accept_32.png

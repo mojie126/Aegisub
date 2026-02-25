@@ -30,12 +30,12 @@
 
 #include <wx/choicdlg.h>
 
-std::unique_ptr<VideoProvider> CreateDummyVideoProvider(std::filesystem::path const&, std::string_view, agi::BackgroundRunner *);
-std::unique_ptr<VideoProvider> CreateYUV4MPEGVideoProvider(std::filesystem::path const&, std::string_view, agi::BackgroundRunner *);
-std::unique_ptr<VideoProvider> CreateFFmpegSourceVideoProvider(std::filesystem::path const&, std::string_view, agi::BackgroundRunner *);
-std::unique_ptr<VideoProvider> CreateAvisynthVideoProvider(std::filesystem::path const&, std::string_view, agi::BackgroundRunner *);
-std::unique_ptr<VideoProvider> CreateBSVideoProvider(std::filesystem::path const&, std::string_view, agi::BackgroundRunner *);
-std::unique_ptr<VideoProvider> CreateVapourSynthVideoProvider(std::filesystem::path const&, std::string_view, agi::BackgroundRunner *);
+std::unique_ptr<VideoProvider> CreateDummyVideoProvider(agi::fs::path const&, std::string_view, agi::BackgroundRunner *);
+std::unique_ptr<VideoProvider> CreateYUV4MPEGVideoProvider(agi::fs::path const&, std::string_view, agi::BackgroundRunner *);
+std::unique_ptr<VideoProvider> CreateFFmpegSourceVideoProvider(agi::fs::path const&, std::string_view, agi::BackgroundRunner *);
+std::unique_ptr<VideoProvider> CreateAvisynthVideoProvider(agi::fs::path const&, std::string_view, agi::BackgroundRunner *);
+std::unique_ptr<VideoProvider> CreateBSVideoProvider(agi::fs::path const&, std::string_view, agi::BackgroundRunner *);
+std::unique_ptr<VideoProvider> CreateVapourSynthVideoProvider(agi::fs::path const&, std::string_view, agi::BackgroundRunner *);
 
 std::unique_ptr<VideoProvider> CreateCacheVideoProvider(std::unique_ptr<VideoProvider>);
 
@@ -118,12 +118,12 @@ void override_colormatrix(int &CS, int &CR, std::string matrix, int Width, int H
 namespace {
 	struct factory {
 		const char *name;
-		std::unique_ptr<VideoProvider> (*create)(std::filesystem::path const&, std::string_view, agi::BackgroundRunner *);
+		std::unique_ptr<VideoProvider> (*create)(agi::fs::path const&, std::string_view, agi::BackgroundRunner *);
 		bool hidden;
 		std::function<bool(agi::fs::path const&)> wants_to_open = [](auto p) { return false; };
 	};
 
-	const std::initializer_list<factory> providers = {
+	const factory providers[] = {
 		{"Dummy", CreateDummyVideoProvider, true},
 		{"YUV4MPEG", CreateYUV4MPEGVideoProvider, true},
 #ifdef WITH_FFMS2
@@ -145,7 +145,7 @@ std::vector<std::string> VideoProviderFactory::GetClasses() {
 	return ::GetClasses(providers);
 }
 
-std::unique_ptr<VideoProvider> VideoProviderFactory::GetProvider(std::filesystem::path const& filename, std::string_view colormatrix, agi::BackgroundRunner *br) {
+std::unique_ptr<VideoProvider> VideoProviderFactory::GetProvider(agi::fs::path const& filename, std::string_view colormatrix, agi::BackgroundRunner *br) {
 	auto preferred = OPT_GET("Video/Provider")->GetString();
 
 	if (!std::any_of(std::begin(providers), std::end(providers), [&](factory provider) { return provider.name == preferred; })) {

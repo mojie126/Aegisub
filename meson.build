@@ -22,6 +22,7 @@ if host_machine.system() == 'windows'
 endif
 
 if host_machine.system() == 'windows'
+	powershell_exe = find_program('powershell')
 	version_sh = find_program('tools/version.ps1')
 else
 	version_sh = find_program('tools/version.sh')
@@ -389,12 +390,16 @@ else
 endif
 
 if not deps.contains(luajit)
-	luajit_sp = subproject('luajit')
-	luajit_inc = luajit_sp.get_variable('src_inc')
-	deps += luajit_sp.get_variable('luajit_dep')
-else
-	luajit_inc = include_directories(luajit.get_variable('includedir'))
+	message('Using built-in luajit')
+	subproject('luajit')
+	luajit = dependency('luajit')
+	assert(luajit.type_name() == 'internal', 'System luajit used instead of built-in luajit')
 endif
+
+if luajit.type_name() == 'internal'
+	deps += luajit
+endif
+
 subdir('vendor/luabins/src')
 
 dep_gl = dependency('gl', required : false)
@@ -424,6 +429,27 @@ if not get_option('csri').disabled() and host_machine.system() == 'windows'
 endif
 
 acconf = configure_file(output : 'acconf.h', configuration : conf)
+
+# 配置编译定义和顺序依赖
+aegisub_order_dep = []
+aegisub_defines = []
+
+if get_option('b_pch')
+    aegisub_order_dep += acconf
+else
+    foreach key : conf.keys()
+        if '@0@'.format(conf.get(key)) == 'true'
+            assert(conf.get(key) == true)
+            aegisub_defines += '-D@0@'.format(key)
+        elif '@0@'.format(conf.get(key)) != 'false'
+            aegisub_defines += '-D@0@=@1@'.format(key, conf.get(key))
+        endif
+    endforeach
+
+    if host_machine.system() == 'windows'
+        aegisub_defines += '-DWIN32_LEAN_AND_MEAN'
+    endif
+endif
 
 subdir('automation')
 subdir('libaegisub')
