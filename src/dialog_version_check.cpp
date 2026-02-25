@@ -29,16 +29,13 @@
 
 #ifdef WITH_UPDATE_CHECKER
 
-#ifdef _MSC_VER
-#pragma warning(disable : 4250) // 'boost::asio::basic_socket_iostream<Protocol>' : inherits 'std::basic_ostream<_Elem,_Traits>::std::basic_ostream<_Elem,_Traits>::_Add_vtordisp2' via dominance
-#endif
-
 #include "compat.h"
 #include "format.h"
 #include "options.h"
 #include "string_codec.h"
 #include "version.h"
 
+#include <libaegisub/cajun/reader.h>
 #include <libaegisub/dispatch.h>
 #include <libaegisub/exception.h>
 #include <libaegisub/line_iterator.h>
@@ -46,9 +43,10 @@
 #include <libaegisub/split.h>
 
 #include <ctime>
-#include <boost/asio/ip/tcp.hpp>
+#include <curl/curl.h>
 #include <functional>
 #include <mutex>
+#include <sstream>
 #include <vector>
 #include <wx/button.h>
 #include <wx/checkbox.h>
@@ -62,6 +60,11 @@
 #include <wx/stattext.h>
 #include <wx/string.h>
 #include <wx/textctrl.h>
+#include <wx/html/htmlwin.h>
+#include <wx/filesys.h>
+#include <wx/fs_inet.h>
+
+#include <regex>
 
 #ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
@@ -69,6 +72,135 @@
 
 namespace {
 std::mutex VersionCheckLock;
+
+/// @brief 将文本中的 HTML 特殊字符转义
+/// @param text 原始文本
+/// @return 转义后的文本
+std::string HtmlEscape(const std::string& text) {
+	std::string result;
+	result.reserve(text.size());
+	for (char c : text) {
+		switch (c) {
+			case '&': result += "&amp;"; break;
+			case '<': result += "&lt;"; break;
+			case '>': result += "&gt;"; break;
+			case '"': result += "&quot;"; break;
+			default: result += c; break;
+		}
+	}
+	return result;
+}
+
+/// @brief 处理 Markdown 行内格式（加粗、斜体、行内代码、图片、链接）
+/// @param line 一行文本（已 HTML 转义）
+/// @return 替换行内格式标记后的 HTML 文本
+std::string ProcessInlineMarkdown(const std::string& line) {
+	std::string result = line;
+
+	// 行内代码: `code`
+	result = std::regex_replace(result, std::regex("`([^`]+)`"), "<code>$1</code>");
+
+	// 加粗: **text**
+	result = std::regex_replace(result, std::regex("\\*\\*([^*]+)\\*\\*"), "<b>$1</b>");
+
+	// 斜体: *text*
+	result = std::regex_replace(result, std::regex("\\*([^*]+)\\*"), "<i>$1</i>");
+
+	// 图片: ![alt](url) — 必须在链接之前处理
+	result = std::regex_replace(result, std::regex("!\\[([^\\]]*)\\]\\(([^)]+)\\)"), "<img src=\"$2\" alt=\"$1\">");
+
+	// 链接: [text](url)
+	result = std::regex_replace(result, std::regex("\\[([^\\]]+)\\]\\(([^)]+)\\)"), "<a href=\"$2\">$1</a>");
+
+	return result;
+}
+
+/// @brief 将 GitHub Release 的 Markdown 正文转换为 HTML
+/// @details 支持标题、加粗、斜体、行内代码、链接、无序列表、代码块
+/// @param markdown Markdown 格式文本
+/// @return HTML 格式文本
+std::string MarkdownToHtml(const std::string& markdown) {
+	std::string html = "<html><body>";
+
+	std::istringstream stream(markdown);
+	std::string line;
+	bool in_code_block = false;
+	bool in_list = false;
+
+	while (std::getline(stream, line)) {
+		// 移除行尾 \r
+		if (!line.empty() && line.back() == '\r')
+			line.pop_back();
+
+		// 代码块: ```
+		if (line.substr(0, 3) == "```") {
+			if (in_code_block) {
+				html += "</pre>";
+				in_code_block = false;
+			} else {
+				if (in_list) { html += "</ul>"; in_list = false; }
+				html += "<pre>";
+				in_code_block = true;
+			}
+			continue;
+		}
+
+		if (in_code_block) {
+			html += HtmlEscape(line) + "\n";
+			continue;
+		}
+
+		// 空行
+		if (line.empty()) {
+			if (in_list) { html += "</ul>"; in_list = false; }
+			html += "<br>";
+			continue;
+		}
+
+		std::string escaped = HtmlEscape(line);
+
+		// 标题: # ## ### ####
+		if (line[0] == '#') {
+			if (in_list) { html += "</ul>"; in_list = false; }
+			int level = 0;
+			while (level < (int)line.size() && line[level] == '#') level++;
+			if (level >= 1 && level <= 6 && level < (int)line.size() && line[level] == ' ') {
+				std::string content = HtmlEscape(line.substr(level + 1));
+				content = ProcessInlineMarkdown(content);
+				html += "<h" + std::to_string(level) + ">" + content + "</h" + std::to_string(level) + ">";
+				continue;
+			}
+		}
+
+		// 无序列表: - item 或 * item
+		if ((line[0] == '-' || line[0] == '*') && line.size() > 1 && line[1] == ' ') {
+			if (!in_list) { html += "<ul>"; in_list = true; }
+			std::string content = HtmlEscape(line.substr(2));
+			content = ProcessInlineMarkdown(content);
+			html += "<li>" + content + "</li>";
+			continue;
+		}
+
+		// 普通段落
+		escaped = ProcessInlineMarkdown(escaped);
+		html += escaped + "<br>";
+	}
+
+	if (in_list) html += "</ul>";
+	if (in_code_block) html += "</pre>";
+
+	html += "</body></html>";
+	return html;
+}
+
+/// @brief 在 wxHtmlWindow 中点击链接时打开外部浏览器
+class HtmlWindowWithLinks : public wxHtmlWindow {
+public:
+	using wxHtmlWindow::wxHtmlWindow;
+	void OnLinkClicked(const wxHtmlLinkInfo& link) override {
+		wxLaunchDefaultBrowser(link.GetHref());
+	}
+};
 
 struct AegisubUpdateDescription {
 	std::string url;
@@ -90,29 +222,37 @@ public:
 };
 
 VersionCheckerResultDialog::VersionCheckerResultDialog(wxString const& main_text, const std::vector<AegisubUpdateDescription> &updates)
-: wxDialog(nullptr, -1, _("Version Checker"))
+: wxDialog(nullptr, -1, _("Version Checker"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 {
-	const int controls_width = 500;
+	// 注册网络文件系统处理器，使 wxHtmlWindow 能加载 HTTP 图片
+	static bool fs_handler_registered = false;
+	if (!fs_handler_registered) {
+		wxFileSystem::AddHandler(new wxInternetFSHandler);
+		fs_handler_registered = true;
+	}
+
+	const int controls_width = FromDIP(500);
 
 	wxSizer *main_sizer = new wxBoxSizer(wxVERTICAL);
 
 	wxStaticText *text = new wxStaticText(this, -1, main_text);
 	text->Wrap(controls_width);
-	main_sizer->Add(text, 0, wxBOTTOM|wxEXPAND, 6);
+	main_sizer->Add(text, 0, wxBOTTOM|wxEXPAND, FromDIP(6));
 
 	for (auto const& update : updates) {
-		main_sizer->Add(new wxStaticLine(this), 0, wxEXPAND|wxALL, 6);
+		main_sizer->Add(new wxStaticLine(this), 0, wxEXPAND|wxALL, FromDIP(6));
 
 		text = new wxStaticText(this, -1, to_wx(update.friendly_name));
 		wxFont boldfont = text->GetFont();
 		boldfont.SetWeight(wxFONTWEIGHT_BOLD);
 		text->SetFont(boldfont);
-		main_sizer->Add(text, 0, wxEXPAND|wxBOTTOM, 6);
+		main_sizer->Add(text, 0, wxEXPAND|wxBOTTOM, FromDIP(6));
 
-		wxTextCtrl *descbox = new wxTextCtrl(this, -1, to_wx(update.description), wxDefaultPosition, wxSize(controls_width,60), wxTE_MULTILINE|wxTE_READONLY);
-		main_sizer->Add(descbox, 0, wxEXPAND|wxBOTTOM, 6);
+		auto *descbox = new HtmlWindowWithLinks(this, -1, wxDefaultPosition, FromDIP(wxSize(controls_width, 200)), wxHW_SCROLLBAR_AUTO);
+		descbox->SetPage(to_wx(MarkdownToHtml(update.description)));
+		main_sizer->Add(descbox, 1, wxEXPAND|wxBOTTOM, FromDIP(6));
 
-		main_sizer->Add(new wxHyperlinkCtrl(this, -1, to_wx(update.url), to_wx(update.url)), 0, wxALIGN_LEFT|wxBOTTOM, 6);
+		main_sizer->Add(new wxHyperlinkCtrl(this, -1, to_wx(update.url), to_wx(update.url)), 0, wxALIGN_LEFT|wxBOTTOM, FromDIP(6));
 	}
 
 	automatic_check_checkbox = new wxCheckBox(this, -1, _("&Auto Check for Updates"));
@@ -127,8 +267,8 @@ VersionCheckerResultDialog::VersionCheckerResultDialog(wxString const& main_text
 	SetEscapeId(wxID_OK);
 
 	if (updates.size())
-		main_sizer->Add(new wxStaticLine(this), 0, wxEXPAND|wxALL, 6);
-	main_sizer->Add(automatic_check_checkbox, 0, wxEXPAND|wxBOTTOM, 6);
+		main_sizer->Add(new wxStaticLine(this), 0, wxEXPAND|wxALL, FromDIP(6));
+	main_sizer->Add(automatic_check_checkbox, 0, wxEXPAND|wxBOTTOM, FromDIP(6));
 
 	auto button_sizer = new wxStdDialogButtonSizer();
 	button_sizer->AddButton(close_button);
@@ -138,9 +278,10 @@ VersionCheckerResultDialog::VersionCheckerResultDialog(wxString const& main_text
 	main_sizer->Add(button_sizer, 0, wxEXPAND, 0);
 
 	wxSizer *outer_sizer = new wxBoxSizer(wxVERTICAL);
-	outer_sizer->Add(main_sizer, 0, wxALL|wxEXPAND, 12);
+	outer_sizer->Add(main_sizer, 1, wxALL|wxEXPAND, FromDIP(12));
 
 	SetSizerAndFit(outer_sizer);
+	SetMinSize(FromDIP(wxSize(400, 200)));
 	Centre();
 	Show();
 
@@ -284,68 +425,136 @@ static wxString GetAegisubLanguage() {
 	return to_wx(OPT_GET("App/Language")->GetString());
 }
 
+/// @brief 比较两个语义化版本号，判断远程版本是否更新
+/// @param remote 远程版本号字符串 (如 "v3.4.3" 或 "3.4.3-RC1")
+/// @param local 本地版本号字符串 (如 "3.4.2-RC2")
+/// @return 远程版本大于本地版本时返回 true
+bool IsNewerVersion(const std::string& remote, const std::string& local) {
+	auto strip_v = [](const std::string& s) -> std::string {
+		if (!s.empty() && (s[0] == 'v' || s[0] == 'V'))
+			return s.substr(1);
+		return s;
+	};
+
+	auto split_pre = [](const std::string& s) -> std::pair<std::string, std::string> {
+		auto pos = s.find('-');
+		if (pos != std::string::npos)
+			return {s.substr(0, pos), s.substr(pos + 1)};
+		return {s, ""};
+	};
+
+	auto parse_ver = [](const std::string& v) -> std::vector<int> {
+		std::vector<int> parts;
+		std::istringstream iss(v);
+		std::string part;
+		while (std::getline(iss, part, '.')) {
+			try { parts.push_back(std::stoi(part)); }
+			catch (...) { parts.push_back(0); }
+		}
+		while (parts.size() < 3) parts.push_back(0);
+		return parts;
+	};
+
+	std::string r = strip_v(remote);
+	std::string l = strip_v(local);
+
+	auto [r_ver, r_pre] = split_pre(r);
+	auto [l_ver, l_pre] = split_pre(l);
+
+	auto rv = parse_ver(r_ver);
+	auto lv = parse_ver(l_ver);
+
+	for (size_t i = 0; i < 3; ++i) {
+		if (rv[i] > lv[i]) return true;
+		if (rv[i] < lv[i]) return false;
+	}
+
+	// 版本号相同时，正式版优先于预发布版 (无后缀 > 有后缀)
+	if (r_pre.empty() && !l_pre.empty()) return true;
+	if (!r_pre.empty() && l_pre.empty()) return false;
+
+	// 两者都有预发布后缀时，按字典序比较
+	return r_pre > l_pre;
+}
+
+size_t writeToStringCb(char *contents, size_t size, size_t nmemb, std::string *s) {
+	s->append(contents, size * nmemb);
+	return size * nmemb;
+}
+
 void DoCheck(bool interactive) {
-	boost::asio::ip::tcp::iostream stream;
-	stream.connect(UPDATE_CHECKER_SERVER, "http");
-	if (!stream)
-		throw VersionCheckError(from_wx(_("Could not connect to updates server.")));
+	CURL *curl;
+	CURLcode res_code;
 
-	agi::format(stream,
-		"GET %s?rev=%d&rel=%d&os=%s&lang=%s&aegilang=%s HTTP/1.0\r\n"
-		"User-Agent: Aegisub %s\r\n"
-		"Host: %s\r\n"
-		"Accept: */*\r\n"
-		"Connection: close\r\n\r\n"
-		, UPDATE_CHECKER_BASE_URL
-		, GetSVNRevision()
-		, (GetIsOfficialRelease() ? 1 : 0)
-		, GetOSShortName()
-		, GetSystemLanguage()
-		, GetAegisubLanguage()
-		, GetAegisubLongVersionString()
-		, UPDATE_CHECKER_SERVER);
+	curl = curl_easy_init();
+	if (!curl)
+		throw VersionCheckError(from_wx(_("Curl could not be initialized.")));
 
-	std::string http_version;
-	stream >> http_version;
-	int status_code;
-	stream >> status_code;
-	if (!stream || http_version.substr(0, 5) != "HTTP/")
-		throw VersionCheckError(from_wx(_("Could not download from updates server.")));
-	if (status_code != 200)
-		throw VersionCheckError(agi::format(_("HTTP request failed, got HTTP response %d."), status_code));
+	// 构建 GitHub Releases API 请求 URL
+	std::string api_url = std::string(UPDATE_CHECKER_SERVER) + UPDATE_CHECKER_BASE_URL;
+	curl_easy_setopt(curl, CURLOPT_URL, api_url.c_str());
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(curl, CURLOPT_USERAGENT, agi::format("Aegisub %s", GetAegisubLongVersionString()).c_str());
 
-	stream.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+	// 设置 GitHub API 请求头
+	struct curl_slist *headers = nullptr;
+	headers = curl_slist_append(headers, "Accept: application/vnd.github+json");
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
-	// Skip the headers since we don't care about them
-	for (auto const& header : agi::line_iterator<std::string>(stream))
-		if (header.empty()) break;
+	std::string result;
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeToStringCb);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &result);
+
+	res_code = curl_easy_perform(curl);
+	curl_slist_free_all(headers);
+	curl_easy_cleanup(curl);
+
+	if (res_code != CURLE_OK) {
+		std::string err_msg = agi::format(_("Checking for updates failed: %s."), curl_easy_strerror(res_code));
+		throw VersionCheckError(err_msg);
+	}
+
+	// 解析 GitHub Releases API 的 JSON 响应
+	std::istringstream json_stream(result);
+	json::UnknownElement root;
+	try {
+		json::Reader::Read(root, json_stream);
+	}
+	catch (json::Exception const&) {
+		throw VersionCheckError("Failed to parse update response JSON.");
+	}
+
+	json::Object const& obj = root;
+
+	auto get_string = [&obj](const char* key) -> std::string {
+		auto it = obj.find(key);
+		if (it != obj.end()) {
+			try { return static_cast<json::String const&>(it->second); }
+			catch (...) {}
+		}
+		return {};
+	};
+
+	std::string tag_name = get_string("tag_name");
+	std::string release_name = get_string("name");
+	std::string body = get_string("body");
+	std::string html_url = get_string("html_url");
 
 	std::vector<AegisubUpdateDescription> results;
-	for (auto const& line : agi::line_iterator<std::string>(stream)) {
-		if (line.empty()) continue;
 
-		std::vector<std::string> parsed;
-		agi::Split(parsed, line, '|');
-		if (parsed.size() != 6) continue;
-
-		if (atoi(parsed[1].c_str()) <= GetSVNRevision())
-			continue;
-
-		// 0 and 2 being things that never got used
+	if (!tag_name.empty() && IsNewerVersion(tag_name, GetVersionNumber())) {
 		results.push_back(AegisubUpdateDescription{
-			inline_string_decode(parsed[3]),
-			inline_string_decode(parsed[4]),
-			inline_string_decode(parsed[5])
+			html_url,
+			release_name.empty() ? tag_name : release_name,
+			body
 		});
 	}
 
 	if (!results.empty() || interactive) {
 		agi::dispatch::Main().Async([=]{
 			wxString text;
-			if (results.size() == 1)
+			if (!results.empty())
 				text = _("An update to Aegisub was found.");
-			else if (results.size() > 1)
-				text = _("Several possible updates to Aegisub were found.");
 			else
 				text = _("There are no updates to Aegisub.");
 
