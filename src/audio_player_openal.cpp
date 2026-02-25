@@ -73,7 +73,7 @@ class OpenALPlayer final : public AudioPlayer, wxTimer {
 	bool fallback_mono16 = false; ///< whether to fall back to int16 mono. FIXME: More flexible conversion
 	int format; ///< AL format (stereo/mono, 8/16 bit)
 
-	int64_t start_frame = 0; ///< First frame of playbacka
+	int64_t start_frame = 0; ///< First frame of playback
 	int64_t cur_frame = 0; ///< Next frame to write to playback buffers
 	int64_t end_frame = 0; ///< Last frame to play
 
