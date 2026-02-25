@@ -18,6 +18,8 @@
 #include "bitmap.h"
 #include "default_config.h"
 
+#include <wx/version.h>
+
 class wxBitmap;
 class wxIcon;
 
@@ -37,3 +39,12 @@ wxIcon libresrc_geticon(const unsigned char *image, size_t size);
 )
 
 #define GET_DEFAULT_CONFIG(a) std::string_view(reinterpret_cast<const char *>(a), sizeof(a))
+
+// Compatibility helper: wxWidgets introduced wxBitmapBundle in 3.1.6 and made
+// some functions take wxBitmapBundles rather than wxBitmaps, which makes some
+// function calls ambiguous.
+#if wxCHECK_VERSION(3, 1, 6)
+#define BITMAPBUNDLE(b) wxBitmapBundle(b)
+#else
+#define BITMAPBUNDLE(b) b
+#endif
