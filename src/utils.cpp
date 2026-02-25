@@ -32,7 +32,6 @@
 #include "compat.h"
 #include "format.h"
 #include "options.h"
-#include "retina_helper.h"
 
 #include <libaegisub/dispatch.h>
 #include <libaegisub/fs.h>
@@ -221,13 +220,6 @@ void CleanCache(agi::fs::path const& directory, std::string const& file_type, ui
 // OS X implementation in osx_utils.mm
 void AddFullScreenButton(wxWindow *) { }
 void SetFloatOnParent(wxWindow *) { }
-
-// OS X implementation in retina_helper.mm
-RetinaHelper::RetinaHelper(wxWindow*) { }
-RetinaHelper::~RetinaHelper() { }
-int RetinaHelper::GetScaleFactor() const {
-	return 1;
-}
 
 // OS X implementation in scintilla_ime.mm
 namespace osx { namespace ime {

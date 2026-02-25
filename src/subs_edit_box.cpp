@@ -47,7 +47,6 @@
 #include "options.h"
 #include "placeholder_ctrl.h"
 #include "project.h"
-#include "retina_helper.h"
 #include "selection_controller.h"
 #include "subs_edit_ctrl.h"
 #include "text_selection_controller.h"
@@ -106,7 +105,6 @@ const auto AssDialogue_Effect = &AssDialogue::Effect;
 SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 : wxPanel(parent, -1, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | (OPT_GET("App/Dark Mode")->GetBool() ? wxBORDER_STATIC : wxRAISED_BORDER), "SubsEditBox")
 , c(context)
-, retina_helper(std::make_unique<RetinaHelper>(parent))
 , undo_timer(GetEventHandler())
 {
 	favorite_font_num = OPT_GET("Subtitle/Favorite Font Number")->GetInt();
@@ -282,7 +280,7 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 
 void SubsEditBox::OnIconSizeChange(agi::OptionValue const& opt) {
 	int icon_size = opt.GetInt();
-	double scale = retina_helper->GetScaleFactor();
+	double scale = GetContentScaleFactor();
 	for (auto& [btn, command] : icon_buttons) {
 		btn->SetBitmapLabel(command->Icon(icon_size, scale));
 	}
@@ -321,7 +319,7 @@ TimeEdit *SubsEditBox::MakeTimeCtrl(wxString const& tooltip, TimeField field) {
 
 void SubsEditBox::MakeButton(const char *cmd_name) {
 	cmd::Command *command = cmd::get(cmd_name);
-	wxBitmapButton *btn = new wxBitmapButton(this, -1, command->Icon(OPT_GET("App/Toolbar Icon Size")->GetInt(), retina_helper->GetScaleFactor()));
+	wxBitmapButton *btn = new wxBitmapButton(this, -1, command->Icon(OPT_GET("App/Toolbar Icon Size")->GetInt(), GetContentScaleFactor()));
 	ToolTipManager::Bind(btn, command->StrHelp(), "Subtitle Edit Box", cmd_name);
 
 	middle_right_sizer->Add(btn, wxSizerFlags().Expand());

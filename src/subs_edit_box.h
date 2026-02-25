@@ -45,7 +45,6 @@ namespace agi { class OptionValue; }
 namespace cmd { class Command; }
 class AssDialogue;
 class AssStyle;
-class RetinaHelper;
 class SubsTextEditCtrl;
 class TimeEdit;
 class wxButton;
@@ -105,8 +104,6 @@ class SubsEditBox final : public wxPanel {
 	wxSizer *middle_right_sizer;
 	wxSizer *middle_left_sizer;
 	wxSizer *bottom_sizer;
-
-	std::unique_ptr<RetinaHelper> retina_helper;
 
 	/// 图标按钮列表，用于响应图标大小变更
 	std::vector<std::pair<wxBitmapButton*, cmd::Command*>> icon_buttons;

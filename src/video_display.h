@@ -43,7 +43,6 @@
 #include <wx/glcanvas.h>
 
 // Prototypes
-class RetinaHelper;
 class VideoController;
 class VideoOutGL;
 class VisualToolBase;
@@ -68,25 +67,30 @@ class VideoDisplay final : public wxGLCanvas {
 
 	std::unique_ptr<wxMenu> context_menu;
 
-	/// The size of the video canvas in physical pixels at the current zoom level
-	/// (including any letter- or pillarboxing if applicable), which may not
-	/// be the same as the actual client size of the display
+	/// 当前窗口缩放级别下理想视口的物理像素大小。
+	/// 包含黑边区域（letter/pillarboxing），不受内容缩放和平移影响。
+	///
+	/// 通常等于客户区大小（乘以 @ref scale_factor），但实际客户区
+	/// 大小由窗口布局控制，可能大于或小于理想视口大小。
+	///
+	/// 在自由尺寸模式下，窗口缩放级别随客户区大小变化而调整，
+	/// 因此视口大小应始终等于客户区大小。
 	wxSize videoSize;
 
 	Vector2D last_mouse_pos, mouse_pos;
 
-	/// Physical (screen) pixels between the left of the canvas and the left of the video
+	/// 从视口左边缘到视频左边缘的物理像素距离（向右为正）
 	int viewport_left = 0;
-	/// The width of the video in physical pixels
+	/// 视频缩放后的物理像素宽度（忽略视口裁剪）
 	int viewport_width = 0;
-	/// Physical pixels between the bottom of the canvas and the bottom of the video; used for glViewport
+	/// 从视口底边缘到视频底边缘的物理像素距离（向上为正）；传递给 @ref VideoOutGL::Render
 	int viewport_bottom = 0;
-	/// Physical pixels between the bottom of the canvas and the top of the video; used for coordinate space conversion
+	/// 从视口顶边缘到视频顶边缘的物理像素距离（向下为正）
 	int viewport_top = 0;
-	/// The height of the video in physical pixels
+	/// 视频缩放后的物理像素高度（忽略视口裁剪）
 	int viewport_height = 0;
 
-	/// The current window zoom level, where 1.0 = 100%
+	/// 当前窗口缩放级别，即视口大小与原始视频分辨率的比值
 	double windowZoomValue;
 
 	/// The last position of the mouse, when dragging
@@ -94,12 +98,13 @@ class VideoDisplay final : public wxGLCanvas {
 	/// True if middle mouse button is down, and we should update pan_{x,y}
 	bool panning = false;
 
-	/// The zoom level of the video inside the video display.
+	/// 视口内视频的缩放级别
 	double videoZoomValue = 1;
 
 	double videoZoomAtGestureStart = 1;
 
-	/// The video pan, relative to the unzoomed viewport's height.
+	/// 视频平移量，以视口高度为单位
+	/// @see videoSize
 	double pan_x = 0;
 	double pan_y = 0;
 
@@ -123,9 +128,7 @@ class VideoDisplay final : public wxGLCanvas {
 	/// Frame which will replace the currently visible frame on the next render
 	std::shared_ptr<VideoFrame> pending_frame;
 
-	std::unique_ptr<RetinaHelper> retina_helper;
 	int scale_factor;
-	agi::signal::Connection scale_factor_connection;
 
 	/// @brief Draw an overscan mask
 	/// @param horizontal_percent The percent of the video reserved horizontally
@@ -139,8 +142,11 @@ class VideoDisplay final : public wxGLCanvas {
 	/// @return Could the context be set?
 	bool InitContext();
 
-	/// @brief Set the size of the display based on the current zoom and video resolution
+	/// @brief 根据当前窗口缩放级别和视频分辨率重新计算视口大小，然后调整客户区以匹配视口
 	void UpdateSize();
+	/// @brief 根据当前视口大小、内容缩放和平移更新视频位置和尺寸
+	///
+	/// 更新 @ref viewport_left, @ref viewport_width, @ref viewport_bottom, @ref viewport_top 和 @ref viewport_height
 	void PositionVideo();
 	/// Set the zoom level to that indicated by the dropdown
 	void SetZoomFromBox(wxCommandEvent&);
@@ -158,7 +164,9 @@ class VideoDisplay final : public wxGLCanvas {
 	void OnSizeEvent(wxSizeEvent &event);
 	void OnContextMenu(wxContextMenuEvent&);
 
-	void Pan(Vector2D delta);	// Takes delta in logical pixels
+	/// @brief 平移视频
+	/// @param delta 逻辑像素单位的偏移量
+	void Pan(Vector2D delta);
 	void VideoZoom(double newVideoZoom, wxPoint zoomCenter);
 
 public:
@@ -188,6 +196,7 @@ public:
 	/// @brief Reset the video pan
 	void ResetPan();
 
+	/// @brief 重置内容缩放和平移
 	void ResetVideoZoom();
 
 	/// Get the last seen position of the mouse in script coordinates

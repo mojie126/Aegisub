@@ -44,7 +44,6 @@
 #include "include/aegisub/menu.h"
 #include "options.h"
 #include "project.h"
-#include "retina_helper.h"
 #include "spline_curve.h"
 #include "utils.h"
 #include "video_out_gl.h"
@@ -108,13 +107,7 @@ VideoDisplay::VideoDisplay(wxToolBar *toolbar, bool freeSize, wxComboBox *zoomBo
 , toolBar(toolbar)
 , zoomBox(zoomBox)
 , freeSize(freeSize)
-, retina_helper(std::make_unique<RetinaHelper>(this))
-, scale_factor(retina_helper->GetScaleFactor())
-, scale_factor_connection(retina_helper->AddScaleFactorListener([=, this](int new_scale_factor) {
-	double new_zoom = windowZoomValue * new_scale_factor / scale_factor;
-	scale_factor = new_scale_factor;
-	SetWindowZoom(new_zoom);
-}))
+, scale_factor(GetContentScaleFactor())
 {
 	zoomBox->SetValue(fmt_wx("%g%%", windowZoomValue * 100.));
 	zoomBox->Bind(wxEVT_COMBOBOX, &VideoDisplay::SetZoomFromBox, this);
@@ -157,6 +150,13 @@ VideoDisplay::VideoDisplay(wxToolBar *toolbar, bool freeSize, wxComboBox *zoomBo
 	Bind(wxEVT_MIDDLE_UP, &VideoDisplay::OnMouseEvent, this);
 	Bind(wxEVT_MOTION, &VideoDisplay::OnMouseEvent, this);
 	Bind(wxEVT_MOUSEWHEEL, &VideoDisplay::OnMouseWheel, this);
+
+	Bind(wxEVT_DPI_CHANGED, [this] (wxDPIChangedEvent &e) {
+		double new_zoom = windowZoomValue * GetContentScaleFactor() / scale_factor;
+		scale_factor = GetContentScaleFactor();
+		SetWindowZoom(new_zoom);
+		e.Skip();
+	});
 
 	SetCursor(wxNullCursor);
 
