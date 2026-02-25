@@ -102,7 +102,7 @@ struct MkvStdIO final : InputStream {
 		return static_cast<MkvStdIO*>(st)->file.size();
 	}
 
-	MkvStdIO(std::filesystem::path const& filename) : file(filename) {
+	MkvStdIO(agi::fs::path const& filename) : file(filename) {
 		read = &MkvStdIO::Read;
 		scan = &MkvStdIO::Scan;
 		getcachesize = [](InputStream *) -> unsigned int { return 16 * 1024 * 1024; };
@@ -201,7 +201,7 @@ static bool read_subtitles(agi::ProgressSink *ps, MatroskaFile *file, MkvStdIO *
 	return true;
 }
 
-void MatroskaWrapper::GetSubtitles(std::filesystem::path const& filename, AssFile *target) {
+void MatroskaWrapper::GetSubtitles(agi::fs::path const& filename, AssFile *target) {
 	MkvStdIO input(filename);
 	char err[2048];
 	agi::scoped_holder<MatroskaFile*, decltype(&mkv_Close)> file(mkv_Open(&input, err, sizeof(err)), mkv_Close);
@@ -292,7 +292,7 @@ void MatroskaWrapper::GetSubtitles(std::filesystem::path const& filename, AssFil
 		throw MatroskaException("Failed to read subtitles");
 }
 
-bool MatroskaWrapper::HasSubtitles(std::filesystem::path const& filename) {
+bool MatroskaWrapper::HasSubtitles(agi::fs::path const& filename) {
 	char err[2048];
 	try {
 		MkvStdIO input(filename);

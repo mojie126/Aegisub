@@ -582,7 +582,7 @@ namespace {
 		static int LuaInclude(lua_State *L);
 
 	public:
-		LuaScript(std::filesystem::path const& filename);
+		LuaScript(agi::fs::path const& filename);
 		~LuaScript() { Destroy(); }
 
 		void RegisterCommand(LuaCommand *command);
@@ -605,7 +605,7 @@ namespace {
 		std::vector<ExportFilter*> GetFilters() const override;
 	};
 
-	LuaScript::LuaScript(std::filesystem::path const& filename)
+	LuaScript::LuaScript(agi::fs::path const& filename)
 	: Script(filename)
 	{
 		Create();
@@ -814,7 +814,7 @@ namespace {
 		const LuaScript *s = GetScriptObject(L);
 
 		const std::string filename(check_string(L, 1));
-		std::filesystem::path filepath;
+		agi::fs::path filepath;
 
 		// Relative or absolute path
 		if (!boost::all(filename, !boost::is_any_of("/\\")))
@@ -1257,7 +1257,7 @@ namespace Automation4 {
 	{
 	}
 
-	std::unique_ptr<Script> LuaScriptFactory::Produce(std::filesystem::path const& filename) const
+	std::unique_ptr<Script> LuaScriptFactory::Produce(agi::fs::path const& filename) const
 	{
 		if (agi::fs::HasExtension(filename, "lua") || agi::fs::HasExtension(filename, "moon"))
 			return std::make_unique<LuaScript>(filename);

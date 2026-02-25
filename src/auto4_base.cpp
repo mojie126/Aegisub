@@ -249,7 +249,7 @@ namespace Automation4 {
 	}
 
 	// Script
-	Script::Script(std::filesystem::path const& filename)
+	Script::Script(agi::fs::path const& filename)
 	: filename(filename)
 	{
 		include_path.emplace_back(filename.parent_path());
@@ -383,7 +383,7 @@ namespace Automation4 {
 			char first_char = tok[0];
 			std::string trimmed(begin(tok) + 1, end(tok));
 
-			std::filesystem::path basepath;
+			agi::fs::path basepath;
 			if (first_char == '~') {
 				basepath = context->subsController->Filename().parent_path();
 			} else if (first_char == '$') {
@@ -415,7 +415,7 @@ namespace Automation4 {
 		// 3. If step 2 failed, or absolute path is shorter than path relative to ass, use absolute path ("/")
 		// 4. Otherwise, use path relative to ass ("~")
 		std::string scripts_string;
-		std::filesystem::path autobasefn(OPT_GET("Path/Automation/Base")->GetString());
+		agi::fs::path autobasefn(OPT_GET("Path/Automation/Base")->GetString());
 
 		for (auto& script : GetScripts()) {
 			if (!scripts_string.empty())
@@ -453,7 +453,7 @@ namespace Automation4 {
 		Factories().emplace_back(std::move(factory));
 	}
 
-	std::unique_ptr<Script> ScriptFactory::CreateFromFile(std::filesystem::path const& filename, bool complain_about_unrecognised, bool create_unknown)
+	std::unique_ptr<Script> ScriptFactory::CreateFromFile(agi::fs::path const& filename, bool complain_about_unrecognised, bool create_unknown)
 	{
 		for (auto& factory : Factories()) {
 			auto s = factory->Produce(filename);
