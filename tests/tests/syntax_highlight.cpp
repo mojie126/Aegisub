@@ -123,6 +123,25 @@ TEST(lagi_syntax, drawing) {
 	);
 }
 
+TEST(lagi_syntax, drawing_without_m) {
+	tok_str("{\\p1}l 100 100 0 100", false,
+		expect_style(ss::OVERRIDE, 1u);
+		expect_style(ss::PUNCTUATION, 1u);
+		expect_style(ss::TAG, 1u);
+		expect_style(ss::PARAMETER, 1u);
+		expect_style(ss::OVERRIDE, 1u);
+		expect_style(ss::ERROR, 1u);
+		expect_style(ss::NORMAL, 1u);
+		expect_style(ss::ERROR, 3u);
+		expect_style(ss::NORMAL, 1u);
+		expect_style(ss::ERROR, 3u);
+		expect_style(ss::NORMAL, 1u);
+		expect_style(ss::ERROR, 1u);
+		expect_style(ss::NORMAL, 1u);
+		expect_style(ss::ERROR, 3u);
+	);
+}
+
 TEST(lagi_syntax, transform) {
 	tok_str("{\\t(0, 0, \\clip(0,0,10,10)}clipped text", false,
 		expect_style(ss::OVERRIDE, 1u);
