@@ -397,7 +397,7 @@ void VideoDisplay::UpdateSize() {
 	PositionVideo();
 }
 
-void VideoDisplay::OnSizeEvent(wxSizeEvent &event) {
+void VideoDisplay::OnSizeEvent(wxSizeEvent &) {
 	if (freeSize) {
 		/* If the video is not moved */
 		if (videoZoomValue == 1.0f && pan_x == 0 && pan_y == 0)
