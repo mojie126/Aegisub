@@ -54,6 +54,7 @@
 #include <wx/srchctrl.h>
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
+#include <wx/statbox.h>
 #include <wx/stattext.h>
 #include <wx/treebook.h>
 
@@ -88,7 +89,7 @@ void General_DefaultStyles(wxTreebook *book, Preferences *parent) {
 	p->sizer->Add(staticbox, 0, wxEXPAND, 5);
 	p->sizer->AddSpacer(8);
 
-	auto instructions = new wxStaticText(p, wxID_ANY, _("The chosen style catalogs will be loaded when you start a new file or import files in the various formats.\n\nYou can set up style catalogs in the Style Manager."));
+	auto instructions = new wxStaticText(staticbox->GetStaticBox(), wxID_ANY, _("The chosen style catalogs will be loaded when you start a new file or import files in the various formats.\n\nYou can set up style catalogs in the Style Manager."));
 	instructions->Wrap(book->FromDIP(460));
 	p->sizer->Fit(p);
 	staticbox->Add(instructions, 0, wxALL, 5);
@@ -113,11 +114,13 @@ void General_DefaultStyles(wxTreebook *book, Preferences *parent) {
 		catalogs.Add(to_wx(cn));
 	catalogs.Sort();
 
-	p->OptionChoice(general, _("New files"), catalogs, "Subtitle Format/ASS/Default Style Catalog");
-	p->OptionChoice(general, _("MicroDVD import"), catalogs, "Subtitle Format/MicroDVD/Default Style Catalog");
-	p->OptionChoice(general, _("SRT import"), catalogs, "Subtitle Format/SRT/Default Style Catalog");
-	p->OptionChoice(general, _("TTXT import"), catalogs, "Subtitle Format/TTXT/Default Style Catalog");
-	p->OptionChoice(general, _("Plain text import"), catalogs, "Subtitle Format/TXT/Default Style Catalog");
+	PageSection section = {general, staticbox->GetStaticBox()};
+
+	p->OptionChoice(section, _("New files"), catalogs, "Subtitle Format/ASS/Default Style Catalog");
+	p->OptionChoice(section, _("MicroDVD import"), catalogs, "Subtitle Format/MicroDVD/Default Style Catalog");
+	p->OptionChoice(section, _("SRT import"), catalogs, "Subtitle Format/SRT/Default Style Catalog");
+	p->OptionChoice(section, _("TTXT import"), catalogs, "Subtitle Format/TTXT/Default Style Catalog");
+	p->OptionChoice(section, _("Plain text import"), catalogs, "Subtitle Format/TXT/Default Style Catalog");
 
 	p->SetSizerAndFit(p->sizer);
 }
@@ -386,13 +389,13 @@ void Advanced(wxTreebook *book, Preferences *parent) {
 
 	auto general = p->PageSizer(_("General"));
 
-	auto warning = new wxStaticText(p, wxID_ANY ,_("Changing these settings might result in bugs and/or crashes.  Do not touch these unless you know what you're doing."));
+	auto warning = new wxStaticText(general.box, wxID_ANY ,_("Changing these settings might result in bugs and/or crashes.  Do not touch these unless you know what you're doing."));
 	auto font = parent->GetFont().MakeBold();
 	font.SetPointSize(12);
 	warning->SetFont(font);
 	p->sizer->Fit(p);
 	warning->Wrap(book->FromDIP(400));
-	general->Add(warning, 0, wxALL, 5);
+	general.sizer->Add(warning, 0, wxALL, 5);
 
 	p->SetSizerAndFit(p->sizer);
 }
@@ -549,36 +552,36 @@ void VapourSynth(wxTreebook *book, Preferences *parent) {
 
 	auto video = p->PageSizer(_("Default Video Script"));
 
-	auto make_default_button = [=](std::string optname, wxTextCtrl *ctrl) {
-		auto showdefault = new wxButton(p, -1, _("Set to Default"));
+	auto make_default_button = [=](std::string optname, wxTextCtrl *ctrl, wxWindow *parent_box) {
+		auto showdefault = new wxButton(parent_box, -1, _("Set to Default"));
 		showdefault->Bind(wxEVT_BUTTON, [=](auto e) {
 			ctrl->SetValue(OPT_GET(optname)->GetDefaultString());
 		});
 		return showdefault;
 	};
 
-	auto vhint = new wxStaticText(p, wxID_ANY, _("This script will be executed to load video files that aren't\nVapourSynth scripts (i.e. end in .py or .vpy).\nThe filename variable stores the path to the file."));
+	auto vhint = new wxStaticText(video.box, wxID_ANY, _("This script will be executed to load video files that aren't\nVapourSynth scripts (i.e. end in .py or .vpy).\nThe filename variable stores the path to the file."));
 	p->sizer->Fit(p);
 	vhint->Wrap(book->FromDIP(400));
-	video->Add(vhint, 0, wxALL, 5);
+	video.sizer->Add(vhint, 0, wxALL, 5);
 	p->CellSkip(video);
 
 	auto vdef = p->OptionAddMultiline(video, "Provider/Video/VapourSynth/Default Script");
 	p->CellSkip(video);
 
-	video->Add(make_default_button("Provider/Video/VapourSynth/Default Script", vdef), wxSizerFlags().Right());
+	video.sizer->Add(make_default_button("Provider/Video/VapourSynth/Default Script", vdef, video.box), wxSizerFlags().Right());
 
 	auto audio = p->PageSizer(_("Default Audio Script"));
-	auto ahint = new wxStaticText(p, wxID_ANY, _("This script will be executed to load audio files that aren't\nVapourSynth scripts (i.e. end in .py or .vpy).\nThe filename variable stores the path to the file."));
+	auto ahint = new wxStaticText(audio.box, wxID_ANY, _("This script will be executed to load audio files that aren't\nVapourSynth scripts (i.e. end in .py or .vpy).\nThe filename variable stores the path to the file."));
 	p->sizer->Fit(p);
 	ahint->Wrap(book->FromDIP(400));
-	audio->Add(ahint, 0, wxALL, 5);
+	audio.sizer->Add(ahint, 0, wxALL, 5);
 	p->CellSkip(audio);
 
 	auto adef = p->OptionAddMultiline(audio, "Provider/Audio/VapourSynth/Default Script");
 	p->CellSkip(audio);
 
-	audio->Add(make_default_button("Provider/Audio/VapourSynth/Default Script", adef), wxSizerFlags().Right());
+	audio.sizer->Add(make_default_button("Provider/Audio/VapourSynth/Default Script", adef, audio.box), wxSizerFlags().Right());
 
 	p->SetSizerAndFit(p->sizer);
 #endif

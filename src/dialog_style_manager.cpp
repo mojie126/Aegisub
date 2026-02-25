@@ -68,6 +68,7 @@
 #include <wx/msgdlg.h>
 #include <wx/radiobox.h>
 #include <wx/sizer.h>
+#include <wx/statbox.h>
 #include <wx/spinctrl.h>
 #include <wx/textctrl.h>
 #include <wx/textdlg.h>
@@ -284,41 +285,44 @@ DialogStyleManager::DialogStyleManager(agi::Context *context)
 	SetIcon(GETICON(style_toolbutton_16));
 
 	// Catalog
-	wxSizer *CatalogBox = new wxStaticBoxSizer(wxHORIZONTAL,this,_("Catalog of available storages"));
-	CatalogList = new wxComboBox(this, -1, "", wxDefaultPosition, wxDefaultSize, 0, nullptr, wxCB_READONLY);
-	auto *CatalogNew = new wxButton(this, -1, _("New"));
-	CatalogDelete = new wxButton(this, -1, _("Delete"));
+	auto *CatalogBox = new wxStaticBoxSizer(wxHORIZONTAL,this,_("Catalog of available storages"));
+	auto *CatalogBoxWin = CatalogBox->GetStaticBox();
+	CatalogList = new wxComboBox(CatalogBoxWin, -1, "", wxDefaultPosition, wxDefaultSize, 0, nullptr, wxCB_READONLY);
+	auto *CatalogNew = new wxButton(CatalogBoxWin, -1, _("New"));
+	CatalogDelete = new wxButton(CatalogBoxWin, -1, _("Delete"));
 	CatalogBox->Add(CatalogList,1,wxEXPAND | wxRIGHT,5);
 	CatalogBox->Add(CatalogNew,0,wxRIGHT,5);
 	CatalogBox->Add(CatalogDelete,0,0,0);
 
 	// Storage styles list
-	wxSizer *StorageButtons = make_edit_buttons(this, _("Copy to &current script ->"), &MoveToLocal, &StorageNew, &StorageEdit, &StorageCopy, &StorageDelete);
+	auto *StorageBox = new wxStaticBoxSizer(wxVERTICAL, this, _("Storage"));
+	auto *StorageBoxWin = StorageBox->GetStaticBox();
+	wxSizer *StorageButtons = make_edit_buttons(StorageBoxWin, _("Copy to &current script ->"), &MoveToLocal, &StorageNew, &StorageEdit, &StorageCopy, &StorageDelete);
 
 	wxSizer *StorageListSizer = new wxBoxSizer(wxHORIZONTAL);
-	StorageList = new wxListBox(this, -1, wxDefaultPosition, this->FromDIP(wxSize(240, 250)), 0, nullptr, wxLB_EXTENDED);
+	StorageList = new wxListBox(StorageBoxWin, -1, wxDefaultPosition, this->FromDIP(wxSize(240, 250)), 0, nullptr, wxLB_EXTENDED);
 	StorageListSizer->Add(StorageList,1,wxEXPAND | wxRIGHT,0);
-	StorageListSizer->Add(make_move_buttons(this, &StorageMoveUp, &StorageMoveDown, &StorageMoveTop, &StorageMoveBottom, &StorageSort), wxSizerFlags().Expand());
+	StorageListSizer->Add(make_move_buttons(StorageBoxWin, &StorageMoveUp, &StorageMoveDown, &StorageMoveTop, &StorageMoveBottom, &StorageSort), wxSizerFlags().Expand());
 
-	wxSizer *StorageBox = new wxStaticBoxSizer(wxVERTICAL, this, _("Storage"));
 	StorageBox->Add(StorageListSizer,1,wxEXPAND | wxBOTTOM,5);
 	StorageBox->Add(MoveToLocal,0,wxEXPAND | wxBOTTOM,5);
 	StorageBox->Add(StorageButtons,0,wxEXPAND | wxBOTTOM,0);
 
 	// Local styles list
-	wxButton *CurrentImport = new wxButton(this, -1, _("&Import from script..."));
-	wxSizer *CurrentButtons = make_edit_buttons(this, _("<- Copy to &storage"), &MoveToStorage, &CurrentNew, &CurrentEdit, &CurrentCopy, &CurrentDelete);
+	auto *CurrentBox = new wxStaticBoxSizer(wxVERTICAL, this, _("Current script"));
+	auto *CurrentBoxWin = CurrentBox->GetStaticBox();
+	wxButton *CurrentImport = new wxButton(CurrentBoxWin, -1, _("&Import from script..."));
+	wxSizer *CurrentButtons = make_edit_buttons(CurrentBoxWin, _("<- Copy to &storage"), &MoveToStorage, &CurrentNew, &CurrentEdit, &CurrentCopy, &CurrentDelete);
 
 	wxSizer *MoveImportSizer = new wxBoxSizer(wxHORIZONTAL);
 	MoveImportSizer->Add(MoveToStorage,1,wxEXPAND | wxRIGHT,5);
 	MoveImportSizer->Add(CurrentImport,1,wxEXPAND,0);
 
 	wxSizer *CurrentListSizer = new wxBoxSizer(wxHORIZONTAL);
-	CurrentList = new wxListBox(this, -1, wxDefaultPosition, this->FromDIP(wxSize(240, 250)), 0, nullptr, wxLB_EXTENDED);
+	CurrentList = new wxListBox(CurrentBoxWin, -1, wxDefaultPosition, this->FromDIP(wxSize(240, 250)), 0, nullptr, wxLB_EXTENDED);
 	CurrentListSizer->Add(CurrentList,1,wxEXPAND | wxRIGHT,0);
-	CurrentListSizer->Add(make_move_buttons(this, &CurrentMoveUp, &CurrentMoveDown, &CurrentMoveTop, &CurrentMoveBottom, &CurrentSort), wxSizerFlags().Expand());
+	CurrentListSizer->Add(make_move_buttons(CurrentBoxWin, &CurrentMoveUp, &CurrentMoveDown, &CurrentMoveTop, &CurrentMoveBottom, &CurrentSort), wxSizerFlags().Expand());
 
-	wxSizer *CurrentBox = new wxStaticBoxSizer(wxVERTICAL, this, _("Current script"));
 	CurrentBox->Add(CurrentListSizer,1,wxEXPAND | wxBOTTOM,5);
 	CurrentBox->Add(MoveImportSizer,0,wxEXPAND | wxBOTTOM,5);
 	CurrentBox->Add(CurrentButtons,0,wxEXPAND | wxBOTTOM,0);
