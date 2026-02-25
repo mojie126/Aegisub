@@ -162,6 +162,7 @@ class VideoDisplay final : public wxGLCanvas {
 	void OnContextMenu(wxContextMenuEvent&);
 
 	void VideoZoom(int step, wxPoint zoomCenter);
+	void ResetVideoZoom();
 
 public:
 	/// @brief Constructor
