@@ -50,11 +50,6 @@
 #include <wx/stattext.h>
 #include <wx/stc/stc.h>
 
-// Define macros for wxWidgets 3.1
-#ifndef wxSTC_KEYMOD_SHIFT
-#define wxSTC_KEYMOD_SHIFT wxSTC_SCMOD_SHIFT
-#endif
-
 static void add_hotkey(wxSizer *sizer, wxWindow *parent, const char *command, wxString const& text) {
 	sizer->Add(new wxStaticText(parent, -1, text));
 	sizer->Add(new wxStaticText(parent, -1, to_wx(hotkey::get_hotkey_str_first("Translation Assistant", command))));

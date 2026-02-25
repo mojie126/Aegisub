@@ -26,6 +26,8 @@
 #include <libaegisub/exception.h>
 #include <libaegisub/path.h>
 
+#include <algorithm>
+
 #include <wx/checkbox.h>
 #include <wx/combobox.h>
 #include <wx/dirdlg.h>
@@ -57,6 +59,20 @@ OPTION_UPDATER(IntCBUpdater, wxCommandEvent, OptionValueInt, evt.GetInt());
 OPTION_UPDATER(DoubleUpdater, wxSpinDoubleEvent, OptionValueDouble, evt.GetValue());
 OPTION_UPDATER(BoolUpdater, wxCommandEvent, OptionValueBool, !!evt.GetInt());
 OPTION_UPDATER(ColourUpdater, ValueEvent<agi::Color>, OptionValueColor, evt.Get());
+
+/// @brief 字符串选项下拉框更新器，保存原始（未翻译）字符串值
+class StringChoiceUpdater {
+	std::string name;
+	Preferences *parent;
+	wxArrayString values;
+
+public:
+	StringChoiceUpdater(std::string const& n, Preferences *p, const wxArrayString &values) : name(n), parent(p), values(values) { }
+	void operator()(wxCommandEvent& evt) {
+		evt.Skip();
+		parent->SetOption(std::make_unique<agi::OptionValueString>(name, from_wx(values[evt.GetInt()])));
+	}
+};
 
 static void browse_button(wxTextCtrl *ctrl) {
 	wxDirDialog dlg(nullptr, _("Please choose the folder:"), config::path->Decode(from_wx(ctrl->GetValue())).wstring());
@@ -170,11 +186,19 @@ wxTextCtrl *OptionPage::OptionAddMultiline(wxSizer *sizer, const char *opt_name)
 	return text;
 }
 
-void OptionPage::OptionChoice(wxFlexGridSizer *flex, const wxString &name, const wxArrayString &choices, const char *opt_name) {
+void OptionPage::OptionChoice(wxFlexGridSizer *flex, const wxString &name, const wxArrayString &choices, const char *opt_name, bool translate) {
 	parent->AddChangeableOption(opt_name);
 	const auto opt = OPT_GET(opt_name);
 
-	auto cb = new wxComboBox(this, -1, wxEmptyString, wxDefaultPosition, wxDefaultSize, choices, wxCB_READONLY | wxCB_DROPDOWN);
+	// 当 translate 为 true 时，choices 中存储原始字符串，显示翻译后的字符串
+	wxArrayString choices_translated;
+	if (translate) {
+		choices_translated.reserve(choices.size());
+		std::transform(choices.begin(), choices.end(), std::back_inserter(choices_translated),
+			[](const wxString &s) { return wxGetTranslation(s); });
+	}
+
+	auto cb = new wxComboBox(this, -1, wxEmptyString, wxDefaultPosition, wxDefaultSize, translate ? choices_translated : choices, wxCB_READONLY | wxCB_DROPDOWN);
 	Add(flex, name, cb);
 
 	switch (opt->GetType()) {
@@ -186,11 +210,14 @@ void OptionPage::OptionChoice(wxFlexGridSizer *flex, const wxString &name, const
 		}
 		case agi::OptionType::String: {
 			wxString val(to_wx(opt->GetString()));
+			if (translate)
+				val = wxGetTranslation(val);
+
 			if (cb->FindString(val) != wxNOT_FOUND)
 				cb->SetStringSelection(val);
 			else if (!choices.empty())
 				cb->SetSelection(0);
-			cb->Bind(wxEVT_COMBOBOX, StringUpdater(opt_name, parent));
+			cb->Bind(wxEVT_COMBOBOX, StringChoiceUpdater(opt_name, parent, choices));
 			break;
 		}
 

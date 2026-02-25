@@ -139,7 +139,7 @@ DialogProperties::DialogProperties(agi::Context *c)
 	res_sizer->AddGrowableCol(3, 1);
 	res_sizer->Add(new wxStaticText(&d, -1, _("Script: ")), wxSizerFlags().Center().Left());
 	res_sizer->Add(ResX, 1, wxRIGHT | wxALIGN_CENTER_VERTICAL | wxEXPAND, 2);
-	res_sizer->Add(new wxStaticText(&d, -1, "x"), 0, wxALIGN_CENTER | wxRIGHT, 2);
+	res_sizer->Add(new wxStaticText(&d, -1, L"\u00D7"), 0, wxALIGN_CENTER | wxRIGHT, 2);	// U+00D7 乘号
 	res_sizer->Add(ResY, 1, wxRIGHT | wxALIGN_CENTER_VERTICAL | wxEXPAND, 2);
 	res_sizer->Add(FromVideo, 1, 0, 0);
 
@@ -151,7 +151,7 @@ DialogProperties::DialogProperties(agi::Context *c)
 
 	res_sizer->Add(new wxStaticText(&d, -1, _("Layout: ")), wxSizerFlags().Center().Left());
 	res_sizer->Add(LayoutResX, 1, wxRIGHT | wxALIGN_CENTER_VERTICAL | wxEXPAND, 2);
-	res_sizer->Add(new wxStaticText(&d, -1, "x"), 0, wxALIGN_CENTER | wxRIGHT, 2);
+	res_sizer->Add(new wxStaticText(&d, -1, L"\u00D7"), 0, wxALIGN_CENTER | wxRIGHT, 2);	// U+00D7 乘号
 	res_sizer->Add(LayoutResY, 1, wxRIGHT | wxALIGN_CENTER_VERTICAL | wxEXPAND, 2);
 	res_sizer->Add(LayoutResFromVideo, 1, 0, 0);
 

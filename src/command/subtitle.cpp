@@ -552,7 +552,7 @@ namespace {
 		void operator()(agi::Context *c) override {
 			if (!is_okay_to_close_subtitles(c)) return;
 
-			auto filename = OpenFileSelector(_("Open subtitles file"), "Path/Last/Subtitles", "", "", SubtitleFormat::GetWildcards(0), c->parent);
+			auto filename = OpenFileSelector(_("Open Subtitles File"), "Path/Last/Subtitles", "", "", SubtitleFormat::GetWildcards(0), c->parent);
 			if (!filename.empty())
 				load_subtitles(c, filename);
 		}
@@ -582,7 +582,7 @@ namespace {
 		void operator()(agi::Context *c) override {
 			if (!is_okay_to_close_subtitles(c)) return;
 
-			auto filename = OpenFileSelector(_("Open subtitles file"), "Path/Last/Subtitles", "", "", SubtitleFormat::GetWildcards(0), c->parent);
+			auto filename = OpenFileSelector(_("Open Subtitles File"), "Path/Last/Subtitles", "", "", SubtitleFormat::GetWildcards(0), c->parent);
 			if (filename.empty()) return;
 
 			wxString charset = wxGetSingleChoice(_("Choose charset code:"), _("Charset"), agi::charset::GetEncodingsList<wxArrayString>(), c->parent, -1, -1, true, 250, 200);
@@ -626,7 +626,7 @@ namespace {
 		if (filename.empty()) {
 			c->videoController->Stop();
 			filename = SaveFileSelector(
-				_("Save subtitles file"), "Path/Last/Subtitles",
+				_("Save Subtitles File"), "Path/Last/Subtitles",
 				c->subsController->Filename().stem().string() + ".ass", "ass",
 				"Advanced Substation Alpha (*.ass)|*.ass", c->parent
 			);
@@ -636,9 +636,9 @@ namespace {
 		try {
 			c->subsController->Save(filename);
 		} catch (const agi::Exception &err) {
-			wxMessageBox(to_wx(err.GetMessage()), "Error", wxOK | wxICON_ERROR | wxCENTER, c->parent);
+			wxMessageBox(to_wx(err.GetMessage()), _("Error"), wxOK | wxICON_ERROR | wxCENTER, c->parent);
 		} catch (...) {
-			wxMessageBox("Unknown error", "Error", wxOK | wxICON_ERROR | wxCENTER, c->parent);
+			wxMessageBox(_("Unknown error"), _("Error"), wxOK | wxICON_ERROR | wxCENTER, c->parent);
 		}
 	}
 

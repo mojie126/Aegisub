@@ -55,17 +55,6 @@
 #include <wx/menu.h>
 #include <wx/settings.h>
 
-// Define macros for wxWidgets 3.1
-#ifndef wxSTC_KEYMOD_CTRL
-#define wxSTC_KEYMOD_CTRL wxSTC_SCMOD_CTRL
-#endif
-#ifndef wxSTC_KEYMOD_SHIFT
-#define wxSTC_KEYMOD_SHIFT wxSTC_SCMOD_SHIFT
-#endif
-#ifndef wxSTC_KEYMOD_NORM
-#define wxSTC_KEYMOD_NORM wxSTC_SCMOD_NORM
-#endif
-
 // Maximum number of languages (locales)
 // It should be above 100 (at least 242) and probably not more than 1000
 #define LANGS_MAX 1000
@@ -289,11 +278,7 @@ void SubsTextEditCtrl::UpdateStyle() {
 	cursor_pos = -1;
 	UpdateCallTip();
 
-#if wxVERSION_NUMBER >= 3100
 	StartStyling(0);
-#else
-	StartStyling(0, 255);
-#endif
 
 	if (!OPT_GET("Subtitle/Highlight/Syntax")->GetBool()) {
 		SetStyling(line_text.size(), 0);
