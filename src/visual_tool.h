@@ -161,7 +161,9 @@ public:
 	// Stuff called by VideoDisplay
 	virtual void OnMouseEvent(wxMouseEvent &event)=0;
 	virtual void Draw()=0;
+	/// @brief 由VideoDisplay调用，设置GL坐标系中的画布大小（即逻辑wx坐标）
 	virtual void SetClientSize(int w, int h);
+	/// @brief 由VideoDisplay调用，设置视频在画布中的位置和大小（GL坐标系）
 	virtual void SetDisplayArea(int x, int y, int w, int h);
 	virtual void SetToolbar(wxToolBar *) { }
 	virtual void SetSubTool(int subtool) { }

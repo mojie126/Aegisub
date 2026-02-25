@@ -246,10 +246,14 @@ namespace {
 		/// The colors currently displayed in the control
 		std::vector<agi::Color> colors;
 
+		/// @brief 获取DPI缩放后的单元格物理像素大小
+		int PhysCellSize() const { return FromDIP(cellsize); }
+
 		void OnClick(const wxMouseEvent &evt) {
-			const int cx = evt.GetX() / FromDIP(cellsize);
-			const int cy = evt.GetY() / FromDIP(cellsize);
-			if (cx < 0 || cx > cols || cy < 0 || cy > rows) return;
+			const int cs = PhysCellSize();
+			const int cx = evt.GetX() / cs;
+			const int cy = evt.GetY() / cs;
+			if (cx < 0 || cx >= cols || cy < 0 || cy >= rows) return;
 
 			if (const int i = cols * cy + cx; i >= 0 && i < static_cast<int>(colors.size()))
 				AddPendingEvent(ValueEvent(EVT_RECENT_SELECT, GetId(), colors[i]));
@@ -257,17 +261,16 @@ namespace {
 
 		void OnPaint(wxPaintEvent &) {
 			wxAutoBufferedPaintDC dc(this);
+			dc.SetBackground(wxBrush(GetBackgroundColour()));
 			dc.Clear();
 
+			const int cs = PhysCellSize();
 			dc.SetPen(*wxTRANSPARENT_PEN);
 
 			for (int cy = 0; cy < rows; cy++) {
 				for (int cx = 0; cx < cols; cx++) {
-					const int x = FromDIP(cx * cellsize);
-					const int y = FromDIP(cy * cellsize);
-
 					dc.SetBrush(wxBrush(to_wx(colors[cy * cols + cx])));
-					dc.DrawRectangle(x, y, FromDIP(cellsize), FromDIP(cellsize));
+					dc.DrawRectangle(cx * cs, cy * cs, cs, cs);
 				}
 			}
 		}
@@ -281,7 +284,8 @@ namespace {
 			, cols(cols)
 			, cellsize(cellsize) {
 			colors.resize(rows * cols);
-			SetClientSize(FromDIP(cols * cellsize), FromDIP(rows * cellsize));
+			const int cs = PhysCellSize();
+			SetClientSize(cols * cs, rows * cs);
 			wxWindowBase::SetMinSize(GetSize());
 			wxWindowBase::SetMaxSize(GetSize());
 			wxWindow::SetCursor(*wxCROSS_CURSOR);
@@ -585,11 +589,6 @@ namespace {
 		const wxString modes[] = {_("RGB/R"), _("RGB/G"), _("RGB/B"), _("HSL/L"), _("HSV/H")};
 		colorspace_choice = new wxChoice(spectrum_box, -1, wxDefaultPosition, wxDefaultSize, 5, modes);
 
-		ass_input = new wxTextCtrl(this, -1);
-		const wxSize colorinput_size = ass_input->GetSizeFromTextSize(GetTextExtent(wxS("&H10117B&")));
-		ass_input->SetMinSize(colorinput_size);
-		ass_input->SetSize(colorinput_size);
-
 		auto *rgb_box_sizer = new wxStaticBoxSizer(wxHORIZONTAL, this, _("RGB color"));
 		auto *hsl_box_sizer = new wxStaticBoxSizer(wxVERTICAL, this, _("HSL color"));
 		auto *hsv_box_sizer = new wxStaticBoxSizer(wxVERTICAL, this, _("HSV color"));
@@ -598,10 +597,14 @@ namespace {
 		auto *hsl_box = hsl_box_sizer->GetStaticBox();
 		auto *hsv_box = hsv_box_sizer->GetStaticBox();
 
+		ass_input = new wxTextCtrl(rgb_box, -1);
+		const wxSize colorinput_size = ass_input->GetSizeFromTextSize(GetTextExtent(wxS("&H10117B&")));
+		ass_input->SetMinSize(colorinput_size);
+		ass_input->SetSize(colorinput_size);
+
 		for (auto &elem : rgb_input)
 			elem = new wxSpinCtrl(rgb_box, -1, "", wxDefaultPosition, colorinput_size, wxSP_ARROW_KEYS, 0, 255);
 
-		// ass_input = new wxTextCtrl(this, -1, "", wxDefaultPosition, colorinput_size);
 		html_input = new wxTextCtrl(rgb_box, -1, "", wxDefaultPosition, colorinput_size);
 		alpha_input = new wxSpinCtrl(rgb_box, -1, "", wxDefaultPosition, colorinput_size, wxSP_ARROW_KEYS, 0, 255);
 
