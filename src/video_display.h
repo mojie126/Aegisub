@@ -103,6 +103,9 @@ class VideoDisplay final : public wxGLCanvas {
 
 	double videoZoomAtGestureStart = 1;
 
+	/// 缩放手势开始时的锚点（视频相对坐标系，与缩放/平移无关）
+	Vector2D zoomGestureAnchorPoint = {0, 0};
+
 	/// 视频平移量，以视口高度为单位
 	/// @see videoSize
 	double pan_x = 0;
@@ -143,7 +146,7 @@ class VideoDisplay final : public wxGLCanvas {
 	bool InitContext();
 
 	/// @brief 根据当前窗口缩放级别和视频分辨率重新计算视口大小，然后调整客户区以匹配视口
-	void UpdateSize();
+	void FitClientSizeToVideo();
 	/// @brief 根据当前视口大小、内容缩放和平移更新视频位置和尺寸
 	///
 	/// 更新 @ref viewport_left, @ref viewport_width, @ref viewport_bottom, @ref viewport_top 和 @ref viewport_height
@@ -165,9 +168,29 @@ class VideoDisplay final : public wxGLCanvas {
 	void OnContextMenu(wxContextMenuEvent&);
 
 	/// @brief 平移视频
-	/// @param delta 逻辑像素单位的偏移量
+	/// @param delta 物理像素单位的偏移量
 	void Pan(Vector2D delta);
-	void VideoZoom(double newVideoZoom, wxPoint zoomCenter);
+
+	/// @brief 将客户区位置转换为缩放锚点
+	///
+	/// 锚点是视频帧中的一个位置，在缩放过程中应始终保持不动。
+	/// 本函数返回视频相对坐标系中的锚点，确保在视频缩放和平移时能准确追踪该位置。
+	///
+	/// @param position 物理像素单位的客户区位置
+	/// @return 可用于 @ref ZoomAndPan() 的锚点
+	Vector2D GetZoomAnchorPoint(wxPoint position);
+
+	/// @brief 使用锚点进行缩放和平移
+	///
+	/// 使用前需先通过 @ref GetZoomAnchorPoint() 获取锚点。
+	///
+	/// 若 @p newPosition 等于锚点当前位置，则以锚点为不动点进行缩放。
+	/// 若 @p newPosition 不同于锚点当前位置，则额外平移视频使锚点移至新位置。
+	///
+	/// @param newZoomValue 新的缩放值
+	/// @param anchorPoint 通过 @ref GetZoomAnchorPoint() 获得的锚点
+	/// @param newPosition 锚点的新客户区位置（物理像素单位）
+	void ZoomAndPan(double newZoomValue, Vector2D anchorPoint, wxPoint newPosition);
 
 public:
 	/// @brief Constructor
@@ -185,6 +208,8 @@ public:
 	/// @brief Set the zoom level
 	/// @param value The new zoom level
 	void SetWindowZoom(double value);
+	/// @brief 通过步进值调整视频缩放
+	/// @param step 缩放步数（正值放大，负值缩小）
 	void SetVideoZoom(int step);
 	/// @brief Get the current zoom level
 	double GetZoom() const { return windowZoomValue; }
