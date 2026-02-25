@@ -28,7 +28,6 @@
 #include <libaegisub/fs.h>
 #include <libaegisub/keyframe.h>
 #include <libaegisub/log.h>
-#include <libaegisub/make_unique.h>
 #include <libaegisub/path.h>
 #include <libaegisub/scoped_ptr.h>
 
@@ -427,7 +426,7 @@ void VapourSynthVideoProvider::GetFrame(int n, VideoFrame &out) {
 }
 
 namespace agi { class BackgroundRunner; }
-std::unique_ptr<VideoProvider> CreateVapourSynthVideoProvider(agi::fs::path const& path, std::string const& colormatrix, agi::BackgroundRunner *br) {
-	return agi::make_unique<VapourSynthVideoProvider>(path, colormatrix, br);
+std::unique_ptr<VideoProvider> CreateVapourSynthVideoProvider(std::filesystem::path const& path, std::string_view colormatrix, agi::BackgroundRunner *br) {
+	return std::make_unique<VapourSynthVideoProvider>(path, std::string(colormatrix), br);
 }
 #endif // WITH_VAPOURSYNTH

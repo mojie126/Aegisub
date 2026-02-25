@@ -212,7 +212,7 @@ void DialogAutomation::UpdateDisplay()
 }
 
 template<class Container>
-static bool has_file(Container const& c, agi::fs::path const& fn)
+static bool has_file(Container const& c, std::filesystem::path const& fn)
 {
 	return any_of(c.begin(), c.end(),
 		[&](std::unique_ptr<Automation4::Script> const& s) { return fn == s->GetFilename(); });
@@ -233,7 +233,7 @@ void DialogAutomation::OnAdd(wxCommandEvent &)
 	diag.GetPaths(fnames);
 
 	for (auto const& fname : fnames) {
-		agi::fs::path fnpath(fname.wx_str());
+		std::filesystem::path fnpath(fname.wx_str());
 		OPT_SET("Path/Last/Automation")->SetString(fnpath.parent_path().string());
 
 		if (has_file(local_manager->GetScripts(), fnpath) || has_file(global_manager->GetScripts(), fnpath)) {
@@ -302,7 +302,7 @@ void DialogAutomation::OnInfo(wxCommandEvent &)
 
 		info.push_back(_("Features provided by script:\n"));
 
-		boost::transform(ei->script->GetMacros(), append_info, [=](const cmd::Command *f) {
+		boost::transform(ei->script->GetMacros(), append_info, [=, this](const cmd::Command *f) {
 			return fmt_tl("    Macro: %s (%s)", f->StrDisplay(context), f->name());
 		});
 		boost::transform(ei->script->GetFilters(), append_info, [](const Automation4::ExportFilter* f) {

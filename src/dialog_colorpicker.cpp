@@ -36,7 +36,7 @@
 #include "utils.h"
 #include "value_event.h"
 
-#include <libaegisub/make_unique.h>
+#include <libaegisub/scoped_ptr.h>
 
 #include <memory>
 #include <vector>
@@ -379,7 +379,7 @@ namespace {
 		std::unique_ptr<wxDC> screen;
 
 		if (!OPT_GET("Tool/Colour Picker/Restrict to Window")->GetBool()) {
-			screen = agi::make_unique<wxScreenDC>();
+			screen = std::make_unique<wxScreenDC>();
 		} else {
 			wxWindow *superparent = GetParent();
 			while (superparent->GetParent() != nullptr) {
@@ -387,7 +387,7 @@ namespace {
 			}
 			superparent->ScreenToClient(&x, &y);
 
-			screen = agi::make_unique<wxClientDC>(superparent);
+			screen = std::make_unique<wxClientDC>(superparent);
 		}
 		capdc.StretchBlit(
 			0, 0, resx * magnification, resy * magnification,
@@ -688,7 +688,7 @@ namespace {
 
 		SetSizerAndFit(main_sizer);
 
-		persist = agi::make_unique<PersistLocation>(this, "Tool/Colour Picker");
+		persist = std::make_unique<PersistLocation>(this, "Tool/Colour Picker");
 
 		// Fill the controls
 		int mode = OPT_GET("Tool/Colour Picker/Mode")->GetInt();

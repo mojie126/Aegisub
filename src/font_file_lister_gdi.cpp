@@ -19,6 +19,7 @@
 #include <libaegisub/charset_conv_win.h>
 
 #include <dwrite.h>
+#include <filesystem>
 #include <wchar.h>
 #include <windowsx.h>
 
@@ -208,7 +209,7 @@ CollectionResult GdiFontFileLister::GetFontPaths(std::string const& facename, in
 	if (normalized_path.empty())
 		return ret;
 
-	ret.paths.push_back(agi::fs::path(normalized_path));
+	ret.paths.push_back(std::filesystem::path(normalized_path));
 
 	return ret;
 }

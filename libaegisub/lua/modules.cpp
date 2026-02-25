@@ -25,7 +25,7 @@ extern "C" int luaopen_unicode_impl(lua_State *L);
 extern "C" int luaopen_lfs_impl(lua_State *L);
 extern "C" int luaopen_lpeg(lua_State *L);
 
-namespace agi { namespace lua {
+namespace agi::lua {
 int regex_init(lua_State *L);
 
 int wrap_luaopen_luabins(lua_State *L) {
@@ -81,4 +81,4 @@ void do_register_lib_table(lua_State *L, std::initializer_list<const char *> typ
 
 	// leaves ffi.cast on the stack
 }
-} }
+}

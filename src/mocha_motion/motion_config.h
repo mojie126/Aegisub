@@ -11,7 +11,7 @@
 
 #include "motion_common.h"
 
-#include <libaegisub/fs_fwd.h>
+#include <libaegisub/fs.h>
 
 namespace mocha {
 

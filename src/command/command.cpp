@@ -14,8 +14,8 @@
 
 #include "command.h"
 
-#include "../compat.h"
-#include "../format.h"
+#include "compat.h"
+#include "format.h"
 
 #include <libaegisub/log.h>
 
@@ -25,13 +25,12 @@
 #include <wx/intl.h>
 
 namespace cmd {
-	static std::map<std::string, std::unique_ptr<Command>> cmd_map;
-	typedef std::map<std::string, std::unique_ptr<Command>>::iterator iterator;
+using CommandMap = std::map<std::string, std::unique_ptr<Command>, std::less<>>;
+using iterator = CommandMap::iterator;
+static CommandMap cmd_map;
 
-	static iterator find_command(std::string const& name) {
-		auto it = cmd_map.find(name);
-		if (it == cmd_map.end())
-			throw CommandNotFound(agi::format(_("'%s' is not a valid command name"), name));
+static iterator find_command(std::string_view name) {
+	if (auto it = cmd_map.find(name); it != cmd_map.end())
 		return it;
 	}
 
@@ -49,22 +48,22 @@ namespace cmd {
 		cmd_map[cmd->name()] = std::move(cmd);
 	}
 
-	void unreg(std::string const& name) {
-		cmd_map.erase(find_command(name));
+	void unreg(std::string_view name) {
+		cmd_map.erase(find_command(std::string(name)));
 	}
 
-	Command *get(std::string const& name) {
-		return find_command(name)->second.get();
+	Command *get(std::string_view name) {
+		return find_command(std::string(name))->second.get();
 	}
 
-	void call(std::string const& name, agi::Context*c) {
-		Command &cmd = *find_command(name)->second;
+	void call(std::string_view name, agi::Context*c) {
+		Command &cmd = *find_command(std::string(name))->second;
 		if (cmd.Validate(c))
 			cmd(c);
 	}
 
-	std::vector<std::string> get_registered_commands() {
-		std::vector<std::string> ret;
+	std::vector<std::string_view> get_registered_commands() {
+		std::vector<std::string_view> ret;
 		ret.reserve(cmd_map.size());
 		for (auto const& it : cmd_map)
 			ret.push_back(it.first);

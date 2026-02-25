@@ -51,7 +51,6 @@
 #include "video_controller.h"
 #include "visual_tool.h"
 
-#include <libaegisub/make_unique.h>
 
 #include <algorithm>
 #include <cctype>
@@ -109,9 +108,9 @@ VideoDisplay::VideoDisplay(wxToolBar *toolbar, bool freeSize, wxComboBox *zoomBo
 , toolBar(toolbar)
 , zoomBox(zoomBox)
 , freeSize(freeSize)
-, retina_helper(agi::make_unique<RetinaHelper>(this))
+, retina_helper(std::make_unique<RetinaHelper>(this))
 , scale_factor(retina_helper->GetScaleFactor())
-, scale_factor_connection(retina_helper->AddScaleFactorListener([=](int new_scale_factor) {
+, scale_factor_connection(retina_helper->AddScaleFactorListener([=, this](int new_scale_factor) {
 	double new_zoom = windowZoomValue * new_scale_factor / scale_factor;
 	scale_factor = new_scale_factor;
 	SetWindowZoom(new_zoom);
@@ -180,7 +179,7 @@ bool VideoDisplay::InitContext() {
 		return false;
 
 	if (!glContext)
-		glContext = agi::make_unique<wxGLContext>(this);
+		glContext = std::make_unique<wxGLContext>(this);
 
 	SetCurrent(*glContext);
 	return true;
@@ -196,7 +195,7 @@ void VideoDisplay::Render() try {
 		return;
 
 	if (!videoOut)
-		videoOut = agi::make_unique<VideoOutGL>();
+		videoOut = std::make_unique<VideoOutGL>();
 
 	if (!tool)
 		cmd::call("video/tool/cross", con);
@@ -524,7 +523,7 @@ void VideoDisplay::SetVideoZoom(int step) {
 
 void VideoDisplay::SetHDRMapping(bool enable) {
 	if (!videoOut)
-		videoOut = agi::make_unique<VideoOutGL>();
+		videoOut = std::make_unique<VideoOutGL>();
 	videoOut->EnableHDRToneMapping(enable);
 	Render();
 }

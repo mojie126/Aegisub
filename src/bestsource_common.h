@@ -23,7 +23,7 @@
 
 #include <bsshared.h>
 
-#include <libaegisub/fs_fwd.h>
+#include <libaegisub/fs.h>
 #include <libaegisub/background_runner.h>
 
 namespace provider_bs {

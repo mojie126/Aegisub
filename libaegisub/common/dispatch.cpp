@@ -33,22 +33,22 @@ namespace {
 	std::atomic<uint_fast32_t> threads_running;
 
 	class MainQueue final : public agi::dispatch::Queue {
-		void DoInvoke(agi::dispatch::Thunk thunk) override {
+		void DoInvoke(agi::dispatch::Thunk&& thunk) override {
 			invoke_main(thunk);
 		}
 	};
 
 	class BackgroundQueue final : public agi::dispatch::Queue {
-		void DoInvoke(agi::dispatch::Thunk thunk) override {
-			boost::asio::post(*service, thunk);
+		void DoInvoke(agi::dispatch::Thunk&& thunk) override {
+			boost::asio::post(*service, std::move(thunk));
 		}
 	};
 
 	class SerialQueue final : public agi::dispatch::Queue {
 		boost::asio::strand<boost::asio::io_context::executor_type> strand;
 
-		void DoInvoke(agi::dispatch::Thunk thunk) override {
-			boost::asio::post(strand, thunk);
+		void DoInvoke(agi::dispatch::Thunk&& thunk) override {
+			boost::asio::post(strand, std::move(thunk));
 		}
 	public:
 		SerialQueue() : strand(boost::asio::make_strand(*service)) { }
@@ -74,9 +74,9 @@ namespace {
 	};
 }
 
-namespace agi { namespace dispatch {
+namespace agi::dispatch {
 
-void Init(std::function<void (Thunk)> invoke_main) {
+void Init(std::function<void (Thunk)>&& invoke_main) {
 	static IOServiceThreadPool thread_pool;
 	::service = &thread_pool.io_service;
 	::invoke_main = invoke_main;
@@ -92,7 +92,7 @@ void Init(std::function<void (Thunk)> invoke_main) {
 	}
 }
 
-void Queue::Async(Thunk thunk) {
+void Queue::Async(Thunk&& thunk) {
 	DoInvoke([=] {
 		try {
 			thunk();
@@ -104,7 +104,7 @@ void Queue::Async(Thunk thunk) {
 	});
 }
 
-void Queue::Sync(Thunk thunk) {
+void Queue::Sync(Thunk&& thunk) {
 	std::mutex m;
 	std::condition_variable cv;
 	std::unique_lock<std::mutex> l(m);
@@ -139,4 +139,4 @@ std::unique_ptr<Queue> Create() {
 	return std::unique_ptr<Queue>(new SerialQueue);
 }
 
-} }
+}

@@ -29,7 +29,6 @@
 #include <libaegisub/access.h>
 #include <libaegisub/format.h>
 #include <libaegisub/path.h>
-#include <libaegisub/make_unique.h>
 #include <libaegisub/scoped_ptr.h>
 
 #include <mutex>
@@ -154,6 +153,6 @@ void VapourSynthAudioProvider::FillBuffer(void *buf, int64_t start, int64_t coun
 }
 
 std::unique_ptr<agi::AudioProvider> CreateVapourSynthAudioProvider(agi::fs::path const& file, agi::BackgroundRunner *) {
-	return agi::make_unique<VapourSynthAudioProvider>(file);
+	return std::make_unique<VapourSynthAudioProvider>(file);
 }
 #endif

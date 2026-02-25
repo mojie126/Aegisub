@@ -26,8 +26,7 @@
 #include <libaegisub/fs.h>
 #include <libaegisub/log.h>
 #include <libaegisub/path.h>
-
-#include <boost/range/iterator_range.hpp>
+#include <libaegisub/string.h>
 
 using namespace agi;
 
@@ -44,7 +43,7 @@ struct factory {
 	std::function<bool(agi::fs::path const&)> wants_to_open = [](auto p) { return false; };
 };
 
-const factory providers[] = {
+const std::initializer_list<factory> providers = {
 	{"Dummy", CreateDummyAudioProvider, true},
 	{"PCM", CreatePCMAudioProvider, true},
 #ifdef WITH_FFMS2
@@ -63,7 +62,7 @@ const factory providers[] = {
 }
 
 std::vector<std::string> GetAudioProviderNames() {
-	return ::GetClasses(boost::make_iterator_range(std::begin(providers), std::end(providers)));
+	return ::GetClasses(providers);
 }
 
 std::unique_ptr<agi::AudioProvider> SelectAudioProvider(fs::path const& filename,
@@ -151,7 +150,7 @@ std::unique_ptr<agi::AudioProvider> GetAudioProvider(fs::path const& filename,
 		provider = CreateConvertAudioProvider(std::move(provider));
 
 	// Change provider to RAM/HD cache if needed
-	int cache = OPT_GET("Audio/Cache/Type")->GetInt();
+	auto cache = OPT_GET("Audio/Cache/Type")->GetInt();
 	if (!cache || !needs_cache)
 		return CreateLockAudioProvider(std::move(provider));
 

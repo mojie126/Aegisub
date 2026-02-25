@@ -17,11 +17,10 @@
 #include <cstddef>
 #include <thread>
 
-namespace agi { namespace util {
+namespace agi::util {
 void SetThreadName(const char *) { }
 
 void sleep_for(int ms) {
 	std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
-
-} }
+}

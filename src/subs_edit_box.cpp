@@ -57,7 +57,6 @@
 #include "validators.h"
 
 #include <libaegisub/character_count.h>
-#include <libaegisub/make_unique.h>
 #include <libaegisub/util.h>
 
 #include <functional>
@@ -107,7 +106,7 @@ const auto AssDialogue_Effect = &AssDialogue::Effect;
 SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 : wxPanel(parent, -1, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | (OPT_GET("App/Dark Mode")->GetBool() ? wxBORDER_STATIC : wxRAISED_BORDER), "SubsEditBox")
 , c(context)
-, retina_helper(agi::make_unique<RetinaHelper>(parent))
+, retina_helper(std::make_unique<RetinaHelper>(parent))
 , undo_timer(GetEventHandler())
 {
 	favorite_font_num = OPT_GET("Subtitle/Favorite Font Number")->GetInt();
@@ -129,7 +128,7 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	style_box = MakeComboBox("Default", wxCB_READONLY, &SubsEditBox::OnStyleChange, _("Style for this line"));
 
 	style_edit_button = new wxButton(this, -1, _("Edit"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
-	style_edit_button->Bind(wxEVT_BUTTON, [=](wxCommandEvent&) {
+	style_edit_button->Bind(wxEVT_BUTTON, [=, this](wxCommandEvent&) {
 		if (active_style) {
 			wxArrayString font_list(wxFontEnumerator::GetFacenames()), temp_font_list;
 			font_list.Sort();
@@ -255,7 +254,7 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 
 	Bind(wxEVT_CHAR_HOOK, &SubsEditBox::OnKeyDown, this);
 	Bind(wxEVT_SIZE, &SubsEditBox::OnSize, this);
-	Bind(wxEVT_TIMER, [=](wxTimerEvent&) { commit_id = -1; });
+	Bind(wxEVT_TIMER, [=, this](wxTimerEvent&) { commit_id = -1; });
 
 	wxSizeEvent evt;
 	OnSize(evt);
@@ -301,7 +300,7 @@ wxTextCtrl *SubsEditBox::MakeMarginCtrl(wxString const& tooltip, int margin, wxS
 	ctrl->SetToolTip(tooltip);
 	middle_left_sizer->Add(ctrl, wxSizerFlags().CenterVertical());
 
-	Bind(wxEVT_TEXT, [=](wxCommandEvent&) {
+	Bind(wxEVT_TEXT, [=, this](wxCommandEvent&) {
 		int value = agi::util::mid(-9999, atoi(ctrl->GetValue().utf8_str()), 99999);
 		SetSelectedRows([&](AssDialogue *d) { d->Margin[margin] = value; },
 			commit_msg, AssFile::COMMIT_DIAG_META);
@@ -314,7 +313,7 @@ TimeEdit *SubsEditBox::MakeTimeCtrl(wxString const& tooltip, TimeField field) {
 	TimeEdit *ctrl = new TimeEdit(this, -1, c, "", wxDefaultSize, field == TIME_END);
 	ctrl->SetInitialSize(ctrl->GetSizeFromTextSize(GetTextExtent(wxS("0:00:00.000"))));
 	ctrl->SetToolTip(tooltip);
-	Bind(wxEVT_TEXT, [=](wxCommandEvent&) { CommitTimes(field); }, ctrl->GetId());
+	Bind(wxEVT_TEXT, [=, this](wxCommandEvent&) { CommitTimes(field); }, ctrl->GetId());
 	ctrl->Bind(wxEVT_CHAR_HOOK, time_edit_char_hook);
 	middle_left_sizer->Add(ctrl, wxSizerFlags().CenterVertical());
 	return ctrl;

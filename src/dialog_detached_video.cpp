@@ -46,9 +46,6 @@
 #include "video_display.h"
 
 #include <libaegisub/format_path.h>
-#include <libaegisub/make_unique.h>
-
-#include <boost/filesystem/path.hpp>
 
 #include <wx/sizer.h>
 #include <wx/display.h> /// Must be included last.
@@ -100,7 +97,7 @@ DialogDetachedVideo::DialogDetachedVideo(agi::Context *context)
 		});
 	});
 
-	persist = agi::make_unique<PersistLocation>(this, "Video/Detached");
+	persist = std::make_unique<PersistLocation>(this, "Video/Detached");
 
 	int display_index = wxDisplay::GetFromWindow(this);
 	// Ensure that the dialog is no larger than the screen

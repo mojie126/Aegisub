@@ -101,7 +101,7 @@ struct MkvStdIO final : InputStream {
 		return static_cast<MkvStdIO*>(st)->file.size();
 	}
 
-	MkvStdIO(agi::fs::path const& filename) : file(filename) {
+	MkvStdIO(std::filesystem::path const& filename) : file(filename) {
 		read = &MkvStdIO::Read;
 		scan = &MkvStdIO::Scan;
 		getcachesize = [](InputStream *) -> unsigned int { return 16 * 1024 * 1024; };
@@ -127,8 +127,7 @@ static bool read_subtitles(agi::ProgressSink *ps, MatroskaFile *file, MkvStdIO *
 		if (ps->IsCancelled()) return true;
 		if (frameSize == 0) continue;
 
-		const char *readBuf;
-		const char *readBufEnd;
+		std::string_view readBuf;
 
 		if (cs) {
 			cs_NextFrame(cs, filePos, frameSize);
@@ -151,11 +150,9 @@ static bool read_subtitles(agi::ProgressSink *ps, MatroskaFile *file, MkvStdIO *
 					uncompBuf.resize(2 * uncompBuf.size());
 			} while (res != 0);
 
-			readBuf = &uncompBuf[0];
-			readBufEnd = readBuf + bytesRead;
+			readBuf = std::string_view(&uncompBuf[0], bytesRead);
 		} else {
-			readBuf = input->file.read(filePos, frameSize);
-			readBufEnd = readBuf + frameSize;
+			readBuf = std::string_view(input->file.read(filePos, frameSize), frameSize);
 		}
 
 		// Get start and end times
@@ -163,29 +160,27 @@ static bool read_subtitles(agi::ProgressSink *ps, MatroskaFile *file, MkvStdIO *
 		agi::Time subStart = startTime / timecodeScaleLow;
 		agi::Time subEnd = endTime / timecodeScaleLow;
 
-		using str_range = boost::iterator_range<const char *>;
-
 		// Process SSA/ASS
 		if (!srt) {
-			auto first = std::find(readBuf, readBufEnd, ',');
-			if (first == readBufEnd) continue;
-			auto second = std::find(first + 1, readBufEnd, ',');
-			if (second == readBufEnd) continue;
+			auto first = readBuf.find(',');
+			if (first == readBuf.npos) continue;
+			auto second = readBuf.find(',', first + 1);
+			if (second == readBuf.npos) continue;
 
 			subList.emplace_back(
-				boost::lexical_cast<int>(str_range(readBuf, first)),
+				std::stoi(std::string(readBuf.substr(0, first))),
 				agi::format("Dialogue: %d,%s,%s,%s"
-					, boost::lexical_cast<int>(str_range(first + 1, second))
+					, std::stoi(std::string(readBuf.substr(first + 1, second - (first + 1))))
 					, subStart.GetAssFormatted()
 					, subEnd.GetAssFormatted()
-					, str_range(second + 1, readBufEnd)));
+					, readBuf.substr(second + 1)));
 		}
 		// Process SRT
 		else {
 			auto line = agi::format("Dialogue: 0,%s,%s,Default,,0,0,0,,%s"
 				, subStart.GetAssFormatted()
 				, subEnd.GetAssFormatted()
-				, str_range(readBuf, readBufEnd));
+				, readBuf);
 			boost::replace_all(line, "\r\n", "\\N");
 			boost::replace_all(line, "\r", "\\N");
 			boost::replace_all(line, "\n", "\\N");
@@ -203,7 +198,7 @@ static bool read_subtitles(agi::ProgressSink *ps, MatroskaFile *file, MkvStdIO *
 	return true;
 }
 
-void MatroskaWrapper::GetSubtitles(agi::fs::path const& filename, AssFile *target) {
+void MatroskaWrapper::GetSubtitles(std::filesystem::path const& filename, AssFile *target) {
 	MkvStdIO input(filename);
 	char err[2048];
 	agi::scoped_holder<MatroskaFile*, decltype(&mkv_Close)> file(mkv_Open(&input, err, sizeof(err)), mkv_Close);
@@ -294,7 +289,7 @@ void MatroskaWrapper::GetSubtitles(agi::fs::path const& filename, AssFile *targe
 		throw MatroskaException("Failed to read subtitles");
 }
 
-bool MatroskaWrapper::HasSubtitles(agi::fs::path const& filename) {
+bool MatroskaWrapper::HasSubtitles(std::filesystem::path const& filename) {
 	char err[2048];
 	try {
 		MkvStdIO input(filename);

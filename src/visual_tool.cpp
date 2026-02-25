@@ -14,10 +14,6 @@
 //
 // Aegisub Project http://www.aegisub.org/
 
-/// @file visual_tool.cpp
-/// @brief Base class for visual typesetting functions
-/// @ingroup visual_ts
-
 #include "visual_tool.h"
 
 #include "ass_dialogue.h"
@@ -39,10 +35,7 @@
 #include <libaegisub/format.h>
 #include <libaegisub/of_type_adaptor.h>
 #include <libaegisub/split.h>
-
-#include <boost/algorithm/string/join.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/replace.hpp>
+#include <libaegisub/string.h>
 
 #include <algorithm>
 
@@ -563,7 +556,9 @@ std::pair<Vector2D, Vector2D> VisualToolBase::GetLineBaseExtents(AssDialogue *di
 	if (ptag && ptag->front().Get(0)) {		// A drawing
 		Spline spline;
 		spline.SetScale(ptag->front().Get(1));
-		std::string drawing_text = join(blocks | agi::of_type<AssDialogueBlockDrawing>() | boost::adaptors::transformed([&](AssDialogueBlock *d) { return d->GetText(); }), "");
+		std::string drawing_text;
+		for (auto *block : blocks | agi::of_type<AssDialogueBlockDrawing>())
+			drawing_text += block->GetText();
 		spline.DecodeFromAss(drawing_text);
 
 		if (!spline.size())
@@ -592,7 +587,8 @@ std::pair<Vector2D, Vector2D> VisualToolBase::GetLineBaseExtents(AssDialogue *di
 
 		std::string text = diag->GetStrippedText();
 		std::vector<std::string> textlines;
-		boost::replace_all(text, "\\N", "\n");
+		for (size_t pos = 0; (pos = text.find("\\N", pos)) != std::string::npos; )
+			text.replace(pos, 2, "\n");
 		agi::Split(textlines, text, '\n');
 		for (std::string line : textlines) {
 			double linewidth = 0;
@@ -713,7 +709,7 @@ void VisualToolBase::SetOverride(AssDialogue* line, std::string const& tag, std:
 		line->UpdateText(blocks);
 	}
 	else
-		line->Text = "{" + tag + value + "}" + line->Text.get();
+		line->Text = agi::Str("{", tag, value, "}", line->Text.get());
 }
 
 // If only export worked

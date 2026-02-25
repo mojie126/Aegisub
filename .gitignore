@@ -60,5 +60,10 @@ subprojects/expat-*
 subprojects/vpl
 subprojects/libvpl-*
 subprojects/wxWidgets-master
+subprojects/curl-*
+subprojects/LuaJIT-*
 .idea
 .vscode
+# Documentation (generated/temporary)
+docs/*.md
+docs/*.txt

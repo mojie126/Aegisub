@@ -57,7 +57,6 @@
 #include <libaegisub/ass/time.h>
 #include <libaegisub/fs.h>
 #include <libaegisub/path.h>
-#include <libaegisub/make_unique.h>
 #include <libaegisub/util.h>
 
 #include <boost/algorithm/string/classification.hpp>
@@ -426,8 +425,8 @@ namespace {
 			agi::fs::path parent_dir(outputPath);
 			parent_dir = parent_dir.parent_path();
 			if (!parent_dir.empty()) {
-				boost::system::error_code ec;
-				boost::filesystem::create_directories(parent_dir, ec);
+				std::error_code ec;
+				std::filesystem::create_directories(parent_dir, ec);
 				if (ec) {
 					wxLogError("Failed to create output directory: %s (error: %s)",
 						parent_dir.string().c_str(), ec.message().c_str());
@@ -568,8 +567,8 @@ namespace {
 		}
 		// 确保输出目录存在（带异常保护）
 		try {
-			boost::filesystem::create_directories(output_dir);
-		} catch (const boost::filesystem::filesystem_error& e) {
+			std::filesystem::create_directories(output_dir);
+		} catch (const std::filesystem::filesystem_error& e) {
 			wxLogError("Failed to create output directory: %s", e.what());
 			return;
 		}
@@ -629,16 +628,16 @@ namespace {
 		if (clip_export_path.empty()) {
 			output_path = agi::wxformat("%s [%ld-%ld]", output_filename, start_frame, end_frame);
 			try {
-				boost::filesystem::create_directories(from_wx(output_path));
-			} catch (const boost::filesystem::filesystem_error& e) {
+				std::filesystem::create_directories(from_wx(output_path));
+			} catch (const std::filesystem::filesystem_error& e) {
 				wxLogError("Failed to create output directory: %s", e.what());
 				return false;
 			}
 		} else {
 			output_path = clip_export_path;
 			try {
-				boost::filesystem::create_directories(from_wx(output_path));
-			} catch (const boost::filesystem::filesystem_error& e) {
+				std::filesystem::create_directories(from_wx(output_path));
+			} catch (const std::filesystem::filesystem_error& e) {
 				wxLogError("Failed to create output directory: %s", e.what());
 				return false;
 			}
@@ -1273,51 +1272,51 @@ namespace {
 
 namespace cmd {
 	void init_video() {
-		reg(agi::make_unique<video_aspect_cinematic>());
-		reg(agi::make_unique<video_aspect_custom>());
-		reg(agi::make_unique<video_aspect_default>());
-		reg(agi::make_unique<video_aspect_full>());
-		reg(agi::make_unique<video_aspect_wide>());
-		reg(agi::make_unique<video_close>());
-		reg(agi::make_unique<video_copy_coordinates>());
-		reg(agi::make_unique<video_cycle_subtitles_provider>());
-		reg(agi::make_unique<video_reload_subtitles_provider>());
-		reg(agi::make_unique<video_detach>());
-		reg(agi::make_unique<video_details>());
-		reg(agi::make_unique<video_focus_seek>());
-		reg(agi::make_unique<video_frame_copy>());
-		reg(agi::make_unique<video_frame_copy_raw>());
-		reg(agi::make_unique<video_frame_copy_subs>());
-		reg(agi::make_unique<video_frame_next>());
-		reg(agi::make_unique<video_frame_next_boundary>());
-		reg(agi::make_unique<video_frame_next_keyframe>());
-		reg(agi::make_unique<video_frame_next_large>());
-		reg(agi::make_unique<video_frame_prev>());
-		reg(agi::make_unique<video_frame_prev_boundary>());
-		reg(agi::make_unique<video_frame_prev_keyframe>());
-		reg(agi::make_unique<video_frame_prev_large>());
-		reg(agi::make_unique<video_frame_save>());
-		reg(agi::make_unique<video_frame_save_raw>());
-		reg(agi::make_unique<video_frame_save_subs>());
-		reg(agi::make_unique<video_jump>());
-		reg(agi::make_unique<video_jump_end>());
-		reg(agi::make_unique<video_jump_start>());
-		reg(agi::make_unique<video_open>());
-		reg(agi::make_unique<video_open_dummy>());
-		reg(agi::make_unique<video_reload>());
-		reg(agi::make_unique<video_opt_autoscroll>());
-		reg(agi::make_unique<video_pan_reset>());
-		reg(agi::make_unique<video_play>());
-		reg(agi::make_unique<video_play_line>());
-		reg(agi::make_unique<video_show_overscan>());
-		reg(agi::make_unique<video_stop>());
-		reg(agi::make_unique<video_zoom_100>());
-		reg(agi::make_unique<video_zoom_200>());
-		reg(agi::make_unique<video_zoom_50>());
-		reg(agi::make_unique<video_zoom_in>());
-		reg(agi::make_unique<video_zoom_out>());
-		reg(agi::make_unique<video_to_gif>());
-		reg(agi::make_unique<video_frame_export>());
-		reg(agi::make_unique<video_save_clip>());
+		reg(std::make_unique<video_aspect_cinematic>());
+		reg(std::make_unique<video_aspect_custom>());
+		reg(std::make_unique<video_aspect_default>());
+		reg(std::make_unique<video_aspect_full>());
+		reg(std::make_unique<video_aspect_wide>());
+		reg(std::make_unique<video_close>());
+		reg(std::make_unique<video_copy_coordinates>());
+		reg(std::make_unique<video_cycle_subtitles_provider>());
+		reg(std::make_unique<video_reload_subtitles_provider>());
+		reg(std::make_unique<video_detach>());
+		reg(std::make_unique<video_details>());
+		reg(std::make_unique<video_focus_seek>());
+		reg(std::make_unique<video_frame_copy>());
+		reg(std::make_unique<video_frame_copy_raw>());
+		reg(std::make_unique<video_frame_copy_subs>());
+		reg(std::make_unique<video_frame_next>());
+		reg(std::make_unique<video_frame_next_boundary>());
+		reg(std::make_unique<video_frame_next_keyframe>());
+		reg(std::make_unique<video_frame_next_large>());
+		reg(std::make_unique<video_frame_prev>());
+		reg(std::make_unique<video_frame_prev_boundary>());
+		reg(std::make_unique<video_frame_prev_keyframe>());
+		reg(std::make_unique<video_frame_prev_large>());
+		reg(std::make_unique<video_frame_save>());
+		reg(std::make_unique<video_frame_save_raw>());
+		reg(std::make_unique<video_frame_save_subs>());
+		reg(std::make_unique<video_jump>());
+		reg(std::make_unique<video_jump_end>());
+		reg(std::make_unique<video_jump_start>());
+		reg(std::make_unique<video_open>());
+		reg(std::make_unique<video_open_dummy>());
+		reg(std::make_unique<video_reload>());
+		reg(std::make_unique<video_opt_autoscroll>());
+		reg(std::make_unique<video_pan_reset>());
+		reg(std::make_unique<video_play>());
+		reg(std::make_unique<video_play_line>());
+		reg(std::make_unique<video_show_overscan>());
+		reg(std::make_unique<video_stop>());
+		reg(std::make_unique<video_zoom_100>());
+		reg(std::make_unique<video_zoom_200>());
+		reg(std::make_unique<video_zoom_50>());
+		reg(std::make_unique<video_zoom_in>());
+		reg(std::make_unique<video_zoom_out>());
+		reg(std::make_unique<video_to_gif>());
+		reg(std::make_unique<video_frame_export>());
+		reg(std::make_unique<video_save_clip>());
 	}
 }
