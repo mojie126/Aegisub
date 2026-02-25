@@ -302,7 +302,7 @@ void DialogAutomation::OnInfo(wxCommandEvent &)
 
 		info.push_back(_("Features provided by script:\n"));
 
-		boost::transform(ei->script->GetMacros(), append_info, [=, this](const cmd::Command *f) {
+		boost::transform(ei->script->GetMacros(), append_info, [this](const cmd::Command *f) {
 			return fmt_tl("    Macro: %s (%s)", f->StrDisplay(context), f->name());
 		});
 		boost::transform(ei->script->GetFilters(), append_info, [](const Automation4::ExportFilter* f) {
