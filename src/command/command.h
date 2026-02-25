@@ -112,7 +112,7 @@ DEFINE_EXCEPTION(CommandNotFound, CommandError);
 		virtual int Type() const { return COMMAND_NORMAL; }
 
 		/// Request icon.
-		/// @param size Icon size.
+		/// @param size Icon size (pixels).
 		virtual wxBitmap Icon(int size, double scale = 1.0, wxLayoutDirection = wxLayout_LeftToRight) const { return wxBitmap{}; }
 
 		/// Command function
@@ -153,7 +153,7 @@ DEFINE_EXCEPTION(CommandNotFound, CommandError);
 	void reg(std::unique_ptr<Command> cmd);
 
 	/// Unregister a command.
-	/// @param cmd Command name to unregister. The associated command object is deleted.
+	/// @param name Command name to unregister. The associated command object is deleted.
 	void unreg(std::string_view name);
 
 	/// Call a command.
@@ -162,7 +162,7 @@ DEFINE_EXCEPTION(CommandNotFound, CommandError);
 	void call(std::string_view name, agi::Context *c);
 
 	/// Retrieve a Command object.
-	/// @param Command object.
+	/// @param name Name of the command to retrieve.
 	Command* get(std::string_view name);
 
 	/// Get a list of registered command names

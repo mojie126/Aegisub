@@ -496,7 +496,7 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 
 	const wxString log_levels[] = { wxTRANSLATE("Quiet"), wxTRANSLATE("Panic"), wxTRANSLATE("Fatal"), wxTRANSLATE("Error"), wxTRANSLATE("Warning"), wxTRANSLATE("Info"), wxTRANSLATE("Verbose"), wxTRANSLATE("Debug") };
 	wxArrayString log_levels_choice(8, log_levels);
-	p->OptionChoice(ffms, _("Debug log verbosity"), log_levels_choice, "Provider/FFmpegSource/Log Level");
+	p->OptionChoice(ffms, _("Debug log verbosity"), log_levels_choice, "Provider/FFmpegSource/Log Level", true);
 
 	// 添加黑边
 	p->OptionAdd(ffms, _("Add black borders"), "Provider/Video/FFmpegSource/ABB", 0)
@@ -541,9 +541,9 @@ void VapourSynth(wxTreebook *book, Preferences *parent) {
 	auto p = new OptionPage(book, parent, _("VapourSynth"), OptionPage::PAGE_SUB);
 	auto general = p->PageSizer(_("General"));
 
-	const wxString log_levels[] = { _("Quiet"), _("Fatal"), _("Critical"), _("Warning"), _("Information"), _("Debug") };
+	const wxString log_levels[] = { wxTRANSLATE("Quiet"), wxTRANSLATE("Fatal"), wxTRANSLATE("Critical"), wxTRANSLATE("Warning"), wxTRANSLATE("Information"), wxTRANSLATE("Debug") };
 	wxArrayString log_levels_choice(6, log_levels);
-	p->OptionChoice(general, _("Log level"), log_levels_choice, "Provider/Video/VapourSynth/Log Level");
+	p->OptionChoice(general, _("Log level"), log_levels_choice, "Provider/Video/VapourSynth/Log Level", true);
 	p->CellSkip(general);
 	p->OptionAdd(general, _("Load user plugins"), "Provider/VapourSynth/Autoload User Plugins");
 
@@ -635,7 +635,7 @@ public:
 	wxSize GetSize() const override {
 		if (!value.GetText().empty()) {
 			wxSize size = GetTextExtent(value.GetText());
-			size.x += icon_width;
+			size.x += GetView()->FromDIP(icon_width);
 			return size;
 		}
 		return wxSize(80,20);

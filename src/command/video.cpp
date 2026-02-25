@@ -1077,7 +1077,7 @@ namespace {
 				_("Video Formats") + " (*.asf,*.avi,*.avs,*.d2v,*.h264,*.hevc,*.m2ts,*.m4v,*.mkv,*.mov,*.mp4,*.mpeg,*.mpg,*.ogm,*.webm,*.wmv,*.ts,*.vpy,*.y4m,*.yuv)|*.asf;*.avi;*.avs;*.d2v;*.h264;*.hevc;*.m2ts;*.m4v;*.mkv;*.mov;*.mp4;*.mpeg;*.mpg;*.ogm;*.webm;*.wmv;*.ts;*.vpy;*.y4m;*.yuv|"
 				+ _("All Files") + " (*.*)|*.*"
 			);
-			auto filename = OpenFileSelector(_("Open video file"), "Path/Last/Video", "", "", str, c->parent);
+			auto filename = OpenFileSelector(_("Open Video File"), "Path/Last/Video", "", "", str, c->parent);
 			if (!filename.empty())
 				c->project->LoadVideo(filename);
 		}
@@ -1141,7 +1141,7 @@ namespace {
 		CMD_ICON(button_play)
 		STR_MENU("Play")
 		STR_DISP("Play")
-		STR_HELP("Play video starting on this position")
+		STR_HELP("Play the video starting on this position")
 
 		void operator()(agi::Context *c) override {
 			c->videoController->Play();
@@ -1153,7 +1153,7 @@ namespace {
 		CMD_ICON(button_playline)
 		STR_MENU("Play line")
 		STR_DISP("Play line")
-		STR_HELP("Play current line")
+		STR_HELP("Play the video for the current line")
 
 		void operator()(agi::Context *c) override {
 			c->videoController->PlayLine();
