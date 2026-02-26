@@ -73,6 +73,8 @@ class AudioKaraoke final : public wxWindow {
 	agi::signal::Connection audio_opened; ///< Audio opened connection
 	agi::signal::Connection audio_closed; ///< Audio closed connection
 	agi::signal::Connection active_line_changed;
+	agi::signal::Connection kara_font_face_connection; ///< OPT_SUB连接
+	agi::signal::Connection kara_font_size_connection; ///< OPT_SUB连接
 
 	/// Currently active dialogue line
 	AssDialogue *active_line = nullptr;

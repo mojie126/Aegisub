@@ -34,8 +34,8 @@ VisualToolCross::VisualToolCross(VideoDisplay *parent, agi::Context *context)
 , gl_text(std::make_unique<OpenGLText>())
 {
 	parent->SetCursor(wxCursor(wxCURSOR_BLANK));
-	OPT_SUB("Tool/Visual/Font Face", &VisualToolCross::SetFont, this);
-	OPT_SUB("Tool/Visual/Font Size", &VisualToolCross::SetFont, this);
+	connections.push_back(OPT_SUB("Tool/Visual/Font Face", &VisualToolCross::SetFont, this));
+	connections.push_back(OPT_SUB("Tool/Visual/Font Size", &VisualToolCross::SetFont, this));
 }
 
 VisualToolCross::~VisualToolCross() {

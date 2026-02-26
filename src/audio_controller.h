@@ -86,6 +86,7 @@ class AudioController final : public wxEvtHandler {
 	/// The audio provider
 	agi::AudioProvider *provider = nullptr;
 	agi::signal::Connection provider_connection;
+	agi::signal::Connection audio_player_connection; ///< OPT_SUB连接
 
 	void OnAudioProvider(agi::AudioProvider *new_provider);
 

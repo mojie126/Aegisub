@@ -80,8 +80,8 @@ AudioKaraoke::AudioKaraoke(wxWindow *parent, agi::Context *c)
 	SetSizerAndFit(main_sizer);
 
 	SetStyle();
-	OPT_SUB("Audio/Karaoke/Font Face", &AudioKaraoke::SetStyle, this);
-	OPT_SUB("Audio/Karaoke/Font Size", &AudioKaraoke::SetStyle, this);
+	kara_font_face_connection = OPT_SUB("Audio/Karaoke/Font Face", &AudioKaraoke::SetStyle, this);
+	kara_font_size_connection = OPT_SUB("Audio/Karaoke/Font Size", &AudioKaraoke::SetStyle, this);
 
 	split_area->Bind(wxEVT_SIZE, &AudioKaraoke::OnSize, this);
 	split_area->Bind(wxEVT_PAINT, &AudioKaraoke::OnPaint, this);

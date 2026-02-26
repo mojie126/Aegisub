@@ -57,7 +57,7 @@ class AudioBox final : public wxSashWindow {
 	agi::Context *context;
 
 	agi::signal::Connection audio_open_connection;
-
+	agi::signal::Connection audio_link_connection;
 
 	/// Panel containing the children
 	wxPanel *panel;

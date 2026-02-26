@@ -47,6 +47,9 @@ class Project {
 	DialogProgress *progress = nullptr;
 	agi::Context *context = nullptr;
 
+	/// OPT_SUB连接，防止对象销毁后回调悬空
+	std::vector<agi::signal::Connection> opt_connections;
+
 	void ShowError(wxString const& message);
 	void ShowError(std::string const& message);
 

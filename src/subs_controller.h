@@ -36,6 +36,8 @@ class SubsController {
 	agi::signal::Connection active_line_connection;
 	agi::signal::Connection selection_connection;
 	agi::signal::Connection text_selection_connection;
+	agi::signal::Connection autosave_opt_connection;      ///< OPT_SUB连接
+	agi::signal::Connection autosave_interval_connection;  ///< OPT_SUB连接
 
 	struct UndoInfo;
 	boost::container::list<UndoInfo> undo_stack;

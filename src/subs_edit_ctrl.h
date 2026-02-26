@@ -27,6 +27,8 @@
 //
 // Aegisub Project http://www.aegisub.org/
 
+#include <libaegisub/signal.h>
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -79,6 +81,9 @@ class SubsTextEditCtrl final : public wxStyledTextCtrl {
 
 	/// Tokenized version of line_text
 	std::vector<agi::ass::DialogueToken> tokenized_line;
+
+	/// OPT_SUB连接，防止对象销毁后回调悬空
+	std::vector<agi::signal::Connection> opt_connections;
 
 	void OnContextMenu(wxContextMenuEvent &);
 	void OnDoubleClick(wxStyledTextEvent&);

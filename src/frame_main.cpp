@@ -129,7 +129,7 @@ FrameMain::FrameMain()
 
 	StartupLog("Initialize toolbar");
 	wxSystemOptions::SetOption("msw.remap", 0);
-	OPT_SUB("App/Show Toolbar", &FrameMain::EnableToolBar, this);
+	opt_connections.push_back(OPT_SUB("App/Show Toolbar", &FrameMain::EnableToolBar, this));
 	EnableToolBar(*OPT_GET("App/Show Toolbar"));
 
 	StartupLog("Initialize menu bar");
@@ -149,7 +149,7 @@ FrameMain::FrameMain()
 
 	StartupLog("Create views and inner main window controls");
 	InitContents();
-	OPT_SUB("Video/Detached/Enabled", &FrameMain::OnVideoDetach, this);
+	opt_connections.push_back(OPT_SUB("Video/Detached/Enabled", &FrameMain::OnVideoDetach, this));
 
 	StartupLog("Set up drag/drop target");
 	SetDropTarget(new AegisubFileDropTarget(context.get()));
