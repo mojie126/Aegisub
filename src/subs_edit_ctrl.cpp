@@ -115,6 +115,7 @@ SubsTextEditCtrl::SubsTextEditCtrl(wxWindow* parent, wxSize wsize, long style, a
 	using std::bind;
 
 	Bind(wxEVT_CHAR_HOOK, &SubsTextEditCtrl::OnKeyDown, this);
+	Bind(wxEVT_CHAR, &SubsTextEditCtrl::OnChar, this);
 
 	Bind(wxEVT_MENU, bind(&SubsTextEditCtrl::Cut, this), EDIT_MENU_CUT);
 	Bind(wxEVT_MENU, bind(&SubsTextEditCtrl::Copy, this), EDIT_MENU_COPY);
@@ -195,6 +196,26 @@ END_EVENT_TABLE()
 void SubsTextEditCtrl::OnLoseFocus(wxFocusEvent &event) {
 	CallTipCancel();
 	event.Skip();
+}
+
+void SubsTextEditCtrl::OnChar(wxKeyEvent &event) {
+	event.Skip();
+
+	// TODO upgrade system to support both RTL and LTR by fixing data
+	if (GetTextRaw().length() == 0) {
+		if (IsCharRTL(event.GetUnicodeKey()))
+		{
+			SetTextTo(RTL_MARK);
+			SetLayoutDirection(wxLayout_RightToLeft);
+			SetSelection(GetSelectionStart() + 5, GetSelectionStart() + 5);
+		}
+		else
+		{
+			SetLayoutDirection(wxLayout_LeftToRight);
+		}
+	}
+
+
 }
 
 void SubsTextEditCtrl::OnKeyDown(wxKeyEvent &event) {

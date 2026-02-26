@@ -54,7 +54,7 @@ class AvisynthAudioProvider final : public agi::AudioProvider {
 	PClip clip;
 
 	void LoadFromClip(AVSValue clip);
-	void FillBuffer(void *buf, int64_t start, int64_t count) const;
+	void FillBuffer(void *buf, int64_t start, int64_t count) const override;
 
 public:
 	AvisynthAudioProvider(agi::fs::path const& filename);

@@ -8002,4 +8002,21 @@ msgstr "绿色"
 msgid "Icy Blue"
 msgstr "冰蓝"
 
+#. command/edit.cpp - 文本方向命令
+#: ../src/command/edit.cpp
+msgid "Set text to LTR"
+msgstr "设置文本为左到右"
+
+#: ../src/command/edit.cpp
+msgid "Change the direction of the text to LTR"
+msgstr "将文本方向更改为从左到右"
+
+#: ../src/command/edit.cpp
+msgid "Set text to RTL"
+msgstr "设置文本为右到左"
+
+#: ../src/command/edit.cpp
+msgid "Change the direction of the text to RTL"
+msgstr "将文本方向更改为从右到左"
+
 

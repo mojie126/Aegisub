@@ -23,58 +23,47 @@
 
 #include <libaegisub/path.h>
 
+#include <array>
 #include <boost/range/algorithm/find.hpp>
 #include <boost/range/iterator_range.hpp>
 #include <wx/intl.h>
 #include <wx/msgdlg.h>
 
 namespace {
-	const char* added_hotkeys_cj[][3] = {
-		{"time/align", "Video", "KP_TAB"},
-		{nullptr}
+	using agi::hotkey::Combo;
+	static const std::array<Combo, 1> added_hotkeys_cj = {
+		Combo("Video", "time/align", "KP_TAB"),
 	};
-
-	const char *added_hotkeys_video_space[][3] = {
-		{"play/toggle/av", "Video", "Space"},
-		{nullptr}
+	static const std::array<Combo, 1> added_hotkeys_video_space = {
+		Combo("Video", "play/toggle/av", "Space"),
 	};
-
-	const char *added_hotkeys_7035[][3] = {
-		{"audio/play/line", "Audio", "R"},
-		{nullptr}
+	static const std::array<Combo, 1> added_hotkeys_7035 = {
+		Combo("Audio", "audio/play/line", "R"),
 	};
-
-	const char *added_hotkeys_7070[][3] = {
-		{"edit/color/primary", "Subtitle Edit Box", "Alt-1"},
-		{"edit/color/secondary", "Subtitle Edit Box", "Alt-2"},
-		{"edit/color/outline", "Subtitle Edit Box", "Alt-3"},
-		{"edit/color/shadow", "Subtitle Edit Box", "Alt-4"},
-		{nullptr}
+	static const std::array<Combo, 4> added_hotkeys_7070 = {
+		Combo("Subtitle Edit Box", "edit/color/primary", "Alt-1"),
+		Combo("Subtitle Edit Box", "edit/color/secondary", "Alt-2"),
+		Combo("Subtitle Edit Box", "edit/color/outline", "Alt-3"),
+		Combo("Subtitle Edit Box", "edit/color/shadow", "Alt-4"),
 	};
-
-	const char *added_hotkeys_shift_back[][3] = {
-		{"edit/line/duplicate/shift_back", "Default", "Ctrl-Shift-D"},
-		{nullptr}
+	static const std::array<Combo, 1> added_hotkeys_shift_back = {
+		Combo("Default", "edit/line/duplicate/shift_back", "Ctrl-Shift-D"),
 	};
-
 #ifdef __WXMAC__
-	const char *added_hotkeys_minimize[][3] = {
-		{"app/minimize", "Default", "Ctrl-M"},
-		{nullptr}
+	static const std::array<Combo, 1> added_hotkeys_minimize = {
+		Combo("Default", "app/minimize", "Ctrl-M"),
 	};
 #endif
 
-	void migrate_hotkeys(const char *added[][3]) {
+	template<std::size_t SIZ>
+	void migrate_hotkeys(const std::array<Combo, SIZ> &added) {
 		auto hk_map = hotkey::inst->GetHotkeyMap();
 		bool changed = false;
 
-		for (size_t i = 0; added[i][0]; ++i) {
-			agi::hotkey::Combo combo(added[i][1], added[i][0], added[i][2]);
-
-			if (hotkey::inst->HasHotkey(combo.Context(), combo.Str()))
+		for (auto item: added) {
+			if (hotkey::inst->HasHotkey(item.Context(), item.Str()))
 				continue;
-
-			hk_map.insert(make_pair(std::string(added[i][0]), std::move(combo)));
+			hk_map.insert(make_pair(item.CmdName(), std::move(item)));
 			changed = true;
 		}
 

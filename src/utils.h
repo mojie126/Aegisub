@@ -37,12 +37,19 @@
 #include <wx/bitmap.h>
 #include <wx/string.h>
 
+#include <hb.h>
+
 class wxFrame;
 class wxKeyEvent;
 class wxMenu;
 class wxMouseEvent;
 class wxStyledTextCtrl;
 class wxWindow;
+
+const std::string LRT_MARK = "\u202A";
+const std::string RTL_MARK = "\u202B";
+
+bool IsCharRTL(wxChar c);
 
 wxString PrettySize(int bytes);
 
