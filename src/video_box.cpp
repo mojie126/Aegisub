@@ -82,7 +82,7 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 	hdrToggle->SetToolTip(_("Enable HDR to SDR tone mapping.\n"
 	                        "Supported: PQ (HDR10), HLG, Dolby Vision.\n"
 	                        "Requires HDR source video."));
-	hdrToggle->Bind(wxEVT_TOGGLEBUTTON, [=](wxCommandEvent&) {
+	hdrToggle->Bind(wxEVT_TOGGLEBUTTON, [this, context](wxCommandEvent&) {
 		if (!hw_hdr_available_) {
 			// 不可用时还原按钮状态，不执行操作
 			hdrToggle->SetValue(false);

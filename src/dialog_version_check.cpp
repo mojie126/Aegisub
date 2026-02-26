@@ -338,7 +338,7 @@ DEFINE_EXCEPTION(VersionCheckError, agi::Exception);
 
 void PostErrorEvent(bool interactive, wxString const& error_text) {
 	if (interactive) {
-		agi::dispatch::Main().Async([=]{
+		agi::dispatch::Main().Async([error_text]{
 			wxMessageBox(error_text, _("Version Checker"), wxOK | wxICON_ERROR);
 		});
 	}
@@ -581,7 +581,7 @@ void DoCheck(bool interactive) {
 
 	if (has_update || interactive) {
 		wxString current_ver = to_wx(GetVersionNumber());
-		agi::dispatch::Main().Async([=]{
+		agi::dispatch::Main().Async([has_update, current_ver, update_info]{
 			new VersionCheckerResultDialog(has_update, current_ver, update_info);
 		});
 	}
@@ -589,7 +589,7 @@ void DoCheck(bool interactive) {
 }
 
 void PerformVersionCheck(bool interactive) {
-	agi::dispatch::Background().Async([=]{
+	agi::dispatch::Background().Async([interactive]{
 		if (!interactive) {
 			// Automatic checking enabled?
 			if (!OPT_GET("App/Auto/Check For Updates")->GetBool())

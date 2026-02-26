@@ -324,7 +324,7 @@ namespace Automation4 {
 			dirnames.insert(dirname);
 
 			for (auto filename : agi::fs::DirectoryIterator(dirname, "*.*"))
-				script_futures.emplace_back(std::async(std::launch::async, [=] {
+				script_futures.emplace_back(std::async(std::launch::async, [dirname, filename] {
 					return ScriptFactory::CreateFromFile(dirname/filename, false, false);
 				}));
 		}

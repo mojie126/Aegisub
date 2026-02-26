@@ -115,7 +115,7 @@ VideoFrame AsyncVideoProvider::GetSubtitles(double time) {
 	auto blackview = interleaved_view(frame_black.width, frame_black.height, (bgra8_pixel_t*) frame_black.data.data(), frame_black.width * 4);
 	auto whiteview = interleaved_view(frame_white.width, frame_white.height, (bgra8_pixel_t*) frame_white.data.data(), frame_white.width * 4);
 
-	transform_pixels(blackview, whiteview, blackview, [=](const bgra8_pixel_t black, const bgra8_pixel_t white) -> bgra8_pixel_t {
+	transform_pixels(blackview, whiteview, blackview, [](const bgra8_pixel_t black, const bgra8_pixel_t white) -> bgra8_pixel_t {
 		int a = 255 - (white[0] - black[0]);
 
 		bgra8_pixel_t ret;
