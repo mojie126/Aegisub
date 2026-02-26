@@ -226,21 +226,6 @@ void Interface(wxTreebook *book, Preferences *parent) {
 	const auto favoriteFont = p->PageSizer(_("Favorite Font"));
 	p->OptionAdd(favoriteFont, _("Favorite Font Number"), "Subtitle/Favorite Font Number")->SetToolTip(_("Sets the maximum number of favorite fonts"));
 
-	auto edit_box = p->PageSizer(_("Edit Box"));
-	p->OptionAdd(edit_box, _("Enable call tips"), "App/Call Tips");
-	p->OptionAdd(edit_box, _("Overwrite in time boxes"), "Subtitle/Time Edit/Insert Mode");
-	p->OptionAdd(edit_box, _("Shift+Enter adds \\n"), "Subtitle/Edit Box/Soft Line Break")->SetToolTip(_("When enabled, Shift+Enter add \\n, when disabled, add \\N"));
-	p->OptionAdd(edit_box, _("Enable syntax highlighting"), "Subtitle/Highlight/Syntax");
-	p->OptionBrowse(edit_box, _("Dictionaries path"), "Path/Dictionary");
-	p->OptionFont(edit_box, "Subtitle/Edit Box/");
-
-	auto character_count = p->PageSizer(_("Character Counter"));
-	p->OptionAdd(character_count, _("Maximum characters per line"), "Subtitle/Character Limit", 0, 1000);
-	p->OptionAdd(character_count, _("Characters Per Second Warning Threshold"), "Subtitle/Character Counter/CPS Warning Threshold", 0, 1000);
-	p->OptionAdd(character_count, _("Characters Per Second Error Threshold"), "Subtitle/Character Counter/CPS Error Threshold", 0, 1000);
-	p->OptionAdd(character_count, _("Ignore whitespace"), "Subtitle/Character Counter/Ignore Whitespace");
-	p->OptionAdd(character_count, _("Ignore punctuation"), "Subtitle/Character Counter/Ignore Punctuation");
-
 	auto grid = p->PageSizer(_("Grid"));
 	p->OptionAdd(grid, _("Focus grid on click"), "Subtitle/Grid/Focus Allow");
 	p->OptionAdd(grid, _("Highlight visible subtitles"), "Subtitle/Grid/Highlight Subtitles in Frame");
@@ -260,6 +245,43 @@ void Interface(wxTreebook *book, Preferences *parent) {
 	auto dark_mode = p->PageSizer(_("Dark Mode"));
 	p->OptionAdd(dark_mode, _("Enable experimental dark mode (restart required)"), "App/Dark Mode");
 #endif
+
+	p->SetSizerAndFit(p->sizer);
+}
+
+/// Interface Edit Box preferences subpage
+void Interface_EditBox(wxTreebook *book, Preferences *parent) {
+	auto p = new OptionPage(book, parent, _("Edit Box"), OptionPage::PAGE_SUB);
+
+	auto edit_box = p->PageSizer(_("Edit Box"));
+	p->OptionAdd(edit_box, _("Enable call tips"), "App/Call Tips");
+	p->OptionAdd(edit_box, _("Overwrite in time boxes"), "Subtitle/Time Edit/Insert Mode");
+	p->OptionAdd(edit_box, _("Shift+Enter adds \\n"), "Subtitle/Edit Box/Soft Line Break")->SetToolTip(_("When enabled, Shift+Enter add \\n, when disabled, add \\N"));
+	p->OptionAdd(edit_box, _("Enable syntax highlighting"), "Subtitle/Highlight/Syntax");
+	p->OptionBrowse(edit_box, _("Dictionaries path"), "Path/Dictionary");
+	p->OptionFont(edit_box, "Subtitle/Edit Box/");
+
+	p->SetSizerAndFit(p->sizer);
+}
+
+/// Interface Character Counter preferences subpage
+void Interface_CharCounter(wxTreebook *book, Preferences *parent) {
+	auto p = new OptionPage(book, parent, _("Character Counter"), OptionPage::PAGE_SUB);
+
+	auto character_count = p->PageSizer(_("Character Counter"));
+	p->OptionAdd(character_count, _("Maximum characters per line"), "Subtitle/Character Limit", 0, 1000);
+	p->OptionAdd(character_count, _("Characters Per Second Warning Threshold"), "Subtitle/Character Counter/CPS Warning Threshold", 0.1, 1000., 0.1);
+	p->OptionAdd(character_count, _("Characters Per Second Error Threshold"), "Subtitle/Character Counter/CPS Error Threshold", 0.1, 1000., 0.1);
+	p->OptionAdd(character_count, _("Ignore whitespace"), "Subtitle/Character Counter/Ignore Whitespace");
+	p->OptionAdd(character_count, _("Ignore punctuation"), "Subtitle/Character Counter/Ignore Punctuation");
+
+	const wxString ccpsf_arr[3] = {_("Nearest integer"), _("Nearest 0.1"), _("2 sig figs")};
+	wxArrayString cpsf_res(3, ccpsf_arr);
+	p->OptionChoice(character_count, _("CPS display format"), cpsf_res, "Subtitle/Character Counter/Display Format");
+
+	const wxString calign_arr[2] = {_("Center"), _("Center with virtual 0")};
+	wxArrayString calign_res(2, calign_arr);
+	p->OptionChoice(character_count, _("CPS column alignment"), calign_res, "Subtitle/Character Counter/Column Alignment");
 
 	p->SetSizerAndFit(p->sizer);
 }
@@ -915,6 +937,8 @@ Preferences::Preferences(wxWindow *parent): wxDialog(parent, -1, _("Preferences"
 	Audio(book, this);
 	Video(book, this);
 	Interface(book, this);
+	Interface_EditBox(book, this);
+	Interface_CharCounter(book, this);
 	Interface_Colours(book, this);
 	new Interface_Hotkeys(book, this);
 	Backup(book, this);
