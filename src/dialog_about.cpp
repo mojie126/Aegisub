@@ -106,6 +106,7 @@ void ShowAboutDialog(wxWindow *parent) {
 #ifdef WITH_FFMS2
 		"    FFmpeg - Copyright (c) Fabrice Bellard;\n"
 		"    FFMS2 - Copyright (c) Fredrik Mellbin;\n"
+		"    dav1d - Copyright (c) VideoLAN and dav1d authors;\n"
 #endif
 #ifdef WITH_AVISYNTH
 		"    Avisynth 2.5 - Copyright (c) Ben Rudiak-Gould et al;\n"
@@ -151,7 +152,7 @@ void ShowAboutDialog(wxWindow *parent) {
 	MainSizer->Add(new wxStaticLine(&d, wxID_ANY), 0, wxEXPAND | wxALL, 0);
 	MainSizer->Add(textctrl, 0, wxEXPAND | wxALL, 0);
 	MainSizer->Add(new wxStaticLine(&d, wxID_ANY), 0, wxEXPAND | wxALL, 0);
-	MainSizer->Add(d.CreateButtonSizer(wxOK), 0, wxEXPAND | wxALL, 6);
+	MainSizer->Add(d.CreateButtonSizer(wxOK), 0, wxEXPAND | wxALL, d.FromDIP(6));
 	MainSizer->SetMinSize(wxWindow::FromDIP(550, parent), wxWindow::FromDIP(320, parent));
 
 	d.SetSizerAndFit(MainSizer);
