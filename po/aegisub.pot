@@ -7651,3 +7651,19 @@ msgstr ""
 #: ../src/libresrc/default_config.json
 msgid "Icy Blue"
 msgstr ""
+
+#: ../src/command/edit.cpp
+msgid "Set text to LTR"
+msgstr ""
+
+#: ../src/command/edit.cpp
+msgid "Change the direction of the text to LTR"
+msgstr ""
+
+#: ../src/command/edit.cpp
+msgid "Set text to RTL"
+msgstr ""
+
+#: ../src/command/edit.cpp
+msgid "Change the direction of the text to RTL"
+msgstr ""

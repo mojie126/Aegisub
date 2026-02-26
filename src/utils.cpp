@@ -95,6 +95,12 @@ int SmallestPowerOf2(int x) {
 	return x;
 }
 
+bool IsCharRTL(wxChar character) {
+	hb_unicode_funcs_t* unicode_funcs = hb_unicode_funcs_get_default();
+	hb_script_t script = hb_unicode_script(unicode_funcs, character);
+	return hb_script_get_horizontal_direction(script) == HB_DIRECTION_RTL;
+}
+
 #ifndef __WXMAC__
 void RestartAegisub() {
 	config::opt->Flush();
@@ -234,7 +240,7 @@ wxString FontFace(std::string opt_prefix) {
 	auto value = OPT_GET(opt_prefix)->GetString();
 #ifdef __WXOSX_COCOA__
 	if (value.empty()) {
-		auto default_font = CTFontCreateUIFontForLanguage(kCTFontUserFontType, 0, nullptr);
+		auto default_font = CTFontCreateUIFontForLanguage(kCTFontUIFontUser, 0, nullptr);
 		auto default_font_name = CTFontCopyPostScriptName(default_font);
 		CFRelease(default_font);
 

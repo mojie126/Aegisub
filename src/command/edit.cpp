@@ -1266,6 +1266,34 @@ struct edit_insert_original final : public Command {
 	}
 };
 
+struct edit_text_ltr final : public Command {
+	CMD_NAME("edit/text_ltr")
+	CMD_ICON(direction_ltr)
+	STR_DISP("Set text to LTR")
+	STR_MENU("Set text to LTR")
+	STR_HELP("Change the direction of the text to LTR")
+
+	void operator()(agi::Context *c) override {
+		if (c->textSelectionController->GetControl()->GetLayoutDirection() != wxLayout_LeftToRight) {
+			c->textSelectionController->GetControl()->SetLayoutDirection(wxLayout_LeftToRight);
+		}
+	}
+};
+
+struct edit_text_rtl final : public Command {
+	CMD_NAME("edit/text_rtl")
+	CMD_ICON(direction_rtl)
+	STR_DISP("Set text to RTL")
+	STR_MENU("Set text to RTL")
+	STR_HELP("Change the direction of the text to RTL")
+
+	void operator()(agi::Context *c) override {
+		if (c->textSelectionController->GetControl()->GetLayoutDirection() == wxLayout_RightToLeft) 
+			return;
+		c->textSelectionController->GetControl()->SetLayoutDirection(wxLayout_RightToLeft);
+	}
+};
+
 }
 
 namespace cmd {
@@ -1302,5 +1330,7 @@ namespace cmd {
 		reg(std::make_unique<edit_insert_original>());
 		reg(std::make_unique<edit_clear>());
 		reg(std::make_unique<edit_clear_text>());
+		reg(std::make_unique<edit_text_ltr>());
+		reg(std::make_unique<edit_text_rtl>());
 	}
 }
