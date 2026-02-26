@@ -466,7 +466,7 @@ void BaseGrid::OnMouseEvent(wxMouseEvent &event) {
 
 	// Find the column the mouse is over
 	int colx = event.GetX();
-	int col;
+	size_t col;
 	for (col = 0; col < columns.size(); col++) {
 		int w = columns[col]->Width();
 		if (colx < w) {

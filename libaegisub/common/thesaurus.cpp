@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <boost/interprocess/streams/bufferstream.hpp>
+#include <charconv>
 
 namespace agi {
 
@@ -39,9 +40,9 @@ Thesaurus::Thesaurus(agi::fs::path const& dat_path, agi::fs::path const& idx_pat
 
 	// Read the list of words and file offsets for those words
 	for (auto const& line : line_iterator<std::string>(idx, encoding_name.c_str())) {
-		auto pos = line.find('|');
-		if (pos != line.npos && line.find('|', pos + 1) == line.npos)
-			offsets[line.substr(0, pos)] = static_cast<size_t>(atoi(line.c_str() + pos + 1));
+		size_t pos = line.rfind('|');
+		if (pos != line.npos)
+			std::from_chars(line.data() + pos + 1, line.data() + line.size(), offsets[line.substr(0, pos)]);
 	}
 }
 
@@ -74,7 +75,8 @@ std::vector<Thesaurus::Entry> Thesaurus::Lookup(std::string_view word) {
 	std::vector<std::string> header;
 	agi::Split(header, read_line(), '|');
 	if (header.size() != 2) return out;
-	int meanings = atoi(header[1].c_str());
+	int meanings = 0;
+	std::from_chars(header[1].data(), header[1].data() + header[1].size(), meanings);
 
 	out.reserve(meanings);
 	std::vector<std::string> line;

@@ -188,7 +188,7 @@ void LibassSubtitlesProvider::DrawSubtitles(VideoFrame &frame,double time) {
 		auto srcview = interleaved_view(img->w, img->h, (gray8_pixel_t*)img->bitmap, img->stride);
 		auto dstview = subimage_view(dst, img->dst_x, img->dst_y, img->w, img->h);
 
-		transform_pixels(dstview, srcview, dstview, [=](const bgra8_pixel_t frame, const gray8_pixel_t src) -> bgra8_pixel_t {
+		transform_pixels(dstview, srcview, dstview, [=, this](const bgra8_pixel_t frame, const gray8_pixel_t src) -> bgra8_pixel_t {
 			unsigned int k = ((unsigned)src) * opacity / 255;
 			unsigned int ck = 255 - k;
 

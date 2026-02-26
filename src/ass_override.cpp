@@ -40,6 +40,7 @@
 
 #include <boost/range/adaptor/filtered.hpp>
 #include <boost/range/adaptor/transformed.hpp>
+#include <charconv>
 #include <functional>
 
 using namespace boost::adaptors;
@@ -64,10 +65,17 @@ template<> std::string AssOverrideParameter::Get<std::string>() const {
 }
 
 template<> int AssOverrideParameter::Get<int>() const {
-	if (classification == AssParameterClass::ALPHA)
-		// &Hxx&, but vsfilter lets you leave everything out
-		return mid<int>(0, strtol(std::find_if(value.c_str(), value.c_str() + value.size(), isxdigit), nullptr, 16), 255);
-	return atoi(Get<std::string>().c_str());
+	if (classification == AssParameterClass::ALPHA) {
+		// &Hxx&, vsfilter 允许省略任意部分
+		const char* start = std::find_if(value.c_str(), value.c_str() + value.size(), isxdigit);
+		int result = 0;
+		std::from_chars(start, value.c_str() + value.size(), result, 16);
+		return mid<int>(0, result, 255);
+	}
+	const std::string_view str{Get<std::string>()};
+	int result = 0;
+	std::from_chars(str.data(), str.data() + str.size(), result);
+	return result;
 }
 
 template<> double AssOverrideParameter::Get<double>() const {

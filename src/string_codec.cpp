@@ -39,6 +39,8 @@
 
 #include <libaegisub/format.h>
 
+#include <charconv>
+
 std::string inline_string_encode(std::string_view input) {
 	std::string output;
 	output.reserve(input.size());
@@ -58,8 +60,9 @@ std::string inline_string_decode(std::string_view input) {
 		if (input[i] != '#' || i + 2 > input.size())
 			output += input[i];
 		else {
-			char buff[] = {input[i], input[i + 1], 0};
-			output += (char)strtol(buff, nullptr, 16);
+			int char_code = 0;
+			std::from_chars(input.data() + i + 1, input.data() + i + 3, char_code, 16);
+			output += static_cast<char>(char_code);
 			i += 2;
 		}
 	}

@@ -176,7 +176,7 @@ DialogSpellChecker::DialogSpellChecker(agi::Context *context)
 			actions_sizer->Add(checkbox, button_flags);
 			checkbox->SetValue(OPT_GET(opt)->GetBool());
 			checkbox->Bind(wxEVT_CHECKBOX,
-				[=](wxCommandEvent &evt) { OPT_SET(opt)->SetBool(!!evt.GetInt()); });
+				[=, this](wxCommandEvent &evt) { OPT_SET(opt)->SetBool(!!evt.GetInt()); });
 		};
 
 		make_checkbox(_("&Skip Comments"), "Tool/Spell Checker/Skip Comments");
