@@ -165,6 +165,8 @@ VideoDisplay::VideoDisplay(wxToolBar *toolbar, bool freeSize, wxComboBox *zoomBo
 	con->videoController->JumpToFrame(con->videoController->GetFrameN());
 
 	SetLayoutDirection(wxLayout_LeftToRight);
+
+	UpdateViewportSize(false, wxSize(1, 1));
 }
 
 VideoDisplay::~VideoDisplay () {
@@ -223,8 +225,6 @@ void VideoDisplay::Render() try {
 		return;
 	}
 
-	if (videoSize.GetWidth() == 0) videoSize.SetWidth(1);
-	if (videoSize.GetHeight() == 0) videoSize.SetHeight(1);
 
 	if (!viewport_height || !viewport_width)
 		PositionVideo();
@@ -311,9 +311,26 @@ void VideoDisplay::DrawOverscanMask(float horizontal_percent, float vertical_per
 	gl.DrawMultiPolygon(points, vstart, vcount, pos, v, true);
 }
 
-void VideoDisplay::PositionVideo() {
+void VideoDisplay::UpdateViewportSize(bool rescalePan, wxSize newSize) {
+	// 自由尺寸模式下忽略参数，使用客户区大小，避免视口和客户区尺寸不同步
+	if (freeSize)
+		newSize = GetClientSize() * scale_factor;
+	assert(newSize != wxDefaultSize);
+	if (newSize.GetWidth() < 1) newSize.SetWidth(1);
+	if (newSize.GetHeight() < 1) newSize.SetHeight(1);
+	if (rescalePan && videoSize.GetHeight() >= 1) {
+		double ratio = double(newSize.GetHeight()) / videoSize.GetHeight();
+		pan_x *= ratio;
+		pan_y *= ratio;
+	}
+	videoSize = newSize;
+}
+
+void VideoDisplay::PositionVideo(bool preserveContentSize) {
 	auto provider = con->project->VideoProvider();
 	if (!provider || !IsShownOnScreen()) return;
+
+	int old_viewport_height = viewport_height;
 
 	viewport_width = videoSize.GetWidth();
 	viewport_height = videoSize.GetHeight();
@@ -335,7 +352,15 @@ void VideoDisplay::PositionVideo() {
 		else if (videoAr - displayAr > 0.01) {
 			viewport_height = viewport_width / videoAr;
 		}
+
+		// 更新窗口缩放值（使用内容缩放前的 viewport_height）
+		windowZoomValue = double(viewport_height) / vidH;
+		zoomBox->ChangeValue(fmt_wx("%g%%", windowZoomValue * 100.));
+		con->ass->Properties.video_zoom = windowZoomValue;
 	}
+
+	if (preserveContentSize)
+		videoZoomValue = double(old_viewport_height) / viewport_height;
 
 	// 应用内容缩放
 	viewport_width *= videoZoomValue;
@@ -346,14 +371,14 @@ void VideoDisplay::PositionVideo() {
 	double viewport_top_exact = double(videoSize.GetHeight() - viewport_height) / 2;
 
 	// 限制平移范围，防止视频完全离开视口
-	double max_pan_x = (0.5 * viewport_width + 0.4 * videoSize.GetWidth()) / videoSize.GetHeight();
-	double max_pan_y = (0.5 * viewport_height + 0.4 * videoSize.GetHeight()) / videoSize.GetHeight();
+	double max_pan_x = 0.5 * viewport_width + 0.4 * videoSize.GetWidth();
+	double max_pan_y = 0.5 * viewport_height + 0.4 * videoSize.GetHeight();
 	pan_x = std::clamp(pan_x, -max_pan_x, max_pan_x);
 	pan_y = std::clamp(pan_y, -max_pan_y, max_pan_y);
 
-	// 应用平移（平移单位为视口高度的比例）
-	viewport_left_exact += pan_x * videoSize.GetHeight();
-	viewport_top_exact += pan_y * videoSize.GetHeight();
+	// 应用平移（绝对像素偏移）
+	viewport_left_exact += pan_x;
+	viewport_top_exact += pan_y;
 
 	viewport_left = std::round(viewport_left_exact);
 	viewport_top = std::round(viewport_top_exact);
@@ -374,10 +399,10 @@ void VideoDisplay::FitClientSizeToVideo() {
 
 	if (!provider || !IsShownOnScreen()) return;
 
-	videoSize.Set(provider->GetWidth(), provider->GetHeight());
-	videoSize *= windowZoomValue;
+	wxSize newVideoSize(provider->GetWidth(), provider->GetHeight());
+	newVideoSize *= windowZoomValue;
 	if (con->videoController->GetAspectRatioType() != AspectRatio::Default)
-		videoSize.SetWidth(videoSize.GetHeight() * con->videoController->GetAspectRatioValue());
+		newVideoSize.SetWidth(newVideoSize.GetHeight() * con->videoController->GetAspectRatioValue());
 
 	wxEventBlocker blocker(this);
 	if (freeSize) {
@@ -392,27 +417,20 @@ void VideoDisplay::FitClientSizeToVideo() {
 		SetClientSize(oldClientSize + (top->GetSize() - oldSize));
 	}
 	else {
-		SetMinClientSize(videoSize / scale_factor);
-		SetMaxClientSize(videoSize / scale_factor);
+		SetMinClientSize(newVideoSize / scale_factor);
+		SetMaxClientSize(newVideoSize / scale_factor);
 
 		GetGrandParent()->Layout();
 	}
 
+	UpdateViewportSize(true, newVideoSize); // 需在设置客户区大小之后调用
 	PositionVideo();
 }
 
 void VideoDisplay::OnSizeEvent(wxSizeEvent &) {
-	if (freeSize) {
-		/* 无论是否有缩放/平移，视口大小始终等于客户区大小 */
-		videoSize = GetClientSize() * scale_factor;
-		windowZoomValue = double(GetClientSize().GetHeight() * scale_factor) / con->project->VideoProvider()->GetHeight();
-		zoomBox->ChangeValue(fmt_wx("%g%%", windowZoomValue * 100.));
-		con->ass->Properties.video_zoom = windowZoomValue;
-		FitClientSizeToVideo();
-	}
-	else {
-		PositionVideo();
-	}
+	bool preserveContentSize = freeSize && IsContentZoomActive();
+	if (freeSize) UpdateViewportSize(false);
+	PositionVideo(preserveContentSize);
 }
 
 void VideoDisplay::OnMouseEvent(wxMouseEvent& event) {
@@ -495,22 +513,21 @@ void VideoDisplay::SetVideoZoom(int step) {
 }
 
 void VideoDisplay::Pan(Vector2D delta) {
-	pan_x += delta.X() / videoSize.GetHeight();
-	pan_y += delta.Y() / videoSize.GetHeight();
+	pan_x += delta.X();
+	pan_y += delta.Y();
 	PositionVideo();
 }
 
 Vector2D VideoDisplay::GetZoomAnchorPoint(wxPoint position) {
-	// 锚点用视频中心为原点、contentZoomValue=1.0 下的逻辑像素偏移表示。
+	// 锚点用视频中心为原点、videoZoomValue=1.0 下的逻辑像素偏移表示。
 	//
 	// 推导公式：
-	//   position = viewportCenter + pan * viewportHeight + anchorPoint * videoZoomValue
+	//   position = viewportCenter + pan + anchorPoint * videoZoomValue
 	//
 	// 反解锚点：
-	//   anchorPoint = (position - viewportCenter - pan * viewportHeight) / videoZoomValue
+	//   anchorPoint = (position - viewportCenter - pan) / videoZoomValue
 	Vector2D viewportCenter = Vector2D(videoSize.GetWidth(), videoSize.GetHeight()) / 2;
-	Vector2D scaledPan = Vector2D(pan_x, pan_y) * videoSize.GetHeight();
-	return (Vector2D(position) - viewportCenter - scaledPan) / videoZoomValue;
+	return (Vector2D(position) - viewportCenter - Vector2D(pan_x, pan_y)) / videoZoomValue;
 }
 
 void VideoDisplay::ZoomAndPan(double newZoomValue, Vector2D anchorPoint, wxPoint newPosition) {
@@ -518,10 +535,10 @@ void VideoDisplay::ZoomAndPan(double newZoomValue, Vector2D anchorPoint, wxPoint
 
 	// 根据上述公式计算新的平移值，使锚点落在 newPosition 处
 	Vector2D viewportCenter = Vector2D(videoSize.GetWidth(), videoSize.GetHeight()) / 2;
-	Vector2D newScaledPan = Vector2D(newPosition) - viewportCenter - anchorPoint * newZoomValue;
+	Vector2D newPan = Vector2D(newPosition) - viewportCenter - anchorPoint * newZoomValue;
 
-	pan_x = newScaledPan.X() / videoSize.GetHeight();
-	pan_y = newScaledPan.Y() / videoSize.GetHeight();
+	pan_x = newPan.X();
+	pan_y = newPan.Y();
 	videoZoomValue = newZoomValue;
 
 	PositionVideo();
@@ -575,6 +592,8 @@ void VideoDisplay::SetTool(std::unique_ptr<VisualToolBase> new_tool) {
 	else {
 		// FitClientSizeToVideo 会将窗口调整到视频大小，自由尺寸模式下不需要这样做
 		GetGrandParent()->Layout();
+		// TODO: OnSizeEvent 是否已经处理了下面的逻辑？
+		UpdateViewportSize(true);
 		PositionVideo();
 	}
 }
