@@ -30,6 +30,7 @@
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <cassert>
+#include <charconv>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -120,7 +121,10 @@ std::string_view AssFile::GetScriptInfo(std::string_view key) const {
 }
 
 int AssFile::GetScriptInfoAsInt(std::string_view key) const {
-	return atoi(std::string(GetScriptInfo(key)).c_str());
+	const std::string value{GetScriptInfo(key)};
+	int result = 0;
+	std::from_chars(value.data(), value.data() + value.size(), result);
+	return result;
 }
 
 void AssFile::SetScriptInfo(std::string_view key, std::string_view value) {

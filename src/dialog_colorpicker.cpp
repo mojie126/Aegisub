@@ -570,7 +570,7 @@ namespace {
 		// generate spectrum slider bar images
 		for (int i = 0; i < 3; ++i) {
 			rgb_slider[i] = make_slider(
-				this, [=](const int y, unsigned char *rgb) {
+				this, [=, this](const int y, unsigned char *rgb) {
 					memset(rgb, 0, 3);
 					rgb[i] = y;
 				}
@@ -918,7 +918,7 @@ namespace {
 		preview_box->SetBitmap(tempBmp);
 
 		alpha_slider_img = make_slider_img(
-			this, [=](unsigned char *slid) {
+			this, [=, this](unsigned char *slid) {
 				// static_assert(slider_width % alpha_box_size == 0, "Slider width must be a multiple of alpha box width");
 
 				for (int y = 0; y < 256; ++y) {
@@ -963,7 +963,7 @@ namespace {
 
 	wxBitmap *DialogColorPicker::MakeGBSpectrum() {
 		return make_spectrum(
-			this, &rgb_spectrum[0], [=](unsigned char *spec) {
+			this, &rgb_spectrum[0], [=, this](unsigned char *spec) {
 				for (int g = 0; g < 256; g++) {
 					for (int b = 0; b < 256; b++) {
 						*spec++ = cur_color.r;
@@ -977,7 +977,7 @@ namespace {
 
 	wxBitmap *DialogColorPicker::MakeRBSpectrum() {
 		return make_spectrum(
-			this, &rgb_spectrum[1], [=](unsigned char *spec) {
+			this, &rgb_spectrum[1], [=, this](unsigned char *spec) {
 				for (int r = 0; r < 256; r++) {
 					for (int b = 0; b < 256; b++) {
 						*spec++ = r;
@@ -991,7 +991,7 @@ namespace {
 
 	wxBitmap *DialogColorPicker::MakeRGSpectrum() {
 		return make_spectrum(
-			this, &rgb_spectrum[2], [=](unsigned char *spec) {
+			this, &rgb_spectrum[2], [=, this](unsigned char *spec) {
 				for (int r = 0; r < 256; r++) {
 					for (int g = 0; g < 256; g++) {
 						*spec++ = r;
@@ -1006,7 +1006,7 @@ namespace {
 	wxBitmap *DialogColorPicker::MakeHSSpectrum() {
 		const int l = hsl_input[2]->GetValue();
 		return make_spectrum(
-			this, &hsl_spectrum, [=](unsigned char *spec) {
+			this, &hsl_spectrum, [=, this](unsigned char *spec) {
 				for (int h = 0; h < 256; h++) {
 					unsigned char maxr, maxg, maxb;
 					hsl_to_rgb(h, 255, l, &maxr, &maxg, &maxb);
@@ -1027,7 +1027,7 @@ namespace {
 		hsv_to_rgb(h, 255, 255, &maxr, &maxg, &maxb);
 
 		return make_spectrum(
-			this, &hsv_spectrum, [=](unsigned char *spec) {
+			this, &hsv_spectrum, [=, this](unsigned char *spec) {
 				for (int v = 0; v < 256; v++) {
 					const int rr = (255 - maxr) * v / 256;
 					const int rg = (255 - maxg) * v / 256;
