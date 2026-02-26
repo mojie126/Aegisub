@@ -301,11 +301,11 @@ void AudioSpectrumRenderer::Render(wxBitmap &bmp, int start, AudioRenderingStyle
 	assert (pos_fref > 0);
 	assert (pos_fref < 1);
 	float b_fref         = nbr_bins * freq_ref / (sample_rate * 0.5f);
-	b_fref               = mid (1.f, b_fref, float (maxband - 1));
+	b_fref               = std::clamp(b_fref, 1.f, float (maxband - 1));
 	const float clin     = minband + (maxband - minband) * pos_fref;
 	const float clog     = minband * expf (pos_fref * scale_log);
 	float log_ratio_calc = (b_fref - clin) / (clog - clin);
-	log_ratio_calc       = mid (0.f, log_ratio_calc, 1.f);
+	log_ratio_calc       = std::clamp(log_ratio_calc, 0.f, 1.f);
 
 	// ax = absolute x, absolute to the virtual spectrum bitmap
 	for (int ax = start; ax < end; ++ax)

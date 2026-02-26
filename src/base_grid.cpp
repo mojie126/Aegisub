@@ -264,7 +264,7 @@ void BaseGrid::SelectRow(int row, bool addToSelected, bool select) {
 
 void BaseGrid::OnSeek() {
 	int lines = GetClientSize().GetHeight() / lineHeight + 1;
-	lines = mid(0, lines, GetVisRows() - yPos);
+	lines = std::clamp(lines, 0, GetVisRows() - yPos);
 
 	auto it = begin(visible_rows);
 	for (int i : boost::irange(yPos, yPos + lines)) {
@@ -356,7 +356,7 @@ void BaseGrid::OnPaint(wxPaintEvent &) {
 
 	// Paint the rows
 	const int drawPerScreen = h/lineHeight + 1;
-	const int nDraw = mid(0, drawPerScreen, GetVisRows() - yPos);
+	const int nDraw = std::clamp(drawPerScreen, 0, GetVisRows() - yPos);
 	const int grid_x = columns[0]->Width();
 
 	const auto active_line = context->selectionController->GetActiveLine();
@@ -460,7 +460,7 @@ void BaseGrid::OnMouseEvent(wxMouseEvent &event) {
 	bool dclick = event.LeftDClick();
 	int row = event.GetY() / lineHeight + yPos - 1;
 	if (holding && !click)
-		row = mid(0, row, GetVisRows()-1);
+		row = std::clamp(row, 0, GetVisRows()-1);
 	AssDialogue *dlg = GetVisDialogue(row);
 	if (!dlg) row = 0;
 
@@ -595,7 +595,7 @@ void BaseGrid::OnContextMenu(wxContextMenuEvent &evt) {
 }
 
 void BaseGrid::ScrollTo(int y) {
-	int nextY = mid(0, y, GetVisRows() - 1);
+	int nextY = std::clamp(y, 0, GetVisRows() - 1);
 	if (yPos != nextY) {
 		context->ass->Properties.scroll_position = yPos = nextY;
 		scrollBar->SetThumbPosition(yPos);
@@ -623,7 +623,7 @@ void BaseGrid::AdjustScrollbar() {
 	int drawPerScreen = clientSize.GetHeight() / lineHeight;
 	int rows = GetVisRows();
 
-	context->ass->Properties.scroll_position = yPos = mid(0, yPos, rows - 1);
+	context->ass->Properties.scroll_position = yPos = std::clamp(yPos, 0, rows - 1);
 
 	scrollBar->SetScrollbar(yPos, drawPerScreen, rows + drawPerScreen - 1, drawPerScreen - 2, true);
 	scrollBar->Thaw();
@@ -729,7 +729,7 @@ void BaseGrid::OnKeyDown(wxKeyEvent &event) {
 
 	auto active_line = context->selectionController->GetActiveLine();
 	int old_extend = extendRow;
-	int next = mid(0, (active_line ? active_line->Fold.getVisibleRow() : 0) + dir * step, GetVisRows() - 1);
+	int next = std::clamp((active_line ? active_line->Fold.getVisibleRow() : 0) + dir * step, 0, GetVisRows() - 1);
 	context->selectionController->SetActiveLine(GetVisDialogue(next));
 
 	// Move selection

@@ -36,6 +36,8 @@
 #include <libaegisub/exception.h>
 #include <libaegisub/string.h>
 
+#include <algorithm>
+
 AudioColorScheme::AudioColorScheme(int prec, std::string const& scheme_name, int audio_rendering_style)
 : palette((3<<prec) + 3)
 , factor((size_t)1<<prec)
@@ -61,9 +63,9 @@ AudioColorScheme::AudioColorScheme(int prec, std::string const& scheme_name, int
 	{
 		auto t = (double)i / factor;
 		hsl_to_rgb(
-			mid<int>(0, h_base + t * h_scale, 255),
-			mid<int>(0, s_base + t * s_scale, 255),
-			mid<int>(0, l_base + t * l_scale, 255),
+			std::clamp<int>(static_cast<int>(h_base + t * h_scale), 0, 255),
+			std::clamp<int>(static_cast<int>(s_base + t * s_scale), 0, 255),
+			std::clamp<int>(static_cast<int>(l_base + t * l_scale), 0, 255),
 			&palette[i * 3 + 0],
 			&palette[i * 3 + 1],
 			&palette[i * 3 + 2]);

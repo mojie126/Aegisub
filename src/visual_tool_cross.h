@@ -34,6 +34,8 @@ class VisualToolCross final : public VisualTool<VisualDraggableFeature> {
 
 	void OnDoubleClick() override;
 	void Draw() override;
+	/// @brief 根据配置刷新十字工具的字体
+	void SetFont();
 	std::string Text(Vector2D v);
 public:
 	VisualToolCross(VideoDisplay *parent, agi::Context *context);

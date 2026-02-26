@@ -348,8 +348,8 @@ void VideoDisplay::PositionVideo() {
 	// 限制平移范围，防止视频完全离开视口
 	double max_pan_x = (0.5 * viewport_width + 0.4 * videoSize.GetWidth()) / videoSize.GetHeight();
 	double max_pan_y = (0.5 * viewport_height + 0.4 * videoSize.GetHeight()) / videoSize.GetHeight();
-	pan_x = mid(-max_pan_x, pan_x, max_pan_x);
-	pan_y = mid(-max_pan_y, pan_y, max_pan_y);
+	pan_x = std::clamp(pan_x, -max_pan_x, max_pan_x);
+	pan_y = std::clamp(pan_y, -max_pan_y, max_pan_y);
 
 	// 应用平移（平移单位为视口高度的比例）
 	viewport_left_exact += pan_x * videoSize.GetHeight();

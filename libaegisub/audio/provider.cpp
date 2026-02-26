@@ -21,6 +21,8 @@
 #include "libaegisub/log.h"
 #include "libaegisub/util.h"
 
+#include <algorithm>
+
 namespace {
 
 template<typename Source>
@@ -143,11 +145,11 @@ void AudioProvider::GetAudioWithVolume(void *buf, int64_t start, int64_t count, 
 		if (bytes_per_sample == sizeof(uint8_t)) {
 			uint8_t *buff = reinterpret_cast<uint8_t *>(buf);
 			for (int64_t i = 0; i < n; ++i)
-				buff[i] = util::mid(0, static_cast<int>(((int) buff[i] - 128) * volume + 128), 0xFF);
+				buff[i] = std::clamp(static_cast<int>(((int) buff[i] - 128) * volume + 128), 0, 0xFF);
 		} else if (bytes_per_sample == sizeof(int16_t)) {
 			int16_t *buff = reinterpret_cast<int16_t *>(buf);
 			for (int64_t i = 0; i < n; ++i)
-				buff[i] = util::mid(-0x8000, static_cast<int>(buff[i] * volume), 0x7FFF);
+				buff[i] = std::clamp(static_cast<int>(buff[i] * volume), -0x8000, 0x7FFF);
 		} else if (bytes_per_sample == sizeof(int32_t)) {
 			int32_t *buff = reinterpret_cast<int32_t *>(buf);
 			for (int64_t i = 0; i < n; ++i)
@@ -166,7 +168,7 @@ void AudioProvider::GetInt16MonoAudioWithVolume(int16_t *buf, int64_t start, int
 
 	auto buffer = static_cast<int16_t *>(buf);
 	for (size_t i = 0; i < (size_t)count; ++i)
-		buffer[i] = util::mid(-0x8000, static_cast<int>(buffer[i] * volume + 0.5), 0x7FFF);
+		buffer[i] = std::clamp(static_cast<int>(buffer[i] * volume + 0.5), -0x8000, 0x7FFF);
 }
 
 void AudioProvider::ZeroFill(void *buf, int64_t count) const {
@@ -271,7 +273,7 @@ public:
 void SaveAudioClip(AudioProvider const& provider, fs::path const& path, int start_time, int end_time) {
 	const auto max_samples = provider.GetNumSamples();
 	const auto start_sample = std::min(max_samples, ((int64_t)start_time * provider.GetSampleRate() + 999) / 1000);
-	const auto end_sample = util::mid(start_sample, ((int64_t)end_time * provider.GetSampleRate() + 999) / 1000, max_samples);
+	const auto end_sample = std::clamp(((int64_t)end_time * provider.GetSampleRate() + 999) / 1000, start_sample, max_samples);
 
 	const size_t bytes_per_sample = provider.GetBytesPerSample() * provider.GetChannels();
 	const size_t bufsize = (end_sample - start_sample) * bytes_per_sample;

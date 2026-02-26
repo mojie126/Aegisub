@@ -46,6 +46,8 @@
 #include <wx/wfstream.h>
 #include <wx/zipstrm.h>
 
+#include <algorithm>
+
 namespace {
 enum class FcMode {
 	CheckFontsOnly = 0,
@@ -239,7 +241,7 @@ DialogFontsCollector::DialogFontsCollector(agi::Context *c)
 #endif
 	};
 
-	mode = static_cast<FcMode>(mid<int>(0, OPT_GET("Tool/Fonts Collector/Action")->GetInt(), std::size(modes)));
+	mode = static_cast<FcMode>(std::clamp<int>(OPT_GET("Tool/Fonts Collector/Action")->GetInt(), 0, static_cast<int>(std::size(modes))));
 	collection_mode = new wxRadioBox(this, -1, _("Action"), wxDefaultPosition, wxDefaultSize, std::size(modes), modes, 1);
 	collection_mode->SetSelection(static_cast<int>(mode));
 

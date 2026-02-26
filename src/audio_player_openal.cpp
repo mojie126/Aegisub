@@ -41,6 +41,8 @@
 #include <libaegisub/audio/provider.h>
 #include <libaegisub/log.h>
 
+#include <algorithm>
+
 #ifdef __WINDOWS__
 #include <al.h>
 #include <alc.h>
@@ -268,8 +270,8 @@ void OpenALPlayer::FillBuffers(ALsizei count)
 {
 	InitContext();
 	// Do the actual filling/queueing
-	for (count = mid(1, count, buffers_free); count > 0; --count) {
-		ALsizei fill_len = mid<ALsizei>(0, decode_buffer.size() / bpf, end_frame - cur_frame);
+	for (count = std::clamp(count, ALsizei{1}, buffers_free); count > 0; --count) {
+		ALsizei fill_len = std::clamp<ALsizei>(static_cast<ALsizei>(decode_buffer.size() / bpf), 0, end_frame - cur_frame);
 
 		if (fill_len > 0) {
 			// Get fill_len frames of audio

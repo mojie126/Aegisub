@@ -761,7 +761,7 @@ void AudioDisplay::ReloadRenderingSettings()
 		// FFTW is so fast we can afford to upgrade quality by two levels
 		spectrum_quality += 2;
 #endif
-		spectrum_quality = mid<int64_t>(0, spectrum_quality, 5);
+		spectrum_quality = std::clamp<int64_t>(spectrum_quality, 0, 5);
 
 		// Quality indexes:        0  1  2  3   4   5
 		int spectrum_width[]    = {8, 9, 9, 9, 10, 11};
@@ -773,7 +773,7 @@ void AudioDisplay::ReloadRenderingSettings()
 
 		// Frequency curve
 		int64_t spectrum_freq_curve = OPT_GET("Audio/Renderer/Spectrum/FreqCurve")->GetInt();
-		spectrum_freq_curve = mid<int64_t>(0, spectrum_freq_curve, 4);
+		spectrum_freq_curve = std::clamp<int64_t>(spectrum_freq_curve, 0, 4);
 		const float spectrum_fref_pos [] = { 0.001f, 0.125f, 0.333f, 0.425f, 0.999f };
 
 		audio_spectrum_renderer->set_reference_frequency_position (
@@ -969,7 +969,7 @@ void AudioDisplay::PaintTrackCursor(wxDC &dc) {
 
 	wxSize label_size(dc.GetTextExtent(track_cursor_label));
 	wxPoint label_pos(track_cursor_pos - scroll_left - label_size.x/2, audio_top + 2);
-	label_pos.x = mid(2, label_pos.x, GetClientSize().GetWidth() - label_size.x - 2);
+	label_pos.x = std::clamp(label_pos.x, 2, GetClientSize().GetWidth() - label_size.x - 2);
 
 	int old_bg_mode = dc.GetBackgroundMode();
 	dc.SetBackgroundMode(wxTRANSPARENT);

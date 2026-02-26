@@ -44,6 +44,8 @@
 #include <libaegisub/scoped_ptr.h>
 #include <libaegisub/log.h>
 
+#include <algorithm>
+
 #include <mmsystem.h>
 #include <process.h>
 #include <dsound.h>
@@ -329,7 +331,7 @@ void DirectSoundPlayer2Thread::Run()
 	int aim = waveFormat.nAvgBytesPerSec * (wanted_latency*buffer_length)/1000;
 	int min = DSBSIZE_MIN;
 	int max = DSBSIZE_MAX;
-	DWORD bufSize = mid(min,aim,max); // size of entire playback buffer
+	DWORD bufSize = std::clamp(aim, min, max); // size of entire playback buffer
 	DSBUFFERDESC desc;
 	desc.dwSize = sizeof(DSBUFFERDESC);
 	desc.dwFlags = DSBCAPS_CTRLVOLUME | DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_GLOBALFOCUS;

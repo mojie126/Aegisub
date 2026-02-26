@@ -42,6 +42,7 @@
 #include "utils.h"
 
 #include <cmath>
+#include <algorithm>
 #include <wx/panel.h>
 #include <wx/slider.h>
 #include <wx/scrolbar.h>
@@ -117,7 +118,7 @@ AudioBox::AudioBox(wxWindow *parent, agi::Context *context)
 	audioDisplay->Bind(wxEVT_MOUSEWHEEL, &AudioBox::OnMouseWheel, this);
 
 	audioDisplay->SetZoomLevel(-HorizontalZoom->GetValue());
-	audioDisplay->SetAmplitudeScale(pow(mid(1, VerticalZoom->GetValue(), 100) / 50.0, 3));
+	audioDisplay->SetAmplitudeScale(pow(std::clamp(VerticalZoom->GetValue(), 1, 100) / 50.0, 3));
 }
 
 BEGIN_EVENT_TABLE(AudioBox,wxSashWindow)
@@ -187,7 +188,7 @@ void AudioBox::OnVerticalZoom(wxScrollEvent &event) {
 }
 
 void AudioBox::SetVerticalZoom(int new_zoom) {
-	int pos = mid(1, new_zoom, 100);
+	int pos = std::clamp(new_zoom, 1, 100);
 	OPT_SET("Audio/Zoom/Vertical")->SetInt(pos);
 	double value = pow(pos / 50.0, 3);
 	audioDisplay->SetAmplitudeScale(value);
@@ -199,14 +200,14 @@ void AudioBox::SetVerticalZoom(int new_zoom) {
 }
 
 void AudioBox::OnVolume(wxScrollEvent &event) {
-	int pos = mid(1, event.GetPosition(), 100);
+	int pos = std::clamp(event.GetPosition(), 1, 100);
 	OPT_SET("Audio/Volume")->SetInt(pos);
 	controller->SetVolume(pow(pos / 50.0, 3));
 }
 
 void AudioBox::OnVerticalLink(agi::OptionValue const& opt) {
 	if (opt.GetBool()) {
-		int pos = mid(1, VerticalZoom->GetValue(), 100);
+		int pos = std::clamp(VerticalZoom->GetValue(), 1, 100);
 		double value = pow(pos / 50.0, 3);
 		controller->SetVolume(value);
 		VolumeBar->SetValue(pos);
@@ -215,7 +216,7 @@ void AudioBox::OnVerticalLink(agi::OptionValue const& opt) {
 }
 
 void AudioBox::OnAudioOpen() {
-	controller->SetVolume(pow(mid(1, VolumeBar->GetValue(), 100) / 50.0, 3));
+	controller->SetVolume(pow(std::clamp(VolumeBar->GetValue(), 1, 100) / 50.0, 3));
 }
 
 void AudioBox::ShowKaraokeBar(bool show) {

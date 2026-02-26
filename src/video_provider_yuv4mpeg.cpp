@@ -43,6 +43,7 @@
 #include <libaegisub/ycbcr_conv.h>
 
 #include <boost/algorithm/string/case_conv.hpp>
+#include <algorithm>
 #include <memory>
 #include <vector>
 
@@ -387,7 +388,7 @@ int YUV4MPEGVideoProvider::IndexFile(uint64_t pos) {
 }
 
 void YUV4MPEGVideoProvider::GetFrame(int n, VideoFrame &frame) {
-	n = mid(0, n, num_frames - 1);
+	n = std::clamp(n, 0, num_frames - 1);
 
 	int uv_width = w / 2;
 

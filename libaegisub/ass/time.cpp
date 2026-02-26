@@ -37,7 +37,7 @@ static void decompose_time(int ms_time, int& h, int& m, int& s, int& ms) {
 }
 
 namespace agi {
-Time::Time(int time) : time(util::mid(0, time, MAX_TIME)) { }
+Time::Time(int time) : time(std::clamp(time, 0, MAX_TIME)) { }
 
 Time::Time(std::string_view text) {
 	int after_decimal = -1;
@@ -69,7 +69,7 @@ Time::Time(std::string_view text) {
 		time = (time * 60 + current) * 1000;
 
 	// Limit to the valid range
-	time = util::mid(0, time, MAX_TIME);
+	time = std::clamp(time, 0, MAX_TIME);
 }
 
 std::string Time::GetAssFormatted(bool msPrecision) const {

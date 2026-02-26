@@ -28,6 +28,7 @@
 #include <libaegisub/util_osx.h>
 
 #include <atomic>
+#include <algorithm>
 #include <wx/button.h>
 #include <wx/gauge.h>
 #include <wx/sizer.h>
@@ -91,7 +92,7 @@ public:
 	}
 
 	void SetProgress(int64_t cur, int64_t max) override {
-		int new_progress = mid<int>(0, double(cur) / max * 300, 300);
+		int new_progress = std::clamp<int>(static_cast<int>(double(cur) / max * 300), 0, 300);
 		if (new_progress != progress) {
 			progress = new_progress;
 			Main().Async([=, this]{ dialog->SetProgress(new_progress); });
@@ -228,7 +229,7 @@ void DialogProgress::OnIdle(wxIdleEvent&) {
 	else if (progress_current < progress_target) {
 		using namespace std::chrono;
 		auto now = steady_clock::now();
-		int ms = mid<int>(0, duration_cast<milliseconds>(now - progress_anim_start_time).count(), progress_anim_duration);
+		int ms = std::clamp<int>(static_cast<int>(duration_cast<milliseconds>(now - progress_anim_start_time).count()), 0, progress_anim_duration);
 		int dist = (progress_target - progress_anim_start_value) * ms / progress_anim_duration;
 		if (dist) {
 			progress_current = progress_anim_start_value + dist;
