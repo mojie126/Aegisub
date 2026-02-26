@@ -19,7 +19,6 @@
 
 #include <libaegisub/fs.h>
 
-namespace {
 template<typename Container>
 std::vector<std::string> GetClasses(Container const& c) {
 	std::vector<std::string> list;
@@ -68,5 +67,4 @@ auto RearrangeWithPriority(Container &c, agi::fs::path const& filename) {
 			}
 		}
 	}
-}
 }
