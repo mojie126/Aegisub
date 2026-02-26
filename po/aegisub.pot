@@ -4847,44 +4847,49 @@ msgstr ""
 msgid "translation assistant"
 msgstr ""
 
-#: ../src/dialog_version_check.cpp:93
+#: ../src/dialog_version_check.cpp:230
 msgid "Version Checker"
 msgstr ""
 
-#: ../src/dialog_version_check.cpp:118
+#: ../src/dialog_version_check.cpp:247
+msgid "An update to Aegisub is available!"
+msgstr ""
+
+#: ../src/dialog_version_check.cpp:255
+msgid "Aegisub is up to date."
+msgstr ""
+
+#: ../src/dialog_version_check.cpp:265
+#, c-format
+msgid "Current version: %s"
+msgstr ""
+
+#: ../src/dialog_version_check.cpp:270
+#, c-format
+msgid "Latest version: %s"
+msgstr ""
+
+#: ../src/dialog_version_check.cpp:281
+msgid "Release Notes:"
+msgstr ""
+
+#: ../src/dialog_version_check.cpp:296
+msgid "Download from GitHub"
+msgstr ""
+
+#: ../src/dialog_version_check.cpp:296
+msgid "View on GitHub"
+msgstr ""
+
+#: ../src/dialog_version_check.cpp:303
 msgid "&Auto Check for Updates"
 msgstr ""
 
-#: ../src/dialog_version_check.cpp:123
+#: ../src/dialog_version_check.cpp:311
 msgid "Remind me again in a &week"
 msgstr ""
 
-#: ../src/dialog_version_check.cpp:287
-msgid "Could not connect to updates server."
-msgstr ""
-
-#: ../src/dialog_version_check.cpp:309
-msgid "Could not download from updates server."
-msgstr ""
-
-#: ../src/dialog_version_check.cpp:311
-#, c-format
-msgid "HTTP request failed, got HTTP response %d."
-msgstr ""
-
-#: ../src/dialog_version_check.cpp:342
-msgid "An update to Aegisub was found."
-msgstr ""
-
-#: ../src/dialog_version_check.cpp:344
-msgid "Several possible updates to Aegisub were found."
-msgstr ""
-
-#: ../src/dialog_version_check.cpp:346
-msgid "There are no updates to Aegisub."
-msgstr ""
-
-#: ../src/dialog_version_check.cpp:374
+#: ../src/dialog_version_check.cpp:606
 #, c-format
 msgid ""
 "There was an error checking for updates to Aegisub:\n"
@@ -4894,7 +4899,7 @@ msgid ""
 "temporary server problem on our end."
 msgstr ""
 
-#: ../src/dialog_version_check.cpp:378
+#: ../src/dialog_version_check.cpp:619
 msgid "An unknown error occurred while checking for updates to Aegisub."
 msgstr ""
 

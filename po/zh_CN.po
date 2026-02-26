@@ -4951,57 +4951,63 @@ msgstr "当前行： %d/%d"
 msgid "translation assistant"
 msgstr "翻译助手"
 
-#: ../src/dialog_version_check.cpp:93
+#: ../src/dialog_version_check.cpp:230
 msgid "Version Checker"
 msgstr "版本检查"
 
-#: ../src/dialog_version_check.cpp:118
+#: ../src/dialog_version_check.cpp:247
+msgid "An update to Aegisub is available!"
+msgstr "Aegisub 有新版本可用！"
+
+#: ../src/dialog_version_check.cpp:255
+msgid "Aegisub is up to date."
+msgstr "Aegisub 已是最新版本。"
+
+#: ../src/dialog_version_check.cpp:265
+#, c-format
+msgid "Current version: %s"
+msgstr "当前版本：%s"
+
+#: ../src/dialog_version_check.cpp:270
+#, c-format
+msgid "Latest version: %s"
+msgstr "最新版本：%s"
+
+#: ../src/dialog_version_check.cpp:281
+msgid "Release Notes:"
+msgstr "发行说明："
+
+#: ../src/dialog_version_check.cpp:296
+msgid "Download from GitHub"
+msgstr "从 GitHub 下载"
+
+#: ../src/dialog_version_check.cpp:296
+msgid "View on GitHub"
+msgstr "在 GitHub 上查看"
+
+#: ../src/dialog_version_check.cpp:303
 msgid "&Auto Check for Updates"
 msgstr "自动检查更新(&A)"
 
-#: ../src/dialog_version_check.cpp:123
-msgid "Remind me again in a &week"
-msgstr "下个星期再将提醒我(&W)"
-
-#: ../src/dialog_version_check.cpp:287
-msgid "Could not connect to updates server."
-msgstr "无法连接更新服务器。"
-
-#: ../src/dialog_version_check.cpp:309
-msgid "Could not download from updates server."
-msgstr "无法从更新服务器下载更新。"
-
 #: ../src/dialog_version_check.cpp:311
-#, c-format
-msgid "HTTP request failed, got HTTP response %d."
-msgstr "HTTP请求失败，返回的状态 %d。"
+msgid "Remind me again in a &week"
+msgstr "一周后再提醒我(&W)"
 
-#: ../src/dialog_version_check.cpp:342
-msgid "An update to Aegisub was found."
-msgstr "发现Aegisub更新。"
-
-#: ../src/dialog_version_check.cpp:344
-msgid "Several possible updates to Aegisub were found."
-msgstr "发现几个Aegisub可用更新。"
-
-#: ../src/dialog_version_check.cpp:346
-msgid "There are no updates to Aegisub."
-msgstr "没有发现Aegisub更新。"
-
-#: ../src/dialog_version_check.cpp:374
+#: ../src/dialog_version_check.cpp:606
 #, c-format
 msgid ""
 "There was an error checking for updates to Aegisub:\n"
 "%s\n"
 "\n"
-"If other applications can access the Internet fine, this is probably a temporary server problem on our end."
+"If other applications can access the Internet fine, this is probably a "
+"temporary server problem on our end."
 msgstr ""
 "Aegisub检查更新时出错：\n"
 "%s\n"
 "\n"
 "如果其他程序可以正常访问互联网，那么这很可能是我们的服务器的临时问题。"
 
-#: ../src/dialog_version_check.cpp:378
+#: ../src/dialog_version_check.cpp:619
 msgid "An unknown error occurred while checking for updates to Aegisub."
 msgstr "Aegisub检查更新时发生未知错误。"
 

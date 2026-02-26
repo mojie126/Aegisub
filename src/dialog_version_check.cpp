@@ -54,6 +54,7 @@
 #include <wx/event.h>
 #include <wx/hyperlink.h>
 #include <wx/intl.h>
+#include <wx/msgdlg.h>
 #include <wx/platinfo.h>
 #include <wx/sizer.h>
 #include <wx/statline.h>
@@ -61,8 +62,6 @@
 #include <wx/string.h>
 #include <wx/textctrl.h>
 #include <wx/html/htmlwin.h>
-#include <wx/filesys.h>
-#include <wx/fs_inet.h>
 
 #include <regex>
 
@@ -106,8 +105,8 @@ std::string ProcessInlineMarkdown(const std::string& line) {
 	// 斜体: *text*
 	result = std::regex_replace(result, std::regex("\\*([^*]+)\\*"), "<i>$1</i>");
 
-	// 图片: ![alt](url) — 必须在链接之前处理
-	result = std::regex_replace(result, std::regex("!\\[([^\\]]*)\\]\\(([^)]+)\\)"), "<img src=\"$2\" alt=\"$1\">");
+	// 图片: ![alt](url) — wxHtmlWindow 不支持加载外部图片，直接移除
+	result = std::regex_replace(result, std::regex("!\\[([^\\]]*)\\]\\(([^)]+)\\)"), "");
 
 	// 链接: [text](url)
 	result = std::regex_replace(result, std::regex("\\[([^\\]]+)\\]\\(([^)]+)\\)"), "<a href=\"$2\">$1</a>");
@@ -120,9 +119,13 @@ std::string ProcessInlineMarkdown(const std::string& line) {
 /// @param markdown Markdown 格式文本
 /// @return HTML 格式文本
 std::string MarkdownToHtml(const std::string& markdown) {
+	// 预处理: 移除原始 HTML <img> 标签（wxHtmlWindow 不支持加载外部 HTTPS 图片）
+	static const std::regex img_tag_re(R"re(<img\b[^>]*/?>)re", std::regex::icase);
+	std::string preprocessed = std::regex_replace(markdown, img_tag_re, "");
+
 	std::string html = "<html><body>";
 
-	std::istringstream stream(markdown);
+	std::istringstream stream(preprocessed);
 	std::string line;
 	bool in_code_block = false;
 	bool in_list = false;
@@ -209,71 +212,106 @@ struct AegisubUpdateDescription {
 };
 
 class VersionCheckerResultDialog final : public wxDialog {
-	void OnCloseButton(wxCommandEvent &evt);
-	void OnRemindMeLater(wxCommandEvent &evt);
 	void OnClose(wxCloseEvent &evt);
 
 	wxCheckBox *automatic_check_checkbox;
 
 public:
-	VersionCheckerResultDialog(wxString const& main_text, const std::vector<AegisubUpdateDescription> &updates);
+	/// @brief 构造更新检查结果对话框
+	/// @param has_update 是否有可用更新
+	/// @param current_ver 当前版本号
+	/// @param update 最新Release信息（可为空）
+	VersionCheckerResultDialog(bool has_update, wxString const& current_ver,
+	                           const AegisubUpdateDescription &update);
 
 	bool ShouldPreventAppExit() const override { return false; }
 };
 
-VersionCheckerResultDialog::VersionCheckerResultDialog(wxString const& main_text, const std::vector<AegisubUpdateDescription> &updates)
+VersionCheckerResultDialog::VersionCheckerResultDialog(bool has_update, wxString const& current_ver,
+                                                       const AegisubUpdateDescription &update)
 : wxDialog(nullptr, -1, _("Version Checker"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 {
-	// 注册网络文件系统处理器，使 wxHtmlWindow 能加载 HTTP 图片
-	static bool fs_handler_registered = false;
-	if (!fs_handler_registered) {
-		wxFileSystem::AddHandler(new wxInternetFSHandler);
-		fs_handler_registered = true;
-	}
-
-	const int controls_width = FromDIP(500);
+	const int controls_width = FromDIP(400);
 
 	wxSizer *main_sizer = new wxBoxSizer(wxVERTICAL);
 
-	wxStaticText *text = new wxStaticText(this, -1, main_text);
-	text->Wrap(controls_width);
-	main_sizer->Add(text, 0, wxBOTTOM|wxEXPAND, FromDIP(6));
+	// 版本状态区域
+	wxSizer *status_sizer = new wxBoxSizer(wxVERTICAL);
 
-	for (auto const& update : updates) {
-		main_sizer->Add(new wxStaticLine(this), 0, wxEXPAND|wxALL, FromDIP(6));
-
-		text = new wxStaticText(this, -1, to_wx(update.friendly_name));
-		wxFont boldfont = text->GetFont();
-		boldfont.SetWeight(wxFONTWEIGHT_BOLD);
-		text->SetFont(boldfont);
-		main_sizer->Add(text, 0, wxEXPAND|wxBOTTOM, FromDIP(6));
-
-		auto *descbox = new HtmlWindowWithLinks(this, -1, wxDefaultPosition, FromDIP(wxSize(controls_width, 200)), wxHW_SCROLLBAR_AUTO);
-		descbox->SetPage(to_wx(MarkdownToHtml(update.description)));
-		main_sizer->Add(descbox, 1, wxEXPAND|wxBOTTOM, FromDIP(6));
-
-		main_sizer->Add(new wxHyperlinkCtrl(this, -1, to_wx(update.url), to_wx(update.url)), 0, wxALIGN_LEFT|wxBOTTOM, FromDIP(6));
+	if (has_update) {
+		auto *status_text = new wxStaticText(this, -1, _("An update to Aegisub is available!"));
+		wxFont status_font = status_text->GetFont();
+		status_font.SetPointSize(status_font.GetPointSize() + 2);
+		status_font.SetWeight(wxFONTWEIGHT_BOLD);
+		status_text->SetFont(status_font);
+		status_text->SetForegroundColour(wxColour(0, 128, 0));
+		status_sizer->Add(status_text, 0, wxBOTTOM, FromDIP(4));
+	} else {
+		auto *status_text = new wxStaticText(this, -1, _("Aegisub is up to date."));
+		wxFont status_font = status_text->GetFont();
+		status_font.SetPointSize(status_font.GetPointSize() + 2);
+		status_font.SetWeight(wxFONTWEIGHT_BOLD);
+		status_text->SetFont(status_font);
+		status_sizer->Add(status_text, 0, wxBOTTOM, FromDIP(4));
 	}
 
+	// 当前版本 / 最新版本对比
+	auto *ver_current = new wxStaticText(this, -1,
+		wxString::Format(_("Current version: %s"), current_ver));
+	status_sizer->Add(ver_current, 0, wxBOTTOM, FromDIP(2));
+
+	if (!update.friendly_name.empty()) {
+		auto *ver_latest = new wxStaticText(this, -1,
+			wxString::Format(_("Latest version: %s"), to_wx(update.friendly_name)));
+		if (has_update)
+			ver_latest->SetForegroundColour(wxColour(0, 128, 0));
+		status_sizer->Add(ver_latest, 0, wxBOTTOM, FromDIP(2));
+	}
+
+	main_sizer->Add(status_sizer, 0, wxEXPAND|wxBOTTOM, FromDIP(8));
+	main_sizer->Add(new wxStaticLine(this), 0, wxEXPAND|wxBOTTOM, FromDIP(8));
+
+	// Release Notes 区域
+	if (!update.description.empty()) {
+		auto *notes_label = new wxStaticText(this, -1, _("Release Notes:"));
+		wxFont notes_font = notes_label->GetFont();
+		notes_font.SetWeight(wxFONTWEIGHT_BOLD);
+		notes_label->SetFont(notes_font);
+		main_sizer->Add(notes_label, 0, wxBOTTOM, FromDIP(4));
+
+		auto *descbox = new HtmlWindowWithLinks(this, -1, wxDefaultPosition,
+			FromDIP(wxSize(controls_width, 240)), wxHW_SCROLLBAR_AUTO);
+		descbox->SetPage(to_wx(MarkdownToHtml(update.description)));
+		main_sizer->Add(descbox, 1, wxEXPAND|wxBOTTOM, FromDIP(8));
+	}
+
+	// 发行页面链接
+	if (!update.url.empty()) {
+		wxString link_label = has_update ? _("Download from GitHub") : _("View on GitHub");
+		main_sizer->Add(new wxHyperlinkCtrl(this, -1,
+			link_label, to_wx(update.url)),
+			0, wxALIGN_LEFT|wxBOTTOM, FromDIP(8));
+	}
+
+	main_sizer->Add(new wxStaticLine(this), 0, wxEXPAND|wxBOTTOM, FromDIP(8));
+
+	// 底部: 自动检查 + 按钮
 	automatic_check_checkbox = new wxCheckBox(this, -1, _("&Auto Check for Updates"));
 	automatic_check_checkbox->SetValue(OPT_GET("App/Auto/Check For Updates")->GetBool());
+	main_sizer->Add(automatic_check_checkbox, 0, wxEXPAND|wxBOTTOM, FromDIP(8));
 
-	wxButton *remind_later_button = nullptr;
-	if (updates.size() > 0)
-		remind_later_button = new wxButton(this, wxID_NO, _("Remind me again in a &week"));
-
+	auto *button_sizer = new wxStdDialogButtonSizer();
 	wxButton *close_button = new wxButton(this, wxID_OK, _("&Close"));
-	SetAffirmativeId(wxID_OK);
-	SetEscapeId(wxID_OK);
-
-	if (updates.size())
-		main_sizer->Add(new wxStaticLine(this), 0, wxEXPAND|wxALL, FromDIP(6));
-	main_sizer->Add(automatic_check_checkbox, 0, wxEXPAND|wxBOTTOM, FromDIP(6));
-
-	auto button_sizer = new wxStdDialogButtonSizer();
 	button_sizer->AddButton(close_button);
-	if (remind_later_button)
-		button_sizer->AddButton(remind_later_button);
+	if (has_update) {
+		auto *remind_btn = new wxButton(this, wxID_NO, _("Remind me again in a &week"));
+		button_sizer->AddButton(remind_btn);
+		Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+			time_t new_next_check_time = time(nullptr) + 7*24*60*60;
+			OPT_SET("Version/Next Check")->SetInt(new_next_check_time);
+			Close();
+		}, wxID_NO);
+	}
 	button_sizer->Realize();
 	main_sizer->Add(button_sizer, 0, wxEXPAND, 0);
 
@@ -281,21 +319,14 @@ VersionCheckerResultDialog::VersionCheckerResultDialog(wxString const& main_text
 	outer_sizer->Add(main_sizer, 1, wxALL|wxEXPAND, FromDIP(12));
 
 	SetSizerAndFit(outer_sizer);
-	SetMinSize(FromDIP(wxSize(400, 200)));
+	SetMinSize(FromDIP(wxSize(360, 280)));
 	Centre();
 	Show();
 
+	SetAffirmativeId(wxID_OK);
+	SetEscapeId(wxID_OK);
 	Bind(wxEVT_BUTTON, std::bind(&VersionCheckerResultDialog::Close, this, false), wxID_OK);
-	Bind(wxEVT_BUTTON, &VersionCheckerResultDialog::OnRemindMeLater, this, wxID_NO);
 	Bind(wxEVT_CLOSE_WINDOW, &VersionCheckerResultDialog::OnClose, this);
-}
-
-void VersionCheckerResultDialog::OnRemindMeLater(wxCommandEvent &) {
-	// In one week
-	time_t new_next_check_time = time(nullptr) + 7*24*60*60;
-	OPT_SET("Version/Next Check")->SetInt(new_next_check_time);
-
-	Close();
 }
 
 void VersionCheckerResultDialog::OnClose(wxCloseEvent &) {
@@ -308,7 +339,7 @@ DEFINE_EXCEPTION(VersionCheckError, agi::Exception);
 void PostErrorEvent(bool interactive, wxString const& error_text) {
 	if (interactive) {
 		agi::dispatch::Main().Async([=]{
-			new VersionCheckerResultDialog(error_text, {});
+			wxMessageBox(error_text, _("Version Checker"), wxOK | wxICON_ERROR);
 		});
 	}
 }
@@ -540,25 +571,18 @@ void DoCheck(bool interactive) {
 	std::string body = get_string("body");
 	std::string html_url = get_string("html_url");
 
-	std::vector<AegisubUpdateDescription> results;
+	AegisubUpdateDescription update_info{
+		html_url,
+		release_name.empty() ? tag_name : release_name,
+		body
+	};
 
-	if (!tag_name.empty() && IsNewerVersion(tag_name, GetVersionNumber())) {
-		results.push_back(AegisubUpdateDescription{
-			html_url,
-			release_name.empty() ? tag_name : release_name,
-			body
-		});
-	}
+	bool has_update = !tag_name.empty() && IsNewerVersion(tag_name, GetVersionNumber());
 
-	if (!results.empty() || interactive) {
+	if (has_update || interactive) {
+		wxString current_ver = to_wx(GetVersionNumber());
 		agi::dispatch::Main().Async([=]{
-			wxString text;
-			if (!results.empty())
-				text = _("An update to Aegisub was found.");
-			else
-				text = _("There are no updates to Aegisub.");
-
-			new VersionCheckerResultDialog(text, results);
+			new VersionCheckerResultDialog(has_update, current_ver, update_info);
 		});
 	}
 }
