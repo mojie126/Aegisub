@@ -83,8 +83,12 @@ namespace {
 		size_t srcLen = 1;
 		size_t dstLen = 8;
 
+#ifdef NDEBUG
+		cd(&src, &srcLen, &dst, &dstLen);
+#else
 		size_t res = cd(&src, &srcLen, &dst, &dstLen);
 		assert(res != iconv_failed);
+#endif
 		assert(srcLen == 0);
 
 		size_t size = 0;
@@ -185,8 +189,12 @@ namespace {
 			size_t dstLen = 4;
 			size_t srcLen = 1;
 
+#ifdef NDEBUG
+			Convert(&src, &srcLen, &dst, &dstLen);
+#else
 			size_t res = Convert(&src, &srcLen, &dst, &dstLen);
 			assert(res != iconv_failed);
+#endif
 			assert(srcLen == 0);
 
 			invalidRepSize = 4 - dstLen;

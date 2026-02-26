@@ -52,7 +52,7 @@ class ConvertUInt8ToInt16 {
 public:
 	ConvertUInt8ToInt16(uint8_t* src) :src(src) {}
 	int16_t operator[](size_t idx) const {
-		return int16_t(src[idx]-128) << 8;
+		return int16_t(src[idx]-128) * 256;
 	}
 };
 

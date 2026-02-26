@@ -54,25 +54,25 @@ AGI_TYPE_NAME_MODIFIER(" ", const);
 
 template<typename First>
 std::string function_args(bool is_first) {
-	return std::string(is_first ? "" : ", ") + type_name<First>::name() + ")";
+	return std::string(is_first ? "" : ", ").append(type_name<First>::name()).append(")");
 }
 
 template<typename First, typename Second, typename... Rest>
 std::string function_args(bool is_first) {
-	return std::string(is_first ? "" : ", ") + type_name<First>::name() + function_args<Second, Rest...>(false);
+	return std::string(is_first ? "" : ", ").append(type_name<First>::name()).append(function_args<Second, Rest...>(false));
 }
 
 template<typename Return, typename... Args>
 struct type_name<Return (*)(Args...)> {
 	static std::string name() {
-		return std::string(type_name<Return>::name()) + " (*)(" + function_args<Args...>(true);
+		return std::string(type_name<Return>::name()).append(" (*)(").append(function_args<Args...>(true));
 	}
 };
 
 template<typename Return>
 struct type_name<Return (*)()> {
 	static std::string name() {
-		return std::string(type_name<Return>::name()) + " (*)()";
+		return std::string(type_name<Return>::name()).append(" (*)()" );
 	}
 };
 }
