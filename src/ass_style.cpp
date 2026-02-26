@@ -159,9 +159,9 @@ AssStyle::AssStyle(std::string_view str, int version) {
 	if (version == 0)
 		alignment = SsaToAss(alignment);
 
-	Margin[0] = mid(-9999, p.next_int(), 99999);
-	Margin[1] = mid(-9999, p.next_int(), 99999);
-	Margin[2] = mid(-9999, p.next_int(), 99999);
+	Margin[0] = std::clamp(p.next_int(), -9999, 99999);
+	Margin[1] = std::clamp(p.next_int(), -9999, 99999);
+	Margin[2] = std::clamp(p.next_int(), -9999, 99999);
 
 	// Skip alpha level
 	if (version == 0)

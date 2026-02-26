@@ -72,7 +72,7 @@ std::pair<SplineCurve, SplineCurve> SplineCurve::Split(float t) {
 
 void SplineCurve::Smooth(Vector2D p0, Vector2D p5, float smooth) {
 	if (type != LINE || p1 == p2) return;
-	smooth = mid(0.f, smooth, 1.f);
+	smooth = std::clamp(smooth, 0.f, 1.f);
 
 	// Calculate intermediate points
 	Vector2D c1 = (p0 + p1) / 2.f;
@@ -167,7 +167,7 @@ float SplineCurve::GetQuickDistance(Vector2D ref) const {
 }
 
 float SplineCurve::GetClosestSegmentPart(Vector2D pt1, Vector2D pt2, Vector2D pt3) const {
-	return mid(0.f, (pt3 - pt1).Dot(pt2 - pt1) / (pt2 - pt1).SquareLen(), 1.f);
+	return std::clamp((pt3 - pt1).Dot(pt2 - pt1) / (pt2 - pt1).SquareLen(), 0.f, 1.f);
 }
 
 float SplineCurve::GetClosestSegmentDistance(Vector2D pt1, Vector2D pt2, Vector2D pt3) const {

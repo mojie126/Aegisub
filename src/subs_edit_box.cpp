@@ -45,7 +45,6 @@
 #include "include/aegisub/hotkey.h"
 #include "initial_line_state.h"
 #include "options.h"
-#include "placeholder_ctrl.h"
 #include "project.h"
 #include "selection_controller.h"
 #include "subs_edit_ctrl.h"
@@ -56,9 +55,9 @@
 #include "validators.h"
 
 #include <libaegisub/character_count.h>
-#include <libaegisub/util.h>
 
 #include <functional>
+#include <algorithm>
 #include <unordered_set>
 
 #include <wx/bmpbuttn.h>
@@ -147,12 +146,16 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	});
 	top_sizer->Add(style_edit_button, wxSizerFlags().Expand().Border(wxRIGHT));
 
-	actor_box = new Placeholder<wxComboBox>(this, _("Actor"), wxDefaultSize, wxCB_DROPDOWN | wxTE_PROCESS_ENTER, _("Actor name for this speech. This is only for reference, and is mainly useless."));
+	actor_box = new wxComboBox(this, -1, "", wxDefaultPosition, wxDefaultSize, 0, nullptr, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
+	actor_box->SetToolTip(_("Actor name for this speech. This is only for reference, and is mainly useless."));
+	actor_box->SetHint(_("Actor"));
 	Bind(wxEVT_TEXT, &SubsEditBox::OnActorChange, this, actor_box->GetId());
 	Bind(wxEVT_COMBOBOX, &SubsEditBox::OnActorChange, this, actor_box->GetId());
 	top_sizer->Add(actor_box, wxSizerFlags(2).Expand().Border(wxRIGHT));
 
-	effect_box = new Placeholder<wxComboBox>(this, _("Effect"), wxDefaultSize, wxCB_DROPDOWN | wxTE_PROCESS_ENTER, _("Effect for this line. This can be used to store extra information for karaoke scripts, or for the effects supported by the renderer."));
+	effect_box = new wxComboBox(this, -1, "", wxDefaultPosition, wxDefaultSize, 0, nullptr, wxCB_DROPDOWN | wxTE_PROCESS_ENTER);
+	effect_box->SetToolTip(_("Effect for this line. This can be used to store extra information for karaoke scripts, or for the effects supported by the renderer."));
+	effect_box->SetHint(_("Effect"));
 	Bind(wxEVT_TEXT, &SubsEditBox::OnEffectChange, this, effect_box->GetId());
 	Bind(wxEVT_COMBOBOX, &SubsEditBox::OnEffectChange, this, effect_box->GetId());
 	top_sizer->Add(effect_box, wxSizerFlags(3).Expand());
@@ -299,7 +302,7 @@ wxTextCtrl *SubsEditBox::MakeMarginCtrl(wxString const& tooltip, int margin, wxS
 	middle_left_sizer->Add(ctrl, wxSizerFlags().CenterVertical());
 
 	Bind(wxEVT_TEXT, [=, this](wxCommandEvent&) {
-		int value = agi::util::mid(-9999, atoi(ctrl->GetValue().utf8_str()), 99999);
+		int value = std::clamp(atoi(ctrl->GetValue().utf8_str()), -9999, 99999);
 		SetSelectedRows([&](AssDialogue *d) { d->Margin[margin] = value; },
 			commit_msg, AssFile::COMMIT_DIAG_META);
 	}, ctrl->GetId());

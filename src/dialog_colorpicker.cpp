@@ -173,8 +173,8 @@ namespace {
 
 			if (evt.LeftDown() || (HasCapture() && evt.LeftIsDown())) {
 				// Adjust for the 1px black border around the control
-				const int newx = mid(0, evt.GetX() - 1, GetClientSize().x - 3);
-				const int newy = mid(0, evt.GetY() - 1, GetClientSize().y - 3);
+				const int newx = std::clamp(evt.GetX() - 1, 0, GetClientSize().x - 3);
+				const int newy = std::clamp(evt.GetY() - 1, 0, GetClientSize().y - 3);
 				SetXY(newx, newy);
 				const wxCommandEvent evt2(EVT_SPECTRUM_CHANGE, GetId());
 				AddPendingEvent(evt2);

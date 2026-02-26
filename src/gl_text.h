@@ -75,6 +75,9 @@ public:
 	/// @param bold    Should the font be bold?
 	/// @param italics Should the font be italic?
 	void SetFont(std::string const& face, int size, bool bold, bool italics);
+	/// @brief 设置当前活动字体
+	/// @param font 目标字体
+	void SetFont(const wxFont& newFont);
 	/// @brief Set the text color
 	/// @param col   Color
 	void SetColour(agi::Color col);

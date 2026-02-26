@@ -45,6 +45,8 @@
 
 #include <libaegisub/ass/time.h>
 
+#include <algorithm>
+
 #include <wx/log.h>
 
 VideoController::VideoController(agi::Context *c)
@@ -103,7 +105,7 @@ void VideoController::JumpToFrame(int n) {
 	if (was_playing)
 		Stop();
 
-	frame_n = mid(0, n, provider->GetFrameCount() - 1);
+	frame_n = std::clamp(n, 0, provider->GetFrameCount() - 1);
 	RequestFrame();
 	Seek(frame_n);
 
@@ -202,14 +204,14 @@ double VideoController::GetARFromType(AspectRatio type) const {
 
 void VideoController::SetAspectRatio(double value) {
 	ar_type = AspectRatio::Custom;
-	ar_value = mid(.5, value, 5.);
+	ar_value = std::clamp(value, .5, 5.);
 	context->ass->Properties.ar_mode = (int)ar_type;
 	context->ass->Properties.ar_value = ar_value;
 	ARChange(ar_type, ar_value);
 }
 
 void VideoController::SetAspectRatio(AspectRatio type) {
-	ar_value = mid(.5, GetARFromType(type), 5.);
+	ar_value = std::clamp(GetARFromType(type), .5, 5.);
 	ar_type = type;
 	context->ass->Properties.ar_mode = (int)ar_type;
 	context->ass->Properties.ar_value = ar_value;

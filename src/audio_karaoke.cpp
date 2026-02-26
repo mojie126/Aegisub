@@ -316,7 +316,7 @@ void AudioKaraoke::OnScrollTimer() {
 
 	int max_scroll = rendered_line.GetWidth() + 20 - split_area->GetClientSize().GetWidth();
 	if (scroll_x < 0 || scroll_x > max_scroll) {
-		scroll_x = mid(0, scroll_x, max_scroll);
+		scroll_x = std::clamp(scroll_x, 0, max_scroll);
 		scroll_timer.Stop();
 	}
 

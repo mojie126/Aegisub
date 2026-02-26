@@ -34,11 +34,10 @@
 /// Manage colour schemes for the audio display
 
 
+#include <algorithm>
 #include <vector>
 
 #include <wx/colour.h>
-
-#include "utils.h"
 
 
 /// @class AudioSpectrumColorMap
@@ -59,7 +58,7 @@ class AudioColorScheme {
 	/// @param val The value to map from
 	const unsigned char *get_color(float val) const
 	{
-		return &palette[mid<size_t>(0, val * factor, factor) * 3];
+		return &palette[std::clamp<size_t>(static_cast<size_t>(val * factor), 0, factor) * 3];
 	}
 
 public:

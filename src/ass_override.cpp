@@ -38,6 +38,8 @@
 #include <libaegisub/split.h>
 #include <libaegisub/string.h>
 
+#include <algorithm>
+
 #include <boost/range/adaptor/filtered.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 #include <charconv>
@@ -70,7 +72,7 @@ template<> int AssOverrideParameter::Get<int>() const {
 		const char* start = std::find_if(value.c_str(), value.c_str() + value.size(), isxdigit);
 		int result = 0;
 		std::from_chars(start, value.c_str() + value.size(), result, 16);
-		return mid<int>(0, result, 255);
+		return std::clamp<int>(result, 0, 255);
 	}
 	const std::string_view str{Get<std::string>()};
 	int result = 0;
@@ -110,7 +112,7 @@ template<> void AssOverrideParameter::Set<std::string>(std::string new_value) {
 
 template<> void AssOverrideParameter::Set<int>(int new_value) {
 	if (classification == AssParameterClass::ALPHA)
-		Set(agi::format("&H%02X&", mid(0, new_value, 255)));
+		Set(agi::format("&H%02X&", std::clamp(new_value, 0, 255)));
 	else
 		Set(std::to_string(new_value));
 }

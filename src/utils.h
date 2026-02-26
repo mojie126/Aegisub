@@ -80,12 +80,6 @@ void CleanCache(agi::fs::path const& directory, std::string const& file_type, ui
 /// @brief Templated abs() function
 template <typename T> T tabs(T x) { return x < 0 ? -x : x; }
 
-/// Get the middle value of a, b, and c (i.e. clamp b to [a,c])
-/// @precondition a <= c
-template<typename T> inline T mid(T a, T b, T c) {
-	return a > b ? a : (b > c ? c : b);
-}
-
 /// Get the text contents of the clipboard, or empty string on failure
 std::string GetClipboard();
 /// Try to set the clipboard to the given string

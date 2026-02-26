@@ -43,6 +43,7 @@
 #include <libaegisub/fs.h>
 #include <libaegisub/log.h>
 
+#include <algorithm>
 #include <string_view>
 
 #include <cstring>
@@ -363,7 +364,7 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 }
 
 void FFmpegSourceVideoProvider::GetFrame(int n, VideoFrame &out) {
-	n = mid(0, n, GetFrameCount() - 1);
+	n = std::clamp(n, 0, GetFrameCount() - 1);
 
 	const auto frame = FFMS_GetFrame(VideoSource, n, &ErrInfo);
 	if (!frame)

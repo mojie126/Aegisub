@@ -1144,9 +1144,9 @@ struct edit_line_split_video final : public validate_video_and_sel_nonempty {
 
 	void operator()(agi::Context *c) override {
 		split_lines(c, [&](AssDialogue *n1, AssDialogue *n2) {
-			int cur_frame = mid(
-				c->videoController->FrameAtTime(n1->Start, agi::vfr::START),
+			int cur_frame = std::clamp(
 				c->videoController->GetFrameN(),
+				c->videoController->FrameAtTime(n1->Start, agi::vfr::START),
 				c->videoController->FrameAtTime(n1->End, agi::vfr::END));
 			n1->End = n2->Start = c->videoController->TimeAtFrame(cur_frame, agi::vfr::END);
 		});

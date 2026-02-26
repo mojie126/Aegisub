@@ -45,6 +45,7 @@
 #include <libaegisub/path.h>
 
 #include <boost/algorithm/string/case_conv.hpp>
+#include <algorithm>
 #include <wx/msgdlg.h>
 
 Project::Project(agi::Context *c) : context(c) {
@@ -161,7 +162,7 @@ bool Project::DoLoadSubtitles(agi::fs::path const& path, std::string encoding, P
 	Selection sel;
 	AssDialogue *active_line = nullptr;
 	if (!context->ass->Events.empty()) {
-		int row = mid<int>(0, properties.active_row, context->ass->Events.size() - 1);
+		int row = std::clamp<int>(properties.active_row, 0, static_cast<int>(context->ass->Events.size()) - 1);
 		active_line = &*std::next(context->ass->Events.begin(), row);
 		sel.insert(active_line);
 	}

@@ -47,6 +47,8 @@
 #include <wx/dcbuffer.h>
 #include <wx/settings.h>
 
+#include <algorithm>
+
 VideoSlider::VideoSlider (wxWindow* parent, agi::Context *c)
 : wxWindow(parent, -1, wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS | wxFULL_REPAINT_ON_RESIZE)
 , c(c)
@@ -67,7 +69,7 @@ VideoSlider::VideoSlider (wxWindow* parent, agi::Context *c)
 
 void VideoSlider::SetValue(int value) {
 	if (val == value) return;
-	value = mid(0, value, max);
+	value = std::clamp(value, 0, max);
 	if (GetXAtValue(val) != GetXAtValue(value))
 		Refresh(false);
 	val = value;
