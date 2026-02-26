@@ -7605,3 +7605,401 @@ msgstr ""
 msgid "Note: Dolby Vision tone mapping may be less stable."
 msgstr "注意：杜比视界的色调映射不够稳定。"
 
+#. preferences.cpp - 视频滚动动作选项
+#: ../src/preferences.cpp:186
+msgid "Resizes the video box"
+msgstr "调整视频框大小"
+
+#: ../src/preferences.cpp:186
+msgid "Resizes the video box (reversed)"
+msgstr "调整视频框大小（反向）"
+
+#: ../src/preferences.cpp:186
+msgid "Zooms the video"
+msgstr "缩放视频"
+
+#: ../src/preferences.cpp:186
+msgid "Zooms the video (reversed)"
+msgstr "缩放视频（反向）"
+
+#: ../src/preferences.cpp:186
+msgid "Pans the video"
+msgstr "平移视频"
+
+#: ../src/preferences.cpp:186
+msgid "Pans the video (X/Y swapped)"
+msgstr "平移视频（X/Y互换）"
+
+#: ../src/preferences.cpp:186
+msgid "Does nothing"
+msgstr "无操作"
+
+#. preferences.cpp - 视频滚动操作标签
+#: ../src/preferences.cpp:188
+msgid "Scrolling on the video display"
+msgstr "在视频显示上滚动"
+
+#: ../src/preferences.cpp:189
+msgid "Ctrl+Scrolling on the video display"
+msgstr "在视频显示上按Ctrl+滚动"
+
+#: ../src/preferences.cpp:190
+msgid "Shift+Scrolling on the video display"
+msgstr "在视频显示上按Shift+滚动"
+
+#. preferences.cpp - 深色模式
+#: ../src/preferences.cpp:246
+msgid "Dark Mode"
+msgstr "深色模式"
+
+#: ../src/preferences.cpp:247
+msgid "Enable experimental dark mode (restart required)"
+msgstr "启用实验性深色模式（需要重启）"
+
+#. preferences.cpp - CPS显示格式选项
+#: ../src/preferences.cpp:279
+msgid "Nearest integer"
+msgstr "取最近整数"
+
+#: ../src/preferences.cpp:279
+msgid "Nearest 0.1"
+msgstr "精确到0.1"
+
+#: ../src/preferences.cpp:279
+msgid "2 sig figs"
+msgstr "保留2位有效数字"
+
+#: ../src/preferences.cpp:281
+msgid "CPS display format"
+msgstr "CPS显示格式"
+
+#: ../src/preferences.cpp:283
+msgid "Center with virtual 0"
+msgstr "以虚拟零为中心"
+
+#: ../src/preferences.cpp:285
+msgid "CPS column alignment"
+msgstr "CPS列对齐方式"
+
+#. dialog_version_check.cpp - 更新检查错误消息
+#: ../src/dialog_version_check.cpp:491
+msgid "Curl could not be initialized."
+msgstr "无法初始化Curl。"
+
+#: ../src/dialog_version_check.cpp:513
+msgid "Checking for updates failed: %s."
+msgstr "检查更新失败：%s。"
+
+#. dialog_style_editor.cpp - 边框样式选项
+#: ../src/dialog_style_editor.cpp:216
+msgid "Border boxes"
+msgstr "边框"
+
+#: ../src/dialog_style_editor.cpp:216
+msgid "Shadow box (libass only)"
+msgstr "阴影框（仅限libass）"
+
+#: ../src/dialog_style_editor.cpp:281
+msgid "Whether to draw a normal outline or opaque boxes around the text"
+msgstr "选择绘制普通描边还是在文本周围绘制不透明边框"
+
+#: ../src/dialog_style_editor.cpp:364
+msgid "Border style:"
+msgstr "边框样式："
+
+#. ass_style.cpp - 文本基准方向
+#: ../src/ass_style.cpp:196
+msgid "Auto-detect base direction (libass only)"
+msgstr "自动检测基准方向（仅限libass）"
+
+#. dialog_attachments.cpp - 图形文件过滤器
+#: ../src/dialog_attachments.cpp
+msgid "Graphic Files"
+msgstr "图形文件"
+
+#. dialog_automation.cpp - 自动化脚本状态
+#: ../src/dialog_automation.cpp
+msgid "Loaded with warnings"
+msgstr "已加载但有警告"
+
+#: ../src/dialog_automation.cpp
+msgid ""
+"Features provided by script:\n"
+msgstr ""
+"脚本提供的功能：\n"
+
+#. dialog_export.cpp - 导出错误
+#: ../src/dialog_export.cpp
+msgid "Error exporting subtitles"
+msgstr "导出字幕时出错"
+
+#: ../src/dialog_fonts_collector.cpp
+msgid "Zip Archives"
+msgstr "Zip 压缩包"
+
+#: ../src/dialog_fonts_collector.cpp
+msgid "Font Files"
+msgstr "字体文件"
+
+#. dialog_properties.cpp - 布局标签
+#: ../src/dialog_properties.cpp
+msgid "Layout: "
+msgstr "布局："
+
+#. dialog_spellchecker.cpp - 拼写检查错误
+#: ../src/dialog_spellchecker.cpp
+msgid "No spellchecker available."
+msgstr "拼写检查器不可用。"
+
+#: ../src/dialog_spellchecker.cpp
+msgid "No spellchecker dictionaries available."
+msgstr "拼写检查字典不可用。"
+
+#. dialog_style_manager.cpp - 字幕格式错误
+#: ../src/dialog_style_manager.cpp
+msgid "Unsupported subtitle format"
+msgstr "不支持的字幕格式"
+
+#. audio_provider_bestsource.cpp - 音频索引
+#: ../src/audio_provider_bestsource.cpp
+msgid "Indexing file... This will take a while!"
+msgstr "正在索引文件……这可能需要一些时间！"
+
+#. audio_provider_factory.cpp - 音频加载错误
+#: ../src/audio_provider_factory.cpp
+msgid "Error loading audio"
+msgstr "加载音频时出错"
+
+#. auto4_base.cpp - 自动化脚本加载消息
+#: ../src/auto4_base.cpp
+msgid ""
+"A script in the Automation autoload directory failed to load.\n"
+"Please review the errors, fix them and use the Rescan Autoload Dir button "
+"in Automation Manager to load the scripts again."
+msgstr ""
+"自动加载目录中的某个自动化脚本加载失败。\n"
+"请检查错误并修复，然后在自动化管理器中使用「重新扫描自动加载目录」按钮重新加载脚本。"
+
+#: ../src/auto4_base.cpp
+msgid ""
+"Multiple scripts in the Automation autoload directory failed to load.\n"
+"Please review the errors, fix them and use the Rescan Autoload Dir button "
+"in Automation Manager to load the scripts again."
+msgstr ""
+"自动加载目录中的多个自动化脚本加载失败。\n"
+"请检查错误并修复，然后在自动化管理器中使用「重新扫描自动加载目录」按钮重新加载脚本。"
+
+#: ../src/auto4_base.cpp
+msgid ""
+"A script in the Automation autoload directory loaded with warnings.\n"
+"Please review the warnings, fix them and use the Rescan Autoload Dir "
+"button in Automation Manager to load the scripts again."
+msgstr ""
+"自动加载目录中的某个自动化脚本加载时出现警告。\n"
+"请检查并修复警告，然后在自动化管理器中使用「重新扫描自动加载目录」按钮重新加载脚本。"
+
+#: ../src/auto4_base.cpp
+msgid ""
+"Multiple scripts in the Automation autoload directory loaded with "
+"warnings.\n"
+"Please review the warnings, fix them and use the Rescan Autoload Dir "
+"button in Automation Manager to load the scripts again."
+msgstr ""
+"自动加载目录中的多个自动化脚本加载时出现警告。\n"
+"请检查并修复警告，然后在自动化管理器中使用「重新扫描自动加载目录」按钮重新加载脚本。"
+
+#: ../src/auto4_base.cpp
+msgid "Warning when loading Automation script '%s':\n%s"
+msgstr "加载自动化脚本 '%s' 时的警告：\n%s"
+
+#. auto4_lua.cpp - Lua初始化
+#: ../src/auto4_lua.cpp
+msgid "Could not initialize Lua state"
+msgstr "无法初始化Lua状态"
+
+#: ../src/auto4_lua.cpp
+msgid ""
+"Attempted to load an Automation 3 script as an Automation 4 Lua script. "
+"Automation 3 is no longer supported."
+msgstr ""
+"尝试将自动化3脚本作为自动化4 Lua脚本加载。"
+"自动化3已不再受支持。"
+
+#: ../src/main.cpp
+msgid "Error saving config file"
+msgstr "保存配置文件时出错"
+
+#: ../src/main.cpp
+msgid "Fatal error while initializing"
+msgstr "初始化时发生致命错误"
+
+#: ../src/main.cpp
+msgid "Unhandled exception"
+msgstr "未处理的异常"
+
+#: ../src/main.cpp
+msgid "Exception in event handler"
+msgstr "事件处理器中发生异常"
+
+#. project.cpp - 项目加载错误
+#: ../src/project.cpp
+msgid "Error loading file"
+msgstr "加载文件时出错"
+
+#: ../src/project.cpp
+msgid ""
+"None of the available audio providers recognised the selected file as "
+"containing audio data:\n"
+"\n"
+msgstr ""
+"没有任何可用的音频提供者识别出所选文件包含音频数据：\n"
+"\n"
+
+#: ../src/project.cpp
+msgid ""
+"None of the available audio providers have a codec available to handle the "
+"selected file:\n"
+"\n"
+msgstr ""
+"没有任何可用的音频提供者拥有能处理所选文件的编解码器：\n"
+"\n"
+
+#: ../src/project.cpp
+msgid "Failed to parse timecodes file:"
+msgstr "解析时间码文件失败："
+
+#: ../src/project.cpp
+msgid "Failed to parse keyframes file:"
+msgstr "解析关键帧文件失败："
+
+#: ../src/project.cpp
+msgid "Keyframes file in unknown format:"
+msgstr "关键帧文件格式未知："
+
+#. subs_controller.cpp - 自动保存错误
+#: ../src/subs_controller.cpp
+msgid "Exception when attempting to autosave file:"
+msgstr "自动保存文件时发生异常："
+
+#: ../src/subs_controller.cpp
+msgid "Unhandled exception when attempting to autosave file."
+msgstr "自动保存文件时发生未处理的异常。"
+
+#. subs_preview.cpp - 字幕预览
+#: ../src/subs_preview.cpp
+msgid ""
+"Could not get any subtitles provider for the preview box. Make sure that "
+"you have a provider installed."
+msgstr ""
+"无法获取字幕预览所需的提供者。"
+"请确保已安装相关提供者。"
+
+#: ../src/subs_preview.cpp
+msgid "No subtitles provider"
+msgstr "无字幕提供者"
+
+#. video_provider_manager.cpp - 视频加载错误
+#: ../src/video_provider_manager.cpp
+msgid "Error loading video"
+msgstr "加载视频时出错"
+
+#. command/app.cpp - 重启提示
+#: ../src/command/app.cpp:167
+msgid ""
+"Aegisub needs to be restarted so that the new language can be applied. "
+"Restart now?"
+msgstr "需要重启 Aegisub 以应用新语言设置。是否立即重启？"
+
+#: ../src/command/app.cpp:167
+msgid "Restart Aegisub?"
+msgstr "重启 Aegisub？"
+
+#. command/keyframe.cpp, command/timecode.cpp - 文件过滤器
+#: ../src/command/keyframe.cpp ../src/command/timecode.cpp
+msgid "Text Files"
+msgstr "文本文件"
+
+#. command/timecode.cpp - 时间码保存错误
+#: ../src/command/timecode.cpp
+msgid "Error saving timecodes"
+msgstr "保存时间码时出错"
+
+#. command/audio.cpp - 音频定位命令
+#: ../src/command/audio.cpp:444
+msgid "Go to selection start"
+msgstr "跳转到选区起始处"
+
+#: ../src/command/audio.cpp:455
+msgid "Go to selection end"
+msgstr "跳转到选区结束处"
+
+#: ../src/command/audio.cpp:447
+msgid "Scroll the audio display to center on the start of current audio selection"
+msgstr "滚动音频显示以居中到当前音频选区的起始处"
+
+#: ../src/command/audio.cpp:458
+msgid "Scroll the audio display to center on the end of current audio selection"
+msgstr "滚动音频显示以居中到当前音频选区的结束处"
+
+#. command/video.cpp - 视频播放命令
+#: ../src/command/video.cpp:1144
+msgid "Play the video starting on this position"
+msgstr "从当前位置开始播放视频"
+
+#: ../src/command/video.cpp:1156
+msgid "Play the video for the current line"
+msgstr "播放当前行对应的视频"
+
+#. command/vis_tool.cpp - 矢量绘图工具命令
+#: ../src/command/vis_tool.cpp:284
+msgid "Append a line"
+msgstr "追加直线段"
+
+#: ../src/command/vis_tool.cpp:291
+msgid "Append a bezier bicubic curve"
+msgstr "追加贝塞尔曲线段"
+
+#: ../src/command/vis_tool.cpp:298
+msgid "Convert a segment between line and bicubic"
+msgstr "在直线段与贝塞尔曲线段之间转换"
+
+#: ../src/command/vis_tool.cpp:305
+msgid "Insert a control point"
+msgstr "插入控制点"
+
+#: ../src/command/vis_tool.cpp:312
+msgid "Remove a control point"
+msgstr "移除控制点"
+
+#: ../src/command/vis_tool.cpp:319
+msgid "Draw a freehand shape"
+msgstr "绘制手绘形状"
+
+#: ../src/command/vis_tool.cpp:326
+msgid "Draw a smoothed freehand shape"
+msgstr "绘制平滑手绘形状"
+
+#. preferences.cpp - CPS列对齐方式选项
+#: ../src/preferences.cpp:283
+msgid "Center"
+msgstr "居中"
+
+#. dialog_kara_timing_copy.cpp - 汉字计时器对话框标题
+#: ../src/dialog_kara_timing_copy.cpp:386
+msgid "Kanji timer"
+msgstr "汉字计时器"
+
+#: ../src/dialog_kara_timing_copy.cpp:408
+msgid "Attempt to &interpolate kanji"
+msgstr "尝试插值汉字(&I)"
+
+#. preferences.cpp - 音频配色方案选项
+#: ../src/libresrc/default_config.json
+msgid "Green"
+msgstr "绿色"
+
+#: ../src/libresrc/default_config.json
+msgid "Icy Blue"
+msgstr "冰蓝"
+
+

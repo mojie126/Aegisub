@@ -7335,3 +7335,319 @@ msgstr ""
 #: ../src/command/subtitle.cpp
 msgid "Processing line %d / %d ..."
 msgstr ""
+
+#: ../src/preferences.cpp:186
+msgid "Resizes the video box"
+msgstr ""
+
+#: ../src/preferences.cpp:186
+msgid "Resizes the video box (reversed)"
+msgstr ""
+
+#: ../src/preferences.cpp:186
+msgid "Zooms the video"
+msgstr ""
+
+#: ../src/preferences.cpp:186
+msgid "Zooms the video (reversed)"
+msgstr ""
+
+#: ../src/preferences.cpp:186
+msgid "Pans the video"
+msgstr ""
+
+#: ../src/preferences.cpp:186
+msgid "Pans the video (X/Y swapped)"
+msgstr ""
+
+#: ../src/preferences.cpp:186
+msgid "Does nothing"
+msgstr ""
+
+#: ../src/preferences.cpp:188
+msgid "Scrolling on the video display"
+msgstr ""
+
+#: ../src/preferences.cpp:189
+msgid "Ctrl+Scrolling on the video display"
+msgstr ""
+
+#: ../src/preferences.cpp:190
+msgid "Shift+Scrolling on the video display"
+msgstr ""
+
+#: ../src/preferences.cpp:246
+msgid "Dark Mode"
+msgstr ""
+
+#: ../src/preferences.cpp:247
+msgid "Enable experimental dark mode (restart required)"
+msgstr ""
+
+#: ../src/preferences.cpp:279
+msgid "Nearest integer"
+msgstr ""
+
+#: ../src/preferences.cpp:279
+msgid "Nearest 0.1"
+msgstr ""
+
+#: ../src/preferences.cpp:279
+msgid "2 sig figs"
+msgstr ""
+
+#: ../src/preferences.cpp:281
+msgid "CPS display format"
+msgstr ""
+
+#: ../src/preferences.cpp:283
+msgid "Center with virtual 0"
+msgstr ""
+
+#: ../src/preferences.cpp:285
+msgid "CPS column alignment"
+msgstr ""
+
+#: ../src/dialog_version_check.cpp:491
+msgid "Curl could not be initialized."
+msgstr ""
+
+#: ../src/dialog_version_check.cpp:513
+msgid "Checking for updates failed: %s."
+msgstr ""
+
+#: ../src/dialog_style_editor.cpp:216
+msgid "Border boxes"
+msgstr ""
+
+#: ../src/dialog_style_editor.cpp:216
+msgid "Shadow box (libass only)"
+msgstr ""
+
+#: ../src/dialog_style_editor.cpp:281
+msgid "Whether to draw a normal outline or opaque boxes around the text"
+msgstr ""
+
+#: ../src/dialog_style_editor.cpp:364
+msgid "Border style:"
+msgstr ""
+
+#: ../src/ass_style.cpp:196
+msgid "Auto-detect base direction (libass only)"
+msgstr ""
+
+#: ../src/dialog_attachments.cpp
+msgid "Graphic Files"
+msgstr ""
+
+#: ../src/dialog_automation.cpp
+msgid "Loaded with warnings"
+msgstr ""
+
+#: ../src/dialog_automation.cpp
+msgid "Features provided by script:\n"
+msgstr ""
+
+#: ../src/dialog_export.cpp
+msgid "Error exporting subtitles"
+msgstr ""
+
+#: ../src/dialog_fonts_collector.cpp
+msgid "Zip Archives"
+msgstr ""
+
+#: ../src/dialog_fonts_collector.cpp
+msgid "Font Files"
+msgstr ""
+
+#: ../src/dialog_properties.cpp
+msgid "Layout: "
+msgstr ""
+
+#: ../src/dialog_spellchecker.cpp
+msgid "No spellchecker available."
+msgstr ""
+
+#: ../src/dialog_spellchecker.cpp
+msgid "No spellchecker dictionaries available."
+msgstr ""
+
+#: ../src/dialog_style_manager.cpp
+msgid "Unsupported subtitle format"
+msgstr ""
+
+#: ../src/audio_provider_bestsource.cpp
+msgid "Indexing file... This will take a while!"
+msgstr ""
+
+#: ../src/audio_provider_factory.cpp
+msgid "Error loading audio"
+msgstr ""
+
+#: ../src/auto4_lua.cpp
+msgid "Could not initialize Lua state"
+msgstr ""
+
+#: ../src/auto4_lua.cpp
+msgid ""
+"Attempted to load an Automation 3 script as an Automation 4 Lua script. "
+"Automation 3 is no longer supported."
+msgstr ""
+
+#: ../src/main.cpp
+msgid "Error saving config file"
+msgstr ""
+
+#: ../src/main.cpp
+msgid "Fatal error while initializing"
+msgstr ""
+
+#: ../src/main.cpp
+msgid "Unhandled exception"
+msgstr ""
+
+#: ../src/main.cpp
+msgid "Exception in event handler"
+msgstr ""
+
+#: ../src/project.cpp
+msgid "Error loading file"
+msgstr ""
+
+#: ../src/project.cpp
+msgid ""
+"None of the available audio providers recognised the selected file as "
+"containing audio data:\n"
+"\n"
+msgstr ""
+
+#: ../src/project.cpp
+msgid ""
+"None of the available audio providers have a codec available to handle the "
+"selected file:\n"
+"\n"
+msgstr ""
+
+#: ../src/project.cpp
+msgid "Failed to parse timecodes file:"
+msgstr ""
+
+#: ../src/project.cpp
+msgid "Failed to parse keyframes file:"
+msgstr ""
+
+#: ../src/project.cpp
+msgid "Keyframes file in unknown format:"
+msgstr ""
+
+#: ../src/subs_controller.cpp
+msgid "Exception when attempting to autosave file:"
+msgstr ""
+
+#: ../src/subs_controller.cpp
+msgid "Unhandled exception when attempting to autosave file."
+msgstr ""
+
+#: ../src/subs_preview.cpp
+msgid ""
+"Could not get any subtitles provider for the preview box. Make sure that "
+"you have a provider installed."
+msgstr ""
+
+#: ../src/subs_preview.cpp
+msgid "No subtitles provider"
+msgstr ""
+
+#: ../src/video_provider_manager.cpp
+msgid "Error loading video"
+msgstr ""
+
+#: ../src/command/app.cpp:167
+msgid ""
+"Aegisub needs to be restarted so that the new language can be applied. "
+"Restart now?"
+msgstr ""
+
+#: ../src/command/app.cpp:167
+msgid "Restart Aegisub?"
+msgstr ""
+
+#: ../src/command/keyframe.cpp ../src/command/timecode.cpp
+msgid "Text Files"
+msgstr ""
+
+#: ../src/command/timecode.cpp
+msgid "Error saving timecodes"
+msgstr ""
+
+#: ../src/command/audio.cpp
+msgid "Go to selection start"
+msgstr ""
+
+#: ../src/command/audio.cpp
+msgid "Go to selection end"
+msgstr ""
+
+#: ../src/command/audio.cpp
+msgid "Scroll the audio display to center on the start of current audio selection"
+msgstr ""
+
+#: ../src/command/audio.cpp
+msgid "Scroll the audio display to center on the end of current audio selection"
+msgstr ""
+
+#: ../src/command/video.cpp
+msgid "Play the video starting on this position"
+msgstr ""
+
+#: ../src/command/video.cpp
+msgid "Play the video for the current line"
+msgstr ""
+
+#: ../src/command/vis_tool.cpp
+msgid "Append a line"
+msgstr ""
+
+#: ../src/command/vis_tool.cpp
+msgid "Append a bezier bicubic curve"
+msgstr ""
+
+#: ../src/command/vis_tool.cpp
+msgid "Convert a segment between line and bicubic"
+msgstr ""
+
+#: ../src/command/vis_tool.cpp
+msgid "Insert a control point"
+msgstr ""
+
+#: ../src/command/vis_tool.cpp
+msgid "Remove a control point"
+msgstr ""
+
+#: ../src/command/vis_tool.cpp
+msgid "Draw a freehand shape"
+msgstr ""
+
+#: ../src/command/vis_tool.cpp
+msgid "Draw a smoothed freehand shape"
+msgstr ""
+
+#: ../src/preferences.cpp
+msgid "Center"
+msgstr ""
+
+#: ../src/dialog_kara_timing_copy.cpp
+msgid "Kanji timer"
+msgstr ""
+
+#: ../src/dialog_kara_timing_copy.cpp
+msgid "Attempt to &interpolate kanji"
+msgstr ""
+
+#: ../src/libresrc/default_config.json
+msgid "Green"
+msgstr ""
+
+#: ../src/libresrc/default_config.json
+msgid "Icy Blue"
+msgstr ""
