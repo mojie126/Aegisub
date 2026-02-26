@@ -27,7 +27,10 @@
 //
 // Aegisub Project http://www.aegisub.org/
 
+#include <libaegisub/signal.h>
+
 #include <memory>
+#include <vector>
 #include <wx/frame.h>
 #include <wx/timer.h>
 
@@ -69,6 +72,8 @@ class FrameMain : public wxFrame {
 	void OnSubtitlesOpen();
 
 	void EnableToolBar(agi::OptionValue const& opt);
+
+	std::vector<agi::signal::Connection> opt_connections; ///< OPT_SUB连接，防止对象销毁后回调悬空
 
 	AudioBox *audioBox;      ///< The audio area
 	VideoBox *videoBox;      ///< The video area
