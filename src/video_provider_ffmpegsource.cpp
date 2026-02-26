@@ -96,7 +96,6 @@ public:
 
 	int GetFrameCount() const override             { return VideoInfo->NumFrames; }
 
-#if FFMS_VERSION >= ((2 << 24) | (24 << 16) | (0 << 8) | 0)
 	int GetWidth() const override  { return (VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 180 == -90) ? Height : Width; }
 	int GetHeight() const override { return ((VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 180 == -90) ? Width : Height) + Padding * 2; }
 	double GetDAR() const override {
@@ -110,17 +109,6 @@ public:
 			return static_cast<double>(Height) / ((static_cast<double>(Width + Padding * 2)) * sar);
 		return (static_cast<double>(Width) * sar) / static_cast<double>(Height + Padding * 2);
 	}
-#else
-	int GetWidth() const override                  { return Width; }
-	int GetHeight() const override                 { return Height + Padding * 2; }
-	double GetDAR() const override {
-		// SAR 未定义或为 1:1 时返回 0，使用 Default AR
-		if (VideoInfo->SARDen <= 0 || VideoInfo->SARNum <= 0 || VideoInfo->SARNum == VideoInfo->SARDen)
-			return 0;
-		const double sar = static_cast<double>(VideoInfo->SARNum) / VideoInfo->SARDen;
-		return (static_cast<double>(Width) * sar) / static_cast<double>(Height + Padding * 2);
-	}
-#endif
 
 	agi::vfr::Framerate GetFPS() const override    { return Timecodes; }
 	std::string GetColorSpace() const override     { return ColorSpace; }
@@ -238,10 +226,6 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 
 	// set thread count
 	int Threads = OPT_GET("Provider/Video/FFmpegSource/Decoding Threads")->GetInt();
-#if FFMS_VERSION < ((2 << 24) | (30 << 16) | (0 << 8) | 0)
-	if (FFMS_GetVersion() < ((2 << 24) | (17 << 16) | (2 << 8) | 1) && FFMS_GetSourceType(Index) == FFMS_SOURCE_LAVF)
-		Threads = 1;
-#endif
 
 	// set seekmode
 	// TODO: give this its own option?
@@ -406,14 +390,13 @@ void FFmpegSourceVideoProvider::GetFrame(int n, VideoFrame &out) {
 	out.width = Width;
 	out.height = Height;
 	out.pitch = row_bytes;
-#if FFMS_VERSION >= ((2 << 24) | (31 << 16) | (0 << 8) | 0)
+
 	// GPU翻转：通过标志位传递到渲染阶段，由glOrtho投影变换处理，避免CPU逐像素交换
 	if (VideoInfo->Flip > 0)
 		out.hflipped = true;
 	else if (VideoInfo->Flip < 0)
 		out.flipped = true;
-#endif
-#if FFMS_VERSION >= ((2 << 24) | (24 << 16) | (0 << 8) | 0)
+
 	{
 		// GPU旋转：通过标志位传递到渲染阶段，由FBO后处理或glOrtho投影处理
 		int rot = VideoInfo->Rotation % 360;
@@ -428,7 +411,6 @@ void FFmpegSourceVideoProvider::GetFrame(int n, VideoFrame &out) {
 			// GetWidth/GetHeight已提供旋转后的显示维度给viewport计算
 		}
 	}
-#endif
 
 	// GPU黑边（ABB）处理：不再CPU嵌入黑边数据，只在GPU侧通过glViewport和glClear渲染
 	// 这样避免CPU memcpy，始终走硬解GPU直通路径

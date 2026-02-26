@@ -90,8 +90,8 @@ int64_t v1_parse(line_iterator<std::string> file, std::string line, std::vector<
 	if (fps > 1000.) throw InvalidFramerate("Assumed FPS must not be greater than 1000");
 
 	std::vector<TimecodeRange> ranges;
-	for (auto const& line : file) {
-		auto range = v1_parse_line(line);
+	for (auto const& cur_line : file) {
+		auto range = v1_parse_line(cur_line);
 		if (range.fps != 0)
 			ranges.push_back(range);
 	}
@@ -217,7 +217,7 @@ int Framerate::FrameAtTime(int ms, Time type) const {
 		return int(((ms - timecodes.front()) * numerator / denominator - 999) / 1000);
 
 	if (ms > timecodes.back())
-		return int((ms * numerator - numerator / 2 - last + numerator - 1) / denominator / 1000) + (int)timecodes.size() - 1;
+		return static_cast<int>(((ms + 1) * numerator - last - numerator / 2 + (1000 * denominator - 1)) / (1000 * denominator) + timecodes.size()) - 2;
 
 	return (int)distance(lower_bound(timecodes.rbegin(), timecodes.rend(), ms, std::greater<int>()), timecodes.rend()) - 1;
 }
