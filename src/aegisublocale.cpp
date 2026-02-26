@@ -38,6 +38,7 @@
 #include "options.h"
 #include "utils.h"
 
+#include <libaegisub/log.h>
 #include <libaegisub/path.h>
 
 #include <algorithm>
@@ -45,6 +46,7 @@
 #include <functional>
 #include <wx/intl.h>
 #include <wx/choicdlg.h> // Keep this last so wxUSE_CHOICEDLG is set.
+#include <wx/uilocale.h>
 
 #ifndef AEGISUB_CATALOG
 #define AEGISUB_CATALOG "aegisub"
@@ -96,9 +98,29 @@ std::string AegisubLocale::PickLanguage() {
 	langs.insert(langs.begin(), "en_US");
 
 	// Check if user local language is available, if so, make it first
-	const wxLanguageInfo *info = wxLocale::GetLanguageInfo(wxLocale::GetSystemLanguage());
-	if (info) {
-		auto it = std::find(langs.begin(), langs.end(), info->CanonicalName);
+	// Canonical form is a two- or five-letter string in xx or xx_YY format,
+	// where xx is ISO 639 code of language and YY is ISO 3166 code of the
+	// country. Examples are "en", "en_GB", "en_US" or "fr_FR".
+	const wxString user_lang = wxUILocale::GetLanguageCanonicalName(wxUILocale::GetSystemLanguage());
+	if (!user_lang.empty()) {
+		LOG_I("locale") << "userlang = " << user_lang;
+		auto it = std::find(langs.begin(), langs.end(), user_lang);
+		if (it == langs.end()) {
+			size_t pos = user_lang.find('_');
+			if (pos != wxString::npos) {
+				const wxString user_lang_prefix = user_lang.substr(0, pos);
+				it = std::find(langs.begin(), langs.end(), user_lang_prefix);
+				if (it == langs.end()) {
+					if (user_lang == wxString("zh_HK") ||
+						user_lang == wxString("zh_MO")) {
+						it = std::find(langs.begin(), langs.end(), "zh_TW");
+					}
+					if (user_lang == wxString("zh_SG")) {
+						it = std::find(langs.begin(), langs.end(), "zh_CN");
+					}
+				}
+			}
+		}
 		if (it != langs.end())
 			std::rotate(langs.begin(), it, it + 1);
 	}

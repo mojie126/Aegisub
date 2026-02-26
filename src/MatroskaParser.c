@@ -790,6 +790,28 @@ static MKFLOAT readFloat(MatroskaFile *mf,unsigned int len) {
   if (len!=4 && len!=8)
     errorjmp(mf,"Invalid float size in readFloat: %u",len);
 
+#define zero_process  \
+do {                  \
+  shift = 0;          \
+  f.v = 0;            \
+} while (0)
+
+#define inf_process               \
+do {                              \
+  if (ui & 0x80000000)            \
+    f.v = LL(0x8000000000000000); \
+  else                            \
+    f.v = LL(0x7fffffffffffffff); \
+} while (0)
+
+#define shift_process     \
+do {                      \
+  if (shift < 0)          \
+    f.v = f.v >> -shift;  \
+  else if (shift > 0)     \
+    f.v = f.v << shift;   \
+} while (0)
+
 #ifdef MATROSKA_INTEGER_ONLY
   if (len == 4) {
     unsigned  ui = (unsigned)readUInt(mf,(unsigned)len);
@@ -798,43 +820,40 @@ static MKFLOAT readFloat(MatroskaFile *mf,unsigned int len) {
       f.v = -f.v;
     shift = (ui >> 23) & 0xff;
     if (shift == 0) // assume 0
-zero:
-      shift = 0, f.v = 0;
+      zero_process;
     else if (shift == 255)
-inf:
-      if (ui & 0x80000000)
-	f.v = LL(0x8000000000000000);
-      else
-	f.v = LL(0x7fffffffffffffff);
+      inf_process;
     else {
       shift += -127 + 9;
       if (shift > 39)
-	goto inf;
-shift:
-      if (shift < 0)
-	f.v = f.v >> -shift;
-      else if (shift > 0)
-	f.v = f.v << shift;
+        inf_process;
+      shift_process;
     }
-  } else if (len == 8) {
+  }
+  else {
     uint64_t  ui = readUInt(mf,(unsigned)len);
     f.v = (ui & LL(0xfffffffffffff)) | LL(0x10000000000000);
     if (ui & 0x80000000)
       f.v = -f.v;
     shift = (int)((ui >> 52) & 0x7ff);
     if (shift == 0) // assume 0
-      goto zero;
+      zero_process;
     else if (shift == 2047)
-      goto inf;
+      inf_process;
     else {
       shift += -1023 - 20;
       if (shift > 10)
-	goto inf;
-      goto shift;
+        inf_process;
+      shift_process;
     }
   }
 
   return f;
+
+#undef zero_process
+#undef inf_process
+#undef shift_process
+
 #else
   if (len==4) {
     u.ui = (unsigned int)readUInt(mf,(unsigned)len);

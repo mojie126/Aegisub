@@ -61,9 +61,5 @@ void SetThreadName(LPCSTR szThreadName) {
 	__except (EXCEPTION_CONTINUE_EXECUTION) {}
 }
 
-void sleep_for(int ms) {
-	std::this_thread::sleep_for(std::chrono::milliseconds(ms));
-}
-
 	} // namespace io
 } // namespace agi

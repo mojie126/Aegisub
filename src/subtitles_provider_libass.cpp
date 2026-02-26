@@ -48,6 +48,7 @@
 #include <boost/gil.hpp>
 #include <memory>
 #include <mutex>
+#include <thread>
 
 #include <wx/intl.h>
 #include <wx/thread.h>
@@ -95,7 +96,7 @@ class LibassSubtitlesProvider final : public SubtitlesProvider {
 		auto block = [&] {
 			if (shared->ready)
 				return;
-			agi::util::sleep_for(250);
+			std::this_thread::sleep_for(std::chrono::milliseconds(250));
 			if (shared->ready)
 				return;
 			br->Run([this](agi::ProgressSink *ps) {
@@ -103,7 +104,7 @@ class LibassSubtitlesProvider final : public SubtitlesProvider {
 				ps->SetMessage(from_wx(_("This may take several minutes")));
 				ps->SetIndeterminate();
 				while (!shared->ready && !ps->IsCancelled())
-					agi::util::sleep_for(250);
+					std::this_thread::sleep_for(std::chrono::milliseconds(250));
 			});
 		};
 

@@ -101,7 +101,7 @@ DialogProperties::DialogProperties(agi::Context *c)
 	// Button sizer
 	// Create buttons first. See:
 	//  https://github.com/wangqr/Aegisub/issues/6
-	//  https://trac.wxwidgets.org/ticket/18472#comment:9
+	//  https://github.com/wxWidgets/wxWidgets/issues/18472#comment:9
 	auto ButtonSizer = d.CreateStdDialogButtonSizer(wxOK | wxCANCEL | wxHELP);
 	ButtonSizer->GetHelpButton()->SetLabel(_("Help"));
 	d.Bind(wxEVT_BUTTON, &DialogProperties::OnOK, this, wxID_OK);

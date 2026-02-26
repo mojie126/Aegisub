@@ -314,7 +314,7 @@ bool DialogSpellChecker::CheckLine(AssDialogue *active_line, int start_pos, int 
 		auto auto_rep = auto_replace.find(word);
 		if (auto_rep == auto_replace.end()) {
 #ifdef __WXGTK__
-			// http://trac.wxwidgets.org/ticket/14369
+			// https://github.com/wxWidgets/wxWidgets/issues/14369
 			orig_word->Remove(0, -1);
 			replace_word->Remove(0, -1);
 #endif

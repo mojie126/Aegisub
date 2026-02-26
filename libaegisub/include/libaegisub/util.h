@@ -64,11 +64,6 @@ namespace agi::util {
 	/// @param name New name for the thread
 	void SetThreadName(const char *name);
 
-	/// A thin wrapper around this_thread::sleep_for that uses std::thread on
-	/// Windows (to avoid having to compile boost.thread) and boost::thread
-	/// elsewhere (because libstdc++ 4.7 is missing it).
-	void sleep_for(int ms);
-
 	// boost.range doesn't have wrappers for the C++11 stuff
 	template<typename Range, typename Predicate>
 	bool any_of(Range&& r, Predicate&& p) {

@@ -101,8 +101,8 @@ class SubsEditBox final : public wxPanel {
 	wxCheckBox *split_box;
 
 	wxSizer *top_sizer;
-	wxSizer *middle_right_sizer;
 	wxSizer *middle_left_sizer;
+	wxSizer *middle_right_sizer;
 	wxSizer *bottom_sizer;
 
 	/// 图标按钮列表，用于响应图标大小变更
