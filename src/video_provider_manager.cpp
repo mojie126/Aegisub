@@ -120,7 +120,7 @@ namespace {
 		const char *name;
 		std::unique_ptr<VideoProvider> (*create)(agi::fs::path const&, std::string_view, agi::BackgroundRunner *);
 		bool hidden;
-		std::function<bool(agi::fs::path const&)> wants_to_open = [](auto p) { return false; };
+		std::function<bool(agi::fs::path const&)> wants_to_open = [](auto) { return false; };
 	};
 
 	const factory providers[] = {

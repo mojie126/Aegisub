@@ -40,7 +40,7 @@ struct factory {
 	const char *name;
 	std::unique_ptr<AudioProvider> (*create)(fs::path const&, BackgroundRunner *);
 	bool hidden;
-	std::function<bool(agi::fs::path const&)> wants_to_open = [](auto p) { return false; };
+	std::function<bool(agi::fs::path const&)> wants_to_open = [](auto) { return false; };
 };
 
 const factory providers[] = {
@@ -66,7 +66,7 @@ std::vector<std::string> GetAudioProviderNames() {
 }
 
 std::unique_ptr<agi::AudioProvider> SelectAudioProvider(fs::path const& filename,
-                                                        Path const& path_helper,
+                                                        Path const&,
                                                         BackgroundRunner *br) {
 	auto preferred = OPT_GET("Audio/Provider")->GetString();
 
