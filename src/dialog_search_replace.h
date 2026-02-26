@@ -30,6 +30,7 @@ class wxComboBox;
 
 template<bool has_replace>
 class DialogSearchReplace final : public wxDialog {
+	using wxDialog::Show;
 	agi::Context *c;
 	std::unique_ptr<SearchReplaceSettings> settings;
 	wxComboBox *replace_edit;

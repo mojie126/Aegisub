@@ -169,7 +169,7 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 #ifndef __WXGTK3__
 	// GTK3 has a bug that we cannot shrink the size of a widget, so do nothing there. See:
 	//  http://gtk.10911.n7.nabble.com/gtk-widget-set-size-request-stopped-working-with-GTK3-td26274.html
-	//  https://trac.wxwidgets.org/ticket/18568
+	//  https://github.com/wxWidgets/wxWidgets/issues/18568
 	layer->SetInitialSize(layer->GetSizeFromTextSize(GetTextExtent(wxS("00"))));
 #endif
 	layer->SetToolTip(_("Layer number"));
@@ -225,7 +225,7 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	secondary_editor = new wxTextCtrl(this, -1, "", wxDefaultPosition, wxDefaultSize, (OPT_GET("App/Dark Mode")->GetBool() ? wxBORDER_SIMPLE : wxBORDER_SUNKEN) | wxTE_MULTILINE | wxTE_READONLY);
 	// Here we use the height of secondary_editor as the initial size of edit_ctrl,
 	// which is more reasonable than the default given by wxWidgets.
-	// See: https://trac.wxwidgets.org/ticket/18471#ticket
+	// See: https://github.com/wxWidgets/wxWidgets/issues/18471#comment:1
 	//      https://github.com/wangqr/Aegisub/issues/4
 	edit_ctrl->SetInitialSize(secondary_editor->GetSize());
 

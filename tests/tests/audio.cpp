@@ -22,6 +22,7 @@
 #include <libaegisub/util.h>
 
 #include <fstream>
+#include <thread>
 
 TEST(lagi_audio, dummy_blank) {
 	auto provider = agi::CreateDummyAudioProvider("dummy-audio:", nullptr);
@@ -205,7 +206,7 @@ TEST(lagi_audio, ram_cache) {
 	EXPECT_EQ(2, provider->GetBytesPerSample());
 	EXPECT_EQ(false, provider->AreSamplesFloat());
 	EXPECT_EQ(false, provider->NeedsCache());
-	while (provider->GetDecodedSamples() != provider->GetNumSamples()) agi::util::sleep_for(0);
+	while (provider->GetDecodedSamples() != provider->GetNumSamples()) std::this_thread::sleep_for(std::chrono::milliseconds(0));
 
 	uint16_t buff[512];
 	provider->GetAudio(buff, (1 << 22) - 256, 512); // Stride two cache blocks
@@ -216,7 +217,7 @@ TEST(lagi_audio, ram_cache) {
 
 TEST(lagi_audio, hd_cache) {
 	auto provider = agi::CreateHDAudioProvider(std::make_unique<TestAudioProvider<>>(), agi::Path().Decode("?temp"));
-	while (provider->GetDecodedSamples() != provider->GetNumSamples()) agi::util::sleep_for(0);
+	while (provider->GetDecodedSamples() != provider->GetNumSamples()) std::this_thread::sleep_for(std::chrono::milliseconds(0));
 
 	uint16_t buff[512];
 	provider->GetAudio(buff, (1 << 22) - 256, 512);
