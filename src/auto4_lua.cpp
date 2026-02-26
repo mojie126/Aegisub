@@ -394,7 +394,8 @@ namespace {
 		lua_pop(L, 1);
 
 		AssEntry *etp = et.get();	// Shut up a compiler warning
-		if (typeid(*etp) != typeid(AssStyle))
+		auto& etp_ref = *etp;
+		if (typeid(etp_ref) != typeid(AssStyle))
 			return error(L, "Not a style entry");
 
 		double width, height, descent, extlead;
@@ -1068,7 +1069,8 @@ namespace {
 				}
 
 				AssEntry *curline = lines[cur - 1];
-				if (typeid(*curline) != typeid(AssDialogue)) {
+				auto& curline_ref = *curline;
+				if (typeid(curline_ref) != typeid(AssDialogue)) {
 					wxLogError(fmt_tl("Selected row %d is not a dialogue line", cur));
 					throw LuaForEachBreak();
 				}

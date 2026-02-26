@@ -137,7 +137,8 @@ namespace {
 
 	template<typename T, typename U>
 	const T *check_cast_constptr(const U *value) {
-		return typeid(const T) == typeid(*value) ? static_cast<const T *>(value) : nullptr;
+		auto& value_ref = *value;
+		return typeid(const T) == typeid(value_ref) ? static_cast<const T *>(value) : nullptr;
 	}
 }
 
