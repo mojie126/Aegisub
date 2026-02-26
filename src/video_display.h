@@ -101,6 +101,8 @@ class VideoDisplay final : public wxGLCanvas {
 	/// 视口内视频的缩放级别
 	double videoZoomValue = 1;
 
+	/// 缩放手势是否处于活动状态
+	bool isZoomGestureActive = false;
 	double videoZoomAtGestureStart = 1;
 
 	/// 缩放手势开始时的锚点（视频相对坐标系，与缩放/平移无关）

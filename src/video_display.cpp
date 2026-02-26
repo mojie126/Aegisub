@@ -34,6 +34,8 @@
 
 #include "video_display.h"
 
+#include "libaegisub/log.h"
+
 #include "ass_file.h"
 #include "async_video_provider.h"
 #include "command/command.h"
@@ -150,6 +152,11 @@ VideoDisplay::VideoDisplay(wxToolBar *toolbar, bool freeSize, wxComboBox *zoomBo
 	Bind(wxEVT_MIDDLE_UP, &VideoDisplay::OnMouseEvent, this);
 	Bind(wxEVT_MOTION, &VideoDisplay::OnMouseEvent, this);
 	Bind(wxEVT_MOUSEWHEEL, &VideoDisplay::OnMouseWheel, this);
+
+	if (!EnableTouchEvents(wxTOUCH_ZOOM_GESTURE)) {
+		LOG_E("video/display") << "Failed to enable touch events.";
+	}
+	Bind(wxEVT_GESTURE_ZOOM, &VideoDisplay::OnGestureZoom, this);
 
 	Bind(wxEVT_DPI_CHANGED, [this] (wxDPIChangedEvent &e) {
 		double new_zoom = windowZoomValue * GetContentScaleFactor() / scale_factor;
@@ -473,6 +480,28 @@ void VideoDisplay::OnMouseWheel(wxMouseEvent& event) {
 			}
 		}
 	}
+}
+
+void VideoDisplay::OnGestureZoom(wxZoomGestureEvent& event) {
+	if (!isZoomGestureActive && !event.IsGestureStart()) {
+		// wxGTK 上右键点击会产生虚假的 GestureEnd 事件（没有前置 GestureStart 事件）。
+		// 参见 https://github.com/wxWidgets/wxWidgets/issues/26211
+		// 在 GestureStart 之前收到的任何事件均无效，直接忽略。
+		LOG_W("video/display") << "Ignoring zoom gesture event when gesture isn't active"
+			<< " (ZoomFactor " << event.GetZoomFactor() << ", Position " << event.GetPosition().x << " " << event.GetPosition().y
+			<< (event.IsGestureEnd() ? ", GestureEnd)" : ")");
+		return;
+	}
+
+	wxPoint scaled_position = event.GetPosition() * scale_factor;
+	if (event.IsGestureStart()) {
+		isZoomGestureActive = true;
+		videoZoomAtGestureStart = videoZoomValue;
+		zoomGestureAnchorPoint = GetZoomAnchorPoint(scaled_position);
+	} else if (event.IsGestureEnd()) {
+		isZoomGestureActive = false;
+	}
+	ZoomAndPan(videoZoomAtGestureStart * event.GetZoomFactor(), zoomGestureAnchorPoint, scaled_position);
 }
 
 void VideoDisplay::OnContextMenu(wxContextMenuEvent&) {
