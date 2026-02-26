@@ -106,7 +106,7 @@ class VideoDisplay final : public wxGLCanvas {
 	/// 缩放手势开始时的锚点（视频相对坐标系，与缩放/平移无关）
 	Vector2D zoomGestureAnchorPoint = {0, 0};
 
-	/// 视频平移量，以视口高度为单位
+	/// 视频平移量，绝对像素偏移
 	/// @see videoSize
 	double pan_x = 0;
 	double pan_y = 0;
@@ -147,10 +147,21 @@ class VideoDisplay final : public wxGLCanvas {
 
 	/// @brief 根据当前窗口缩放级别和视频分辨率重新计算视口大小，然后调整客户区以匹配视口
 	void FitClientSizeToVideo();
+	/// @brief 设置视口大小并按比例缩放平移值
+	///
+	/// 调用后应接续调用 @ref PositionVideo()。
+	///
+	/// 在自由尺寸模式下，@p newSize 参数被忽略，改用客户区大小。
+	///
+	/// @param rescalePan 是否按新旧视口高度比例缩放平移值
+	/// @param newSize 新视口大小，自由尺寸模式下忽略
+	void UpdateViewportSize(bool rescalePan, wxSize newSize = wxDefaultSize);
 	/// @brief 根据当前视口大小、内容缩放和平移更新视频位置和尺寸
 	///
 	/// 更新 @ref viewport_left, @ref viewport_width, @ref viewport_bottom, @ref viewport_top 和 @ref viewport_height
-	void PositionVideo();
+	///
+	/// @param preserveContentSize 是否调整视频缩放以保持当前内容尺寸不变
+	void PositionVideo(bool preserveContentSize = false);
 	/// Set the zoom level to that indicated by the dropdown
 	void SetZoomFromBox(wxCommandEvent&);
 	/// Set the zoom level to that indicated by the text
@@ -223,6 +234,7 @@ public:
 
 	/// @brief 重置内容缩放和平移
 	void ResetVideoZoom();
+	bool IsContentZoomActive() { return videoZoomValue != 1 || pan_x != 0 || pan_y != 0; }
 
 	/// Get the last seen position of the mouse in script coordinates
 	Vector2D GetMousePosition() const;
