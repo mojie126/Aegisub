@@ -575,9 +575,9 @@ void VapourSynth(wxTreebook *book, Preferences *parent) {
 
 	auto video = p->PageSizer(_("Default Video Script"));
 
-	auto make_default_button = [=](std::string optname, wxTextCtrl *ctrl, wxWindow *parent_box) {
+	auto make_default_button = [](std::string optname, wxTextCtrl *ctrl, wxWindow *parent_box) {
 		auto showdefault = new wxButton(parent_box, -1, _("Set to Default"));
-		showdefault->Bind(wxEVT_BUTTON, [=](auto e) {
+		showdefault->Bind(wxEVT_BUTTON, [ctrl, optname](auto e) {
 			ctrl->SetValue(OPT_GET(optname)->GetDefaultString());
 		});
 		return showdefault;

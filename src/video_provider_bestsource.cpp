@@ -126,7 +126,7 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 		ps->SetTitle(from_wx(_("Indexing")));
 		ps->SetMessage(from_wx(_("Decoding the full track to ensure perfect frame accuracy. This will take a while!")));
 		try {
-			bs = std::make_unique<BestVideoSource>(filename.string(), hw_device, extra_hw_frames, static_cast<int>(track_info.first), 0, OPT_GET("Provider/Video/BestSource/Threads")->GetInt(), 1, provider_bs::GetCacheFile(filename), &bsopts, [=](int Track, int64_t Current, int64_t Total) {
+			bs = std::make_unique<BestVideoSource>(filename.string(), hw_device, extra_hw_frames, static_cast<int>(track_info.first), 0, OPT_GET("Provider/Video/BestSource/Threads")->GetInt(), 1, provider_bs::GetCacheFile(filename), &bsopts, [ps](int Track, int64_t Current, int64_t Total) {
 				ps->SetProgress(Current, Total);
 				return !ps->IsCancelled();
 			});

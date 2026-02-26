@@ -97,7 +97,7 @@ matcher get_matcher(SearchReplaceSettings const& settings, Accessor&& a) {
 
 		auto regex = boost::make_u32regex(settings.find, flags);
 
-		return [=](const AssDialogue *diag, size_t start) mutable -> MatchState {
+		return [regex, a](const AssDialogue *diag, size_t start) mutable -> MatchState {
 			boost::smatch result;
 			auto const& str = a.get(diag, start);
 			if (!u32regex_search(str, result, regex, start > 0 ? boost::match_not_bol : boost::match_default))
@@ -113,7 +113,7 @@ matcher get_matcher(SearchReplaceSettings const& settings, Accessor&& a) {
 	if (!settings.match_case)
 		look_for = boost::locale::fold_case(look_for);
 
-	return [=](const AssDialogue *diag, size_t start) mutable -> MatchState {
+	return [full_match_only, match_case, look_for, a](const AssDialogue *diag, size_t start) mutable -> MatchState {
 		const auto str = a.get(diag, start);
 		if (full_match_only && str.size() != look_for.size())
 			return bad_match;
