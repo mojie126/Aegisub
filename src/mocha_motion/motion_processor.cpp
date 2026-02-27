@@ -441,26 +441,23 @@ namespace mocha {
 
 	void MotionProcessor::combine_identical_lines(std::vector<MotionLine> &lines) {
 		// 对应 MoonScript combineIdenticalLines()
-		// 合并文本和样式完全相同的相邻行
+		// 合并文本和样式完全相同的相邻行（双指针原地压缩，O(n) 复杂度）
 		if (lines.size() < 2) return;
 
-		auto it = lines.begin();
-		while (it != lines.end() && std::next(it) != lines.end()) {
-			auto next = std::next(it);
-
-			// 检查文本和样式是否相同，且时间必须相邻才合并
-			// 对应 MoonScript: @text == line.text and @style == line.style
-			//   and (@start_time == line.end_time or @end_time == line.start_time)
-			if (it->text == next->text && it->style == next->style &&
-				(it->start_time == next->end_time || it->end_time == next->start_time)) {
+		size_t write = 0;
+		for (size_t read = 1; read < lines.size(); ++read) {
+			if (lines[write].text == lines[read].text && lines[write].style == lines[read].style &&
+				(lines[write].start_time == lines[read].end_time || lines[write].end_time == lines[read].start_time)) {
 				// 扩展时间范围
-				it->end_time = std::max(it->end_time, next->end_time);
-				it->start_time = std::min(it->start_time, next->start_time);
-				lines.erase(next);
+				lines[write].end_time = std::max(lines[write].end_time, lines[read].end_time);
+				lines[write].start_time = std::min(lines[write].start_time, lines[read].start_time);
 			} else {
-				++it;
+				++write;
+				if (write != read)
+					lines[write] = std::move(lines[read]);
 			}
 		}
+		lines.resize(write + 1);
 	}
 
 	void MotionProcessor::cross_line_combine(std::vector<MotionLine> &lines) {
