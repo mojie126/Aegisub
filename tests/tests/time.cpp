@@ -23,11 +23,19 @@ using agi::Time;
 
 TEST(lagi_time, out_of_range_times) {
 	EXPECT_EQ(0, (int)Time(-1));
-	EXPECT_EQ(596 * 60 * 60 * 1000 - 10, (int)Time(596 * 60 * 60 * 1000));
+	EXPECT_EQ(596 * 60 * 60 * 1000, (int)Time(596 * 60 * 60 * 1000));
 }
 
-TEST(lagi_time, rounds_to_cs) {
+TEST(lagi_time, truncates_to_cs) {
 	EXPECT_EQ(10, (int)Time(14));
+	EXPECT_EQ(10, (int)Time(15));
+	EXPECT_EQ(10, (int)Time(19));
+	EXPECT_EQ(0, (int)Time(5));
+}
+
+TEST(lagi_time, srt_to_ass_truncates) {
+	EXPECT_STREQ("0:00:49.46", Time("0:00:49,466").GetAssFormatted().c_str());
+	EXPECT_STREQ("1:23:45.67", Time("1:23:45,678").GetAssFormatted().c_str());
 }
 
 TEST(lagi_time, cs_formatting) {

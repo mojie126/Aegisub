@@ -24,8 +24,8 @@
 #include <algorithm>
 
 // classic VSFilter internally uses a signed 32-bit int to denote milliseconds.
-// To avoid this limit to < 596h (-6 to avoid rounding up to 596h in centisecond precision)
-static const int MAX_TIME = 596 * 60 * 60 * 1000 - 6;
+// 限制在 596 小时以内
+static const int MAX_TIME = 596 * 60 * 60 * 1000;
 
 static void decompose_time(int ms_time, int& h, int& m, int& s, int& ms) {
 	h = ms_time / 3600000;
