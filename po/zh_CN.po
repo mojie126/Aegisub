@@ -3862,9 +3862,17 @@ msgstr "修订摘要："
 msgid "From &video"
 msgstr "从视频获得(&V)"
 
+#: ../src/dialog_properties.cpp:137
+msgid "From video"
+msgstr "从视频获得"
+
 #: ../src/dialog_properties.cpp:141
 msgid "Resolution"
 msgstr "分辨率"
+
+#: ../src/dialog_properties.cpp:146
+msgid "Script: "
+msgstr "脚本："
 
 #: ../src/dialog_properties.cpp:149
 msgid "0: Smart wrapping, top line is wider"
@@ -6921,6 +6929,54 @@ msgstr "解码全轨道，确保完美的帧精度。这需要一段时间！"
 
 msgid "BestSource had to fall back to linear decoding. Seeking through the video will be very slow now. You may want to try a different video provider, but note that those are not guaranteed to be frame-exact."
 msgstr "BestSource 不得不回退到线性解码。现在通过视频搜索定位将非常缓慢。你可能想尝试其他视频处理器，但请注意，这些处理器不能保证帧的精确度。"
+
+#: ../src/dialog_export.cpp:191
+msgid "Export Subtitles File"
+msgstr "导出字幕文件"
+
+#: ../src/command/video.cpp:1080
+msgid "Open Video File"
+msgstr "打开视频文件"
+
+#: ../src/command/subtitle.cpp:555
+msgid "Open Subtitles File"
+msgstr "打开字幕文件"
+
+#: ../src/command/subtitle.cpp:629
+msgid "Save Subtitles File"
+msgstr "保存字幕文件"
+
+#: ../src/command/audio.cpp:188
+msgid "Save Audio Clip"
+msgstr "保存音频剪辑"
+
+#: ../src/command/keyframe.cpp:72
+msgid "Open Keyframes File"
+msgstr "打开关键帧文件"
+
+#: ../src/command/keyframe.cpp:97
+msgid "Save Keyframes File"
+msgstr "保存关键帧文件"
+
+#: ../src/dialog_export.cpp:212 ../src/project.cpp:160
+msgid "Unknown error"
+msgstr "未知错误"
+
+#: ../src/subs_controller.cpp:282
+msgid "Exception when attempting to autosave file: "
+msgstr "自动保存文件时发生异常："
+
+#: ../src/project.cpp:412
+msgid "Failed to parse keyframes file: "
+msgstr "解析关键帧文件失败："
+
+#: ../src/project.cpp:386
+msgid "Failed to parse timecodes file: "
+msgstr "解析时间码文件失败："
+
+#: ../src/project.cpp:416
+msgid "Keyframes file in unknown format: "
+msgstr "关键帧文件格式未知："
 
 #~ msgid "Export the clip"
 #~ msgstr "导出视频片段"
