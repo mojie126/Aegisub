@@ -106,7 +106,7 @@ namespace mocha {
 		typed_effect_tags.clear();
 		const auto &registry = TagRegistry::instance();
 		for (const auto *tag_def : registry.transform_tags()) {
-			std::regex re(tag_def->pattern);
+			const auto &re = tag_def->compiled_pattern;
 			std::sregex_iterator it(effect.begin(), effect.end(), re);
 			std::sregex_iterator end;
 			while (it != end) {

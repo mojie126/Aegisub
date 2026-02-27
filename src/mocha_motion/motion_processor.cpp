@@ -97,9 +97,23 @@ namespace mocha {
 
 		// 快捷方式：如果所有样式透明度都为0且块内没有任何单独的alpha标签，使用 \alpha&H00&
 		// 修复：避免在已有 \1a-\4a 单独标签时仍插入 \alpha 导致冗余
+		static const std::regex re_alpha_full(R"(\\alpha&H[0-9A-Fa-f]{2}&)");
+		static const std::regex re_any_alpha(R"(\\[1234]a&H[0-9A-Fa-f]{2}&)");
+		static const std::regex re_1a(R"(\\1a&H[0-9A-Fa-f]{2}&)");
+		static const std::regex re_2a(R"(\\2a&H[0-9A-Fa-f]{2}&)");
+		static const std::regex re_3a(R"(\\3a&H[0-9A-Fa-f]{2}&)");
+		static const std::regex re_4a(R"(\\4a&H[0-9A-Fa-f]{2}&)");
+		static const std::regex re_karaoke(R"(\\[kK][fo]?\d)");
+		static const std::regex re_bord(R"(\\[xy]?bord[\d.]+)");
+		static const std::regex re_shad(R"(\\[xy]?shad[.0-9]+)");
+
+		// 如果已有 \alpha 标签则不需要添加
+		if (std::regex_search(block, re_alpha_full))
+			return "";
+
 		if (a1 == 0 && a2 == 0 && a3 == 0 && a4 == 0) {
 			// 检查是否已存在任何单独的 alpha 标签
-			bool has_any_alpha = std::regex_search(block, std::regex(R"(\\[1234]a&H[0-9A-Fa-f]{2}&)"));
+			bool has_any_alpha = std::regex_search(block, re_any_alpha);
 			if (!has_any_alpha) {
 				return "\\alpha&H00&";
 			}
@@ -110,27 +124,27 @@ namespace mocha {
 		char buf[32];
 
 		// 逐个检查并添加缺少的 alpha
-		if (!std::regex_search(block, std::regex(R"(\\1a&H[0-9A-Fa-f]{2}&)"))) {
+		if (!std::regex_search(block, re_1a)) {
 			std::snprintf(buf, sizeof(buf), "\\1a&H%02X&", static_cast<int>(a1));
 			result += buf;
 		}
 		// \2a 仅在有卡拉 OK 标签时添加
-		if (!std::regex_search(block, std::regex(R"(\\2a&H[0-9A-Fa-f]{2}&)"))
-			&& std::regex_search(block, std::regex(R"(\\[kK][fo]?\d)"))) {
+		if (!std::regex_search(block, re_2a)
+			&& std::regex_search(block, re_karaoke)) {
 			std::snprintf(buf, sizeof(buf), "\\2a&H%02X&", static_cast<int>(a2));
 			result += buf;
 		}
 		// \3a 仅在有边框标签或样式边框 > 0 时添加
-		if (!std::regex_search(block, std::regex(R"(\\3a&H[0-9A-Fa-f]{2}&)"))
-			&& (std::regex_search(block, std::regex(R"(\\[xy]?bord[\d.]+)"))
+		if (!std::regex_search(block, re_3a)
+			&& (std::regex_search(block, re_bord)
 				|| get_prop("border") > 0)) {
 			std::snprintf(buf, sizeof(buf), "\\3a&H%02X&", static_cast<int>(a3));
 			result += buf;
 		}
 		// \4a 仅在有阴影标签或样式阴影 > 0 时添加
 		// 注意：MoonScript 原始使用 [%d%.]+（不含负号），与 Tags.moon 中 shadow.pattern 不同
-		if (!std::regex_search(block, std::regex(R"(\\4a&H[0-9A-Fa-f]{2}&)"))
-			&& (std::regex_search(block, std::regex(R"(\\[xy]?shad[.0-9]+)"))
+		if (!std::regex_search(block, re_4a)
+			&& (std::regex_search(block, re_shad)
 				|| get_prop("shadow") > 0)) {
 			std::snprintf(buf, sizeof(buf), "\\4a&H%02X&", static_cast<int>(a4));
 			result += buf;
@@ -170,11 +184,21 @@ namespace mocha {
 		std::string result;
 		char buf[64];
 
-		for (const auto &tag : important_tags) {
+		// 预编译各标签的正则表达式（热路径优化）
+		static const auto compiled_tags = [&]() {
+			std::vector<std::regex> v;
+			v.reserve(important_tags.size());
+			for (const auto &tag : important_tags)
+				v.emplace_back(tag.pattern);
+			return v;
+		}();
+
+		for (size_t i = 0; i < important_tags.size(); ++i) {
+			const auto &tag = important_tags[i];
 			if (!tag.check_option) continue;
 
 			// 检查标签是否已存在于块中
-			if (std::regex_search(block, std::regex(tag.pattern))) continue;
+			if (std::regex_search(block, compiled_tags[i])) continue;
 
 			double value = get_prop(tag.key);
 			// 如果属性值等于 skip 值，跳过
@@ -252,7 +276,7 @@ namespace mocha {
 			line.run_callback_on_overrides(
 				[&line](const std::string &block, int) {
 					std::string result = block;
-					std::regex fad_re(R"(\\fade?\((\d+),(\d+)\))");
+					static const std::regex fad_re(R"(\\fade?\((\d+),(\d+)\))");
 					std::smatch m;
 					if (std::regex_search(result, m, fad_re)) {
 						int fade_in = std::stoi(m[1].str());
@@ -327,7 +351,7 @@ namespace mocha {
 			line.run_callback_on_overrides(
 				[this, &line, style](const std::string &block, int) {
 					std::string result = block;
-					std::regex reset_re(R"(\\r(?!nd[sxyz\d])([^\\}]*)(.*))");
+					static const std::regex reset_re(R"(\\r(?!nd[sxyz\d])([^\\}]*)(.*))");
 					std::smatch m;
 					if (std::regex_search(result, m, reset_re)) {
 						std::string reset_style = m[1].str();
@@ -373,7 +397,8 @@ namespace mocha {
 			// 9. 处理 \org（标记存在性）
 			line.run_callback_on_overrides(
 				[&line](const std::string &block, int) {
-					if (std::regex_search(block, std::regex(R"(\\org\([-.0-9]+,[-.0-9]+\))"))) {
+					static const std::regex org_re(R"(\\org\([-.0-9]+,[-.0-9]+\))");
+				if (std::regex_search(block, org_re)) {
 						line.has_org = true;
 					}
 					return block;
@@ -385,7 +410,7 @@ namespace mocha {
 				line.run_callback_on_overrides(
 					[this, &line](const std::string &block, int) {
 						std::string result = block;
-						std::regex clip_re(R"((\\i?clip\([^)]+\)))");
+					static const std::regex clip_re(R"((\\i?clip\([^)]+\)))");
 						std::smatch m;
 						if (std::regex_search(result, m, clip_re)) {
 							line.has_clip = true;
@@ -432,7 +457,8 @@ namespace mocha {
 			line.shift_karaoke();
 
 			// 清理空标签块
-			line.text = std::regex_replace(line.text, std::regex(R"(\{\})"), "");
+			static const std::regex empty_block_re(R"(\{\})");
+			line.text = std::regex_replace(line.text, empty_block_re, "");
 		}
 
 		// 合并相邻相同行
