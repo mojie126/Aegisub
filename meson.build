@@ -475,9 +475,9 @@ subdir('packages')
 subdir('po')
 subdir('src')
 
-#if not meson.is_cross_build()
-#    subdir('tests')
-#endif
+if get_option('tests')
+    subdir('tests')
+endif
 
 aegisub_cpp_pch = ['src/include/agi_pre.h']
 aegisub_c_pch = ['src/include/agi_pre_c.h']

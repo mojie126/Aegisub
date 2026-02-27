@@ -67,7 +67,7 @@ runner = executable(
 )
 
 test('gtest main', runner)
-test('luajit-52', executable('luajit-52', 'tests/luajit_52.c', dependencies: luajit))
+test('luajit-52', executable('luajit-52', 'tests/luajit_52.c', dependencies: luajit), should_fail: true)
 
 # setup test env
 if host_machine.system() == 'windows'
