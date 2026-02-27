@@ -4,6 +4,8 @@
 
 #include "motion_data_handler.h"
 
+#include "libaegisub/log.h"
+
 #include <sstream>
 #include <algorithm>
 #include <cmath>
@@ -48,21 +50,26 @@ bool DataHandler::parse(const std::string& raw_data, int script_res_x, int scrip
 	// 从第3、4行提取源视频尺寸
 	for (size_t i = 1; i < raw_lines_.size() && i < 10; ++i) {
 		const auto& line = raw_lines_[i];
-		if (line.find("Source Width") != std::string::npos) {
-			auto sep_pos = line.find_last_of("\t ");
-			if (sep_pos != std::string::npos) {
-				source_width_ = std::stoi(line.substr(sep_pos + 1));
+		try {
+			if (line.find("Source Width") != std::string::npos) {
+				auto sep_pos = line.find_last_of("\t ");
+				if (sep_pos != std::string::npos) {
+					source_width_ = std::stoi(line.substr(sep_pos + 1));
+				}
+			} else if (line.find("Source Height") != std::string::npos) {
+				auto sep_pos = line.find_last_of("\t ");
+				if (sep_pos != std::string::npos) {
+					source_height_ = std::stoi(line.substr(sep_pos + 1));
+				}
+			} else if (line.find("Units Per Second") != std::string::npos) {
+				auto sep_pos = line.find_last_of("\t ");
+				if (sep_pos != std::string::npos) {
+					frame_rate_ = std::stod(line.substr(sep_pos + 1));
+				}
 			}
-		} else if (line.find("Source Height") != std::string::npos) {
-			auto sep_pos = line.find_last_of("\t ");
-			if (sep_pos != std::string::npos) {
-				source_height_ = std::stoi(line.substr(sep_pos + 1));
-			}
-		} else if (line.find("Units Per Second") != std::string::npos) {
-			auto sep_pos = line.find_last_of("\t ");
-			if (sep_pos != std::string::npos) {
-				frame_rate_ = std::stod(line.substr(sep_pos + 1));
-			}
+		} catch (const std::exception &e) {
+			LOG_D("mocha/data") << "Failed to parse header field at line " << i << ": " << e.what();
+			return false;
 		}
 	}
 
@@ -486,6 +493,12 @@ std::string DataHandler::srs_convert_vertex(const std::string& vertex_line, int 
 	if (numbers.size() < 12) return "";
 
 	int num_vertices = static_cast<int>(numbers.size()) / 12;
+
+	// 若总数非 12 的整数倍，记录丢弃的尾部数据
+	if (numbers.size() % 12 != 0) {
+		LOG_D("mocha/data") << "SRS vertex_data has " << numbers.size()
+			<< " values, " << (numbers.size() % 12) << " trailing values discarded";
+	}
 
 	// 解析所有顶点
 	std::vector<SrsVertex> vertices;

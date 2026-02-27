@@ -19,7 +19,12 @@
 namespace mocha {
 namespace math {
 
-/// 四舍五入到指定小数位
+/// @brief 四舍五入到指定小数位
+///
+/// 使用 floor(x + 0.5) 实现，与 MoonScript math.round 行为一致。
+/// 注意：对负数的行为与 std::round 不同，例如 round(-0.5, 0) = 0 而非 -1。
+/// 此差异为有意设计，确保与 MoonScript 原版输出完全一致。
+///
 /// @param num 待四舍五入的数值
 /// @param decimal_places 小数位数，默认 0
 inline double round(double num, int decimal_places = 0) {
