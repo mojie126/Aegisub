@@ -217,7 +217,7 @@ int Framerate::FrameAtTime(int ms, Time type) const {
 		return int(((ms - timecodes.front()) * numerator / denominator - 999) / 1000);
 
 	if (ms > timecodes.back())
-		return static_cast<int>(((ms + 1) * numerator - last - numerator / 2 + (1000 * denominator - 1)) / (1000 * denominator) + timecodes.size()) - 2;
+		return static_cast<int>(((ms - timecodes.front() + 1) * numerator - last - numerator / 2 + (1000 * denominator - 1)) / (1000 * denominator) + timecodes.size()) - 2;
 
 	return (int)distance(lower_bound(timecodes.rbegin(), timecodes.rend(), ms, std::greater<int>()), timecodes.rend()) - 1;
 }
@@ -241,7 +241,7 @@ int Framerate::TimeAtFrame(int frame, Time type) const {
 
 	if (frame >= (signed)timecodes.size()) {
 		int64_t frames_past_end = frame - (int)timecodes.size() + 1;
-		return int((frames_past_end * 1000 * denominator + last + numerator / 2) / numerator);
+		return int((frames_past_end * 1000 * denominator + last + numerator / 2) / numerator) + timecodes.front();
 	}
 
 	return timecodes[frame];

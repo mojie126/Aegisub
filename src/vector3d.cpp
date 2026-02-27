@@ -75,7 +75,7 @@ Vector3D Vector3D::Max(Vector3D param) const {
 }
 
 Vector3D Vector3D::Min(Vector3D param) const {
-	return Vector3D(std::min(x, param.x), std::min(y, param.y), std::max(z, param.z));
+	return Vector3D(std::min(x, param.x), std::min(y, param.y), std::min(z, param.z));
 }
 
 Vector3D Vector3D::Round(float step) const {

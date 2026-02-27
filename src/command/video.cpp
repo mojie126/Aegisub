@@ -273,6 +273,7 @@ namespace {
 			if (providers.empty()) return;
 
 			auto it = find(begin(providers), end(providers), OPT_GET("Subtitle/Provider")->GetString());
+			if (it == end(providers)) it = begin(providers);
 
 			OPT_SET("Subtitle/Provider")->SetString(*it);
 			c->frame->StatusTimeout(fmt_tl("Subtitles provider set to %s", *it), 5000);
