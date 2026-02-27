@@ -38,6 +38,8 @@ class VideoOutGL {
 	int maxTextureSize = 0;
 	/// Whether rectangular textures are supported by the user's graphics card
 	bool supportsRectangularTextures = false;
+	/// 是否支持非2的幂次（NPOT）纹理，影响3D LUT纹理是否需要POT扩展
+	bool supportsNpotTextures = false;
 	/// The internalformat to use
 	int internalFormat = 0;
 
@@ -57,14 +59,19 @@ class VideoOutGL {
 	bool frameSourceVFlip = false;
 	/// 原始水平翻转标志（用于FBO旋转路径的纹理坐标计算）
 	bool frameSourceHFlip = false;
-	/// GPU黑边上下各行数（由video provider设置的padding信息）
-	int frameVideoPadding = 0;
+	/// GPU顶部黑边行数（由video provider设置的padding信息）
+	int frameVideoPaddingTop = 0;
+	/// GPU底部黑边行数（由video provider设置的padding信息）
+	int frameVideoPaddingBottom = 0;
 	/// Whether HDR to SDR tone mapping is enabled
 	bool hdrToneMappingEnabled = false;
 	/// Whether current source is likely HDR (used to avoid applying PQ LUT on SDR)
 	bool hdrInputLikelyHdr = false;
 	/// 当前视频源的HDR类型（SDR/PQ/HLG/DolbyVision），用于选择对应LUT文件
-	int hdrInputType = 0;
+	/// @note 默认零初始化对应HDRType::SDR(=0)
+	HDRType hdrInputType{};
+	/// 当前视频源的Dolby Vision Profile编号（0=无DV/未知），用于Profile感知的LUT选择
+	int hdrDvProfile = 0;
 	/// HDR LUT 3D texture ID (for tone mapping)
 	GLuint hdrLutTextureID = 0;
 	/// HDR LUT 3D size
@@ -157,8 +164,9 @@ public:
 
 	/// @brief 根据HDR类型返回LUT文件名
 	/// @param type HDR类型
+	/// @param dvProfile Dolby Vision Profile编号（0=未知，7/8等为具体Profile）
 	/// @return 对应的cube文件名（如PQ2SDR.cube）
-	static std::string GetLutFilename(HDRType type);
+	static std::string GetLutFilename(HDRType type, int dvProfile = 0);
 
 	/// @brief 查找cube LUT文件的完整路径
 	/// @param filename cube文件名（如PQ2SDR.cube）
@@ -168,7 +176,8 @@ public:
 	/// @brief Set whether current input appears to be HDR source and its type
 	/// @param isHdr True when source colorspace suggests BT.2020/HDR workflow
 	/// @param type HDR type detected from video metadata
-	void SetHDRInputHint(bool isHdr, HDRType type);
+	/// @param dvProfile Dolby Vision Profile编号（0=非DV或未知）
+	void SetHDRInputHint(bool isHdr, HDRType type, int dvProfile = 0);
 
 	VideoOutGL();
 	~VideoOutGL();

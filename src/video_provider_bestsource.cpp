@@ -35,6 +35,7 @@ extern "C" {
 #include "options.h"
 #include "compat.h"
 #include "video_frame.h"
+#include "dovi_probe.h"
 namespace agi { class BackgroundRunner; }
 
 #include <libaegisub/fs.h>
@@ -67,6 +68,9 @@ class BSVideoProvider final : public VideoProvider {
 	bool is_linear = false;
 
 	HDRType detected_hdr_type_ = HDRType::SDR;  // 检测到的HDR类型
+	int dv_profile_ = 0;                         // Dolby Vision Profile编号（0=无DV/未知）
+	int paddingTop = 0;                          ///< 自适应顶部黑边行数
+	int paddingBottom = 0;                       ///< 自适应底部黑边行数
 
 	agi::scoped_holder<SwsContext *> sws_context;
 
@@ -80,8 +84,11 @@ public:
 	int GetFrameCount() const override { return properties.NumFrames; };
 
 	int GetWidth() const override { return properties.Width; };
-	int GetHeight() const override { return properties.Height; };
-	double GetDAR() const override { return ((double) properties.Width * properties.SAR.Num) / (properties.Height * properties.SAR.Den); };
+	int GetHeight() const override { return properties.Height + paddingTop + paddingBottom; };
+	double GetDAR() const override {
+		const int totalH = properties.Height + paddingTop + paddingBottom;
+		return ((double) properties.Width * properties.SAR.Num) / (totalH * properties.SAR.Den);
+	};
 
 	agi::vfr::Framerate GetFPS() const override { return Timecodes; };
 	std::string GetColorSpace() const override { return colorspace; };
@@ -97,6 +104,7 @@ public:
 	bool WantsCaching() const override { return false; };
 	bool HasAudio() const override { return has_audio; };
 	HDRType GetHDRType() const override { return detected_hdr_type_; };
+	int GetDVProfile() const override { return dv_profile_; };
 	bool IsHWDecoding() const override {
 		auto hw_name = OPT_GET("Provider/Video/BestSource/HW hw_name")->GetString();
 		return !hw_name.empty() && hw_name != "none";
@@ -199,6 +207,26 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 			detected_hdr_type_ = HDRType::SDR;
 			LOG_D("bestsource") << "HDR detection: SDR, color_trc=" << trc;
 		}
+
+		// 帧级检测未发现HDR时，使用 libavformat 流级探测作为后备
+		// 硬件解码时帧级传输特性和DV RPU可能缺失（UNSPECIFIED/空）
+#ifdef WITH_FFMPEG
+		if (detected_hdr_type_ == HDRType::SDR) {
+			DoviProbeResult probe = ProbeDolbyVision(filename.string());
+			if (probe.has_dovi) {
+				detected_hdr_type_ = HDRType::DolbyVision;
+				dv_profile_ = probe.dv_profile;
+				LOG_D("bestsource") << "HDR detection (stream probe): DolbyVision, profile=" << probe.dv_profile
+					<< " transfer=" << probe.transfer << " primaries=" << probe.color_primaries;
+			} else if (probe.transfer == 16) {
+				detected_hdr_type_ = HDRType::PQ;
+				LOG_D("bestsource") << "HDR detection (stream probe): PQ, transfer=" << probe.transfer;
+			} else if (probe.transfer == 18) {
+				detected_hdr_type_ = HDRType::HLG;
+				LOG_D("bestsource") << "HDR detection (stream probe): HLG, transfer=" << probe.transfer;
+			}
+		}
+#endif
 	}
 
 	sws_context = sws_getContext(
@@ -211,6 +239,14 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 	}
 
 	SetColorSpace(colormatrix);
+
+	// 读取 ABB 黑边选项并计算自适应分配
+	const int userPadding = std::max(0, static_cast<int>(OPT_GET("Provider/Video/BestSource/ABB")->GetInt()));
+	if (userPadding > 0) {
+		const auto ap = CalculateAdaptivePadding(properties.Height, userPadding);
+		paddingTop = ap.top;
+		paddingBottom = ap.bottom;
+	}
 }
 catch (BestSourceException const& err) {
 	throw VideoOpenError(agi::format("Failed to create BestVideoSource: %s",  + err.what()));
@@ -254,6 +290,8 @@ void BSVideoProvider::GetFrame(int n, VideoFrame &out) {
 	out.height = frame->height;
 	out.pitch = stride[0];
 	out.flipped = false; 		// TODO figure out flipped
+	out.padding_top = paddingTop;
+	out.padding_bottom = paddingBottom;
 }
 
 }

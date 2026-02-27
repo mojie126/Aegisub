@@ -363,8 +363,9 @@ namespace {
 			return false;
 		}
 
-		wxImage first_img = GetImage(*c->project->VideoProvider()->GetFrame(
-			start_frame, c->project->Timecodes().TimeAtFrame(start_frame), false));
+		auto first_vf = c->project->VideoProvider()->GetFrame(
+			start_frame, c->project->Timecodes().TimeAtFrame(start_frame), false);
+		wxImage first_img = GetImage(*first_vf);
 		if (!first_img.IsOk() || first_img.GetData() == nullptr) {
 			wxLogError("Failed to decode first frame for GIF export");
 			return false;
@@ -376,11 +377,11 @@ namespace {
 		if (gif_hdr_enabled)
 			VideoOutGL::ApplyHDRLutToImage(first_img, gif_hdr_type);
 
-		// 计算 ABB 黑边填充量（provider 报告的高度与实际帧高度之差的一半）
-		const int padded_h = c->project->VideoProvider()->GetHeight();
-		const int frame_padding = (padded_h - first_img.GetHeight()) / 2;
-		if (frame_padding > 0)
-			first_img = AddPaddingToImage(first_img, frame_padding);
+		// ABB 黑边填充（使用帧自身的自适应padding值）
+		const int gif_padding_top = first_vf->padding_top;
+		const int gif_padding_bottom = first_vf->padding_bottom;
+		if (gif_padding_top > 0 || gif_padding_bottom > 0)
+			first_img = AddPaddingToImage(first_img, gif_padding_top, gif_padding_bottom);
 
 		const int source_width = first_img.GetWidth();
 		const int source_height = first_img.GetHeight();
@@ -467,8 +468,8 @@ namespace {
 				if (gif_hdr_enabled)
 					VideoOutGL::ApplyHDRLutToImage(decoded_img, gif_hdr_type);
 				// 为后续帧添加与首帧相同的黑边填充
-				if (frame_padding > 0)
-					decoded_img = AddPaddingToImage(decoded_img, frame_padding);
+				if (gif_padding_top > 0 || gif_padding_bottom > 0)
+					decoded_img = AddPaddingToImage(decoded_img, gif_padding_top, gif_padding_bottom);
 				img = &decoded_img;
 			}
 			if (!img->IsOk() || img->GetData() == nullptr) {
@@ -651,24 +652,26 @@ namespace {
 		}
 
 		wxImage::AddHandler(new wxJPEGHandler);
-		// 计算 ABB 黑边填充量
-		const int seq_padded_h = c->project->VideoProvider()->GetHeight();
-		int seq_frame_padding = 0;
 		// 如果HDR色彩映射已启用，对图片序列导出帧应用CPU侧LUT色彩映射
 		const bool seq_hdr_enabled = OPT_GET("Video/HDR/Tone Mapping")->GetBool();
 		const HDRType seq_hdr_type = c->project->VideoProvider()->GetHDRType();
+		// ABB 黑边填充值（首帧获取后确定）
+		int seq_padding_top = 0, seq_padding_bottom = 0;
 
 		ps->SetMessage(from_wx(agi::wxformat(_("Exporting video clips, frame: [%ld ~ %ld], total: %d, please later"), start_frame, end_frame, duration_frame)));
 		for (int i = start_frame; i <= end_frame; ++i) {
 			std::string image_filename{(wxString(output_path) + wxFileName::GetPathSeparator() + agi::wxformat(std::string(img_path) + "_[%ld-%ld]_%05d.jpg", start_frame, end_frame, current_frame)).ToStdString()};
-			wxImage img = GetImage(*c->project->VideoProvider()->GetFrame(i, c->project->Timecodes().TimeAtFrame(i), true));
+			auto seq_vf = c->project->VideoProvider()->GetFrame(i, c->project->Timecodes().TimeAtFrame(i), true);
+			wxImage img = GetImage(*seq_vf);
 			if (seq_hdr_enabled)
 				VideoOutGL::ApplyHDRLutToImage(img, seq_hdr_type);
-			// 首帧时计算填充量，后续帧复用
-			if (i == start_frame)
-				seq_frame_padding = (seq_padded_h - img.GetHeight()) / 2;
-			if (seq_frame_padding > 0)
-				img = AddPaddingToImage(img, seq_frame_padding);
+			// 首帧时获取padding值，后续帧复用
+			if (i == start_frame) {
+				seq_padding_top = seq_vf->padding_top;
+				seq_padding_bottom = seq_vf->padding_bottom;
+			}
+			if (seq_padding_top > 0 || seq_padding_bottom > 0)
+				img = AddPaddingToImage(img, seq_padding_top, seq_padding_bottom);
 			const bool res = img.SaveFile(image_filename, wxBITMAP_TYPE_JPEG);
 			ps->SetProgress(current_frame, duration_frame);
 			if (ps->IsCancelled()) break;

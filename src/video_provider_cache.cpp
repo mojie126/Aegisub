@@ -72,6 +72,7 @@ public:
 	bool ShouldSetVideoProperties() const override { return master->ShouldSetVideoProperties(); }
 	bool HasAudio() const override                 { return master->HasAudio(); }
 	HDRType GetHDRType() const override            { return master->GetHDRType(); }
+	int GetDVProfile() const override              { return master->GetDVProfile(); }
 	bool IsHWDecoding() const override             { return master->IsHWDecoding(); }
 };
 

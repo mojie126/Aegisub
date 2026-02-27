@@ -96,7 +96,8 @@ VideoBox::VideoBox(wxWindow *parent, bool isDetached, agi::Context *context)
 			auto provider = context->project->VideoProvider();
 			if (provider) {
 				const HDRType type = provider->GetHDRType();
-				std::string lutName = VideoOutGL::GetLutFilename(type);
+				const int dvProfile = provider->GetDVProfile();
+				std::string lutName = VideoOutGL::GetLutFilename(type, dvProfile);
 				std::string lutPath = VideoOutGL::FindCubeLutPath(lutName);
 
 				if (lutPath.empty()) {

@@ -123,20 +123,22 @@ wxImage GetImageWithAlpha(VideoFrame const &frame) {
 	return img;
 }
 
-wxImage AddPaddingToImage(const wxImage &img, const int padding) {
-	if (padding <= 0 || !img.IsOk()) return img;
+wxImage AddPaddingToImage(const wxImage &img, int padding_top, int padding_bottom) {
+	if ((padding_top <= 0 && padding_bottom <= 0) || !img.IsOk()) return img;
 
 	const int src_w = img.GetWidth();
 	const int src_h = img.GetHeight();
-	const int dst_h = src_h + padding * 2;
+	const int top = std::max(0, padding_top);
+	const int bottom = std::max(0, padding_bottom);
+	const int dst_h = src_h + top + bottom;
 
 	wxImage padded(src_w, dst_h);
 	// 将整个图像初始化为黑色
 	memset(padded.GetData(), 0, static_cast<size_t>(src_w) * dst_h * 3);
 
-	// 将原始图像数据复制到垂直居中位置（跳过顶部 padding 行）
+	// 将原始图像数据复制到顶部黑边之后的位置
 	const unsigned char *src_data = img.GetData();
-	unsigned char *dst_data = padded.GetData() + static_cast<size_t>(padding) * src_w * 3;
+	unsigned char *dst_data = padded.GetData() + static_cast<size_t>(top) * src_w * 3;
 	memcpy(dst_data, src_data, static_cast<size_t>(src_w) * src_h * 3);
 
 	return padded;

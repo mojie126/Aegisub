@@ -192,10 +192,9 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 				);
 				if (vf) {
 					preview_ = GetImage(*vf);
-					// 为预览图添加 ABB 黑边填充，使其与 video_w_/video_h_ 一致
-					const int img_padding = (video_h_ - preview_.GetHeight()) / 2;
-					if (img_padding > 0)
-						preview_ = AddPaddingToImage(preview_, img_padding);
+					// 为预览图添加 ABB 黑边填充（使用帧自身的自适应padding值）
+					if (vf->padding_top > 0 || vf->padding_bottom > 0)
+						preview_ = AddPaddingToImage(preview_, vf->padding_top, vf->padding_bottom);
 					// 保存原始帧数据（未应用HDR），用于HDR选项切换时重新派生
 					raw_preview_ = preview_.Copy();
 					// 启用HDR时对预览帧应用色调映射
@@ -480,10 +479,9 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 				);
 				if (vf && !cancel_decode_.load()) {
 					wxImage img = GetImage(*vf);
-					// 为解码帧添加 ABB 黑边填充，保持与 video_w_/video_h_ 一致
-					int decode_padding = (video_h_ - img.GetHeight()) / 2;
-					if (decode_padding > 0)
-						img = AddPaddingToImage(img, decode_padding);
+					// 为解码帧添加 ABB 黑边填充（使用帧自身的自适应padding值）
+					if (vf->padding_top > 0 || vf->padding_bottom > 0)
+						img = AddPaddingToImage(img, vf->padding_top, vf->padding_bottom);
 					// 启用HDR时对解码帧应用色调映射
 					if (hdr_enabled) {
 						const HDRType decode_hdr_type = ctx_->project->VideoProvider()->GetHDRType();

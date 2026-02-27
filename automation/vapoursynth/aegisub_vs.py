@@ -178,6 +178,46 @@ def info_from_lwindex(indexfile: str) -> Dict[str, List[int]]:
     }
 
 
+# 标准显示高度列表（与 C++ 端 kStandardHeights 保持一致）
+_STANDARD_HEIGHTS = (480, 720, 1080, 1440, 2160, 4320)
+
+
+def _calculate_adaptive_padding(frame_height: int, user_padding: int) -> tuple:
+    """计算自适应黑边分配。
+
+    根据帧高度和用户期望的单侧黑边值，自动匹配最近的标准分辨率高度，
+    将总黑边平均分配到上下两侧。
+
+    Args:
+        frame_height: 原始帧高度（不含黑边）
+        user_padding: 用户期望的单侧黑边行数
+
+    Returns:
+        (padding_top, padding_bottom) 元组
+    """
+    user_padding = int(user_padding)
+    if user_padding <= 0 or frame_height <= 0:
+        return (0, 0)
+
+    symmetric_total_h = frame_height + user_padding * 2
+    best_standard = 0
+    best_diff = float("inf")
+    for sh in _STANDARD_HEIGHTS:
+        if sh < frame_height:
+            continue
+        diff = abs(sh - symmetric_total_h)
+        if diff < best_diff and diff <= user_padding:
+            best_diff = diff
+            best_standard = sh
+
+    if best_standard > 0 and best_standard > frame_height:
+        total_padding = best_standard - frame_height
+        half = total_padding // 2
+        remainder = total_padding % 2
+        return (half + remainder, half)
+
+    return (user_padding, user_padding)
+
 def wrap_lwlibavsource(filename: str, padding: str, cachedir: str | None = None, **kwargs: Any) -> Tuple[vs.VideoNode, Dict[str, List[int]]]:
     """
     Given a path to a video file and a directory to store index files in
@@ -201,7 +241,11 @@ def wrap_lwlibavsource(filename: str, padding: str, cachedir: str | None = None,
         raise vs.Error("To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin must support the `cachedir` option for LWLibavSource.")
 
     clip = core.lsmas.LWLibavSource(source=filename, cachefile=cachefile, cachedir=".", prefer_hw=3, **kwargs)
-    clip = core.std.AddBorders(clip, left=0, right=0, top=padding, bottom=padding)
+
+    # 自适应黑边：根据帧高度和用户期望padding计算最近标准分辨率的top/bottom分配
+    padding_top, padding_bottom = _calculate_adaptive_padding(clip.height, padding)
+    if padding_top > 0 or padding_bottom > 0:
+        clip = core.std.AddBorders(clip, left=0, right=0, top=padding_top, bottom=padding_bottom)
 
     progress_set_message("Getting timecodes and keyframes from the index file")
     result = info_from_lwindex(cachefile)

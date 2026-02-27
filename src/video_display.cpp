@@ -86,18 +86,6 @@ public:
 	{ }
 };
 
-int GetFFMSPaddingPixels(AsyncVideoProvider *provider) {
-	if (!provider || provider->GetDecoderName() != "FFmpegSource")
-		return 0;
-
-	auto padding_opt = OPT_GET("Provider/Video/FFmpegSource/ABB")->GetInt();
-	if (padding_opt <= 0)
-		return 0;
-	if (padding_opt > std::numeric_limits<int>::max())
-		return std::numeric_limits<int>::max();
-	return static_cast<int>(padding_opt);
-}
-
 #define E(cmd) cmd; if (GLenum err = glGetError()) throw OpenGlException(#cmd, err)
 
 VideoDisplay::VideoDisplay(wxToolBar *toolbar, bool freeSize, wxComboBox *zoomBox, wxWindow *parent, agi::Context *c)
@@ -239,7 +227,8 @@ void VideoDisplay::Render() try {
 	// 基于视频源的传输特性和元数据检测HDR类型，替代原字符串匹配方式
 	const HDRType hdr_type = con->project->VideoProvider()->GetHDRType();
 	const bool likely_hdr = (hdr_type != HDRType::SDR);
-	videoOut->SetHDRInputHint(likely_hdr, hdr_type);
+	const int dv_profile = con->project->VideoProvider()->GetDVProfile();
+	videoOut->SetHDRInputHint(likely_hdr, hdr_type, dv_profile);
 
 	int client_w, client_h;
 	GetClientSize(&client_w, &client_h);
