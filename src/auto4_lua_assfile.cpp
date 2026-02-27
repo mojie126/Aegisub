@@ -478,9 +478,9 @@ namespace Automation4 {
 				AssignLine(n - 1, std::move(e));
 			}
 			else {
-				// delete
-				lua_remove(L, 1);
-				lua_remove(L, 1);
+				// delete: 清空栈后压入索引，供 ObjectDelete 使用
+				lua_settop(L, 0);
+				lua_pushinteger(L, n);
 				ObjectDelete(L);
 			}
 		}

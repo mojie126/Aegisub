@@ -36,6 +36,7 @@
 #include <libaegisub/string.h>
 
 #include <algorithm>
+#include <charconv>
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/lexical_cast.hpp>
@@ -111,8 +112,12 @@ void AssDialogue::Parse(std::string const& raw) {
 	End = agi::Trim(tkn.next_tok());
 	Style = tkn.next_str_trim();
 	Actor = tkn.next_str_trim();
-	for (int& margin : Margin)
-		margin = std::clamp(boost::lexical_cast<int>(tkn.next_tok()), -9999, 99999);
+	for (int& margin : Margin) {
+		auto tok = agi::Trim(tkn.next_tok());
+		int val = 0;
+		std::from_chars(tok.data(), tok.data() + tok.size(), val);
+		margin = std::clamp(val, -9999, 99999);
+	}
 	Effect = tkn.next_str_trim();
 
 	std::string text{tkn.next_tok().begin(), str.end()};
