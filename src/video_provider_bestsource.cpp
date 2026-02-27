@@ -87,7 +87,9 @@ public:
 	int GetHeight() const override { return properties.Height + paddingTop + paddingBottom; };
 	double GetDAR() const override {
 		const int totalH = properties.Height + paddingTop + paddingBottom;
-		return ((double) properties.Width * properties.SAR.Num) / (totalH * properties.SAR.Den);
+		if (properties.SAR.Den > 0 && properties.SAR.Num > 0 && totalH > 0)
+			return ((double) properties.Width * properties.SAR.Num) / (totalH * properties.SAR.Den);
+		return (totalH > 0) ? (double) properties.Width / totalH : 0;
 	};
 
 	agi::vfr::Framerate GetFPS() const override { return Timecodes; };
@@ -249,7 +251,7 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 	}
 }
 catch (BestSourceException const& err) {
-	throw VideoOpenError(agi::format("Failed to create BestVideoSource: %s",  + err.what()));
+	throw VideoOpenError(agi::format("Failed to create BestVideoSource: %s", err.what()));
 }
 
 void BSVideoProvider::GetFrame(int n, VideoFrame &out) {
