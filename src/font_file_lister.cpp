@@ -91,7 +91,9 @@ void FontCollector::ProcessDialogueLine(const AssDialogue *line, int index) {
 					overriden = true;
 				}
 				else if (tag.Name == "\\fn") {
-					style.facename = tag.Params[0].Get(initial.facename);
+					auto name = tag.Params[0].Get(initial.facename);
+					// \fn0 在 libass/VSFilter 中等同于 \fn，重置为样式默认字体
+					style.facename = (name == "0") ? initial.facename : name;
 					overriden = true;
 				}
 			}
@@ -196,10 +198,12 @@ void FontCollector::PrintUsage(UsageData const& data) {
 	}
 
 	if (data.lines.size()) {
-		status_callback(_("Used on lines:"), 2);
+		// 批量拼接行号，避免逐行号调用 status_callback 导致 GUI 事件风暴
+		wxString lines_str = _("Used on lines:");
 		for (int line : data.lines)
-			status_callback(fmt_wx(" %d", line), 2);
-		status_callback("\n", 2);
+			lines_str += fmt_wx(" %d", line);
+		lines_str += "\n";
+		status_callback(lines_str, 2);
 	}
 	status_callback("\n", 2);
 }

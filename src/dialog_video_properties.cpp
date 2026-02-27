@@ -158,6 +158,13 @@ bool update_video_properties(AssFile *file, const AsyncVideoProvider *new_provid
 		if (res == FIX_IGNORE) return commit_subs;
 		OPT_SET("Video/Last Script Resolution Mismatch Choice")->SetInt(res);
 
+		// "设置为视频分辨率"仅更新脚本属性，不执行 resample
+		if (res == FIX_SET) {
+			file->SetScriptInfo("PlayResX", std::to_string(vx));
+			file->SetScriptInfo("PlayResY", std::to_string(vy));
+			return true;
+		}
+
 		ResampleResolution(file, {
 			{0, 0, 0, 0},
 			sx, sy, vx, vy,

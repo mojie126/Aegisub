@@ -28,9 +28,8 @@ public:
 	Time(int ms = 0);
 	Time(std::string_view text);
 
-	/// Get millisecond, rounded to centisecond precision
-	// Always round up for 5ms because the range is [start, stop)
-	operator int() const { return (time + 5) - (time + 5) % 10; }
+	/// 获取截断至厘秒精度的毫秒值，与 VSFilter/libass 行为一致
+	operator int() const { return time - time % 10; }
 
 	/// Return the time as a string
 	/// @param ms Use milliseconds precision, for non-ASS formats
