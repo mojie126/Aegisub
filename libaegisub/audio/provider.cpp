@@ -22,6 +22,9 @@
 #include "libaegisub/util.h"
 
 #include <algorithm>
+#include <cmath>
+#include <memory>
+#include <new>
 
 namespace {
 
@@ -80,7 +83,12 @@ void AudioProvider::FillBufferInt16Mono(int16_t* buf, int64_t start, int64_t cou
 		FillBuffer(buf, start, count);
 		return;
 	}
-	void* buff = malloc(bytes_per_sample * count * channels);
+	size_t alloc_size = static_cast<size_t>(bytes_per_sample) * static_cast<size_t>(count) * static_cast<size_t>(channels);
+	if (count > 0 && alloc_size / static_cast<size_t>(count) / static_cast<size_t>(channels) != static_cast<size_t>(bytes_per_sample))
+		throw std::bad_alloc();
+	std::unique_ptr<void, decltype(&free)> buff_guard(malloc(alloc_size), free);
+	void* buff = buff_guard.get();
+	if (!buff) throw std::bad_alloc();
 	FillBuffer(buff, start, count);
 	if (channels == 1) {
 		if (float_samples) {
@@ -118,7 +126,6 @@ void AudioProvider::FillBufferInt16Mono(int16_t* buf, int64_t start, int64_t cou
 					buf[i] = DownmixToMono<ConvertIntToInt16>(ConvertIntToInt16(buff, bytes_per_sample), channels)[i];
 		}
 	}
-	free(buff);
 }
 
 // This entire file has turned into a mess. For now I'm just following the pattern of the wangqr code, but
@@ -168,7 +175,7 @@ void AudioProvider::GetInt16MonoAudioWithVolume(int16_t *buf, int64_t start, int
 
 	auto buffer = static_cast<int16_t *>(buf);
 	for (size_t i = 0; i < (size_t)count; ++i)
-		buffer[i] = std::clamp(static_cast<int>(buffer[i] * volume + 0.5), -0x8000, 0x7FFF);
+		buffer[i] = std::clamp(static_cast<int>(std::lround(buffer[i] * volume)), -0x8000, 0x7FFF);
 }
 
 void AudioProvider::ZeroFill(void *buf, int64_t count) const {

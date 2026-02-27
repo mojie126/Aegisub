@@ -50,12 +50,19 @@ public:
 
 		// We need to always get at least two samples to be able to interpolate
 		int16_t srcbuf[2];
+		int64_t src_count;
 		if (count == 1) {
-			source->GetAudio(srcbuf, start / 2, 2);
+			src_count = std::min(int64_t(2), source->GetNumSamples() - start / 2);
+			if (src_count < 1) src_count = 1;
+			source->GetAudio(srcbuf, start / 2, src_count);
+			if (src_count < 2) srcbuf[1] = srcbuf[0];
 			src = srcbuf;
 		}
 		else {
-			source->GetAudio(buf, start / 2, (start + count) / 2 - start / 2 + 1);
+			src_count = (start + count) / 2 - start / 2 + 1;
+			int64_t max_available = source->GetNumSamples() - start / 2;
+			if (src_count > max_available) src_count = max_available;
+			source->GetAudio(buf, start / 2, src_count);
 			src = dst;
 		}
 
@@ -63,8 +70,11 @@ public:
 		for (; count > 0; --count) {
 			auto src_index = (start + count - 1) / 2 - start / 2;
 			auto i = count - 1;
-			if ((start + i) & 1)
-				dst[i] = (int16_t)(((int32_t)src[src_index] + src[src_index + 1]) / 2);
+			if ((start + i) & 1) {
+				// 插值：若下一个采样越界则重复当前采样
+				int16_t next = (src_index + 1 < src_count) ? src[src_index + 1] : src[src_index];
+				dst[i] = (int16_t)(((int32_t)src[src_index] + next) / 2);
+			}
 			else
 				dst[i] = src[src_index];
 		}
@@ -74,26 +84,25 @@ public:
 
 namespace agi {
 std::unique_ptr<AudioProvider> CreateConvertAudioProvider(std::unique_ptr<AudioProvider> provider) {
-	// Ensure 16-bit audio with proper endianness
-	if (provider->AreSamplesFloat()) {
-		LOG_D("audio_provider") << "Converting float to S16";
-	}
-	if (provider->GetBytesPerSample() != 2) {
-		LOG_D("audio_provider") << "Converting " << provider->GetBytesPerSample() << " bytes per sample to S16";
-	}
-
-	// We currently only support mono audio
-	if (provider->GetChannels() != 1) {
-		LOG_D("audio_provider") << "Downmixing to mono from " << provider->GetChannels() << " channels";
+	// Convert to 16-bit mono if needed
+	bool needs_conversion = provider->AreSamplesFloat() || provider->GetBytesPerSample() != 2 || provider->GetChannels() != 1;
+	if (needs_conversion) {
+		if (provider->AreSamplesFloat()) {
+			LOG_D("audio_provider") << "Converting float to S16";
+		}
+		if (provider->GetBytesPerSample() != 2) {
+			LOG_D("audio_provider") << "Converting " << provider->GetBytesPerSample() << " bytes per sample to S16";
+		}
+		if (provider->GetChannels() != 1) {
+			LOG_D("audio_provider") << "Downmixing to mono from " << provider->GetChannels() << " channels";
+		}
+		provider = std::make_unique<ConvertAudioProvider>(std::move(provider));
 	}
 
 	// Some players don't like low sample rate audio
-	if (provider->GetSampleRate() < 32000) {
-		provider = std::make_unique<ConvertAudioProvider>(std::move(provider));
-		while (provider->GetSampleRate() < 32000) {
-			LOG_D("audio_provider") << "Doubling sample rate";
-			provider = std::make_unique<SampleDoublingAudioProvider>(std::move(provider));
-		}
+	while (provider->GetSampleRate() < 32000) {
+		LOG_D("audio_provider") << "Doubling sample rate";
+		provider = std::make_unique<SampleDoublingAudioProvider>(std::move(provider));
 	}
 
 	return provider;
