@@ -118,6 +118,10 @@ public:
 	/// 获取视频源的HDR类型（基于传输特性和元数据检测）
 	virtual HDRType GetHDRType() const { return HDRType::SDR; }
 
+	/// 获取Dolby Vision Profile编号（0表示无DV或未知）
+	/// @return DV Profile编号（5/7/8等），非DV场景返回0
+	virtual int GetDVProfile() const { return 0; }
+
 	/// 是否正在使用硬件解码（由各provider根据自身情况报告）
 	virtual bool IsHWDecoding() const { return false; }
 

@@ -64,11 +64,13 @@ class FFmpegSourceVideoProvider final : public VideoProvider, FFmpegSourceProvid
 	int VideoColorPrimaries = -1;   ///< 色域原色（BT.2020=9，对应AVColorPrimaries）
 	bool hasDolbyVision = false;    ///< 是否检测到Dolby Vision（帧级RPU或流级DOVI_CONF）
 	bool hasFrameLevelRPU = false;  ///< 首帧是否包含帧级Dolby Vision RPU元数据
+	int dvProfile_ = 0;             ///< Dolby Vision Profile编号（0=无/未知）
 	double DAR;                     ///< display aspect ratio
 	std::vector<int> KeyFramesList; ///< list of keyframes
 	agi::vfr::Framerate Timecodes;  ///< vfr object
 	std::string ColorSpace;         ///< Colorspace name
-	int Padding = 0;                ///< vertical black border size in pixels (top and bottom)
+	int paddingTop = 0;             ///< 自适应顶部黑边行数
+	int paddingBottom = 0;          ///< 自适应底部黑边行数
 
 	char FFMSErrMsg[1024];          ///< FFMS error message
 	FFMS_ErrorInfo ErrInfo;         ///< FFMS error codes/messages
@@ -97,7 +99,7 @@ public:
 	int GetFrameCount() const override             { return VideoInfo->NumFrames; }
 
 	int GetWidth() const override  { return (VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 180 == -90) ? Height : Width; }
-	int GetHeight() const override { return ((VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 180 == -90) ? Width : Height) + Padding * 2; }
+	int GetHeight() const override { return ((VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 180 == -90) ? Width : Height) + paddingTop + paddingBottom; }
 	double GetDAR() const override {
 		// SAR 未定义或为 1:1 时返回 0，使用 Default AR（自动跟随像素尺寸），
 		// 避免 ABB 变更后旧 Custom AR 值导致显示比例失真
@@ -105,9 +107,10 @@ public:
 			return 0;
 		const bool rotated = VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 180 == -90;
 		const double sar = static_cast<double>(VideoInfo->SARNum) / VideoInfo->SARDen;
+		const int totalPadding = paddingTop + paddingBottom;
 		if (rotated)
-			return static_cast<double>(Height) / ((static_cast<double>(Width + Padding * 2)) * sar);
-		return (static_cast<double>(Width) * sar) / static_cast<double>(Height + Padding * 2);
+			return static_cast<double>(Height) / ((static_cast<double>(Width + totalPadding)) * sar);
+		return (static_cast<double>(Width) * sar) / static_cast<double>(Height + totalPadding);
 	}
 
 	agi::vfr::Framerate GetFPS() const override    { return Timecodes; }
@@ -137,6 +140,7 @@ public:
 		if (VideoTransfer == 18) return HDRType::HLG;
 		return HDRType::SDR;
 	}
+	int GetDVProfile() const override { return dvProfile_; }
 };
 
 FFmpegSourceVideoProvider::FFmpegSourceVideoProvider(agi::fs::path const& filename, std::string_view colormatrix, agi::BackgroundRunner *br) try
@@ -237,9 +241,7 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 
 	const auto hw_name_str = OPT_GET("Provider/Video/FFmpegSource/HW hw_name")->GetString();
 	const auto hw_name = hw_name_str.c_str();
-	Padding = OPT_GET("Provider/Video/FFmpegSource/ABB")->GetInt();
-	if (Padding < 0)
-		Padding = 0;
+	const int userPadding = std::max(0, static_cast<int>(OPT_GET("Provider/Video/FFmpegSource/ABB")->GetInt()));
 	VideoSource = FFMS_CreateVideoSource(filename.string().c_str(), TrackNumber, Index, Threads, SeekMode, &ErrInfo, hw_name, 0);
 	if (!VideoSource)
 		throw VideoOpenError(std::string("Failed to open video track: ") + ErrInfo.Buffer);
@@ -253,6 +255,16 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 
 	Width  = TempFrame->EncodedWidth;
 	Height = TempFrame->EncodedHeight;
+
+	// 根据帧实际高度计算自适应黑边分配
+	if (userPadding > 0) {
+		const bool rotated = (VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 180 == -90);
+		const int displayHeight = rotated ? Width : Height;
+		const auto ap = CalculateAdaptivePadding(displayHeight, userPadding);
+		paddingTop = ap.top;
+		paddingBottom = ap.bottom;
+	}
+
 	if (VideoInfo->SARDen > 0 && VideoInfo->SARNum > 0)
 		DAR = double(Width) * VideoInfo->SARNum / ((double)Height * VideoInfo->SARDen);
 	else
@@ -283,6 +295,10 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 	if (!hasDolbyVision && VideoInfo->HasDolbyVision)
 		hasDolbyVision = true;
 
+	// 记录 DV Profile 编号（用于后续 LUT 选择策略）
+	if (hasDolbyVision)
+		dvProfile_ = VideoInfo->DolbyVisionProfile;
+
 	LOG_D("provider/video/ffms") << "HDR detection: TransferCharateristics=" << VideoTransfer
 		<< " ColorSpace=" << VideoCS << " ColorRange=" << VideoCR
 		<< " ColorPrimaries=" << VideoColorPrimaries
@@ -310,7 +326,7 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 	int output_resizer = FFMS_RESIZER_BICUBIC;
 	const bool hw_enabled = !hw_name_str.empty() && hw_name_str != "none";
 	// For HW decode + black border workflow, prefer faster colorspace conversion.
-	if (hw_enabled && Padding > 0)
+	if (hw_enabled && (paddingTop > 0 || paddingBottom > 0))
 		output_resizer = FFMS_RESIZER_FAST_BILINEAR;
 
 	const int TargetFormat[] = { FFMS_GetPixFmt("bgra"), -1 };
@@ -414,7 +430,8 @@ void FFmpegSourceVideoProvider::GetFrame(int n, VideoFrame &out) {
 
 	// GPU黑边（ABB）处理：不再CPU嵌入黑边数据，只在GPU侧通过glViewport和glClear渲染
 	// 这样避免CPU memcpy，始终走硬解GPU直通路径
-	out.padding = Padding;
+	out.padding_top = paddingTop;
+	out.padding_bottom = paddingBottom;
 	// 注意：out.width、out.height保持原内容尺寸，GPU侧Render()会根据padding调整viewport绘制黑边
 }
 }

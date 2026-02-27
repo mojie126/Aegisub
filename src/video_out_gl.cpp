@@ -133,7 +133,7 @@ struct ShaderFunctions {
 
 static ShaderFunctions &GetShaderFunctions() {
 	static ShaderFunctions funcs;
-	if (funcs.initialized && funcs.available)
+	if (funcs.initialized)
 		return funcs;
 
 	funcs.initialized = true;
@@ -200,7 +200,14 @@ static ShaderFunctions &GetShaderFunctions() {
 			throw_error<Exception>(err, msg); \
 	} while(0);
 #define CHECK_INIT_ERROR(cmd) DO_CHECK_ERROR(cmd, VideoOutInitException, #cmd)
+
+/// @brief Release构建仅执行GL命令，不调用glGetError（避免GPU管线同步）；
+///        Debug构建保留逐调用错误检查便于调试定位。
+#ifdef NDEBUG
+#define CHECK_ERROR(cmd) cmd
+#else
 #define CHECK_ERROR(cmd) DO_CHECK_ERROR(cmd, VideoOutRenderException, #cmd)
+#endif
 
 /// @brief Structure tracking all precomputable information about a subtexture
 struct VideoOutGL::TextureInfo {
@@ -251,7 +258,7 @@ static std::unique_ptr<octoon::image::flut> &GetCpuCubeLut() {
 	return cpu_lut;
 }
 
-std::string VideoOutGL::GetLutFilename(HDRType type) {
+std::string VideoOutGL::GetLutFilename(HDRType type, int dvProfile) {
 	switch (type) {
 		case HDRType::DolbyVision:
 			// [已知限制] DV Profile 5 内容使用静态 LUT 映射时不同场景间色彩可能存在差异。
@@ -262,6 +269,20 @@ std::string VideoOutGL::GetLutFilename(HDRType type) {
 			//   1. 集成 libplacebo，利用其内置的 DV RPU 应用实现完整的色调映射；
 			//   2. 手动解析 AV_FRAME_DATA_DOVI_METADATA reshaping 曲线，在 shader 中实现
 			//      IPT-PQ-C2 → BT.2020 PQ 转换后改用 PQ2SDR.cube。
+			//
+			// DV Profile感知的LUT选择：
+			//   P5: 纯IPT-PQ-C2单层，必须使用DV2SDR.cube
+			//   P7: 双层，HDR10基层，解码器未应用reshape时像素为标准PQ
+			//   P8.1: 单层HDR10兼容，像素数据为标准PQ编码
+			//   P8.4: HLG兼容，像素数据为HLG编码
+			if (dvProfile == 7 || dvProfile == 8) {
+				// P7/P8.x: 解码器输出的基层为标准PQ（或HLG）编码
+				// 无法区分P8.1和P8.4，默认采用PQ映射
+				LOG_D("video/out/gl") << "DV profile " << dvProfile
+					<< " detected, using PQ2SDR.cube (HDR10-compatible base layer)";
+				return "PQ2SDR.cube";
+			}
+			// P5或未知Profile：使用专用DV LUT
 			return "DV2SDR.cube";
 		case HDRType::HLG:        return "HLG2SDR.cube";
 		case HDRType::PQ:
@@ -308,15 +329,17 @@ void VideoOutGL::EnableHDRToneMapping(bool enable) {
 	hdrToneMappingEnabled = true;
 }
 
-void VideoOutGL::SetHDRInputHint(bool isHdr, HDRType type) {
+void VideoOutGL::SetHDRInputHint(bool isHdr, HDRType type, int dvProfile) {
 	hdrInputLikelyHdr = isHdr;
-	int newType = static_cast<int>(type);
-	if (hdrInputType != newType) {
-		hdrInputType = newType;
-		// HDR类型变更时，需重新加载对应LUT（GPU和CPU缓存都清除）
-		if (hdrLutLoaded) {
+	if (hdrInputType != type || hdrDvProfile != dvProfile) {
+		const bool typeChanged = (hdrInputType != type);
+		hdrInputType = type;
+		hdrDvProfile = dvProfile;
+		// HDR类型或DV Profile变更时，需重新加载对应LUT（GPU和CPU缓存都清除）
+		if (typeChanged && hdrLutLoaded) {
 			ReleaseHDRLUT();
-			LOG_I("video/out/gl") << "HDR type changed, LUT will be reloaded on next render";
+			LOG_I("video/out/gl") << "HDR type changed to " << static_cast<int>(type)
+				<< " (DV profile=" << dvProfile << "), LUT will be reloaded on next render";
 		}
 	}
 }
@@ -347,6 +370,11 @@ void VideoOutGL::DetectOpenGLCapabilities() {
 	supportsPixelUnpackBuffer = supportsPixelUnpackBuffer && pbo.available;
 #endif
 	LOG_I("video/out/gl") << "Pixel unpack buffer support: " << (supportsPixelUnpackBuffer ? "yes" : "no");
+
+	// 检测NPOT纹理支持（OpenGL 2.0核心功能或GL_ARB_texture_non_power_of_two扩展）
+	// 若支持可跳过3D LUT纹理的POT扩展，节省显存
+	supportsNpotTextures = HasOpenGLExtension("GL_ARB_texture_non_power_of_two");
+	LOG_I("video/out/gl") << "NPOT texture support: " << (supportsNpotTextures ? "yes" : "no");
 }
 
 void VideoOutGL::ReleaseUploadPbo() {
@@ -567,7 +595,8 @@ void VideoOutGL::UploadFrameData(VideoFrame const& frame) {
 		dl_hflipped = false;
 	}
 	InitTextures(frame.width, frame.height, GL_BGRA_EXT, 4, dl_flipped, dl_hflipped);
-	frameVideoPadding = frame.padding;
+	frameVideoPaddingTop = frame.padding_top;
+	frameVideoPaddingBottom = frame.padding_bottom;
 
 	// GPU HDR方案：始终上传原始帧数据，色调映射由Render阶段的FBO+shader完成
 	const unsigned char *upload_data = frame.data.data();
@@ -614,6 +643,30 @@ void VideoOutGL::UploadFrameData(VideoFrame const& frame) {
 #endif
 		uploadPboIndex = (uploadPboIndex + 1) % uploadPboIds.size();
 	}
+}
+
+/// @brief 非对称黑边padding在屏幕上的像素数
+struct PaddingScreenPixels {
+	int top;    ///< 屏幕空间顶部padding像素数
+	int bottom; ///< 屏幕空间底部padding像素数
+};
+
+/// @brief 计算非对称黑边padding在屏幕上的像素数
+/// @param viewport_height 显示区域像素高度
+/// @param frame_height 原始帧内容高度（不含padding）
+/// @param padding_top 顶部padding行数
+/// @param padding_bottom 底部padding行数
+/// @return 屏幕空间的上下padding像素数（已钳位到合法范围）
+static PaddingScreenPixels CalculatePaddingPixels(int viewport_height, int frame_height, int padding_top, int padding_bottom) {
+	if (padding_top <= 0 && padding_bottom <= 0) return {0, 0};
+	const int total_padded_h = std::max(frame_height + padding_top + padding_bottom, 1);
+	const int max_single = std::max(0, viewport_height / 2 - 1);
+	auto clamp_px = [&](int pad) -> int {
+		if (pad <= 0) return 0;
+		int px = (viewport_height * pad) / total_padded_h;
+		return std::max(0, std::min(px, max_single));
+	};
+	return {clamp_px(padding_top), clamp_px(padding_bottom)};
 }
 
 void VideoOutGL::Render(int client_width, int client_height, int x, int y, int width, int height) {
@@ -690,16 +743,13 @@ void VideoOutGL::Render(int client_width, int client_height, int x, int y, int w
 
 				// 3. 设置显示viewport（含padding处理）
 				// 旋转后，有效帧高度对应原始数据宽度（90/270°时宽高互换）
-				if (frameVideoPadding > 0) {
-					int effective_frame_h = frameWidth;
-					int total_padded_h = std::max(effective_frame_h + frameVideoPadding * 2, 1);
-					int padding_px = (height * frameVideoPadding) / total_padded_h;
-					padding_px = std::max(0, std::min(padding_px, std::max(0, height / 2 - 1)));
+				if (frameVideoPaddingTop > 0 || frameVideoPaddingBottom > 0) {
+					auto pp = CalculatePaddingPixels(height, frameWidth, frameVideoPaddingTop, frameVideoPaddingBottom);
 					glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 					glViewport(x, y, width, height);
 					glClear(GL_COLOR_BUFFER_BIT);
-					int content_y = y + padding_px;
-					int content_h = std::max(1, height - 2 * padding_px);
+					int content_y = y + pp.bottom;
+					int content_h = std::max(1, height - pp.top - pp.bottom);
 					glViewport(x, content_y, width, content_h);
 				} else {
 					glViewport(x, y, width, height);
@@ -826,14 +876,12 @@ void VideoOutGL::Render(int client_width, int client_height, int x, int y, int w
 			glViewport(0, 0, width, height);
 
 			// 处理黑边padding
-			if (frameVideoPadding > 0) {
-				int total_padded_height = std::max(frameHeight + frameVideoPadding * 2, 1);
-				int padding_screen_pixels = (height * frameVideoPadding) / total_padded_height;
-				padding_screen_pixels = std::max(0, std::min(padding_screen_pixels, std::max(0, height / 2 - 1)));
+			if (frameVideoPaddingTop > 0 || frameVideoPaddingBottom > 0) {
+				auto pp = CalculatePaddingPixels(height, frameHeight, frameVideoPaddingTop, frameVideoPaddingBottom);
 				glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 				glClear(GL_COLOR_BUFFER_BIT);
-				int content_y = padding_screen_pixels;
-				int content_height = std::max(1, height - 2 * padding_screen_pixels);
+				int content_y = pp.bottom;
+				int content_height = std::max(1, height - pp.top - pp.bottom);
 				glViewport(0, content_y, width, content_height);
 			}
 
@@ -903,15 +951,13 @@ void VideoOutGL::Render(int client_width, int client_height, int x, int y, int w
 
 	if (!rotation_rendered && !use_hdr_gpu) {
 		// === 常规渲染路径（无HDR后处理）===
-		if (frameVideoPadding > 0) {
-			int total_padded_height = std::max(frameHeight + frameVideoPadding * 2, 1);
-			int padding_screen_pixels = (height * frameVideoPadding) / total_padded_height;
-			padding_screen_pixels = std::max(0, std::min(padding_screen_pixels, std::max(0, height / 2 - 1)));
+		if (frameVideoPaddingTop > 0 || frameVideoPaddingBottom > 0) {
+			auto pp = CalculatePaddingPixels(height, frameHeight, frameVideoPaddingTop, frameVideoPaddingBottom);
 			CHECK_ERROR(glClearColor(0.0f, 0.0f, 0.0f, 1.0f));
 			CHECK_ERROR(glViewport(x, y, width, height));
 			CHECK_ERROR(glClear(GL_COLOR_BUFFER_BIT));
-			int content_y = y + padding_screen_pixels;
-			int content_height = std::max(1, height - 2 * padding_screen_pixels);
+			int content_y = y + pp.bottom;
+			int content_height = std::max(1, height - pp.top - pp.bottom);
 			CHECK_ERROR(glViewport(x, content_y, width, content_height));
 		} else {
 			CHECK_ERROR(glViewport(x, y, width, height));
@@ -1022,9 +1068,9 @@ void VideoOutGL::LoadHDRLUT() {
 			return;
 		}
 
-		// 根据HDR类型选择LUT文件名，DV使用DV2SDR.cube
-		HDRType currentType = static_cast<HDRType>(hdrInputType);
-		std::string lutFilename = GetLutFilename(currentType);
+		// 根据HDR类型选择LUT文件名，DV根据Profile选择对应LUT
+		HDRType currentType = hdrInputType;
+		std::string lutFilename = GetLutFilename(currentType, hdrDvProfile);
 
 		std::string lutPath = FindCubeLutPath(lutFilename);
 
@@ -1039,6 +1085,7 @@ void VideoOutGL::LoadHDRLUT() {
 			throw std::runtime_error("Invalid LUT layout from cube parser");
 
 		GetCpuCubeLut() = std::make_unique<octoon::image::flut>(std::move(lut));
+		GetCpuCubeLutType() = currentType;
 		auto &cpu_lut = GetCpuCubeLut();
 		if (!cpu_lut || !cpu_lut->data)
 			throw std::runtime_error("Failed to cache CPU cube LUT");
@@ -1062,41 +1109,65 @@ void VideoOutGL::LoadHDRLUT() {
 			}
 		}
 
-		// 扩展为POT尺寸以兼容不支持NPOT 3D纹理的GPU
-		hdrLutTextureSize = SmallestPowerOf2(hdrLutSize);
-		std::vector<float> lut3d_upload(static_cast<size_t>(hdrLutTextureSize) * hdrLutTextureSize * hdrLutTextureSize * 3, 0.0f);
-		for (int z = 0; z < hdrLutTextureSize; ++z) {
-			int src_z = std::min(z, hdrLutSize - 1);
-			for (int y = 0; y < hdrLutTextureSize; ++y) {
-				int src_y = std::min(y, hdrLutSize - 1);
-				for (int x = 0; x < hdrLutTextureSize; ++x) {
-					int src_x = std::min(x, hdrLutSize - 1);
-					size_t src_idx = ((static_cast<size_t>(src_z) * hdrLutSize + src_y) * hdrLutSize + src_x) * 3;
-					size_t dst_idx = ((static_cast<size_t>(z) * hdrLutTextureSize + y) * hdrLutTextureSize + x) * 3;
-					lut3d_upload[dst_idx + 0] = lut3d[src_idx + 0];
-					lut3d_upload[dst_idx + 1] = lut3d[src_idx + 1];
-					lut3d_upload[dst_idx + 2] = lut3d[src_idx + 2];
+		// 当GPU不支持NPOT 3D纹理时，扩展为POT尺寸以保证兼容性
+		if (!supportsNpotTextures && hdrLutSize != SmallestPowerOf2(hdrLutSize)) {
+			hdrLutTextureSize = SmallestPowerOf2(hdrLutSize);
+			LOG_D("video/out/gl") << "Expanding LUT from " << hdrLutSize << " to POT size " << hdrLutTextureSize;
+			std::vector<float> lut3d_upload(static_cast<size_t>(hdrLutTextureSize) * hdrLutTextureSize * hdrLutTextureSize * 3, 0.0f);
+			for (int z = 0; z < hdrLutTextureSize; ++z) {
+				int src_z = std::min(z, hdrLutSize - 1);
+				for (int y = 0; y < hdrLutTextureSize; ++y) {
+					int src_y = std::min(y, hdrLutSize - 1);
+					for (int x = 0; x < hdrLutTextureSize; ++x) {
+						int src_x = std::min(x, hdrLutSize - 1);
+						size_t src_idx = ((static_cast<size_t>(src_z) * hdrLutSize + src_y) * hdrLutSize + src_x) * 3;
+						size_t dst_idx = ((static_cast<size_t>(z) * hdrLutTextureSize + y) * hdrLutTextureSize + x) * 3;
+						lut3d_upload[dst_idx + 0] = lut3d[src_idx + 0];
+						lut3d_upload[dst_idx + 1] = lut3d[src_idx + 1];
+						lut3d_upload[dst_idx + 2] = lut3d[src_idx + 2];
+					}
 				}
 			}
-		}
 
-		if (hdrLutTextureID != 0) {
-			CHECK_ERROR(glDeleteTextures(1, &hdrLutTextureID));
-			hdrLutTextureID = 0;
-		}
-		CHECK_ERROR(glGenTextures(1, &hdrLutTextureID));
-		if (hdrLutTextureID == 0)
-			throw std::runtime_error("Failed to create HDR LUT texture");
+			if (hdrLutTextureID != 0) {
+				CHECK_ERROR(glDeleteTextures(1, &hdrLutTextureID));
+				hdrLutTextureID = 0;
+			}
+			CHECK_ERROR(glGenTextures(1, &hdrLutTextureID));
+			if (hdrLutTextureID == 0)
+				throw std::runtime_error("Failed to create HDR LUT texture");
 
-		CHECK_ERROR(glBindTexture(GL_TEXTURE_3D, hdrLutTextureID));
-		CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-		CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-		CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-		CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-		CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
-		shader.TexImage3D(GL_TEXTURE_3D, 0, GL_RGB16F, hdrLutTextureSize, hdrLutTextureSize, hdrLutTextureSize, 0, GL_RGB, GL_FLOAT, lut3d_upload.data());
-		if (GLenum err = glGetError()) throw VideoOutRenderException("glTexImage3D", err);
-		CHECK_ERROR(glBindTexture(GL_TEXTURE_3D, 0));
+			CHECK_ERROR(glBindTexture(GL_TEXTURE_3D, hdrLutTextureID));
+			CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+			CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+			CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+			CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+			CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
+			shader.TexImage3D(GL_TEXTURE_3D, 0, GL_RGB16F, hdrLutTextureSize, hdrLutTextureSize, hdrLutTextureSize, 0, GL_RGB, GL_FLOAT, lut3d_upload.data());
+			if (GLenum err = glGetError()) throw VideoOutRenderException("glTexImage3D", err);
+			CHECK_ERROR(glBindTexture(GL_TEXTURE_3D, 0));
+		} else {
+			// NPOT支持或LUT尺寸已是2的幂次，直接上传原始数据
+			hdrLutTextureSize = hdrLutSize;
+
+			if (hdrLutTextureID != 0) {
+				CHECK_ERROR(glDeleteTextures(1, &hdrLutTextureID));
+				hdrLutTextureID = 0;
+			}
+			CHECK_ERROR(glGenTextures(1, &hdrLutTextureID));
+			if (hdrLutTextureID == 0)
+				throw std::runtime_error("Failed to create HDR LUT texture");
+
+			CHECK_ERROR(glBindTexture(GL_TEXTURE_3D, hdrLutTextureID));
+			CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+			CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+			CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+			CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+			CHECK_ERROR(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
+			shader.TexImage3D(GL_TEXTURE_3D, 0, GL_RGB16F, hdrLutTextureSize, hdrLutTextureSize, hdrLutTextureSize, 0, GL_RGB, GL_FLOAT, lut3d.data());
+			if (GLenum err = glGetError()) throw VideoOutRenderException("glTexImage3D", err);
+			CHECK_ERROR(glBindTexture(GL_TEXTURE_3D, 0));
+		}
 
 		hdrLutLoaded = true;
 		LOG_I("video/out/gl") << "HDR LUT texture uploaded: lut=" << hdrLutSize << " tex=" << hdrLutTextureSize << " id=" << hdrLutTextureID;
@@ -1122,6 +1193,7 @@ void VideoOutGL::ReleaseHDRLUT() {
 	hdrLutSize = 0;
 	hdrLutTextureSize = 0;
 	GetCpuCubeLut().reset();
+	GetCpuCubeLutType() = HDRType::SDR;
 	hdrLutLoaded = false;
 }
 
@@ -1262,6 +1334,10 @@ void VideoOutGL::EnsureHDRShader() {
 		"uniform float useLut;\n"
 		"void main() {\n"
 		"  vec4 src = texture2D(sceneTex, gl_TexCoord[0].xy);\n"
+		// [已知限制] Reinhard简易色调映射 x/(x+1) 作为LUT不可用时的回退方案。
+		// 此算子压缩高光区域过于激进，导致HDR亮部细节丢失且整体偏灰。
+		// 适用于预览目的，但色彩准确度远低于3D LUT映射。
+		// 当LUT文件缺失时自动启用，建议用户确保cube文件可用。
 		"  vec3 mapped = src.rgb / (src.rgb + vec3(1.0));\n"
 		"  if (useLut > 0.5) {\n"
 		"    vec3 lutCoord = clamp(src.rgb, 0.0, 1.0) * lutCoordScale + vec3(lutCoordOffset);\n"

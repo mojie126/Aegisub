@@ -541,6 +541,10 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 
 #ifdef WITH_BESTSOURCE
 	auto bs = p->PageSizer("BestSource");
+	p->OptionAdd(bs, _("Add black borders"), "Provider/Video/BestSource/ABB", 0)
+		->SetToolTip(
+			_("Expands logical video height with black borders for script alignment/resolution. Decoded frame data is unchanged.")
+		);
 	p->OptionAdd(bs, _("Max cache size (MB)"), "Provider/Video/BestSource/Max Cache Size");
 	p->OptionAdd(bs, _("Decoder Threads (0 to autodetect)"), "Provider/Video/BestSource/Threads");
 	p->OptionAdd(bs, _("Seek preroll (Frames)"), "Provider/Video/BestSource/Seek Preroll");

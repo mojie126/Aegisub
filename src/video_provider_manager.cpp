@@ -100,7 +100,8 @@ std::pair<int, int> parse_colormatrix(std::string matrix) {
 void guess_colorspace(int &CS, int &CR, int Width, int Height) {
 	if (CS == AGI_CS_UNSPECIFIED)
 		CS = Width > 1024 || Height >= 600 ? AGI_CS_BT709 : AGI_CS_BT470BG;
-	if (CR != AGI_CR_MPEG)
+	// 仅在未指定(UNSPECIFIED=0)时假定 limited range，保留已明确报告的 full range(JPEG=2)
+	if (CR == AGI_CR_UNSPECIFIED)
 		CR = AGI_CR_MPEG;
 }
 

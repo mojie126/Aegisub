@@ -62,6 +62,7 @@ class VapourSynthVideoProvider: public VideoProvider {
 
 	HDRType detected_hdr_type_ = HDRType::SDR;  // 检测到的HDR类型
 	bool hw_decode_ = false;  // VS脚本是否使用硬件解码（通过__aegi_hw_decode脚本变量获取）
+	int dv_profile_ = 0;     // Dolby Vision Profile编号（0=无DV/未知）
 
 	agi::scoped_holder<const VSFrame *, void (*)(const VSFrame *) noexcept> GetVSFrame(VSNode *node, int n);
 	void SetResizeArg(VSMap *args, const VSMap *props, const char *arg_name, const char *prop_name, int64_t deflt, int64_t unspecified = -1);
@@ -91,6 +92,7 @@ public:
 	bool WantsCaching() const override             { return true; }
 	std::string GetDecoderName() const override    { return "VapourSynth"; }
 	HDRType GetHDRType() const override             { return detected_hdr_type_; }
+	int GetDVProfile() const override               { return dv_profile_; }
 	bool IsHWDecoding() const override              { return hw_decode_; }
 	bool ShouldSetVideoProperties() const override { return colorspace != "Unknown"; }
 };
@@ -285,6 +287,7 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 			DoviProbeResult probe = ProbeDolbyVision(filename.string());
 			if (probe.has_dovi) {
 				detected_hdr_type_ = HDRType::DolbyVision;
+				dv_profile_ = probe.dv_profile;
 				LOG_D("vapoursynth") << "HDR detection (stream probe): DolbyVision, profile=" << probe.dv_profile
 					<< " transfer=" << probe.transfer << " primaries=" << probe.color_primaries;
 			} else if (probe.transfer == 16) {

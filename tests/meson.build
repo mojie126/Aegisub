@@ -45,6 +45,7 @@ tests_src = [
     'tests/vfr.cpp',
     'tests/word_split.cpp',
     'tests/mocha_motion.cpp',
+    'tests/hdr_video_audit.cpp',
 ]
 
 # 摩卡追踪模块源文件（排除依赖 wxWidgets/src 的 processor/config/dialog）
@@ -57,6 +58,8 @@ mocha_src = [
 ]
 
 mocha_inc = include_directories('../src/mocha_motion')
+aegisub_src_inc = include_directories('../src/include')
+aegisub_src_dir_inc = include_directories('../src')
 
 tests_inc = include_directories('support')
 
@@ -72,7 +75,7 @@ endif
 runner = executable(
     'gtest-main',
     tests_src + mocha_src,
-    include_directories: [tests_inc, libaegisub_inc, mocha_inc],
+    include_directories: [tests_inc, libaegisub_inc, mocha_inc, aegisub_src_inc, aegisub_src_dir_inc],
     dependencies: [tests_deps, deps],
     cpp_args: tests_args,
     link_with: libaegisub,
