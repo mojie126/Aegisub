@@ -271,6 +271,20 @@ bool AegisubApp::OnInit() {
 
 		exception_message = _("Oops, Aegisub has crashed!\n\nAn attempt has been made to save a copy of your file to:\n\n%s\n\nAegisub will now close.");
 
+		// 在加载 Lua 脚本前将命令行参数解析为绝对路径，
+		// 避免 Lua 脚本调用 lfs.chdir 后相对路径指向错误目录
+		StartupLog("Resolve command line arguments to absolute paths");
+		wxArrayString abs_args;
+		{
+			auto const& args = argv.GetArguments();
+			for (size_t i = 1; i < args.size(); ++i) {
+				agi::fs::path p(from_wx(args[i]));
+				if (p.is_relative())
+					p = agi::fs::path(std::filesystem::absolute(p).string());
+				abs_args.push_back(to_wx(p.string()));
+			}
+		}
+
 		// Load plugins
 		Automation4::ScriptFactory::Register(std::make_unique<Automation4::LuaScriptFactory>());
 		libass::CacheFonts();
@@ -313,9 +327,8 @@ bool AegisubApp::OnInit() {
 
 		// Get parameter subs
 		StartupLog("Parse command line");
-		auto const& args = argv.GetArguments();
-		if (args.size() > 1)
-			OpenFiles(wxArrayStringsAdapter(args.size() - 1, &args[1]));
+		if (!abs_args.empty())
+			OpenFiles(abs_args);
 	}
 	catch (agi::Exception const& e) {
 		wxMessageBox(to_wx(e.GetMessage()), _("Fatal error while initializing"));

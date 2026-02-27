@@ -177,8 +177,13 @@ bool Project::DoLoadSubtitles(agi::fs::path const& path, std::string encoding, P
 
 void Project::LoadSubtitles(agi::fs::path path, std::string encoding, bool load_linked) {
 	ProjectProperties properties;
-	if (DoLoadSubtitles(path, encoding, properties) && load_linked)
-		LoadUnloadFiles(properties);
+	if (DoLoadSubtitles(path, encoding, properties)) {
+		// 加载新字幕后，将当前已加载的视频/音频/时间码/关键帧路径
+		// 写回 Properties，避免内嵌字幕覆盖导致路径信息丢失
+		UpdateRelativePaths();
+		if (load_linked)
+			LoadUnloadFiles(properties);
+	}
 }
 
 void Project::CloseSubtitles() {

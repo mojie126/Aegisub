@@ -21,6 +21,40 @@
 #include <uchardet.h>
 #endif
 
+#include <algorithm>
+
+/// @brief 验证数据是否为合法 UTF-8 编码
+/// @param data 待检测数据
+/// @param len 数据长度
+/// @param has_multibyte 输出：是否包含多字节序列
+/// @return 所有字节是否符合 UTF-8 编码规则
+static bool is_valid_utf8(const char* data, size_t len, bool& has_multibyte) {
+	has_multibyte = false;
+	for (size_t i = 0; i < len; ) {
+		auto c = static_cast<unsigned char>(data[i]);
+		int expected;
+		if (c <= 0x7F) {
+			expected = 0;
+		} else if (c >= 0xC2 && c <= 0xDF) {
+			expected = 1;
+		} else if (c >= 0xE0 && c <= 0xEF) {
+			expected = 2;
+		} else if (c >= 0xF0 && c <= 0xF4) {
+			expected = 3;
+		} else {
+			return false;
+		}
+		if (i + expected >= len) break;
+		for (int j = 1; j <= expected; ++j) {
+			auto next = static_cast<unsigned char>(data[i + j]);
+			if (next < 0x80 || next > 0xBF) return false;
+		}
+		if (expected > 0) has_multibyte = true;
+		i += 1 + expected;
+	}
+	return true;
+}
+
 namespace agi::charset {
 std::string Detect(agi::fs::path const& file) {
 	agi::read_file_mapping fp(file);
@@ -46,6 +80,16 @@ std::string Detect(agi::fs::path const& file) {
 	// be able to do anything useful with it anyway
 	if (fp.size() > 100 * 1024 * 1024)
 		return "binary";
+
+	// 在调用 uchardet 之前预验证 UTF-8：检查前 64KB 是否为合法 UTF-8
+	// 可避免 uchardet 对含 emoji 等多字节字符的 UTF-8 文件误判
+	{
+		auto check_len = std::min<uint64_t>(65536, fp.size());
+		auto check_buf = fp.read(0, check_len);
+		bool has_multibyte = false;
+		if (is_valid_utf8(check_buf, check_len, has_multibyte) && has_multibyte)
+			return "utf-8";
+	}
 
 	uint64_t binaryish = 0;
 
