@@ -543,6 +543,7 @@ namespace {
 	template<typename Func>
 	wxBitmap make_slider_img(wxWindow *parent, Func func) {
 		auto slid = static_cast<unsigned char *>(calloc(slider_width * 256 * 3, 1));
+		if (!slid) return wxBitmap();
 		func(slid);
 		const wxImage img(slider_width, 256, slid);
 		wxBitmap wx_bitmap(img);

@@ -253,11 +253,13 @@ namespace {
 				y = frame->height - y;
 
 			size_t pos = y * frame->pitch + x * 4;
-			// VideoFrame is stored as BGRA, but we want to return RGB
+			// VideoFrame 以 BGRA 存储，返回 RGB
 			push_value(L, frame->data[pos+2]);
 			push_value(L, frame->data[pos+1]);
 			push_value(L, frame->data[pos]);
 		} else {
+			lua_pushnil(L);
+			lua_pushnil(L);
 			lua_pushnil(L);
 		}
 		return 3;
@@ -274,9 +276,9 @@ namespace {
 				y = frame->height - y;
 
 			size_t pos = y * frame->pitch + x * 4;
-			// VideoFrame is stored as BGRA, Color expects RGBA
-			agi::Color* color = new agi::Color(frame->data[pos+2], frame->data[pos+1], frame->data[pos], frame->data[pos+3]);
-			push_value(L, color->GetAssOverrideFormatted());
+			// VideoFrame 以 BGRA 存储，Color 需要 RGBA
+			agi::Color color(frame->data[pos+2], frame->data[pos+1], frame->data[pos], frame->data[pos+3]);
+			push_value(L, color.GetAssOverrideFormatted());
 		} else {
 			lua_pushnil(L);
 		}
