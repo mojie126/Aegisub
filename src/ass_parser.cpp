@@ -115,15 +115,18 @@ void AssParser::ParseAttachmentLine(std::string const& data) {
 
 	// Data is over, add attachment to the file
 	if (!valid_data || is_filename) {
-		target->Attachments.push_back(*attach.release());
+		target->Attachments.push_back(std::move(*attach));
+		attach.reset();
 		AddLine(data);
 	}
 	else {
 		attach->AddData(data);
 
 		// Done building
-		if (data.size() < 80)
-			target->Attachments.push_back(*attach.release());
+		if (data.size() < 80) {
+			target->Attachments.push_back(std::move(*attach));
+			attach.reset();
+		}
 	}
 }
 
@@ -159,7 +162,7 @@ void AssParser::ParseScriptInfoLine(std::string const& data) {
 	boost::trim_left(value);
 
 	if (!property_handler->ProcessProperty(target, key, value))
-		target->Info.push_back(*new AssInfo(std::move(key), std::move(value)));
+		target->Info.emplace_back(std::move(key), std::move(value));
 }
 
 void AssParser::ParseMetadataLine(std::string const& data) {

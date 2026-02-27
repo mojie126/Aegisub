@@ -169,6 +169,8 @@ class WordSplitter {
 		for (size_t j = starti; j <= i; j++) {
 			char c = text[dpos];
 			if (tokens[j].type == dt::WHITESPACE) {
+			} else if (lastcmd == ' ' && c != 'm') {
+				tokens[j].type = dt::ERROR;
 			} else if (c == 'm' || c == 'n' || c == 'l' || c == 's' || c == 'b' || c == 'p' || c == 'c') {
 				tokens[j].type = dt::DRAWING_CMD;
 

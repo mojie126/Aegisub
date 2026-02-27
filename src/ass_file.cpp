@@ -317,7 +317,7 @@ void enumerate_extradata(ExtradataType&& extradata, std::vector<uint32_t> const&
 	auto begin = extradata.begin(), end = extradata.end();
 	for (auto id : id_list) {
 		auto it = lower_bound(begin, end, id, extradata_id_cmp{});
-		if (it != end) {
+		if (it != end && it->id == id) {
 			f(*it);
 			begin = it;
 		}
