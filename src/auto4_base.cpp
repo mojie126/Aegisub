@@ -93,19 +93,15 @@ namespace Automation4 {
 		auto old_font = SelectObject(dc, font);
 
 		std::wstring wtext(agi::charset::ConvertW(text));
-		if (spacing != 0 ) {
-			width = 0;
-			for (auto c : wtext) {
-				SIZE sz;
-				GetTextExtentPoint32(dc, &c, 1, &sz);
-				width += sz.cx + spacing;
-				height = sz.cy;
-			}
-		}
-		else {
+		// 始终使用逐字符测量，与 VSFilter/libass 渲染行为一致
+		// (TypesettingTools/Aegisub#520)
+		// 不使用 GetTextExtentPoint32 整串测量，因为它会包含字距调整(kerning)，
+		// 而 VSFilter/libass 在渲染时不应用字距调整
+		width = 0;
+		for (auto c : wtext) {
 			SIZE sz;
-			GetTextExtentPoint32(dc, &wtext[0], (int)wtext.size(), &sz);
-			width = sz.cx;
+			GetTextExtentPoint32(dc, &c, 1, &sz);
+			width += sz.cx + spacing;
 			height = sz.cy;
 		}
 

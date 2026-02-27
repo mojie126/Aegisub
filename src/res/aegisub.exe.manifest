@@ -20,6 +20,10 @@
             <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">True/PM</dpiAware>
             <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2,PerMonitor</dpiAwareness>
             <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
+            <!-- 启用 UTF-8 代码页，使所有 ANSI API 接受 UTF-8 编码 (TypesettingTools/Aegisub#458) -->
+            <!-- 修复 LuaJIT ffi.load 使用 LoadLibraryExA 时无法加载含特殊字符路径的 DLL -->
+            <!-- 要求 Windows 10 版本 1903 (10.0.18362) 或更高 -->
+            <activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>
         </windowsSettings>
     </application>
 </assembly>

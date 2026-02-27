@@ -341,9 +341,10 @@ X uint64_t   mkv_GetFirstTimecodeOffset(/* in */ MatroskaFile *mf);
 /* This sets the masking flags for the parser,
  *  masked tracks [with 1s in their bit positions]
  *  will be ignored when reading file data.
- * This call discards all parsed and queued frames
+ * This call discards all parsed and queued frames.
+ * Supports up to 64 tracks.
  */
-X void	      mkv_SetTrackMask(/* in */ MatroskaFile *mf,/* in */ unsigned int mask);
+X void	      mkv_SetTrackMask(/* in */ MatroskaFile *mf,/* in */ uint64_t mask);
 
 /* Read one frame from the queue.
  * mask specifies what tracks to ignore.
@@ -351,7 +352,7 @@ X void	      mkv_SetTrackMask(/* in */ MatroskaFile *mf,/* in */ unsigned int ma
  * set of tracks, 0 on success
  */
 X int	      mkv_ReadFrame(/* in */  MatroskaFile *mf,
-			    /* in */  unsigned int mask,
+			    /* in */  uint64_t mask,
 			    /* out */ unsigned int *track,
 			    /* out */ uint64_t *StartTime /* in ns */,
 			    /* out */ uint64_t *EndTime /* in ns */,
