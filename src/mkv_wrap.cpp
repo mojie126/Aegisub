@@ -257,7 +257,7 @@ void MatroskaWrapper::GetSubtitles(agi::fs::path const& filename, AssFile *targe
 	}
 
 	// Picked track
-	mkv_SetTrackMask(file, ~(1 << trackToRead));
+	mkv_SetTrackMask(file, ~(static_cast<uint64_t>(1) << trackToRead));
 	auto trackInfo = mkv_GetTrackInfo(file, trackToRead);
 	std::string CodecID(trackInfo->CodecID);
 	bool srt = CodecID == "S_TEXT/UTF8";

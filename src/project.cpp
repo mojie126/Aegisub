@@ -226,6 +226,13 @@ void Project::LoadUnloadFiles(ProjectProperties properties) {
 		if (keyframes != keyframes_file)
 			append_file(keyframes, _("Unload keyframes"), _("Load keyframes file: %s"));
 
+		// 确保父窗口在前端且已刷新，避免对话框不可见 (TypesettingTools/Aegisub#509)
+		// 在应用启动阶段，父窗口可能尚未完成映射，导致模态对话框被遮挡
+		if (context->parent) {
+			context->parent->Raise();
+			context->parent->Update();
+		}
+
 		if (wxMessageBox(str, _("(Un)Load files?"), wxYES_NO | wxCENTRE, context->parent) != wxYES)
 			return;
 	}

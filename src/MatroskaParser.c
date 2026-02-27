@@ -74,7 +74,7 @@
 
 #define	MAX_STRING_LEN	      1023
 #define	QSEGSIZE	      512
-#define	MAX_TRACKS	      32
+#define	MAX_TRACKS	      64
 #define	MAX_READAHEAD	      (256*1024)
 
 #define	MAXCLUSTER	      (64*1048576)
@@ -203,7 +203,7 @@ struct MatroskaFile {
   struct QueueEntry **QBlocks;
   struct Queue	    *Queues;
   uint64_t	    readPosition;
-  unsigned int	    trackMask;
+  uint64_t	    trackMask;
   uint64_t	    pSegmentTop;  // offset of next byte after the segment
   uint64_t	    tcCluster;    // current cluster timecode
 
@@ -2175,7 +2175,7 @@ blockex:
 
       for (tracknum=0;tracknum<mf->nTracks;++tracknum)
 	if (mf->Tracks[tracknum]->Number == trackid) {
-	  if (mf->trackMask & (1<<tracknum)) // ignore this block
+	  if (mf->trackMask & (ONE<<tracknum)) // ignore this block
 	    break;
 	  goto found;
 	}
@@ -2489,7 +2489,7 @@ ex:
 
 // this is almost the same as readMoreBlocks, except it ensures
 // there are no partial frames queued, however empty queues are ok
-static int  fillQueues(MatroskaFile *mf,unsigned int mask) {
+static int  fillQueues(MatroskaFile *mf,uint64_t mask) {
   unsigned    i,j;
   int	      ret = 0;
 
@@ -2497,7 +2497,7 @@ static int  fillQueues(MatroskaFile *mf,unsigned int mask) {
     j = 0;
 
     for (i=0;i<mf->nTracks;++i)
-      if (mf->Queues[i].head && !(mask & (1<<i)))
+      if (mf->Queues[i].head && !(mask & (ONE<<i)))
 	++j;
 
     if (j>0) // have at least some frames
@@ -2506,7 +2506,7 @@ static int  fillQueues(MatroskaFile *mf,unsigned int mask) {
     if ((ret = readMoreBlocks(mf)) < 0) {
       j = 0;
       for (i=0;i<mf->nTracks;++i)
-	if (mf->Queues[i].head && !(mask & (1<<i)))
+	if (mf->Queues[i].head && !(mask & (ONE<<i)))
 	  ++j;
       if (j) // we adjusted some blocks
 	return 0;
@@ -2669,7 +2669,7 @@ ok:
     mf->readPosition = mf->Cues[mf->nCues - 1].Position + mf->pSegment;
     mf->tcCluster = mf->Cues[mf->nCues - 1].Time / mf->Seg.TimecodeScale;
   }
-  mf->trackMask = ~(1 << vtrack);
+  mf->trackMask = ~(ONE << vtrack);
 
   do
     while (mf->Queues[vtrack].head)
@@ -2926,7 +2926,8 @@ uint64_t     mkv_GetSegmentTop(MatroskaFile *mf) {
 
 void  mkv_Seek(MatroskaFile *mf,uint64_t timecode,unsigned flags) {
   int		i,j,m,ret;
-  unsigned	n,z,mask;
+  unsigned	n,z;
+  uint64_t	mask;
   uint64_t	m_kftime[MAX_TRACKS];
   unsigned char	m_seendf[MAX_TRACKS];
 
@@ -3018,7 +3019,7 @@ void  mkv_Seek(MatroskaFile *mf,uint64_t timecode,unsigned flags) {
 found:
   
 	  for (n=0;n<mf->nTracks;++n)
-	    if (!(mf->trackMask & (1<<n)) && m_kftime[n]==MAXU64 &&
+	    if (!(mf->trackMask & (ONE<<n)) && m_kftime[n]==MAXU64 &&
 		m_seendf[n] && j>0)
 	    {
 	      // we need to restart the search from prev cue
@@ -3053,7 +3054,7 @@ again:;
 	for (n=z=0;n<mf->nTracks;++n)
 	  if (m_kftime[n]==MAXU64 || (mf->Queues[n].head && mf->Queues[n].head->Start>=m_kftime[n])) {
 	    ++z;
-	    mask |= 1<<n;
+	    mask |= ONE<<n;
 	  }
 
 	if (z==mf->nTracks)
@@ -3137,7 +3138,7 @@ int	      mkv_TruncFloat(MKFLOAT f) {
 
 #define	FTRACK	0xffffffff
 
-void	      mkv_SetTrackMask(MatroskaFile *mf,unsigned int mask) {
+void	      mkv_SetTrackMask(MatroskaFile *mf,uint64_t mask) {
   unsigned int	  i;
 
   if (mf->flags & MPF_ERROR)
@@ -3146,12 +3147,12 @@ void	      mkv_SetTrackMask(MatroskaFile *mf,unsigned int mask) {
   mf->trackMask = mask;
 
   for (i=0;i<mf->nTracks;++i)
-    if (mask & (1<<i))
+    if (mask & (ONE<<i))
       ClearQueue(mf,&mf->Queues[i]);
 }
 
 int	      mkv_ReadFrame(MatroskaFile *mf,
-			    unsigned int mask,unsigned int *track,
+			    uint64_t mask,unsigned int *track,
 			    uint64_t *StartTime,uint64_t *EndTime,
 			    uint64_t *FilePos,unsigned int *FrameSize,
 			    unsigned int *FrameFlags)
@@ -3165,14 +3166,14 @@ int	      mkv_ReadFrame(MatroskaFile *mf,
   do {
     // extract required frame, use block with the lowest timecode
     for (j=FTRACK,i=0;i<mf->nTracks;++i)
-      if (!(mask & (1<<i)) && mf->Queues[i].head) {
+      if (!(mask & (ONE<<i)) && mf->Queues[i].head) {
 	j = i;
 	++i;
 	break;
       }
 
     for (;i<mf->nTracks;++i)
-      if (!(mask & (1<<i)) && mf->Queues[i].head &&
+      if (!(mask & (ONE<<i)) && mf->Queues[i].head &&
 	  mf->Queues[j].head->Start > mf->Queues[i].head->Start)
 	j = i;
 
