@@ -44,7 +44,19 @@ tests_src = [
     'tests/uuencode.cpp',
     'tests/vfr.cpp',
     'tests/word_split.cpp',
+    'tests/mocha_motion.cpp',
 ]
+
+# 摩卡追踪模块源文件（排除依赖 wxWidgets/src 的 processor/config/dialog）
+mocha_src = [
+    '../src/mocha_motion/motion_tags.cpp',
+    '../src/mocha_motion/motion_transform.cpp',
+    '../src/mocha_motion/motion_line.cpp',
+    '../src/mocha_motion/motion_data_handler.cpp',
+    '../src/mocha_motion/motion_handler.cpp',
+]
+
+mocha_inc = include_directories('../src/mocha_motion')
 
 tests_inc = include_directories('support')
 
@@ -59,8 +71,8 @@ endif
 
 runner = executable(
     'gtest-main',
-    tests_src,
-    include_directories: [tests_inc, libaegisub_inc],
+    tests_src + mocha_src,
+    include_directories: [tests_inc, libaegisub_inc, mocha_inc],
     dependencies: [tests_deps, deps],
     cpp_args: tests_args,
     link_with: libaegisub,
