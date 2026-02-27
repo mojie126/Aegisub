@@ -76,6 +76,11 @@ wxArrayString LoadFontsFromDirectory(const wxString &directory) {
 	if (FT_Init_FreeType(&library)) {
 		return fontNames;
 	}
+	auto ft_cleanup = [&library]() { FT_Done_FreeType(library); };
+	struct FTGuard {
+		decltype(ft_cleanup)& fn;
+		~FTGuard() { fn(); }
+	} ft_guard{ft_cleanup};
 
 	const auto use_font_filename = OPT_GET("Subtitle/Use Font Filename")->GetBool();
 	wxString filename;
@@ -98,8 +103,6 @@ wxArrayString LoadFontsFromDirectory(const wxString &directory) {
 
 		cont = dir.GetNext(&filename);
 	}
-
-	FT_Done_FreeType(library);
 
 	fontNames.Sort();
 	return fontNames;
@@ -569,17 +572,15 @@ void DialogStyleEditor::OnPreviewColourChange(ValueEvent<agi::Color> &evt) {
 }
 
 void DialogStyleEditor::OnCommandPreviewUpdate(wxCommandEvent &event) {
-	if (favorite_font_num > 0) {
+	if (favorite_font_num > 0 && event.GetEventType() == wxEVT_COMBOBOX) {
 		if (ini["favoriteFont"].size() < favorite_font_num) {
 			ini["favoriteFont"][from_wx(event.GetString())] = from_wx(event.GetString());
 		} else {
 			const int diff_num = static_cast<int>(ini["favoriteFont"].size()) - favorite_font_num;
 			int currint_index = 0;
 			std::vector<wxString> keys;
-			for (const auto &[fst, snd] : ini) {
-				for (const auto &[fst, snd] : snd) {
-					keys.emplace_back(to_wx(fst));
-				}
+			for (const auto &[key, value] : ini["favoriteFont"]) {
+				keys.emplace_back(to_wx(key));
 			}
 			for (const auto &x : keys) {
 				if (currint_index < diff_num)

@@ -49,6 +49,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <climits>
 #include <mutex>
 #include <thread>
 
@@ -562,9 +563,9 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 	struct DialogJumpFrameTo {
 		wxDialog d;
 		agi::Context *c; ///< Project context
-		long startFrame; ///< 起始帧号
+		int startFrame; ///< 起始帧号
 		wxTextCtrl *editStartFrame; ///< 起始帧编辑控件
-		long endFrame; ///< 结束帧号
+		int endFrame; ///< 结束帧号
 		wxTextCtrl *editEndFrame; ///< 结束帧编辑控件
 		long gifQuality;
 		wxSpinCtrl *editGifQuality;
@@ -592,8 +593,8 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 	DialogJumpFrameTo::DialogJumpFrameTo(agi::Context *c)
 		: d(c->parent, -1, _("Export GIF"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxWANTS_CHARS)
 		, c(c)
-		, startFrame(LONG_MAX)
-		, endFrame(LONG_MIN)
+		, startFrame(INT_MAX)
+		, endFrame(INT_MIN)
 		, gifQuality(90) {
 		d.SetIcon(GETICON(jumpto_button_16));
 
@@ -756,14 +757,12 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 	}
 
 	void DialogJumpFrameTo::OnEditStartFrame(wxCommandEvent &event) {
-		editStartFrame->GetValue().ToLong(&startFrame);
-		sFrame = startFrame = wxAtol(editStartFrame->GetValue());
+		sFrame = startFrame = static_cast<int>(wxAtol(editStartFrame->GetValue()));
 		cropPanel->SetFrameRange(startFrame, endFrame);
 	}
 
 	void DialogJumpFrameTo::OnEditEndFrame(wxCommandEvent &event) {
-		editEndFrame->GetValue().ToLong(&endFrame);
-		eFrame = endFrame = wxAtol(editEndFrame->GetValue());
+		eFrame = endFrame = static_cast<int>(wxAtol(editEndFrame->GetValue()));
 		cropPanel->SetFrameRange(startFrame, endFrame);
 		if (endFrame <= startFrame) {
 			wxMessageBox(_("The end frame cannot be less than or equal to the start frame"),_("Error"), wxICON_ERROR);
@@ -778,9 +777,9 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 	struct DialogFrameSeqExport {
 		wxDialog d;
 		agi::Context *c;
-		long startFrame;
+		int startFrame;
 		wxTextCtrl *editStartFrame;
-		long endFrame;
+		int endFrame;
 		wxTextCtrl *editEndFrame;
 
 		void OnOK(wxCommandEvent &event);
@@ -799,8 +798,8 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 	DialogFrameSeqExport::DialogFrameSeqExport(agi::Context *c)
 		: d(c->parent, -1, _("Export image sequence"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxWANTS_CHARS)
 		, c(c)
-		, startFrame(LONG_MAX)
-		, endFrame(LONG_MIN) {
+		, startFrame(INT_MAX)
+		, endFrame(INT_MIN) {
 		d.SetIcon(GETICON(jumpto_button_16));
 
 		// 从选中行计算起止帧
@@ -891,13 +890,11 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 	}
 
 	void DialogFrameSeqExport::OnEditStartFrame(wxCommandEvent &event) {
-		editStartFrame->GetValue().ToLong(&startFrame);
-		seqStartFrame = startFrame = wxAtol(editStartFrame->GetValue());
+		seqStartFrame = startFrame = static_cast<int>(wxAtol(editStartFrame->GetValue()));
 	}
 
 	void DialogFrameSeqExport::OnEditEndFrame(wxCommandEvent &event) {
-		editEndFrame->GetValue().ToLong(&endFrame);
-		seqEndFrame = endFrame = wxAtol(editEndFrame->GetValue());
+		seqEndFrame = endFrame = static_cast<int>(wxAtol(editEndFrame->GetValue()));
 	}
 }
 
