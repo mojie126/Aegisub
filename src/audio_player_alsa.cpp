@@ -138,8 +138,6 @@ snd_pcm_format_t AlsaPlayer::GetPCMFormat(const agi::AudioProvider *provider) {
 				return SND_PCM_FORMAT_S24_LE;
 			case 4:
 				return SND_PCM_FORMAT_S32_LE;
-			case 8:
-				return SND_PCM_FORMAT_S32_LE;
 			default:
 				fallback_mono16 = true;
 				return SND_PCM_FORMAT_S16_LE;

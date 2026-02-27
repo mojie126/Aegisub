@@ -726,6 +726,10 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 	}
 
 	void DialogJumpFrameTo::OnOK(wxCommandEvent &) {
+		if (endFrame <= startFrame) {
+			wxMessageBox(_("The end frame cannot be less than or equal to the start frame"), _("Error"), wxICON_ERROR);
+			return;
+		}
 		cropPanel->StopPlayback();
 		d.EndModal(0);
 		onOK = true;

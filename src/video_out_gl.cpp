@@ -332,13 +332,13 @@ void VideoOutGL::EnableHDRToneMapping(bool enable) {
 void VideoOutGL::SetHDRInputHint(bool isHdr, HDRType type, int dvProfile) {
 	hdrInputLikelyHdr = isHdr;
 	if (hdrInputType != type || hdrDvProfile != dvProfile) {
-		const bool typeChanged = (hdrInputType != type);
 		hdrInputType = type;
 		hdrDvProfile = dvProfile;
 		// HDR类型或DV Profile变更时，需重新加载对应LUT（GPU和CPU缓存都清除）
-		if (typeChanged && hdrLutLoaded) {
+		// DV P5使用DV2SDR.cube，P7/P8使用PQ2SDR.cube，仅检查type不足以覆盖profile切换
+		if (hdrLutLoaded) {
 			ReleaseHDRLUT();
-			LOG_I("video/out/gl") << "HDR type changed to " << static_cast<int>(type)
+			LOG_I("video/out/gl") << "HDR type/profile changed to " << static_cast<int>(type)
 				<< " (DV profile=" << dvProfile << "), LUT will be reloaded on next render";
 		}
 	}
