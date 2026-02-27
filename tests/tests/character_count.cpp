@@ -67,6 +67,21 @@ TEST(lagi_character_count, ignore_blocks_unclosed) {
 	EXPECT_EQ(6, agi::CharacterCount("{hello", agi::IGNORE_BLOCKS));
 }
 
+/// \brief 验证 IGNORE_BLOCKS 模式下 ASS 转义序列的正确处理 (#538)
+TEST(lagi_character_count, ignore_blocks_line_breaks) {
+	// \N 和 \n 是换行符，不计入字符数
+	EXPECT_EQ(10, agi::CharacterCount("{\\b1}hello\\Nworld", agi::IGNORE_BLOCKS));
+	EXPECT_EQ(10, agi::CharacterCount("{\\b1}hello\\nworld", agi::IGNORE_BLOCKS));
+	// \h 是硬空格，计为 1 个字符
+	EXPECT_EQ(11, agi::CharacterCount("{\\b1}hello\\hworld", agi::IGNORE_BLOCKS));
+	// 忽略空白时 \h 不计入
+	EXPECT_EQ(10, agi::CharacterCount("{\\b1}hello\\hworld", agi::IGNORE_BLOCKS | agi::IGNORE_WHITESPACE));
+	// 多个连续换行
+	EXPECT_EQ(10, agi::CharacterCount("{\\b1}hello\\N\\Nworld", agi::IGNORE_BLOCKS));
+	// 文本中混合块和换行
+	EXPECT_EQ(10, agi::CharacterCount("{\\b1}hello{\\i1}\\Nworld", agi::IGNORE_BLOCKS));
+}
+
 TEST(lagi_character_count, line_length) {
 	EXPECT_EQ(5, agi::MaxLineLength("hello", agi::IGNORE_NONE));
 	EXPECT_EQ(5, agi::MaxLineLength("hello\\Nasdf", agi::IGNORE_NONE));

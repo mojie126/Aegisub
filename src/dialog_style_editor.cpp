@@ -114,15 +114,18 @@ class StyleRenamer {
 	agi::Context *c;
 	bool found_any = false;
 	bool do_replace = false;
+	bool modified_current = false; ///< 当前行的 \r 标签是否被修改
 	std::string source_name;
 	std::string new_name;
 
-	/// Process a single override parameter to check if it's \r with this style name
+	/// @brief 处理单个覆写参数，检查是否为引用目标样式的 \r 标签
 	static void ProcessTag(std::string const& tag, AssOverrideParameter* param, void *userData) {
 		StyleRenamer *self = static_cast<StyleRenamer*>(userData);
 		if (tag == "\\r" && param->GetType() == VariableDataType::TEXT && param->Get<std::string>() == self->source_name) {
-			if (self->do_replace)
+			if (self->do_replace) {
 				param->Set(self->new_name);
+				self->modified_current = true;
+			}
 			else
 				self->found_any = true;
 		}
@@ -140,10 +143,11 @@ class StyleRenamer {
 					found_any = true;
 			}
 
+			modified_current = false;
 			auto blocks = diag.ParseTags();
 			for (auto block : blocks | agi::of_type<AssDialogueBlockOverride>())
 				block->ProcessParameters(&StyleRenamer::ProcessTag, this);
-			if (replace)
+			if (replace && modified_current)
 				diag.UpdateText(blocks);
 
 			if (found_any) return;

@@ -84,23 +84,25 @@ size_t CharacterCount(std::string_view str, int ignore) {
 	if ((ignore & agi::IGNORE_BLOCKS) == 0)
 		return count_in_range(str, mask);
 
+	// 使用分词器正确处理 \N、\n、\h 等 ASS 转义序列
+	auto tokens = agi::ass::TokenizeDialogueBody(str);
+	agi::ass::MarkDrawings(str, tokens);
+
 	size_t characters = 0;
-	while (!str.empty()) {
-		auto pos = str.find('{');
-		if (pos == str.npos) break;
-
-		// if there's no trailing }, the rest of the string counts as characters,
-		// including the leading {
-		auto end = str.find('}');
-		if (end == str.npos) break;
-
-		if (pos > 0)
-			characters += count_in_range(str.substr(0, pos), mask);
-		str.remove_prefix(end + 1);
+	size_t pos = 0;
+	for (auto token : tokens) {
+		if (token.type == agi::ass::DialogueTokenType::TEXT)
+			characters += count_in_range(str.substr(pos, token.length), mask);
+		else if (token.type == agi::ass::DialogueTokenType::LINE_BREAK) {
+			// \h 是硬空格，非忽略空白时计为 1 个字符
+			if (str[pos + 1] == 'h') {
+				if (!(mask & U_GC_Z_MASK))
+					characters += 1;
+			}
+			// \N 和 \n 是换行符，不计入字符数
+		}
+		pos += token.length;
 	}
-
-	if (!str.empty())
-		characters += count_in_range(str, mask);
 
 	return characters;
 }
