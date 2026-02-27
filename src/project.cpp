@@ -266,7 +266,12 @@ void Project::DoLoadAudio(agi::fs::path const& path, bool quiet) {
 
 	try {
 		try {
-			audio_provider = GetAudioProvider(path, *context->path, progress);
+			auto new_provider = GetAudioProvider(path, *context->path, progress);
+			// 先通知停止旧的播放器，再替换音频提供者 (TypesettingTools/Aegisub#24)
+			// 避免后台播放线程在旧提供者被销毁后仍尝试访问
+			if (audio_provider)
+				AnnounceAudioProviderModified(nullptr);
+			audio_provider = std::move(new_provider);
 		}
 		catch (agi::UserCancelException const&) { return; }
 		catch (...) {

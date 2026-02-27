@@ -123,6 +123,11 @@ struct MkvStdIO final : InputStream {
 static bool read_subtitles(agi::ProgressSink *ps, MatroskaFile *file, MkvStdIO *input, bool srt, double totalTime, AssParser *parser, CompressedStream *cs) {
 	std::vector<std::pair<int, std::string>> subList;
 
+	// 获取首簇时间偏移量，用于恢复绝对时间戳 (TypesettingTools/Aegisub#91)
+	// MatroskaParser 内部将所有时间戳减去首簇时间做归一化，
+	// 对纯字幕文件 (MKS) 等首簇非零的容器会导致时间偏移
+	uint64_t firstTimecodeOffset = mkv_GetFirstTimecodeOffset(file);
+
 	// Load blocks
 	uint64_t startTime, endTime, filePos;
 	unsigned int rt, frameSize, frameFlags;
@@ -165,8 +170,8 @@ static bool read_subtitles(agi::ProgressSink *ps, MatroskaFile *file, MkvStdIO *
 
 		// Get start and end times
 		int64_t timecodeScaleLow = 1000000;
-		agi::Time subStart = startTime / timecodeScaleLow;
-		agi::Time subEnd = endTime / timecodeScaleLow;
+		agi::Time subStart = (startTime + firstTimecodeOffset) / timecodeScaleLow;
+		agi::Time subEnd = (endTime + firstTimecodeOffset) / timecodeScaleLow;
 
 		// Process SSA/ASS
 		if (!srt) {

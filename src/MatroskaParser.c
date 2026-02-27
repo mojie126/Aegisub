@@ -3199,6 +3199,10 @@ int	      mkv_ReadFrame(MatroskaFile *mf,
   return EOF;
 }
 
+uint64_t   mkv_GetFirstTimecodeOffset(MatroskaFile *mf) {
+  return (uint64_t)(mf->firstTimecode * mf->Seg.TimecodeScale);
+}
+
 #ifdef MATROSKA_COMPRESSION_SUPPORT
 /*************************************************************************
  * Compressed streams support

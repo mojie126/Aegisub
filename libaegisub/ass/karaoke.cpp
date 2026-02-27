@@ -25,12 +25,29 @@ namespace agi::ass {
 std::string KaraokeSyllable::GetText(bool k_tag) const {
 	std::string ret;
 
-	if (k_tag)
-		ret = agi::format("{%s%d}", tag_type, ((duration + 5) / 10));
+	// 合并位于文本起始位置的覆写标签到 k 标签同一 {} 块 (TypesettingTools/Aegisub#351)
+	// 避免提交后 {\k20\c&HFF0000&}text 被拆分为 {\k20}{\c&HFF0000&}text
+	auto pos0_it = ovr_tags.find(0);
+	if (k_tag) {
+		if (pos0_it != ovr_tags.end() && !pos0_it->second.empty()) {
+			std::string merged = pos0_it->second;
+			// 合并相邻 {} 块: "{\c&H00&}{\alpha&HFF&}" → "{\c&H00&\alpha&HFF&}"
+			size_t p;
+			while ((p = merged.find("}{")) != std::string::npos)
+				merged.erase(p, 2);
+			// 去除外层花括号后追加到 k 标签
+			if (merged.starts_with("{")) merged.erase(0, 1);
+			if (merged.ends_with("}")) merged.pop_back();
+			ret = agi::format("{%s%d%s}", tag_type, ((duration + 5) / 10), merged);
+		} else {
+			ret = agi::format("{%s%d}", tag_type, ((duration + 5) / 10));
+		}
+	}
 
 	std::string_view sv = text;
 	size_t idx = 0;
 	for (auto const& ovr : ovr_tags) {
+		if (k_tag && ovr.first == 0) continue;
 		ret += sv.substr(idx, ovr.first - idx);
 		ret += ovr.second;
 		idx = ovr.first;

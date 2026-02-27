@@ -211,6 +211,64 @@ struct parsed_line {
 		return n - in_block;
 	}
 
+	/// @brief 查找给定光标位置所在的 \\t() 标签内部覆写块
+	/// @param ovr 当前覆写块
+	/// @param orig_pos 原始光标位置（行文本中的位置）
+	/// @return 若光标在 \\t() 内，返回内部覆写块指针；否则返回 nullptr
+	AssDialogueBlockOverride* find_transform_block(AssDialogueBlockOverride* ovr, int orig_pos) const {
+		std::string_view full_text = line->Text.get();
+		int text_len = static_cast<int>(full_text.size());
+		if (orig_pos <= 0 || orig_pos >= text_len) return nullptr;
+
+		// 向后搜索当前覆写块的 '{' 位置
+		int brace_start = -1;
+		for (int i = orig_pos; i >= 0; --i) {
+			if (full_text[i] == '{') { brace_start = i; break; }
+		}
+		if (brace_start < 0 || orig_pos <= brace_start) return nullptr;
+
+		// 从 '{' 后向前扫描，查找包含 orig_pos 的 \t() 区间
+		int t_index = 0;
+		for (int si = brace_start + 1; si < text_len && full_text[si] != '}'; ) {
+			if (full_text[si] == '\\' && si + 1 < text_len
+				&& full_text[si + 1] == 't'
+				&& si + 2 < text_len && full_text[si + 2] == '(')
+			{
+				si += 2; // 跳过 \t
+				int paren_start = si; // 指向 '('
+				int depth = 1;
+				++si;
+				while (si < text_len && depth > 0) {
+					if (full_text[si] == '(') ++depth;
+					else if (full_text[si] == ')') --depth;
+					if (depth > 0) ++si;
+				}
+				// orig_pos 在 (paren_start, si] 之间则位于此 \t() 内
+				if (orig_pos > paren_start && orig_pos <= si) {
+					int count = 0;
+					for (auto& tag : ovr->Tags) {
+						if (tag.Name == "\\t" && tag.IsValid()) {
+							if (count == t_index) {
+								for (auto& param : tag.Params) {
+									if (param.GetType() == VariableDataType::BLOCK && !param.omitted)
+										return param.Get<AssDialogueBlockOverride*>();
+								}
+								return nullptr;
+							}
+							++count;
+						}
+					}
+					return nullptr;
+				}
+				++t_index;
+				if (depth == 0 && si < text_len) ++si; // 跳过 ')'
+			} else {
+				++si;
+			}
+		}
+		return nullptr;
+	}
+
 	int set_tag(std::string const& tag, std::string const& value, int norm_pos, int orig_pos) {
 		int blockn = block_at_pos(norm_pos);
 
@@ -249,28 +307,37 @@ struct parsed_line {
 			blocks = line->ParseTags();
 		}
 		else if (ovr) {
+			// 检测光标是否在 \t() 标签内部 (TypesettingTools/Aegisub#12)
+			AssDialogueBlockOverride* target_ovr = find_transform_block(ovr, orig_pos);
+			bool in_transform = (target_ovr != nullptr);
+			if (!target_ovr) target_ovr = ovr;
+
 			std::string alt;
 			if (tag == "\\c") alt = "\\1c";
 			// Remove old of same
 			bool found = false;
-			for (size_t i = 0; i < ovr->Tags.size(); i++) {
-				std::string const& name = ovr->Tags[i].Name;
+			for (size_t i = 0; i < target_ovr->Tags.size(); i++) {
+				std::string const& name = target_ovr->Tags[i].Name;
 				if (tag == name || alt == name) {
-					shift -= ((std::string)ovr->Tags[i]).size();
+					shift -= ((std::string)target_ovr->Tags[i]).size();
 					if (found) {
-						ovr->Tags.erase(ovr->Tags.begin() + i);
+						target_ovr->Tags.erase(target_ovr->Tags.begin() + i);
 						i--;
 					}
 					else {
-						ovr->Tags[i].Params[0].Set(value);
+						target_ovr->Tags[i].Params[0].Set(value);
 						found = true;
 					}
 				}
 			}
 			if (!found)
-				ovr->AddTag(insert);
+				target_ovr->AddTag(insert);
 
 			line->UpdateText(blocks);
+
+			// 在 \t() 内操作时返回 0，避免后续操作（如 alpha 通道）
+			// 的光标位置跳出变换标签范围
+			if (in_transform) shift = 0;
 		}
 		else
 			assert(false);
