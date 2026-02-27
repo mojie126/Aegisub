@@ -651,7 +651,8 @@ namespace {
 			}
 		}
 
-		wxImage::AddHandler(new wxJPEGHandler);
+		if (!wxImage::FindHandler(wxBITMAP_TYPE_JPEG))
+			wxImage::AddHandler(new wxJPEGHandler);
 		// 如果HDR色彩映射已启用，对图片序列导出帧应用CPU侧LUT色彩映射
 		const bool seq_hdr_enabled = OPT_GET("Video/HDR/Tone Mapping")->GetBool();
 		const HDRType seq_hdr_type = c->project->VideoProvider()->GetHDRType();
@@ -988,7 +989,8 @@ namespace {
 		wxBitmapType image_type = wxBITMAP_TYPE_PNG;
 		wxImage img = get_image(c, raw, subsonly);
 		if (image_suffix == "jpg") {
-			wxImage::AddHandler(new wxJPEGHandler);
+			if (!wxImage::FindHandler(wxBITMAP_TYPE_JPEG))
+				wxImage::AddHandler(new wxJPEGHandler);
 			img.SetOption(wxIMAGE_OPTION_QUALITY, 100);
 			image_type = wxBITMAP_TYPE_JPEG;
 		}
