@@ -24,6 +24,9 @@ class AssAttachment final : public AssEntry {
 	/// ASS uuencoded entry data, including header.
 	boost::flyweight<std::string> entry_data;
 
+	/// 中间缓冲区，用于高效逐行追加数据，避免 flyweight 的 O(n²) 复制
+	std::string data_buffer;
+
 	/// Name of the attached file, with SSA font mangling if it is a ttf
 	boost::flyweight<std::string> filename;
 
@@ -34,7 +37,21 @@ public:
 	size_t GetSize() const;
 
 	/// Add a line of data (without newline) read from a subtitle file
-	void AddData(std::string const& data) { entry_data = entry_data.get() + data + "\r\n"; }
+	void AddData(std::string const& data) {
+		if (data_buffer.empty())
+			data_buffer = entry_data.get();
+		data_buffer += data;
+		data_buffer += "\r\n";
+	}
+
+	/// @brief 将中间缓冲区数据写入 flyweight，在附件完成构建后调用
+	void Finalize() {
+		if (!data_buffer.empty()) {
+			entry_data = std::move(data_buffer);
+			data_buffer.clear();
+			data_buffer.shrink_to_fit();
+		}
+	}
 
 	/// Extract the contents of this attachment to a file
 	/// @param filename Path to save the attachment to

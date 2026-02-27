@@ -115,6 +115,7 @@ void AssParser::ParseAttachmentLine(std::string const& data) {
 
 	// Data is over, add attachment to the file
 	if (!valid_data || is_filename) {
+		attach->Finalize();
 		target->Attachments.push_back(std::move(*attach));
 		attach.reset();
 		AddLine(data);
@@ -124,6 +125,7 @@ void AssParser::ParseAttachmentLine(std::string const& data) {
 
 		// Done building
 		if (data.size() < 80) {
+			attach->Finalize();
 			target->Attachments.push_back(std::move(*attach));
 			attach.reset();
 		}
