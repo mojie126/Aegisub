@@ -991,6 +991,12 @@ void VideoOutGL::ReleaseHDRFbo() {
 }
 
 VideoOutGL::~VideoOutGL() {
+	// 检查 GL context 是否可用，无 context 时 GL 调用为未定义行为
+#ifdef __WIN32__
+	if (!wglGetCurrentContext()) return;
+#elif !defined(__APPLE__)
+	if (!glXGetCurrentContext()) return;
+#endif
 	ReleaseUploadPbo();
 	ReleaseHDRFbo();
 	ReleaseHDRShader();
@@ -1109,7 +1115,8 @@ void VideoOutGL::LoadHDRLUT() {
 
 void VideoOutGL::ReleaseHDRLUT() {
 	if (hdrLutTextureID != 0) {
-		CHECK_ERROR(glDeleteTextures(1, &hdrLutTextureID));
+		glDeleteTextures(1, &hdrLutTextureID);
+		while (glGetError()) { }
 		hdrLutTextureID = 0;
 	}
 	hdrLutSize = 0;
@@ -1335,7 +1342,7 @@ void VideoOutGL::ReleaseHDRShader() {
 #if !defined(__APPLE__)
 	if (hdrShaderProgram != 0 && GetShaderFunctions().available) {
 		GetShaderFunctions().DeleteProgram(hdrShaderProgram);
-		if (GLenum err = glGetError()) throw VideoOutRenderException("glDeleteProgram", err);
+		while (glGetError()) { }
 	}
 #endif
 	hdrShaderProgram = 0;

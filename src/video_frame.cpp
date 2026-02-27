@@ -108,13 +108,15 @@ wxImage GetImageWithAlpha(VideoFrame const &frame) {
 			}
 		}
 	} else {
-		// 无变换，直接线性读取alpha
-		const uint8_t *src = frame.data.data() + 3;
+		// 无变换，直接线性读取alpha（按行处理 pitch 对齐）
+		const uint8_t *row = frame.data.data();
 		for (size_t y = 0; y < frame.height; y++) {
+			const uint8_t *src = row + 3;
 			for (size_t x = 0; x < frame.width; x++) {
 				*(dst++) = *src;
 				src += 4;
 			}
+			row += frame.pitch;
 		}
 	}
 

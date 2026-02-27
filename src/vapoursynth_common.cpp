@@ -75,10 +75,10 @@ void VSLogToProgressSink(int msgType, const char *msg, void *userData) {
 	auto sink = reinterpret_cast<agi::ProgressSink *>(userData);
 
 	std::string msgStr(msg);
-	int commaPos = msgStr.find(',');
-	if (commaPos) {
+	size_t commaPos = msgStr.find(',');
+	if (commaPos != std::string::npos) {
 		std::string command = msgStr.substr(0, commaPos);
-		std::string tail = msgStr.substr(commaPos + 1, msgStr.length());
+		std::string tail = msgStr.substr(commaPos + 1);
 
 		// We don't allow setting the title since that should stay as "Executing VapourSynth Script".
 		if (command == "__aegi_set_message") {

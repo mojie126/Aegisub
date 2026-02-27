@@ -145,8 +145,8 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 	if (!vsh::isConstantVideoFormat(vi))
 		throw VapourSynthError("Video doesn't have constant format");
 
-	int fpsNum = vi->fpsNum;
-	int fpsDen = vi->fpsDen;
+	int64_t fpsNum = vi->fpsNum;
+	int64_t fpsDen = vi->fpsDen;
 	if (fpsDen == 0) {
 		fpsNum = 25;
 		fpsDen = 1;
@@ -237,7 +237,7 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 		throw VapourSynthError("Couldn't get frame properties");
 	int64_t sarn = vs.GetAPI()->mapGetInt(props, "_SARNum", 0, &err1);
 	int64_t sard = vs.GetAPI()->mapGetInt(props, "_SARDen", 0, &err2);
-	if (!err1 && !err2) {
+	if (!err1 && !err2 && sarn > 0 && sard > 0) {
 		dar = double(vi->width * sarn) / (vi->height * sard);
 	}
 
@@ -327,7 +327,7 @@ void VapourSynthVideoProvider::SetColorSpace(std::string const& matrix) {
 			vs.GetAPI()->mapSetInt(args, "_Matrix", force_cs, maAppend);
 			vs.GetAPI()->mapSetInt(args, "_ColorRange", force_cr == AGI_CR_JPEG ? VSC_RANGE_FULL : VSC_RANGE_LIMITED, maAppend);
 
-			VSMap *result = vs.GetAPI()->invoke(std, "SetFrameProps", args);
+			agi::scoped_holder<VSMap *> result(vs.GetAPI()->invoke(std, "SetFrameProps", args), vs.GetAPI()->freeMap);
 			const char *error = vs.GetAPI()->mapGetError(result);
 			if (error) {
 				throw VideoOpenError(agi::format("Failed set color space frame props: %s", error));
@@ -358,7 +358,7 @@ void VapourSynthVideoProvider::SetColorSpace(std::string const& matrix) {
 		vs.GetAPI()->mapSetInt(args, "range_in", video_cr == AGI_CR_JPEG, maAppend);
 		vs.GetAPI()->mapSetInt(args, "chromaloc_in", VSC_CHROMA_LEFT, maAppend);
 
-		VSMap *result = vs.GetAPI()->invoke(resize, "Bicubic", args);
+		agi::scoped_holder<VSMap *> result(vs.GetAPI()->invoke(resize, "Bicubic", args), vs.GetAPI()->freeMap);
 		const char *error = vs.GetAPI()->mapGetError(result);
 		if (error) {
 			throw VideoOpenError(agi::format("Failed to convert to RGB24: %s", error));
