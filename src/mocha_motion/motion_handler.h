@@ -50,41 +50,7 @@ public:
 		std::function<int(int)> frame_from_ms,
 		std::function<int(int)> ms_from_frame);
 
-private:
-	/// 根据选项配置回调列表
-	void setup_callbacks();
-
-	/// 线性模式：用 \move + \t 实现运动过渡
-	void apply_linear(MotionLine& line,
-	                  int collection_start_frame,
-	                  std::function<int(int)>& frame_from_ms,
-	                  std::function<int(int)>& ms_from_frame,
-	                  std::vector<MotionLine>& result);
-
-	/// 非线性模式：逐帧生成独立字幕行
-	void apply_nonlinear(const MotionLine& line,
-	                     int collection_start_frame,
-	                     std::function<int(int)>& ms_from_frame,
-	                     std::vector<MotionLine>& result);
-
-	/// 对文本应用所有回调（正则匹配并替换）
-	/// @param text 待处理文本
-	/// @param frame 当前帧（在追踪数据中的索引）
-	/// @return 处理后的文本
-	std::string apply_callbacks(const std::string& text, int frame);
-
-	/// 对文本应用线性回调（生成 \t 标签）
-	/// @param text 待处理文本
-	/// @param start_frame 行起始帧
-	/// @param end_frame 行结束帧
-	/// @param begin_time \t 起始时间偏移
-	/// @param end_time \t 结束时间偏移
-	/// @return 处理后的文本
-	std::string apply_callbacks_linear(const std::string& text,
-	                                   int start_frame, int end_frame,
-	                                   int begin_time, int end_time);
-
-	// --- 回调函数 ---
+	// --- 公开供测试的回调和计算接口 ---
 
 	/// 相对位置回调：positionMath 变换
 	std::string cb_position(const std::string& value, int frame);
@@ -126,6 +92,34 @@ private:
 	/// 位置数学核心：坐标变换（旋转补偿 + 缩放）
 	/// 对应 MoonScript positionMath()
 	std::pair<double, double> position_math(double x, double y, DataHandler* data);
+
+	/// 对文本应用所有回调（正则匹配并替换）
+	/// @param text 待处理文本
+	/// @param frame 当前帧（在追踪数据中的索引）
+	/// @return 处理后的文本
+	std::string apply_callbacks(const std::string& text, int frame);
+
+private:
+	/// 根据选项配置回调列表
+	void setup_callbacks();
+
+	/// 线性模式：用 \move + \t 实现运动过渡
+	void apply_linear(MotionLine& line,
+	                  int collection_start_frame,
+	                  std::function<int(int)>& frame_from_ms,
+	                  std::function<int(int)>& ms_from_frame,
+	                  std::vector<MotionLine>& result);
+
+	/// 非线性模式：逐帧生成独立字幕行
+	void apply_nonlinear(const MotionLine& line,
+	                     int collection_start_frame,
+	                     std::function<int(int)>& ms_from_frame,
+	                     std::vector<MotionLine>& result);
+
+	/// 对文本应用线性回调（生成 \t 标签）
+	std::string apply_callbacks_linear(const std::string& text,
+	                                   int start_frame, int end_frame,
+	                                   int begin_time, int end_time);
 
 	std::vector<CallbackEntry> callbacks_;
 	DataHandler* main_data_;

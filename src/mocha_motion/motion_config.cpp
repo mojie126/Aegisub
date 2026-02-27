@@ -49,7 +49,9 @@ namespace mocha {
 				if (it != main_obj.end()) {
 					try {
 						target = static_cast<json::Boolean const &>(it->second);
-					} catch (...) {}
+					} catch (...) {
+						LOG_D("mocha/config") << "Type mismatch for bool key: " << key;
+					}
 				}
 			};
 
@@ -58,7 +60,9 @@ namespace mocha {
 				if (it != main_obj.end()) {
 					try {
 						target = static_cast<int>(static_cast<json::Integer const &>(it->second));
-					} catch (...) {}
+					} catch (...) {
+						LOG_D("mocha/config") << "Type mismatch for int key: " << key;
+					}
 				}
 			};
 
@@ -72,7 +76,9 @@ namespace mocha {
 						} catch (...) {
 							target = static_cast<double>(static_cast<json::Integer const &>(it->second));
 						}
-					} catch (...) {}
+					} catch (...) {
+						LOG_D("mocha/config") << "Type mismatch for double key: " << key;
+					}
 				}
 			};
 

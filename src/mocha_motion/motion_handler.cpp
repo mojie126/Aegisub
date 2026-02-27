@@ -282,7 +282,7 @@ namespace mocha {
 
 		// 将 \pos(x1,y1)\t(t1,t2,\pos(x2,y2)) 合并为 \move(x1,y1,x2,y2,t1,t2)
 		if (options_.x_position || options_.y_position) {
-			std::regex pos_t_re(R"(\\pos\(([^)]+)\)\\t\((\d+,\d+),\\pos\(([^)]+)\)\))");
+			static const std::regex pos_t_re(R"(\\pos\(([^)]+)\)\\t\((\d+,\d+),\\pos\(([^)]+)\)\))");
 			text = std::regex_replace(text, pos_t_re, "\\move($1,$3,$2)");
 		}
 
@@ -320,6 +320,8 @@ namespace mocha {
 		int rel_start = line.relative_start;
 		int rel_end = line.relative_end;
 
+		result.reserve(result.size() + (rel_end - rel_start + 1));
+
 		for (int frame = rel_end; frame >= rel_start; --frame) {
 			// 计算新行的起止时间（10ms 对齐）
 			int raw_start_ms = ms_from_frame(collection_start_frame + frame - 1);
@@ -348,7 +350,7 @@ namespace mocha {
 			// 处理 \fade 标签
 			if (options_.kill_trans) {
 				// 提取并移除 \fade，转换为 \alpha
-				std::regex fade_re(R"(\\fade\(([^)]+)\))");
+				static const std::regex fade_re(R"(\\fade\(([^)]+)\))");
 				std::smatch fade_match;
 				std::optional<FullFadeData> fade;
 
@@ -398,7 +400,7 @@ namespace mocha {
 					double opacity = (255.0 - fade_factor) / 255.0;
 
 					// 对所有 alpha 标签应用不透明度
-					std::regex alpha_re(R"((\\[1234]?a(?:lpha)?)&H([0-9A-Fa-f]{2})&)");
+					static const std::regex alpha_re(R"((\\[1234]?a(?:lpha)?)&H([0-9A-Fa-f]{2})&)");
 					new_text = tag_utils::run_callback_on_overrides(
 						new_text, [&](const std::string &block, int) {
 							std::string result_block;
@@ -428,12 +430,12 @@ namespace mocha {
 				}
 			} else {
 				// 不插值变换时，仅调整 \fade 标签的时间参数
-				std::regex fade_re(R"(\\fade\(([^)]+)\))");
+				static const std::regex fade_re2(R"(\\fade\(([^)]+)\))");
 				new_text = tag_utils::run_callback_on_overrides(
 					new_text, [&](const std::string &block, int) {
 						std::string result_block = block;
 						std::smatch m;
-						if (std::regex_search(result_block, m, fade_re)) {
+						if (std::regex_search(result_block, m, fade_re2)) {
 							std::string vals = m[1].str();
 							std::istringstream iss(vals);
 							std::string token;
@@ -452,7 +454,7 @@ namespace mocha {
 									parts[0], parts[1], parts[2],
 									parts[3], parts[4], parts[5], parts[6]
 								);
-								result_block = std::regex_replace(result_block, fade_re, buf);
+								result_block = std::regex_replace(result_block, fade_re2, buf);
 							}
 						}
 						return result_block;
@@ -470,7 +472,7 @@ namespace mocha {
 				double px = move.x1 + (move.x2 - move.x1) * progress;
 				double py = move.y1 + (move.y2 - move.y1) * progress;
 
-				std::regex move_re(R"(\\move\([^)]+\))");
+				static const std::regex move_re(R"(\\move\([^)]+\))");
 				char buf[64];
 				std::snprintf(buf, sizeof(buf), "\\pos(%g,%g)", math::round(px, 2), math::round(py, 2));
 				new_text = std::regex_replace(new_text, move_re, buf);
@@ -626,13 +628,18 @@ namespace mocha {
 	std::string MotionHandler::cb_position(const std::string &value, int frame) {
 		// 对应 MoonScript position()
 		// 解析 "x,y"
-		std::regex xy_re(R"(([-.0-9]+),([-.0-9]+))");
+		static const std::regex xy_re(R"(([-.0-9]+),([-.0-9]+))");
 		std::smatch m;
 		if (!std::regex_search(value, m, xy_re))
 			return "(" + value + ")";
 
-		double x = std::stod(m[1].str());
-		double y = std::stod(m[2].str());
+		double x, y;
+		try {
+			x = std::stod(m[1].str());
+			y = std::stod(m[2].str());
+		} catch (const std::exception &) {
+			return "(" + value + ")";
+		}
 
 		auto [new_x, new_y] = position_math(x, y, main_data_);
 
@@ -643,16 +650,26 @@ namespace mocha {
 
 	std::string MotionHandler::cb_absolute_position(const std::string &value, int frame) {
 		// 对应 MoonScript absolutePosition()
-		std::regex xy_re(R"(([-.0-9]+),([-.0-9]+))");
+		static const std::regex xy_re(R"(([-.0-9]+),([-.0-9]+))");
 		std::smatch m;
 		if (!std::regex_search(value, m, xy_re))
 			return "(" + value + ")";
 
-		double x = std::stod(m[1].str());
-		double y = std::stod(m[2].str());
+		double x, y;
+		try {
+			x = std::stod(m[1].str());
+			y = std::stod(m[2].str());
+		} catch (const std::exception &) {
+			return "(" + value + ")";
+		}
 
 		// 位置直接使用追踪数据
 		// frame 是 1-based 帧号，C++ vector 是 0-indexed，需要 frame - 1
+		if (main_data_->x_position.empty()) {
+			x_delta_ = 0;
+			y_delta_ = 0;
+			return "(" + value + ")";
+		}
 		int idx = frame - 1;
 		if (idx < 0) idx = 0;
 		if (idx >= static_cast<int>(main_data_->x_position.size()))
@@ -672,13 +689,18 @@ namespace mocha {
 
 	std::string MotionHandler::cb_origin(const std::string &value, int frame) {
 		// 对应 MoonScript origin()
-		std::regex xy_re(R"(([-.0-9]+),([-.0-9]+))");
+		static const std::regex xy_re(R"(([-.0-9]+),([-.0-9]+))");
 		std::smatch m;
 		if (!std::regex_search(value, m, xy_re))
 			return "(" + value + ")";
 
-		double ox = std::stod(m[1].str());
-		double oy = std::stod(m[2].str());
+		double ox, oy;
+		try {
+			ox = std::stod(m[1].str());
+			oy = std::stod(m[2].str());
+		} catch (const std::exception &) {
+			return "(" + value + ")";
+		}
 
 		auto [new_ox, new_oy] = position_math(ox, oy, main_data_);
 
@@ -763,7 +785,7 @@ namespace mocha {
 			rect_clip_data_->z_rotation_diff = 0;
 
 			// 替换每对坐标
-			std::regex coord_re(R"(([-.0-9]+),([-.0-9]+))");
+			static const std::regex coord_re(R"(([-.0-9]+),([-.0-9]+))");
 			std::string result;
 			std::sregex_iterator it(value.begin(), value.end(), coord_re);
 			std::sregex_iterator end;
@@ -773,8 +795,16 @@ namespace mocha {
 				const auto &m = *it;
 				result += value.substr(last, m.position() - last);
 
-				double x = std::stod(m[1].str()) + x_delta_;
-				double y = std::stod(m[2].str()) + y_delta_;
+				double x, y;
+				try {
+					x = std::stod(m[1].str()) + x_delta_;
+					y = std::stod(m[2].str()) + y_delta_;
+				} catch (const std::exception &) {
+					result += m[0].str();
+					last = m.position() + m.length();
+					++it;
+					continue;
+				}
 				auto [new_x, new_y] = position_math(x, y, rect_clip_data_);
 
 				char buf[64];
@@ -799,7 +829,7 @@ namespace mocha {
 			vect_clip_data_->calculate_current_state(frame);
 
 			// 替换矢量 clip 中的每对空格分隔的坐标
-			std::regex coord_re(R"(([-.0-9]+) ([-.0-9]+))");
+			static const std::regex coord_re(R"(([-.0-9]+) ([-.0-9]+))");
 			std::string result;
 			std::sregex_iterator it(value.begin(), value.end(), coord_re);
 			std::sregex_iterator end;
@@ -809,8 +839,16 @@ namespace mocha {
 				const auto &m = *it;
 				result += value.substr(last, m.position() - last);
 
-				double x = std::stod(m[1].str()) + x_delta_;
-				double y = std::stod(m[2].str()) + y_delta_;
+				double x, y;
+				try {
+					x = std::stod(m[1].str()) + x_delta_;
+					y = std::stod(m[2].str()) + y_delta_;
+				} catch (const std::exception &) {
+					result += m[0].str();
+					last = m.position() + m.length();
+					++it;
+					continue;
+				}
 				auto [new_x, new_y] = position_math(x, y, vect_clip_data_);
 
 				char buf[64];
