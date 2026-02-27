@@ -247,6 +247,9 @@ namespace mocha {
 
 		// 分类标签
 		for (auto &[name, tag_def] : all_tags_) {
+			// 预编译正则表达式，避免运行时反复编译开销
+			tag_def.compiled_pattern = std::regex(tag_def.pattern);
+
 			if (tag_def.global) {
 				one_time_tags_.push_back(&tag_def);
 			} else {
@@ -307,7 +310,14 @@ namespace mocha {
 /// @return 去重后的标签块
 		std::string deduplicate_tag(const std::string &tag_block, const std::string &pattern) {
 			std::regex re(pattern);
-			int count = count_tag(tag_block, pattern);
+			return deduplicate_tag(tag_block, re);
+		}
+
+		std::string deduplicate_tag(const std::string &tag_block, const std::regex &re) {
+			// 使用预编译正则统计出现次数
+			auto begin = std::sregex_iterator(tag_block.begin(), tag_block.end(), re);
+			auto end = std::sregex_iterator();
+			int count = static_cast<int>(std::distance(begin, end));
 			if (count <= 1) return tag_block;
 
 			// 保留最后一个，移除前面的（对应 MoonScript 的 gsub pattern, "", num - 1）

@@ -236,7 +236,7 @@ std::map<std::string, Transform::EffectTagValue> MotionLine::collect_prior_inlin
 
 		// 对每个可变换标签进行匹配，记录位置
 		for (const auto* tag_def : registry.transform_tags()) {
-			std::regex tag_re(tag_def->pattern);
+			const auto& tag_re = tag_def->compiled_pattern;
 			std::smatch match;
 			std::string search_str = block;
 			int offset = 0;
@@ -318,7 +318,7 @@ void MotionLine::deduplicate_tags() {
 	text = tag_utils::run_callback_on_overrides(text, [&](const std::string& tag_block, int major) {
 		std::string result = tag_block;
 		for (const auto* tag_def : registry.one_time_tags()) {
-			std::regex re(tag_def->pattern);
+			const auto& re = tag_def->compiled_pattern;
 			std::smatch match;
 			std::string temp = result;
 			if (std::regex_search(temp, match, re)) {
@@ -350,8 +350,8 @@ void MotionLine::deduplicate_tags() {
 
 		// 查找各自在行文本中第一次出现的位置
 		std::smatch match_a, match_b;
-		std::regex re_a(def_a->pattern);
-		std::regex re_b(def_b->pattern);
+		const auto& re_a = def_a->compiled_pattern;
+		const auto& re_b = def_b->compiled_pattern;
 		bool found_a = std::regex_search(text, match_a, re_a);
 		bool found_b = std::regex_search(text, match_b, re_b);
 
@@ -369,7 +369,7 @@ void MotionLine::deduplicate_tags() {
 	text = tag_utils::run_callback_on_overrides(text, [&](const std::string& tag_block, int major) {
 		std::string result = tag_block;
 		for (const auto* tag_def : registry.repeat_tags()) {
-			result = tag_utils::deduplicate_tag(result, tag_def->pattern);
+			result = tag_utils::deduplicate_tag(result, tag_def->compiled_pattern);
 		}
 		return result;
 	});

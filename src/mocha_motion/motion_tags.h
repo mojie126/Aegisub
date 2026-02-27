@@ -37,6 +37,10 @@ struct TagDef {
 	std::vector<std::string> field_names; // 多值标签的字段名列表
 	bool is_integer = false;    // 是否使用整数格式输出（如 \be）
 
+	/// 预编译的正则表达式对象（由 TagRegistry 初始化时统一编译）
+	/// 避免运行时每次使用 std::regex(pattern) 反复编译
+	std::regex compiled_pattern;
+
 	/// 格式化标签值为字符串
 	std::string format_int(int value) const;
 	std::string format_float(double value) const;
@@ -113,6 +117,12 @@ int count_tag(const std::string& text, const std::string& pattern);
 /// @param pattern 标签的正则表达式
 /// @return 去重后的文本
 std::string deduplicate_tag(const std::string& tag_block, const std::string& pattern);
+
+/// 去除重复标签，保留最后一个（使用预编译正则）
+/// @param tag_block 标签块文本
+/// @param re 预编译的正则表达式
+/// @return 去重后的文本
+std::string deduplicate_tag(const std::string& tag_block, const std::regex& re);
 
 /// 提取 \t 变换标签
 /// @param text 原始行文本
