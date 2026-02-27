@@ -98,42 +98,47 @@ VideoFrame AsyncVideoProvider::GetBlankFrame(bool white) {
 }
 
 VideoFrame AsyncVideoProvider::GetSubtitles(double time) {
-	// We want to combine all transparent subtitle layers onto one layer.
-	// Instead of alpha blending them all together, which can be messy and cause
-	// rounding errors, we draw them once on a black frame and once on a white frame,
-	// and solve for the color and alpha. This has the benefit of being independent
-	// of the subtitle provider, as long as the provider works by alpha blending.
-	VideoFrame frame_black = GetBlankFrame(false);
-	if (!subs) return frame_black;
-	VideoFrame frame_white = GetBlankFrame(true);
+	VideoFrame result;
+	worker->Sync([&]{
+		// 与 worker 线程同步，避免并发访问 subs/subs_provider 导致数据竞争
+		// We want to combine all transparent subtitle layers onto one layer.
+		// Instead of alpha blending them all together, which can be messy and cause
+		// rounding errors, we draw them once on a black frame and once on a white frame,
+		// and solve for the color and alpha. This has the benefit of being independent
+		// of the subtitle provider, as long as the provider works by alpha blending.
+		VideoFrame frame_black = GetBlankFrame(false);
+		if (!subs) { result = frame_black; return; }
+		VideoFrame frame_white = GetBlankFrame(true);
 
-	subs_provider->LoadSubtitles(subs.get());
-	subs_provider->DrawSubtitles(frame_black, time / 1000.);
-	subs_provider->DrawSubtitles(frame_white, time / 1000.);
+		subs_provider->LoadSubtitles(subs.get());
+		subs_provider->DrawSubtitles(frame_black, time / 1000.);
+		subs_provider->DrawSubtitles(frame_white, time / 1000.);
 
-	using namespace boost::gil;
-	auto blackview = interleaved_view(frame_black.width, frame_black.height, (bgra8_pixel_t*) frame_black.data.data(), frame_black.width * 4);
-	auto whiteview = interleaved_view(frame_white.width, frame_white.height, (bgra8_pixel_t*) frame_white.data.data(), frame_white.width * 4);
+		using namespace boost::gil;
+		auto blackview = interleaved_view(frame_black.width, frame_black.height, (bgra8_pixel_t*) frame_black.data.data(), frame_black.width * 4);
+		auto whiteview = interleaved_view(frame_white.width, frame_white.height, (bgra8_pixel_t*) frame_white.data.data(), frame_white.width * 4);
 
-	transform_pixels(blackview, whiteview, blackview, [](const bgra8_pixel_t black, const bgra8_pixel_t white) -> bgra8_pixel_t {
-		int a = 255 - (white[0] - black[0]);
+		transform_pixels(blackview, whiteview, blackview, [](const bgra8_pixel_t black, const bgra8_pixel_t white) -> bgra8_pixel_t {
+			int a = 255 - (white[0] - black[0]);
 
-		bgra8_pixel_t ret;
-		if (a == 0) {
-			ret[0] = 0;
-			ret[1] = 0;
-			ret[2] = 0;
-			ret[3] = 0;
-		} else {
-			ret[0] = black[0] / (a / 255.);
-			ret[1] = black[1] / (a / 255.);
-			ret[2] = black[2] / (a / 255.);
-			ret[3] = a;
-		}
-		return ret;
-	});
+			bgra8_pixel_t ret;
+			if (a == 0) {
+				ret[0] = 0;
+				ret[1] = 0;
+				ret[2] = 0;
+				ret[3] = 0;
+			} else {
+				ret[0] = black[0] / (a / 255.);
+				ret[1] = black[1] / (a / 255.);
+				ret[2] = black[2] / (a / 255.);
+				ret[3] = a;
+			}
+			return ret;
+		});
 
-	return frame_black;
+		result = frame_black;
+	}); // worker->Sync
+	return result;
 }
 
 static std::unique_ptr<SubtitlesProvider> get_subs_provider(wxEvtHandler *evt_handler, agi::BackgroundRunner *br) {

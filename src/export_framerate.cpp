@@ -214,6 +214,7 @@ int AssTransformFramerateFilter::ConvertTime(int time) {
 	int frameStart = Output.TimeAtFrame(frame);
 	int frameEnd = Output.TimeAtFrame(frame + 1);
 	int frameDur = frameEnd - frameStart;
+	if (frameDur == 0) return Input.TimeAtFrame(frame);
 	double dist = double(time - frameStart) / frameDur;
 
 	int newStart = Input.TimeAtFrame(frame);

@@ -353,11 +353,11 @@ void VideoDisplay::PositionVideo(bool preserveContentSize) {
 
 		// 窗口比视频更宽，左右黑边
 		if (displayAr - videoAr > 0.01) {
-			viewport_width = viewport_height * videoAr;
+			viewport_width = std::lround(viewport_height * videoAr);
 		}
 		// 视频比窗口更宽，上下黑边
 		else if (videoAr - displayAr > 0.01) {
-			viewport_height = viewport_width / videoAr;
+			viewport_height = std::lround(viewport_width / videoAr);
 		}
 
 		// 更新窗口缩放值（使用内容缩放前的 viewport_height）
@@ -370,8 +370,8 @@ void VideoDisplay::PositionVideo(bool preserveContentSize) {
 		videoZoomValue = double(old_viewport_height) / viewport_height;
 
 	// 应用内容缩放
-	viewport_width *= videoZoomValue;
-	viewport_height *= videoZoomValue;
+	viewport_width = std::lround(viewport_width * videoZoomValue);
+	viewport_height = std::lround(viewport_height * videoZoomValue);
 
 	// 使用 double 精度居中视频
 	double viewport_left_exact = double(videoSize.GetWidth() - viewport_width) / 2;

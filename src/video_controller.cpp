@@ -118,7 +118,7 @@ void VideoController::JumpToTime(int ms, agi::vfr::Time end) {
 }
 
 void VideoController::NextFrame() {
-	if (!provider || IsPlaying() || frame_n == provider->GetFrameCount())
+	if (!provider || IsPlaying() || frame_n >= provider->GetFrameCount() - 1)
 		return;
 
 	JumpToFrame(frame_n + 1);
