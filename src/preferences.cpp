@@ -936,6 +936,9 @@ void Preferences::OnResetDefault(wxCommandEvent&) {
 Preferences::Preferences(wxWindow *parent): wxDialog(parent, -1, _("Preferences"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
 	SetIcon(GETICON(options_button_16));
 
+	// 冻结窗口以抑制创建大量控件时的中间重绘和布局计算
+	Freeze();
+
 	book = new wxTreebook(this, -1, wxDefaultPosition, wxDefaultSize);
 	General(book, this);
 	General_DefaultStyles(book, this);
@@ -977,6 +980,9 @@ Preferences::Preferences(wxWindow *parent): wxDialog(parent, -1, _("Preferences"
 
 	SetSizerAndFit(mainSizer);
 	CenterOnParent();
+
+	// 解冻窗口，允许一次性重绘
+	Thaw();
 
 	applyButton->Enable(false);
 

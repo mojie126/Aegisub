@@ -318,6 +318,14 @@ X uint64_t   mkv_GetLowestQTimecode(MatroskaFile *mf);
 
 X int	      mkv_TruncFloat(MKFLOAT f);
 
+/* Get the first timecode offset in nanoseconds.
+ * This is the absolute time of the first cluster in the file,
+ * which the parser subtracts from all returned timestamps.
+ * Useful for recovering absolute timestamps from subtitle-only
+ * files (MKS) where the first cluster may not start at zero.
+ */
+X uint64_t   mkv_GetFirstTimecodeOffset(/* in */ MatroskaFile *mf);
+
 /*************************************************************************
  * reading data, pull model
  */
