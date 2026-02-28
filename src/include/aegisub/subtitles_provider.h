@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -43,7 +45,17 @@ struct VideoFrame;
 
 class SubtitlesProvider {
 	std::vector<char> buffer;
+
+	/// @brief 缓存的脚本头部数据（Script Info + Styles + Attachments）
+	std::vector<char> header_cache;
+
+	/// @brief 头部数据指纹（用于判断头部是否变更）
+	uint64_t header_fingerprint = 0;
+
 	virtual void LoadSubtitles(const char *data, size_t len)=0;
+
+	/// @brief 计算数据块的FNV-1a哈希指纹
+	static uint64_t compute_fingerprint(const char *data, size_t len);
 
 public:
 	virtual ~SubtitlesProvider() = default;

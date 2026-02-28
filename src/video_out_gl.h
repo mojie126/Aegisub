@@ -80,6 +80,10 @@ class VideoOutGL {
 	int hdrLutTextureSize = 0;
 	/// Whether HDR LUT is currently loaded
 	bool hdrLutLoaded = false;
+	/// @brief 缓存的LUT纹理坐标缩放因子（LUT加载时预计算）
+	float cachedLutScale = 1.0f;
+	/// @brief 缓存的LUT纹理坐标偏移量（LUT加载时预计算）
+	float cachedLutOffset = 0.0f;
 	/// List of OpenGL texture ids used in the grid
 	std::vector<GLuint> textureIdList;
 	/// List of precalculated texture display information
