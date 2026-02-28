@@ -62,6 +62,8 @@ class CSRISubtitlesProvider final : public SubtitlesProvider {
 
 	void LoadSubtitles(const char *data, size_t len) override {
 		std::lock_guard<std::mutex> lock(csri_mutex);
+		// 先释放旧实例，减少峰值内存占用
+		instance.reset();
 		instance.reset(csri_open_mem(renderer, data, len, nullptr));
 	}
 

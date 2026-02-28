@@ -93,6 +93,13 @@ class VisualToolPerspective final : public VisualTool<VisualToolPerspectiveDragg
 	std::vector<Feature *> inner_corners;
 	std::vector<Feature *> outer_corners;
 
+	/// @brief 预计算的网格基础点坐标（不含偏移）
+	std::vector<float> grid_base_points;
+	/// @brief 预计算的网格顶点alpha分量（RGB在绘制时填充）
+	std::vector<float> grid_base_alphas;
+	/// @brief 网格是否已初始化
+	bool grid_initialized = false;
+
 	inline float screenZ() const;
 
 	std::vector<Vector2D> FeaturePositions(std::vector<Feature *> features) const;

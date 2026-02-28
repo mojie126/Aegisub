@@ -112,10 +112,24 @@ static inline Vector2D interp(Vector2D p1, Vector2D p2, float t) {
 }
 
 void OpenGLWrapper::DrawDashedLine(Vector2D p1, Vector2D p2, float step) const {
-	step /= (p2 - p1).Len();
-	for (float t = 0; t < 1.f; t += 2 * step) {
-		DrawLine(interp(p1, p2, t), interp(p1, p2, t + step));
+	float len = (p2 - p1).Len();
+	if (len < 0.01f) return;
+	step /= len;
+
+	// 统计线段数后一次性绘制，避免逐段DrawLine调用开销
+	int n = 0;
+	for (float t = 0; t < 1.f; t += 2 * step)
+		++n;
+	if (n == 0) return;
+
+	SetModeLine();
+	VertexArray buf(2, n * 2);
+	int i = 0;
+	for (float t = 0; t < 1.f; t += 2 * step, ++i) {
+		buf.Set(i * 2, interp(p1, p2, t));
+		buf.Set(i * 2 + 1, interp(p1, p2, std::min(t + step, 1.f)));
 	}
+	buf.Draw(GL_LINES);
 }
 
 void OpenGLWrapper::DrawEllipse(Vector2D center, Vector2D radius) const {

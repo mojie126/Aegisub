@@ -341,7 +341,36 @@ void VisualToolPerspective::Draw() {
 		Vector2D glScale = (bbox.second.Y() - bbox.first.Y()) * Vector2D(1, 1) / spacing / 4;
 		gl.SetScale(100 * glScale);
 
-		// Draw grid
+		// 延迟初始化网格基础数据（仅首次分配）
+		if (!grid_initialized) {
+			grid_base_points.resize(line_count * 8 * 2);
+			grid_base_alphas.resize(line_count * 8);
+			for (int i = 0; i < line_count; ++i) {
+				int pos = spacing * (i - radius);
+				grid_base_points[i * 16 + 0] = static_cast<float>(pos);
+				grid_base_points[i * 16 + 1] = static_cast<float>(half_line_length);
+				grid_base_points[i * 16 + 2] = static_cast<float>(pos);
+				grid_base_points[i * 16 + 3] = 0;
+				grid_base_points[i * 16 + 4] = static_cast<float>(pos);
+				grid_base_points[i * 16 + 5] = 0;
+				grid_base_points[i * 16 + 6] = static_cast<float>(pos);
+				grid_base_points[i * 16 + 7] = static_cast<float>(-half_line_length);
+				grid_base_points[i * 16 + 8] = static_cast<float>(half_line_length);
+				grid_base_points[i * 16 + 9] = static_cast<float>(pos);
+				grid_base_points[i * 16 + 10] = 0;
+				grid_base_points[i * 16 + 11] = static_cast<float>(pos);
+				grid_base_points[i * 16 + 12] = 0;
+				grid_base_points[i * 16 + 13] = static_cast<float>(pos);
+				grid_base_points[i * 16 + 14] = static_cast<float>(-half_line_length);
+				grid_base_points[i * 16 + 15] = static_cast<float>(pos);
+			}
+			for (int i = 0; i < line_count * 8; ++i) {
+				grid_base_alphas[i] = (i + 3) % 4 > 1 ? 0 : (1.f - abs(i / 8 - radius) * fade_factor);
+			}
+			grid_initialized = true;
+		}
+
+		// Draw grid - 使用预计算的基础数据，仅更新偏移和颜色
 		gl.SetLineColour(line_color_secondary, 0.5f, 2);
 		gl.SetModeLine();
 		float r = line_color_secondary.Red() / 255.f;
@@ -353,38 +382,11 @@ void VisualToolPerspective::Draw() {
 			colors[i * 4 + 0] = r;
 			colors[i * 4 + 1] = g;
 			colors[i * 4 + 2] = b;
-			colors[i * 4 + 3] = (i + 3) % 4 > 1 ? 0 : (1.f - abs(i / 8 - radius) * fade_factor);
+			colors[i * 4 + 3] = grid_base_alphas[i];
 		}
 
-		std::vector<float> points(line_count * 8 * 2);
-		for (int i = 0; i < line_count; ++i) {
-			int pos = spacing * (i - radius);
-
-			points[i * 16 + 0] = pos;
-			points[i * 16 + 1] = half_line_length;
-
-			points[i * 16 + 2] = pos;
-			points[i * 16 + 3] = 0;
-
-			points[i * 16 + 4] = pos;
-			points[i * 16 + 5] = 0;
-
-			points[i * 16 + 6] = pos;
-			points[i * 16 + 7] = -half_line_length;
-
-			points[i * 16 + 8] = half_line_length;
-			points[i * 16 + 9] = pos;
-
-			points[i * 16 + 10] = 0;
-			points[i * 16 + 11] = pos;
-
-			points[i * 16 + 12] = 0;
-			points[i * 16 + 13] = pos;
-
-			points[i * 16 + 14] = -half_line_length;
-			points[i * 16 + 15] = pos;
-		}
-
+		// 复制基础点并应用偏移
+		std::vector<float> points(grid_base_points);
 		Vector2D offset = (ToScriptCoords(QuadMidpoint(FeaturePositions(inner_corners))) - org) / glScale;
 		for (int i = 0; i < line_count * 8; ++i) {
 			points[i * 2 + 0] += offset.X();

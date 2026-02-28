@@ -789,14 +789,9 @@ void VideoOutGL::Render(int client_width, int client_height, int x, int y, int w
 					glBindTexture(GL_TEXTURE_2D, hdrFboTexId);
 					shader.Uniform1i(hdrSceneSamplerLoc, 0);
 
-					// LUT坐标缩放和偏移（精确纹素中心映射）
-					float lut_scale = 1.0f, lut_offset = 0.0f;
-					if (hdrLutTextureSize > 0 && hdrLutSize > 1) {
-						lut_scale = static_cast<float>(hdrLutSize - 1) / static_cast<float>(hdrLutTextureSize);
-						lut_offset = 0.5f / static_cast<float>(hdrLutTextureSize);
-					}
-					shader.Uniform1f(hdrLutScaleLoc, lut_scale);
-					shader.Uniform1f(hdrLutOffsetLoc, lut_offset);
+					// LUT坐标缩放和偏移（使用预计算的缓存值）
+					shader.Uniform1f(hdrLutScaleLoc, cachedLutScale);
+					shader.Uniform1f(hdrLutOffsetLoc, cachedLutOffset);
 					shader.Uniform1f(hdrUseLutLoc, 1.0f);
 				} else {
 					// 固定管线路径：仅绑定FBO纹理进行旋转渲染
@@ -907,16 +902,9 @@ void VideoOutGL::Render(int client_width, int client_height, int x, int y, int w
 			glBindTexture(GL_TEXTURE_2D, hdrFboTexId);
 			shader.Uniform1i(hdrSceneSamplerLoc, 0);
 
-			// 7. 设置LUT坐标缩放和偏移（精确纹素中心映射）
-			// texcoord = input * (S-1)/T + 0.5/T 确保LUT各采样点精确命中纹素中心
-			float lut_scale = 1.0f;
-			float lut_offset = 0.0f;
-			if (hdrLutTextureSize > 0 && hdrLutSize > 1) {
-				lut_scale = static_cast<float>(hdrLutSize - 1) / static_cast<float>(hdrLutTextureSize);
-				lut_offset = 0.5f / static_cast<float>(hdrLutTextureSize);
-			}
-			shader.Uniform1f(hdrLutScaleLoc, lut_scale);
-			shader.Uniform1f(hdrLutOffsetLoc, lut_offset);
+			// 7. 设置LUT坐标缩放和偏移（使用预计算的缓存值）
+			shader.Uniform1f(hdrLutScaleLoc, cachedLutScale);
+			shader.Uniform1f(hdrLutOffsetLoc, cachedLutOffset);
 
 			// 使用3D LUT进行色调映射
 			shader.Uniform1f(hdrUseLutLoc, 1.0f);
@@ -1170,6 +1158,14 @@ void VideoOutGL::LoadHDRLUT() {
 		}
 
 		hdrLutLoaded = true;
+		// 预计算LUT纹理坐标变换参数（避免每帧重复计算）
+		if (hdrLutTextureSize > 0 && hdrLutSize > 1) {
+			cachedLutScale = static_cast<float>(hdrLutSize - 1) / static_cast<float>(hdrLutTextureSize);
+			cachedLutOffset = 0.5f / static_cast<float>(hdrLutTextureSize);
+		} else {
+			cachedLutScale = 1.0f;
+			cachedLutOffset = 0.0f;
+		}
 		LOG_I("video/out/gl") << "HDR LUT texture uploaded: lut=" << hdrLutSize << " tex=" << hdrLutTextureSize << " id=" << hdrLutTextureID;
 
 #else
@@ -1192,6 +1188,8 @@ void VideoOutGL::ReleaseHDRLUT() {
 	}
 	hdrLutSize = 0;
 	hdrLutTextureSize = 0;
+	cachedLutScale = 1.0f;
+	cachedLutOffset = 0.0f;
 	GetCpuCubeLut().reset();
 	GetCpuCubeLutType() = HDRType::SDR;
 	hdrLutLoaded = false;
