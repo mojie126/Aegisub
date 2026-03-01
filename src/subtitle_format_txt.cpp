@@ -135,7 +135,7 @@ void TXTSubtitleFormat::WriteFile(const AssFile *src, agi::fs::path const& filen
 	bool write_actors = num_actor_names > num_dialogue_lines/2;
 	bool strip_formatting = true;
 
-	TextFileWriter file(filename, encoding);
+	TextFileWriter file(filename, encoding, false);
 	file.WriteLineToFile(std::string("# Exported by Aegisub ") + GetAegisubShortVersionString());
 
 	// Write the file

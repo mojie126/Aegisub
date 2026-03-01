@@ -23,7 +23,7 @@
 
 #include <boost/algorithm/string/case_conv.hpp>
 
-TextFileWriter::TextFileWriter(agi::fs::path const& filename, std::string encoding)
+TextFileWriter::TextFileWriter(agi::fs::path const& filename, std::string encoding, bool writeBom)
 : file(filename, true)
 {
 	if (encoding.empty())
@@ -33,12 +33,14 @@ TextFileWriter::TextFileWriter(agi::fs::path const& filename, std::string encodi
 		newline = conv->Convert(newline);
 	}
 
-	try {
-		// Write the BOM
-		WriteLineToFile("\xEF\xBB\xBF", false);
-	}
-	catch (agi::charset::ConversionFailure&) {
-		// If the BOM could not be converted to the target encoding it isn't needed
+	if (writeBom) {
+		try {
+			// Write the BOM
+			WriteLineToFile("\xEF\xBB\xBF", false);
+		}
+		catch (agi::charset::ConversionFailure&) {
+			// If the BOM could not be converted to the target encoding it isn't needed
+		}
 	}
 }
 
