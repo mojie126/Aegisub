@@ -47,6 +47,12 @@ tests_src = [
     'tests/word_split.cpp',
     'tests/mocha_motion.cpp',
     'tests/hdr_video_audit.cpp',
+    'tests/text_file_writer.cpp',
+]
+
+# TextFileWriter 源文件（需要从主项目引入）
+text_file_writer_src = [
+    '../src/text_file_writer.cpp',
 ]
 
 # 摩卡追踪模块源文件（排除依赖 wxWidgets/src 的 processor/config/dialog）
@@ -75,7 +81,7 @@ endif
 
 runner = executable(
     'gtest-main',
-    tests_src + mocha_src,
+    tests_src + mocha_src + text_file_writer_src,
     include_directories: [tests_inc, libaegisub_inc, mocha_inc, aegisub_src_inc, aegisub_src_dir_inc],
     dependencies: [tests_deps, deps],
     cpp_args: tests_args,
@@ -83,7 +89,7 @@ runner = executable(
 )
 
 test('gtest main', runner)
-test('luajit-52', executable('luajit-52', 'tests/luajit_52.c', dependencies: luajit), should_fail: true)
+test('luajit-52', executable('luajit-52', 'tests/luajit_52.c', dependencies: luajit))
 
 # setup test env
 if host_machine.system() == 'windows'
