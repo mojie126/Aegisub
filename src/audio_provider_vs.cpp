@@ -48,6 +48,7 @@ class VapourSynthAudioProvider final : public agi::AudioProvider {
 	void FillBuffer(void *buf, int64_t start, int64_t count) const override;
 public:
 	VapourSynthAudioProvider(agi::fs::path const& filename);
+	~VapourSynthAudioProvider();
 
 	bool NeedsCache() const override { return true; }
 };
@@ -90,6 +91,17 @@ VapourSynthAudioProvider::VapourSynthAudioProvider(agi::fs::path const& filename
 }
 catch (VapourSynthError const& err) {
 	throw agi::AudioProviderError(err.GetMessage());
+}
+
+VapourSynthAudioProvider::~VapourSynthAudioProvider() {
+	std::lock_guard<std::mutex> lock(vs.GetMutex());
+	// 显式释放节点引用，确保源滤镜的文件句柄被及时释放
+	node = nullptr;
+	// 强制触发 Python 垃圾回收，释放循环引用持有的资源
+	if (script) {
+		vs.GetScriptAPI()->evaluateBuffer(script, "import gc; gc.collect()", "");
+	}
+	// script 的析构由 scoped_holder 自动完成
 }
 
 template<typename T>
