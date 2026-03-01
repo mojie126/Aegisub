@@ -34,7 +34,7 @@ class TextFileWriter {
 #endif
 
 public:
-	TextFileWriter(agi::fs::path const& filename, std::string encoding="");
+	TextFileWriter(agi::fs::path const& filename, std::string encoding="", bool writeBom = true);
 	~TextFileWriter() noexcept(false);	// ~Save() is noexcept(false)
 
 	void WriteLineToFile(std::string_view line, bool addLineBreak=true);

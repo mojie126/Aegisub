@@ -411,7 +411,7 @@ void SRTSubtitleFormat::ReadFile(AssFile *target, agi::fs::path const& filename,
 }
 
 void SRTSubtitleFormat::WriteFile(const AssFile *src, agi::fs::path const& filename, agi::vfr::Framerate const&, const char *encoding) const {
-	TextFileWriter file(filename, encoding);
+	TextFileWriter file(filename, encoding, false);
 
 	// Convert to SRT
 	AssFile copy(*src);
