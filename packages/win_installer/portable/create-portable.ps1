@@ -49,7 +49,7 @@ Remove-Item -LiteralPath "install" -Force -Recurse
 
 
 Write-Output 'Make install'
-meson install --no-rebuild --destdir $InstallerDir
+meson install --no-rebuild --skip-subprojects --destdir $InstallerDir
 Write-Output 'Gathering files'
 Copy-New-Item $InstallerDir\bin\aegisub.exe  $PortableOutputDir
 
