@@ -69,6 +69,7 @@ class VapourSynthVideoProvider: public VideoProvider {
 
 public:
 	VapourSynthVideoProvider(agi::fs::path const& filename, std::string const& colormatrix, agi::BackgroundRunner *br);
+	~VapourSynthVideoProvider();
 
 	void GetFrame(int n, VideoFrame &frame) override;
 
@@ -305,6 +306,18 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 }
 catch (VapourSynthError const& err) {
 	throw VideoOpenError(err.GetMessage());
+}
+
+VapourSynthVideoProvider::~VapourSynthVideoProvider() {
+	std::lock_guard<std::mutex> lock(vs.GetMutex());
+	// 显式释放节点引用，确保源滤镜的文件句柄被及时释放
+	prepared_node = nullptr;
+	source_node = nullptr;
+	// 强制触发 Python 垃圾回收，释放循环引用持有的资源
+	if (script) {
+		vs.GetScriptAPI()->evaluateBuffer(script, "import gc; gc.collect()", "");
+	}
+	// script 的析构由 scoped_holder 自动完成
 }
 
 void VapourSynthVideoProvider::SetColorSpace(std::string const& matrix) {
