@@ -61,7 +61,7 @@ void TranStationSubtitleFormat::WriteFile(const AssFile *src, agi::fs::path cons
 	ConvertNewlines(copy, "\r\n");
 
 	agi::SmpteFormatter ft(fps);
-	TextFileWriter file(filename, encoding);
+	TextFileWriter file(filename, encoding, false);
 	const AssDialogue *prev = nullptr;
 	for (auto const& cur : copy.Events) {
 		if (prev) {

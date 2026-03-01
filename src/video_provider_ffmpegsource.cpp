@@ -357,6 +357,14 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 		int Timestamp = std::lround(CurFrameData->PTS * TimeBase->Num / TimeBase->Den);
 		TimecodesVector.push_back(Timestamp);
 	}
+
+	// 蓝光 m2ts 等容器的 PTS 可能以较大偏移量起始，需归零化处理
+	if (!TimecodesVector.empty() && TimecodesVector.front() != 0) {
+		int offset = TimecodesVector.front();
+		for (auto& tc : TimecodesVector)
+			tc -= offset;
+	}
+
 	if (TimecodesVector.size() < 2)
 		Timecodes = 25.0;
 	else
