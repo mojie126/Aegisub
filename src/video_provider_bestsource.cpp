@@ -175,6 +175,13 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 			}
 		}
 
+		// 蓝光 m2ts 等容器的 PTS 可能以较大偏移量起始，需归零化处理
+		if (!TimecodesVector.empty() && TimecodesVector.front() != 0) {
+			int offset = TimecodesVector.front();
+			for (auto& tc : TimecodesVector)
+				tc -= offset;
+		}
+
 		if (TimecodesVector.size() < 2 || TimecodesVector.front() == TimecodesVector.back()) {
 			Timecodes = (double) properties.FPS.Num / properties.FPS.Den;
 		} else {
