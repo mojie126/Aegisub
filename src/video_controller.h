@@ -88,6 +88,9 @@ class VideoController final : public wxEvtHandler {
 	/// which may not be the same thing as the currently displayed frame
 	int frame_n = 0;
 
+	/// 标记是否已成功发起过至少一次帧请求
+	bool frame_requested_once = false;
+
 	/// The picture aspect ratio of the video if the aspect ratio has been
 	/// overridden by the user
 	double ar_value = 1.;

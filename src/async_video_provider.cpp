@@ -23,7 +23,10 @@
 #include "video_frame.h"
 #include "video_provider_manager.h"
 
+#include <algorithm>
+#include <fstream>
 #include <libaegisub/dispatch.h>
+#include <libaegisub/fs.h>
 
 #if BOOST_VERSION >= 106900
 #include <boost/gil.hpp>
@@ -36,27 +39,89 @@ enum {
 	SUBS_FILE_ALREADY_LOADED = -2
 };
 
+/// @brief 从ASS事件文本中提取\\img标签引用的图片文件路径
+/// @param subs ASS字幕文件
+/// @return 去重后的图片路径列表
+static std::vector<std::string> ExtractImgPaths(const AssFile& subs) {
+	std::vector<std::string> paths;
+	for (const auto& line : subs.Events) {
+		if (line.Comment) continue;
+		auto& text = line.Text.get();
+		size_t pos = 0;
+		while ((pos = text.find("img(", pos)) != std::string::npos) {
+			if (pos > 0 && text[pos - 1] >= '1' && text[pos - 1] <= '7') {
+				size_t start = pos + 4;
+				size_t end = text.find(')', start);
+				if (end != std::string::npos) {
+					std::string param = text.substr(start, end - start);
+					size_t comma = param.find(',');
+					std::string path = (comma != std::string::npos) ? param.substr(0, comma) : param;
+					auto lt = path.find_first_not_of(" \t");
+					if (lt != std::string::npos) {
+						auto rt = path.find_last_not_of(" \t");
+						path = path.substr(lt, rt - lt + 1);
+					}
+					if (!path.empty())
+						paths.push_back(std::move(path));
+				}
+			}
+			pos += 4;
+		}
+	}
+	std::sort(paths.begin(), paths.end());
+	paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
+	return paths;
+}
+
 std::shared_ptr<VideoFrame> AsyncVideoProvider::ProcFrame(int frame_number, double time, bool raw) {
-	// Find an unused buffer to use or allocate a new one if needed
-	std::shared_ptr<VideoFrame> frame;
-	for (auto& buffer : buffers) {
-		if (buffer.use_count() == 1) {
-			frame = buffer;
-			break;
+	// L1缓存查找：合成帧 (frame_number + subs_version + raw) 完全命中则直接返回
+	for (auto& entry : frame_cache) {
+		if (entry.composited && entry.frame_number == frame_number
+			&& entry.raw == raw && entry.subs_ver == subs_version) {
+			return entry.composited;
 		}
 	}
 
+	// 分配工作缓冲区
+	std::shared_ptr<VideoFrame> frame;
+	for (auto& buffer : buffers) {
+		if (buffer.use_count() == 1) { frame = buffer; break; }
+	}
 	if (!frame) {
 		frame = std::make_shared<VideoFrame>();
 		buffers.push_back(frame);
 	}
 
-	try {
-		source_provider->GetFrame(frame_number, *frame);
-	}
-	catch (VideoProviderError const& err) { throw VideoProviderErrorEvent(err); }
+	// L2缓存查找：原始视频帧命中则跳过视频解码
+	auto l2_it = raw_video_cache.find(frame_number);
+	if (l2_it != raw_video_cache.end()) {
+		*frame = *(l2_it->second);
+	} else {
+		try {
+			source_provider->GetFrame(frame_number, *frame);
+		}
+		catch (VideoProviderError const& err) { throw VideoProviderErrorEvent(err); }
 
-	if (raw || !subs_provider || !subs) return frame;
+		// 存入L2缓存
+		if (raw_video_cache.size() < L2_CACHE_CAPACITY)
+			raw_video_cache[frame_number] = std::make_shared<VideoFrame>(*frame);
+	}
+
+	if (raw || !subs_provider || !subs) {
+		// 存入L1缓存
+		FrameCacheEntry entry;
+		entry.frame_number = frame_number;
+		entry.subs_ver = subs_version;
+		entry.raw = raw;
+		entry.composited = frame;
+		if (frame_cache.size() < L1_CACHE_CAPACITY)
+			frame_cache.push_back(std::move(entry));
+		else {
+			frame_cache[cache_next] = std::move(entry);
+			cache_next = (cache_next + 1) % L1_CACHE_CAPACITY;
+		}
+		return frame;
+	}
 
 	try {
 		if (single_frame != frame_number && single_frame != SUBS_FILE_ALREADY_LOADED) {
@@ -83,6 +148,19 @@ std::shared_ptr<VideoFrame> AsyncVideoProvider::ProcFrame(int frame_number, doub
 		subs_provider->DrawSubtitles(*frame, time / 1000.);
 	}
 	catch (agi::UserCancelException const&) { }
+
+	// 存入L1缓存
+	FrameCacheEntry entry;
+	entry.frame_number = frame_number;
+	entry.subs_ver = subs_version;
+	entry.raw = false;
+	entry.composited = frame;
+	if (frame_cache.size() < L1_CACHE_CAPACITY)
+		frame_cache.push_back(std::move(entry));
+	else {
+		frame_cache[cache_next] = std::move(entry);
+		cache_next = (cache_next + 1) % L1_CACHE_CAPACITY;
+	}
 
 	return frame;
 }
@@ -160,6 +238,8 @@ AsyncVideoProvider::AsyncVideoProvider(agi::fs::path const& video_filename, std:
 }
 
 AsyncVideoProvider::~AsyncVideoProvider() {
+	// 通知预取任务尽快退出（req_version < version 条件成立）
+	++version;
 	// Block until all currently queued jobs are complete
 	worker->Sync([]{});
 }
@@ -171,6 +251,25 @@ void AsyncVideoProvider::LoadSubtitles(const AssFile *new_subs) throw() {
 	worker->Async([=, this]{
 		subs.reset(copy);
 		single_frame = NEW_SUBS_FILE;
+		prefetch_full_subs = true;
+		++subs_version;
+		// 清除L1过期合成帧，保留L2原始视频帧以供复用
+		for (auto& e : frame_cache)
+			if (e.subs_ver != subs_version) e.composited.reset();
+
+		// 提前启动OS文件缓存预热（不依赖CSRI渲染器，最早时机）
+		auto warm_paths = ExtractImgPaths(*subs);
+		for (auto& p : warm_paths) {
+			agi::dispatch::Background().Async([p = agi::fs::path(p)] {
+				try {
+					std::ifstream f(p, std::ios::binary);
+					if (!f) return;
+					char buf[65536];
+					while (f.read(buf, sizeof(buf))) {}
+				} catch (...) {}
+			});
+		}
+
 		ProcAsync(req_version, false);
 	});
 }
@@ -190,6 +289,9 @@ void AsyncVideoProvider::UpdateSubtitles(const AssDialogue *changed) throw() {
 		delete &*it--;
 
 		single_frame = NEW_SUBS_FILE;
+		++subs_version;
+		for (auto& e : frame_cache)
+			if (e.subs_ver != subs_version) e.composited.reset();
 		ProcAsync(req_version, true);
 	});
 }
@@ -260,6 +362,25 @@ void AsyncVideoProvider::ProcAsync(uint_fast32_t req_version, bool check_updated
 		// Pass error back to parent thread
 		parent->QueueEvent(err.Clone());
 	}
+
+	// 首帧渲染后预导出完整字幕文件，使后续seek时无需重新序列化
+	// 拆分为独立任务：析构器 ++version 后，此任务开头即可检测并提前退出
+	// 注：DrawSubtitles/GetFrame 预取循环已移除——这些不可中断的库调用
+	// 会导致析构器 worker->Sync 长时间阻塞（切换硬件加速时卡顿）
+	// OS 文件缓存预热已在 LoadSubtitles 中通过 Background 线程池独立完成
+	if (prefetch_full_subs && single_frame >= 0 && single_frame != SUBS_FILE_ALREADY_LOADED) {
+		prefetch_full_subs = false;
+		worker->Async([this, pv = req_version] {
+			if (pv < version) return;
+			if (subs && subs_provider) {
+				try {
+					subs_provider->LoadSubtitles(subs.get());
+					single_frame = SUBS_FILE_ALREADY_LOADED;
+				}
+				catch (...) { }
+			}
+		});
+	}
 }
 
 std::shared_ptr<VideoFrame> AsyncVideoProvider::GetFrame(int frame, double time, bool raw) {
@@ -271,6 +392,8 @@ std::shared_ptr<VideoFrame> AsyncVideoProvider::GetFrame(int frame, double time,
 void AsyncVideoProvider::SetColorSpace(std::string_view matrix) {
 	worker->Async([this, matrix = std::string(matrix)]() {
 		source_provider->SetColorSpace(matrix);
+		// 色彩空间变更后原始帧需重新解码，清除L2缓存
+		raw_video_cache.clear();
 	});
 }
 

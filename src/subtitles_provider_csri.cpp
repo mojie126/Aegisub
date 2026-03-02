@@ -60,11 +60,19 @@ class CSRISubtitlesProvider final : public SubtitlesProvider {
 	std::unique_ptr<csri_inst, closer> instance;
 	csri_rend *renderer = nullptr;
 
+	/// 缓存上次请求的格式参数，仅在变化时调用csri_request_fmt
+	unsigned int last_fmt_w = 0;
+	unsigned int last_fmt_h = 0;
+	csri_pixfmt last_fmt_pixfmt = CSRI_F_BGR_;
+
 	void LoadSubtitles(const char *data, size_t len) override {
 		std::lock_guard<std::mutex> lock(csri_mutex);
 		// 先释放旧实例，减少峰值内存占用
 		instance.reset();
 		instance.reset(csri_open_mem(renderer, data, len, nullptr));
+		// 新实例需要重新设置格式
+		last_fmt_w = 0;
+		last_fmt_h = 0;
 	}
 
 public:
@@ -103,8 +111,15 @@ void CSRISubtitlesProvider::DrawSubtitles(VideoFrame &dst, double time) {
 	const csri_fmt format = {frame.pixfmt, static_cast<unsigned int>(dst.width), static_cast<unsigned int>(dst.height)};
 
 	std::lock_guard<std::mutex> lock(csri_mutex);
-	if (!csri_request_fmt(instance.get(), &format))
-		csri_render(instance.get(), &frame, time);
+	// 仅在格式参数变化时调用csri_request_fmt，避免冗余调用
+	if (format.width != last_fmt_w || format.height != last_fmt_h || format.pixfmt != last_fmt_pixfmt) {
+		if (csri_request_fmt(instance.get(), &format))
+			return;
+		last_fmt_w = format.width;
+		last_fmt_h = format.height;
+		last_fmt_pixfmt = format.pixfmt;
+	}
+	csri_render(instance.get(), &frame, time);
 }
 }
 

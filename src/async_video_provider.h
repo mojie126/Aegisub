@@ -22,6 +22,7 @@
 #include <atomic>
 #include <memory>
 #include <set>
+#include <unordered_map>
 #include <wx/event.h>
 
 class AssDialogue;
@@ -58,6 +59,29 @@ class AsyncVideoProvider {
 	/// that frame loaded. If -1, the entire file is loaded. If -2, the
 	/// currently loaded file is out of date.
 	int single_frame = -1;
+
+	/// 首帧渲染后是否需要预导出完整字幕文件
+	bool prefetch_full_subs = false;
+
+	/// 字幕内容版本号（仅在字幕变更时递增，独立于请求版本号version）
+	uint_fast32_t subs_version = 0;
+
+	/// @brief L1合成帧缓存条目（视频+字幕渲染结果）
+	struct FrameCacheEntry {
+		int frame_number = -1;
+		uint_fast32_t subs_ver = 0;
+		bool raw = false;
+		std::shared_ptr<VideoFrame> composited; ///< 合成帧数据
+	};
+
+	/// L1合成帧缓存环形缓冲区
+	static constexpr size_t L1_CACHE_CAPACITY = 8;
+	std::vector<FrameCacheEntry> frame_cache;
+	size_t cache_next = 0;
+
+	/// L2原始视频帧缓存（仅由帧号索引，不受字幕编辑影响）
+	static constexpr size_t L2_CACHE_CAPACITY = 16;
+	std::unordered_map<int, std::shared_ptr<VideoFrame>> raw_video_cache;
 
 	/// Last rendered frame number
 	int last_rendered = -1;

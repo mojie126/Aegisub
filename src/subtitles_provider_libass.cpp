@@ -46,6 +46,7 @@
 
 #include <atomic>
 #include <boost/gil.hpp>
+#include <condition_variable>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -81,8 +82,15 @@ void msg_callback(int level, const char *fmt, va_list args, void *) {
 struct cache_thread_shared {
 	ASS_Renderer *renderer = nullptr;
 	std::atomic<bool> ready{false};
+	/// 保护就绪状态的互斥量，与条件变量配合使用
+	std::mutex readyMutex;
+	/// 就绪通知条件变量，替代忙等待轮询
+	std::condition_variable readyCv;
 	~cache_thread_shared() { if (renderer) ass_renderer_done(renderer); }
 };
+
+/// 启动预热阶段创建的renderer状态，供首个SubtitlesProvider复用以避免重复调用ass_set_fonts
+static std::shared_ptr<cache_thread_shared> warmup_state;
 
 class LibassSubtitlesProvider final : public SubtitlesProvider {
 	agi::BackgroundRunner *br;
@@ -96,15 +104,24 @@ class LibassSubtitlesProvider final : public SubtitlesProvider {
 		auto block = [&] {
 			if (shared->ready)
 				return;
-			std::this_thread::sleep_for(std::chrono::milliseconds(250));
+			// 使用条件变量等待，替代固定间隔轮询，减少最大250ms的响应延迟
+			{
+				std::unique_lock<std::mutex> lock(shared->readyMutex);
+				if (shared->readyCv.wait_for(lock, std::chrono::milliseconds(250),
+					[&] { return shared->ready.load(); }))
+					return;
+			}
 			if (shared->ready)
 				return;
 			br->Run([this](agi::ProgressSink *ps) {
 				ps->SetTitle(from_wx(_("Updating font index")));
 				ps->SetMessage(from_wx(_("This may take several minutes")));
 				ps->SetIndeterminate();
-				while (!shared->ready && !ps->IsCancelled())
-					std::this_thread::sleep_for(std::chrono::milliseconds(250));
+				while (!shared->ready && !ps->IsCancelled()) {
+					std::unique_lock<std::mutex> lock(shared->readyMutex);
+					shared->readyCv.wait_for(lock, std::chrono::milliseconds(250),
+						[&] { return shared->ready.load() || ps->IsCancelled(); });
+				}
 			});
 		};
 
@@ -145,13 +162,24 @@ LibassSubtitlesProvider::LibassSubtitlesProvider(agi::BackgroundRunner *br)
 {
 	auto state = shared;
 	cache_queue->Async([state] {
-		auto ass_renderer = ass_renderer_init(library);
-		if (ass_renderer) {
-			ass_set_font_scale(ass_renderer, 1.);
-			ass_set_fonts(ass_renderer, nullptr, "Sans", 1, nullptr, true);
+		// 尝试复用启动预热阶段创建的renderer，避免重复调用ass_set_fonts
+		if (warmup_state && warmup_state->ready.load() && warmup_state->renderer) {
+			state->renderer = warmup_state->renderer;
+			warmup_state->renderer = nullptr;
+			LOG_D("subtitle/provider/libass") << "Reused warmup renderer";
+		} else {
+			auto ass_renderer = ass_renderer_init(library);
+			if (ass_renderer) {
+				ass_set_font_scale(ass_renderer, 1.);
+				ass_set_fonts(ass_renderer, nullptr, "Sans", 1, nullptr, true);
+			}
+			state->renderer = ass_renderer;
 		}
-		state->renderer = ass_renderer;
-		state->ready = true;
+		{
+			std::lock_guard<std::mutex> lock(state->readyMutex);
+			state->ready = true;
+		}
+		state->readyCv.notify_all();
 	});
 }
 
@@ -218,10 +246,21 @@ void CacheFonts() {
 	ass_set_message_cb(library, msg_callback, nullptr);
 
 	// Initialize a renderer to force fontconfig to update its cache
-	cache_queue->Async([] {
+	// 保留renderer供首个SubtitlesProvider复用，避免重复调用ass_set_fonts
+	warmup_state = std::make_shared<cache_thread_shared>();
+	auto state = warmup_state;
+	cache_queue->Async([state] {
 		auto ass_renderer = ass_renderer_init(library);
-		ass_set_fonts(ass_renderer, nullptr, "Sans", 1, nullptr, true);
-		ass_renderer_done(ass_renderer);
+		if (ass_renderer) {
+			ass_set_font_scale(ass_renderer, 1.);
+			ass_set_fonts(ass_renderer, nullptr, "Sans", 1, nullptr, true);
+		}
+		state->renderer = ass_renderer;
+		{
+			std::lock_guard<std::mutex> lock(state->readyMutex);
+			state->ready = true;
+		}
+		state->readyCv.notify_all();
 	});
 }
 
