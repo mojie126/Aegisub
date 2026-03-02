@@ -219,10 +219,13 @@ void BaseGrid::UpdateMaps() {
 
 void BaseGrid::OnActiveLineChanged(AssDialogue *new_active) {
 	if (new_active) {
+		int old_active = active_row;
 		if (new_active->Row != active_row)
 			MakeRowVisible(new_active->Row);
 		extendRow = active_row = new_active->Row;
-		Refresh(false);
+		// 仅刷新旧/新激活行，避免刷新整个网格
+		RefreshVisRow(old_active);
+		RefreshVisRow(active_row);
 	}
 	else
 		active_row = -1;
@@ -263,21 +266,34 @@ void BaseGrid::SelectRow(int row, bool addToSelected, bool select) {
 }
 
 void BaseGrid::OnSeek() {
-	int lines = GetClientSize().GetHeight() / lineHeight + 1;
+	int h = GetClientSize().GetHeight();
+	int lines = h / lineHeight + 1;
 	lines = std::clamp(lines, 0, GetVisRows() - yPos);
 
-	auto it = begin(visible_rows);
+	std::vector<int> new_visible;
 	for (int i : boost::irange(yPos, yPos + lines)) {
-		if (IsDisplayed(vis_index_line_map[i])) {
-			if (it == end(visible_rows) || *it != i) {
-				Refresh(false);
-				return;
-			}
-			++it;
-		}
+		if (IsDisplayed(vis_index_line_map[i]))
+			new_visible.push_back(i);
 	}
-	if (it != end(visible_rows))
-		Refresh(false);
+
+	if (new_visible == visible_rows) return;
+
+	// 仅刷新高亮状态变化的行
+	int w = GetClientSize().GetWidth() - scrollBar->GetSize().GetWidth();
+	auto refresh_vis = [&](int vis_row) {
+		int y = (vis_row - yPos + 1) * lineHeight;
+		if (y >= lineHeight && y < h)
+			RefreshRect(wxRect(0, y, w, lineHeight + 1), false);
+	};
+
+	for (int r : visible_rows)
+		if (!std::binary_search(new_visible.begin(), new_visible.end(), r))
+			refresh_vis(r);
+	for (int r : new_visible)
+		if (!std::binary_search(visible_rows.begin(), visible_rows.end(), r))
+			refresh_vis(r);
+
+	visible_rows = std::move(new_visible);
 }
 
 void BaseGrid::OnPaint(wxPaintEvent &) {
@@ -303,10 +319,14 @@ void BaseGrid::OnPaint(wxPaintEvent &) {
 	int w = 0;
 	int h = 0;
 	GetClientSize(&w,&h);
-	w -= scrollBar->GetSize().GetWidth();
 
-	wxAutoBufferedPaintDC dc(this);
+	// 保持绘图缓冲区与客户区同尺寸，使用持久化缓冲区避免重复分配
+	if (!paint_buffer_.IsOk() || paint_buffer_.GetWidth() != w || paint_buffer_.GetHeight() != h)
+		paint_buffer_.Create(w, h);
+	wxBufferedPaintDC dc(this, paint_buffer_);
 	dc.SetFont(font);
+
+	w -= scrollBar->GetSize().GetWidth();
 
 	dc.SetBackground(row_colors.Default);
 	dc.Clear();
@@ -363,10 +383,26 @@ void BaseGrid::OnPaint(wxPaintEvent &) {
 	auto const& selection = context->selectionController->GetSelectedSet();
 	visible_rows.clear();
 
-	for (int i : agi::util::range(nDraw)) {
-		wxBrush color = row_colors.Default;
-		AssDialogue *curDiag = vis_index_line_map[i + yPos];
+	// 获取更新区域包围盒，用于行级裁剪
+	const bool highlight_enabled = OPT_GET("Subtitle/Grid/Highlight Subtitles in Frame")->GetBool();
+	wxRect updateBox = GetUpdateRegion().GetBox();
+	int updateTop = updateBox.y;
+	int updateBottom = updateBox.y + updateBox.height;
 
+	for (int i : agi::util::range(nDraw)) {
+		AssDialogue *curDiag = vis_index_line_map[i + yPos];
+		int y = (i + 1) * lineHeight;
+
+		// 始终计算帧内可见行（OnSeek 需要完整的 visible_rows）
+		bool is_displayed = highlight_enabled && IsDisplayed(curDiag);
+		if (is_displayed)
+			visible_rows.push_back(i + yPos);
+
+		// 行级裁剪：跳过更新区域外的行以减少绘制开销
+		if (y + lineHeight < updateTop || y > updateBottom)
+			continue;
+
+		wxBrush color = row_colors.Default;
 		bool inSel = !!selection.count(curDiag);
 		if (inSel && curDiag->Comment)
 			color = row_colors.SelectedComment;
@@ -375,11 +411,8 @@ void BaseGrid::OnPaint(wxPaintEvent &) {
 		else if (curDiag->Comment)
 			color = row_colors.Comment;
 
-		if (OPT_GET("Subtitle/Grid/Highlight Subtitles in Frame")->GetBool() && IsDisplayed(curDiag)) {
-			if (color == row_colors.Default)
-				color = row_colors.Visible;
-			visible_rows.push_back(i + yPos);
-		}
+		if (is_displayed && color == row_colors.Default)
+			color = row_colors.Visible;
 
 		if (curDiag->Fold.hasFold() && !inSel) {
 			color = curDiag->Fold.isFolded() ? row_colors.FoldClosed : row_colors.FoldOpen;
@@ -390,7 +423,7 @@ void BaseGrid::OnPaint(wxPaintEvent &) {
 		// Draw row background color
 		if (color != row_colors.Default) {
 			dc.SetPen(*wxTRANSPARENT_PEN);
-			dc.DrawRectangle(grid_x, (i + 1) * lineHeight + 1, w, lineHeight);
+			dc.DrawRectangle(grid_x, y + 1, w, lineHeight);
 		}
 
 		if (active_line != curDiag && curDiag->CollidesWith(active_line))
@@ -402,7 +435,6 @@ void BaseGrid::OnPaint(wxPaintEvent &) {
 
 		// Draw text
 		int x = 0;
-		int y = (i + 1) * lineHeight;
 		for (size_t j : agi::util::range(columns.size())) {
 			if (paint_columns[j])
 				columns[j]->Paint(dc, x, y, curDiag, context);
@@ -444,8 +476,21 @@ void BaseGrid::OnSize(wxSizeEvent &) {
 void BaseGrid::OnScroll(wxScrollEvent &event) {
 	int newPos = event.GetPosition();
 	if (yPos != newPos) {
+		int delta = newPos - yPos;
 		context->ass->Properties.scroll_position = yPos = newPos;
-		Refresh(false);
+
+		int w, h;
+		GetClientSize(&w, &h);
+		int dataH = h - lineHeight;
+		int visRows = dataH / lineHeight;
+
+		// 小增量时使用 ScrollWindow 位移已有像素，仅刷新新露出的条带
+		if (std::abs(delta) < visRows) {
+			wxRect dataRect(0, lineHeight, w, dataH);
+			ScrollWindow(0, -delta * lineHeight, &dataRect);
+		} else {
+			Refresh(false);
+		}
 	}
 }
 
@@ -661,6 +706,24 @@ AssDialogue *BaseGrid::GetDialogue(int n) const {
 AssDialogue *BaseGrid::GetVisDialogue(int n) const {
 	if (static_cast<size_t>(n) >= vis_index_line_map.size()) return nullptr;
 	return vis_index_line_map[n];
+}
+
+/// @brief 刷新指定数据行对应的可视区域
+/// @param data_row 数据行索引（在 index_line_map 中的位置）
+void BaseGrid::RefreshVisRow(int data_row) {
+	if (data_row < 0 || static_cast<size_t>(data_row) >= index_line_map.size())
+		return;
+	AssDialogue *line = index_line_map[data_row];
+	if (!line) return;
+
+	int vis_row = line->Fold.getVisibleRow();
+	int y = (vis_row - yPos + 1) * lineHeight;
+	int w, h;
+	GetClientSize(&w, &h);
+	if (y >= lineHeight && y < h) {
+		w -= scrollBar->GetSize().GetWidth();
+		RefreshRect(wxRect(0, y, w, lineHeight + 2), false);
+	}
 }
 
 int BaseGrid::VisRowToRow(int n) const {
