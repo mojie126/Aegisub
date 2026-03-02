@@ -66,6 +66,7 @@ VideoController::VideoController(agi::Context *c)
 void VideoController::OnNewVideoProvider(AsyncVideoProvider *new_provider) {
 	Stop();
 	provider = new_provider;
+	frame_requested_once = false;
 	color_matrix = provider ? provider->GetColorSpace() : "";
 }
 
@@ -102,10 +103,18 @@ void VideoController::JumpToFrame(int n) {
 	if (!provider) return;
 
 	bool was_playing = IsPlaying();
+	int target = std::clamp(n, 0, provider->GetFrameCount() - 1);
+
+	// 非播放状态下跳转到相同帧号时直接返回，避免无意义的帧请求
+	// 首次请求必须放行（frame_requested_once 为 false 时跳过检查）
+	if (!was_playing && frame_requested_once && target == frame_n)
+		return;
+
 	if (was_playing)
 		Stop();
 
-	frame_n = std::clamp(n, 0, provider->GetFrameCount() - 1);
+	frame_n = target;
+	frame_requested_once = true;
 	RequestFrame();
 	Seek(frame_n);
 

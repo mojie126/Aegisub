@@ -177,6 +177,13 @@ public:
 	/// @return 找到的文件完整路径，未找到时返回空字符串
 	static std::string FindCubeLutPath(const std::string &filename);
 
+	/// @brief 异步预解析LUT文件的CPU侧数据，减少首帧渲染时的阻塞延迟
+	/// @param type HDR类型，决定预加载哪个LUT文件
+	/// @param dvProfile Dolby Vision Profile编号
+	/// @details 在后台线程解析.cube文件并缓存解析结果。
+	///          LoadHDRLUT()调用时优先使用预解析数据，仅需GPU上传。
+	static void PreloadCubeLutAsync(HDRType type, int dvProfile = 0);
+
 	/// @brief Set whether current input appears to be HDR source and its type
 	/// @param isHdr True when source colorspace suggests BT.2020/HDR workflow
 	/// @param type HDR type detected from video metadata

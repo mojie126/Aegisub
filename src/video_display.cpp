@@ -86,7 +86,13 @@ public:
 	{ }
 };
 
+/// @brief Release构建仅执行GL命令，不调用glGetError（避免GPU管线同步）；
+///        Debug构建保留逐调用错误检查便于调试定位。
+#ifdef NDEBUG
+#define E(cmd) cmd
+#else
 #define E(cmd) cmd; if (GLenum err = glGetError()) throw OpenGlException(#cmd, err)
+#endif
 
 VideoDisplay::VideoDisplay(wxToolBar *toolbar, bool freeSize, wxComboBox *zoomBox, wxWindow *parent, agi::Context *c)
 : wxGLCanvas(parent, buildGLAttributes())
@@ -106,8 +112,20 @@ VideoDisplay::VideoDisplay(wxToolBar *toolbar, bool freeSize, wxComboBox *zoomBo
 	con->videoController->Bind(EVT_FRAME_READY, &VideoDisplay::UploadFrameData, this);
 	connections = agi::signal::make_vector({
 		con->project->AddVideoProviderListener([this] (AsyncVideoProvider *provider) {
+			// 清除旧视频提供者的 GL 纹理和待处理帧，
+			// 防止 provider 切换期间渲染过期数据；
+			// 不做显式清屏，让旧帧缓冲区内容保持可见直到新帧到达，
+			// 实现硬解设备切换等场景的无缝视觉过渡。
+			videoOut.reset();
+			pending_frame.reset();
 			if (!provider) ResetVideoZoom();
 			FitClientSizeToVideo();
+			// 视频打开后检测HDR类型，异步预解析LUT文件
+			if (provider) {
+				auto hdr_type = provider->GetHDRType();
+				if (hdr_type != HDRType::SDR)
+					VideoOutGL::PreloadCubeLutAsync(hdr_type, provider->GetDVProfile());
+			}
 		}),
 		con->videoController->AddARChangeListener(&VideoDisplay::FitClientSizeToVideo, this),
 	});
@@ -156,6 +174,10 @@ VideoDisplay::VideoDisplay(wxToolBar *toolbar, bool freeSize, wxComboBox *zoomBo
 	SetCursor(wxNullCursor);
 
 	c->videoDisplay = this;
+
+	// 尝试提前创建GL上下文，减少首帧渲染时的初始化延迟
+	// 若窗口尚未显示则会无害地返回false，在后续Render时再重试
+	InitContext();
 
 	con->videoController->JumpToFrame(con->videoController->GetFrameN());
 

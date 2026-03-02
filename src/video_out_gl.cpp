@@ -25,6 +25,7 @@
 #include <utility>
 #include <fstream>
 #include <cmath>
+#include <future>
 #include <memory>
 #include <vector>
 
@@ -61,6 +62,19 @@ namespace {
 static HDRType &GetCpuCubeLutType() {
 	static HDRType type = HDRType::SDR;
 	return type;
+}
+
+/// LUT文件异步预加载状态
+struct LutPreloadState {
+	std::future<std::unique_ptr<octoon::image::flut>> future;
+	HDRType type = HDRType::SDR;
+	bool started = false;
+};
+
+/// 获取LUT预加载状态的静态实例
+static LutPreloadState &GetLutPreload() {
+	static LutPreloadState state;
+	return state;
 }
 
 template<typename Exception>
@@ -315,6 +329,42 @@ std::string VideoOutGL::FindCubeLutPath(const std::string &filename) {
 		if (f.good()) return p;
 	}
 	return "";
+}
+
+void VideoOutGL::PreloadCubeLutAsync(HDRType type, int dvProfile) {
+	if (type == HDRType::SDR)
+		return;
+
+	// 如果已有匹配类型的CPU缓存，无需预加载
+	if (GetCpuCubeLut() && GetCpuCubeLutType() == type)
+		return;
+
+	auto &preload = GetLutPreload();
+	if (preload.started && preload.type == type)
+		return;
+
+	std::string lutFilename = GetLutFilename(type, dvProfile);
+	preload.type = type;
+	preload.started = true;
+
+	preload.future = std::async(std::launch::async, [lutFilename]() -> std::unique_ptr<octoon::image::flut> {
+		try {
+			std::string lutPath = FindCubeLutPath(lutFilename);
+			if (lutPath.empty()) {
+				LOG_D("video/out/gl") << "LUT preload: file not found: " << lutFilename;
+				return nullptr;
+			}
+			auto lut = std::make_unique<octoon::image::flut>(octoon::image::flut::parse(lutPath));
+			if (lut->data && lut->channel >= 3 && lut->height > 0
+				&& lut->width == lut->height * lut->height) {
+				LOG_D("video/out/gl") << "CPU LUT preloaded: " << lutFilename;
+				return lut;
+			}
+		} catch (const std::exception &e) {
+			LOG_D("video/out/gl") << "LUT preload failed (non-fatal): " << e.what();
+		}
+		return nullptr;
+	});
 }
 
 VideoOutGL::VideoOutGL() { }
@@ -1060,20 +1110,42 @@ void VideoOutGL::LoadHDRLUT() {
 		HDRType currentType = hdrInputType;
 		std::string lutFilename = GetLutFilename(currentType, hdrDvProfile);
 
-		std::string lutPath = FindCubeLutPath(lutFilename);
-
-		if (lutPath.empty()) {
-			LOG_W("video/out/gl") << "HDR LUT file not found: " << lutFilename << ", HDR tone mapping disabled";
-			hdrLutLoaded = false;
-			return;
+		// 尝试获取异步预加载的CPU侧LUT数据
+		auto &preload = GetLutPreload();
+		if (preload.started && preload.type == currentType && preload.future.valid()) {
+			auto preloaded = preload.future.get();
+			preload.started = false;
+			if (preloaded && preloaded->data) {
+				GetCpuCubeLut() = std::move(preloaded);
+				GetCpuCubeLutType() = currentType;
+				LOG_D("video/out/gl") << "Using preloaded CPU LUT data for " << lutFilename;
+			}
 		}
 
-		auto lut = octoon::image::flut::parse(lutPath);
-		if (!lut.data || lut.channel < 3 || lut.height == 0 || lut.width != lut.height * lut.height)
-			throw std::runtime_error("Invalid LUT layout from cube parser");
+		// 检查CPU侧缓存是否已有匹配数据
+		{
+			auto &cached = GetCpuCubeLut();
+			if (!cached || !cached->data || cached->channel < 3
+				|| cached->height == 0 || cached->width != cached->height * cached->height
+				|| GetCpuCubeLutType() != currentType) {
+				// 无可用预加载数据，同步解析
+				std::string lutPath = FindCubeLutPath(lutFilename);
 
-		GetCpuCubeLut() = std::make_unique<octoon::image::flut>(std::move(lut));
-		GetCpuCubeLutType() = currentType;
+				if (lutPath.empty()) {
+					LOG_W("video/out/gl") << "HDR LUT file not found: " << lutFilename << ", HDR tone mapping disabled";
+					hdrLutLoaded = false;
+					return;
+				}
+
+				auto lut = octoon::image::flut::parse(lutPath);
+				if (!lut.data || lut.channel < 3 || lut.height == 0 || lut.width != lut.height * lut.height)
+					throw std::runtime_error("Invalid LUT layout from cube parser");
+
+				GetCpuCubeLut() = std::make_unique<octoon::image::flut>(std::move(lut));
+				GetCpuCubeLutType() = currentType;
+			}
+		}
+
 		auto &cpu_lut = GetCpuCubeLut();
 		if (!cpu_lut || !cpu_lut->data)
 			throw std::runtime_error("Failed to cache CPU cube LUT");
