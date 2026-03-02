@@ -102,7 +102,7 @@ const auto AssDialogue_Effect = &AssDialogue::Effect;
 }
 
 SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
-: wxPanel(parent, -1, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | (OPT_GET("App/Dark Mode")->GetBool() ? wxBORDER_STATIC : wxRAISED_BORDER), "SubsEditBox")
+: wxPanel(parent, -1, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | wxFULL_REPAINT_ON_RESIZE | (OPT_GET("App/Dark Mode")->GetBool() ? wxBORDER_STATIC : wxRAISED_BORDER), "SubsEditBox")
 , c(context)
 , undo_timer(GetEventHandler())
 {
@@ -586,22 +586,37 @@ void SubsEditBox::OnSize(wxSizeEvent &evt) {
 	int availableWidth = GetVirtualSize().GetWidth();
 	int midMin = middle_left_sizer->GetMinSize().GetWidth();
 	int botMin = middle_right_sizer->GetMinSize().GetWidth();
+	bool changed = false;
 
 	if (button_bar_split) {
 		if (availableWidth > midMin + botMin) {
+			Freeze();
 			GetSizer()->Detach(middle_right_sizer);
-			middle_left_sizer->Add(middle_right_sizer,0,wxALIGN_CENTER_VERTICAL);
+			middle_left_sizer->Add(middle_right_sizer, 0, wxALIGN_CENTER_VERTICAL);
 			button_bar_split = false;
+			changed = true;
+			Thaw();
 		}
 	}
 	else {
 		if (availableWidth < midMin) {
+			Freeze();
 			middle_left_sizer->Detach(middle_right_sizer);
-			GetSizer()->Insert(2,middle_right_sizer,0,wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM,3);
+			GetSizer()->Insert(2, middle_right_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 3);
 			button_bar_split = true;
+			changed = true;
+			Thaw();
 		}
 	}
 
+	if (changed) {
+		GetSizer()->Layout();
+		// 父窗口Freeze期间绘制被抑制，延迟到Thaw后强制全面板背景擦除和重绘
+		CallAfter([this] {
+			Refresh(true);
+			Update();
+		});
+	}
 	evt.Skip();
 }
 
