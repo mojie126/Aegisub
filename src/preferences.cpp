@@ -182,6 +182,9 @@ void Video(wxTreebook *book, Preferences *parent) {
 	p->OptionAdd(general, _("Disable zooming with scroll bar"), "Video/Disable Scroll Zoom")
 		->SetToolTip(_("Makes the scroll bar not zoom the video. Useful when using a track pad that often scrolls accidentally."));
 	p->OptionAdd(general, _("Reverse zoom direction"), "Video/Reverse Zoom");
+	p->OptionAdd(general, _("Prefetch subtitles after first frame render"), "Video/Prefetch")
+		->SetToolTip(_("When enabled, preloads the full subtitle file into the renderer after the first frame is displayed. This can improve seek performance for subtitle-heavy projects, but may increase memory usage."));
+	p->CellSkip(general);
 
 	const wxString cscroll_arr[] = {_("Resizes the video box"), _("Resizes the video box (reversed)"), _("Zooms the video"), _("Zooms the video (reversed)"), _("Pans the video"), _("Pans the video (X/Y swapped)"), _("Does nothing")};
 	wxArrayString choice_scroll(7, cscroll_arr);
