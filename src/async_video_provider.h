@@ -19,7 +19,9 @@
 #include <libaegisub/exception.h>
 #include <libaegisub/fs.h>
 
+#include <algorithm>
 #include <atomic>
+#include <list>
 #include <memory>
 #include <set>
 #include <unordered_map>
@@ -79,9 +81,17 @@ class AsyncVideoProvider {
 	std::vector<FrameCacheEntry> frame_cache;
 	size_t cache_next = 0;
 
-	/// L2原始视频帧缓存（仅由帧号索引，不受字幕编辑影响）
-	static constexpr size_t L2_CACHE_CAPACITY = 16;
-	std::unordered_map<int, std::shared_ptr<VideoFrame>> raw_video_cache;
+	/// @brief L2原始视频帧缓存条目（LRU淘汰策略）
+	struct L2CacheEntry {
+		std::shared_ptr<VideoFrame> frame;            ///< 原始视频帧数据
+		std::list<int>::iterator lru_it;              ///< LRU链表中的位置迭代器
+	};
+
+	/// L2原始视频帧缓存（帧号索引，LRU淘汰，不受字幕编辑影响）
+	/// 容量根据视频分辨率动态计算，限制总缓存内存约256MB
+	size_t l2_cache_capacity;
+	std::unordered_map<int, L2CacheEntry> raw_video_cache;
+	std::list<int> l2_lru_order;                      ///< LRU访问顺序（front=最旧，back=最新）
 
 	/// Last rendered frame number
 	int last_rendered = -1;

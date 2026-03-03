@@ -49,7 +49,7 @@ static std::vector<std::string> ExtractImgPaths(const AssFile& subs) {
 		auto& text = line.Text.get();
 		size_t pos = 0;
 		while ((pos = text.find("img(", pos)) != std::string::npos) {
-			if (pos > 0 && text[pos - 1] >= '1' && text[pos - 1] <= '7') {
+			if (pos >= 2 && text[pos - 2] == '\\' && text[pos - 1] >= '1' && text[pos - 1] <= '7') {
 				size_t start = pos + 4;
 				size_t end = text.find(')', start);
 				if (end != std::string::npos) {
@@ -82,7 +82,32 @@ std::shared_ptr<VideoFrame> AsyncVideoProvider::ProcFrame(int frame_number, doub
 		}
 	}
 
-	// 分配工作缓冲区
+	// L2缓存查找
+	auto l2_it = raw_video_cache.find(frame_number);
+	bool l2_hit = (l2_it != raw_video_cache.end());
+
+	// L2命中时更新LRU访问顺序（移至链表尾部表示最近使用）
+	if (l2_hit)
+		l2_lru_order.splice(l2_lru_order.end(), l2_lru_order, l2_it->second.lru_it);
+
+	// 原始帧/无字幕路径 + L2命中：零拷贝直接返回缓存引用
+	if (l2_hit && (raw || !subs_provider || !subs)) {
+		auto& cached = l2_it->second.frame;
+		FrameCacheEntry entry;
+		entry.frame_number = frame_number;
+		entry.subs_ver = subs_version;
+		entry.raw = raw;
+		entry.composited = cached;
+		if (frame_cache.size() < L1_CACHE_CAPACITY)
+			frame_cache.push_back(std::move(entry));
+		else {
+			frame_cache[cache_next] = std::move(entry);
+			cache_next = (cache_next + 1) % L1_CACHE_CAPACITY;
+		}
+		return cached;
+	}
+
+	// 分配工作缓冲区（需字幕合成或L2未命中时使用）
 	std::shared_ptr<VideoFrame> frame;
 	for (auto& buffer : buffers) {
 		if (buffer.use_count() == 1) { frame = buffer; break; }
@@ -92,19 +117,25 @@ std::shared_ptr<VideoFrame> AsyncVideoProvider::ProcFrame(int frame_number, doub
 		buffers.push_back(frame);
 	}
 
-	// L2缓存查找：原始视频帧命中则跳过视频解码
-	auto l2_it = raw_video_cache.find(frame_number);
-	if (l2_it != raw_video_cache.end()) {
-		*frame = *(l2_it->second);
+	if (l2_hit) {
+		// L2命中但需字幕合成：拷贝原始帧到工作缓冲区
+		*frame = *(l2_it->second.frame);
 	} else {
 		try {
 			source_provider->GetFrame(frame_number, *frame);
 		}
 		catch (VideoProviderError const& err) { throw VideoProviderErrorEvent(err); }
 
-		// 存入L2缓存
-		if (raw_video_cache.size() < L2_CACHE_CAPACITY)
-			raw_video_cache[frame_number] = std::make_shared<VideoFrame>(*frame);
+		// 存入L2缓存（LRU淘汰策略）
+		auto cached_frame = std::make_shared<VideoFrame>(*frame);
+		if (raw_video_cache.size() >= l2_cache_capacity) {
+			// 淘汰最久未使用的条目
+			int evict_key = l2_lru_order.front();
+			raw_video_cache.erase(evict_key);
+			l2_lru_order.pop_front();
+		}
+		l2_lru_order.push_back(frame_number);
+		raw_video_cache[frame_number] = { std::move(cached_frame), std::prev(l2_lru_order.end()) };
 	}
 
 	if (raw || !subs_provider || !subs) {
@@ -235,6 +266,11 @@ AsyncVideoProvider::AsyncVideoProvider(agi::fs::path const& video_filename, std:
 , source_provider(VideoProviderFactory::GetProvider(video_filename, colormatrix, br))
 , parent(parent)
 {
+	// 根据视频分辨率动态计算L2缓存容量，限制总缓存内存约256MB
+	size_t frame_bytes = static_cast<size_t>(source_provider->GetWidth()) * source_provider->GetHeight() * 4;
+	l2_cache_capacity = frame_bytes > 0
+		? std::clamp<size_t>(256ULL * 1024 * 1024 / frame_bytes, 2, 16)
+		: 16;
 }
 
 AsyncVideoProvider::~AsyncVideoProvider() {
@@ -253,9 +289,9 @@ void AsyncVideoProvider::LoadSubtitles(const AssFile *new_subs) throw() {
 		single_frame = NEW_SUBS_FILE;
 		prefetch_full_subs = true;
 		++subs_version;
-		// 清除L1过期合成帧，保留L2原始视频帧以供复用
-		for (auto& e : frame_cache)
-			if (e.subs_ver != subs_version) e.composited.reset();
+		// 清除L1合成帧缓存，版本递增后所有条目均已过期
+		frame_cache.clear();
+		cache_next = 0;
 
 		// 提前启动OS文件缓存预热（不依赖CSRI渲染器，最早时机）
 		auto warm_paths = ExtractImgPaths(*subs);
@@ -290,8 +326,9 @@ void AsyncVideoProvider::UpdateSubtitles(const AssDialogue *changed) throw() {
 
 		single_frame = NEW_SUBS_FILE;
 		++subs_version;
-		for (auto& e : frame_cache)
-			if (e.subs_ver != subs_version) e.composited.reset();
+		// 清除L1合成帧缓存，版本递增后所有条目均已过期
+		frame_cache.clear();
+		cache_next = 0;
 		ProcAsync(req_version, true);
 	});
 }
@@ -394,6 +431,7 @@ void AsyncVideoProvider::SetColorSpace(std::string_view matrix) {
 		source_provider->SetColorSpace(matrix);
 		// 色彩空间变更后原始帧需重新解码，清除L2缓存
 		raw_video_cache.clear();
+		l2_lru_order.clear();
 	});
 }
 
