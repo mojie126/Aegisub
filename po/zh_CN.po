@@ -5635,6 +5635,14 @@ msgstr "禁用鼠标滚轮缩放视频，当使用经常意外滚动的触控板
 msgid "Reverse zoom direction"
 msgstr "反转缩放方向"
 
+#: ../src/preferences.cpp:182
+msgid "Prefetch subtitles after first frame render"
+msgstr "首帧渲染后预加载字幕"
+
+#: ../src/preferences.cpp:183
+msgid "When enabled, preloads the full subtitle file into the renderer after the first frame is displayed. This can improve seek performance for subtitle-heavy projects, but may increase memory usage."
+msgstr "启用后，首帧显示后将完整字幕文件预加载到渲染器中。可提升字幕密集项目的拖动性能，但会增加内存占用。"
+
 #: ../src/preferences.cpp:184
 msgid "Default Zoom"
 msgstr "默认缩放"

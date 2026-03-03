@@ -679,6 +679,7 @@
 			"Show Keyframes" : true
 		},
 		"Subtitle Sync" : true,
-		"Default to Video Zoom": false
+		"Default to Video Zoom": false,
+		"Prefetch" : false
 	}
 }

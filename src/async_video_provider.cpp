@@ -22,6 +22,7 @@
 #include "include/aegisub/subtitles_provider.h"
 #include "video_frame.h"
 #include "video_provider_manager.h"
+#include "options.h"
 
 #include <algorithm>
 #include <fstream>
@@ -405,7 +406,8 @@ void AsyncVideoProvider::ProcAsync(uint_fast32_t req_version, bool check_updated
 	// 注：DrawSubtitles/GetFrame 预取循环已移除——这些不可中断的库调用
 	// 会导致析构器 worker->Sync 长时间阻塞（切换硬件加速时卡顿）
 	// OS 文件缓存预热已在 LoadSubtitles 中通过 Background 线程池独立完成
-	if (prefetch_full_subs && single_frame >= 0 && single_frame != SUBS_FILE_ALREADY_LOADED) {
+	if (prefetch_full_subs && single_frame >= 0 && single_frame != SUBS_FILE_ALREADY_LOADED
+		&& OPT_GET("Video/Prefetch")->GetBool()) {
 		prefetch_full_subs = false;
 		worker->Async([this, pv = req_version] {
 			if (pv < version) return;

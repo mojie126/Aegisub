@@ -5499,6 +5499,14 @@ msgstr ""
 msgid "Reverse zoom direction"
 msgstr ""
 
+#: ../src/preferences.cpp:182
+msgid "Prefetch subtitles after first frame render"
+msgstr ""
+
+#: ../src/preferences.cpp:183
+msgid "When enabled, preloads the full subtitle file into the renderer after the first frame is displayed. This can improve seek performance for subtitle-heavy projects, but may increase memory usage."
+msgstr ""
+
 #: ../src/preferences.cpp:184
 msgid "Default Zoom"
 msgstr ""
