@@ -240,7 +240,9 @@ def wrap_lwlibavsource(filename: str, padding: str, cachedir: str | None = None,
     if "cachedir" not in inspect.getfullargspec(vs.core.lsmas.LWLibavSource).args:
         raise vs.Error("To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin must support the `cachedir` option for LWLibavSource.")
 
-    clip = core.lsmas.LWLibavSource(source=filename, cachefile=cachefile, cachedir=".", prefer_hw=3, **kwargs)
+    lw_kwargs = dict(kwargs)
+    lw_kwargs.setdefault("prefer_hw", 3)
+    clip = core.lsmas.LWLibavSource(source=filename, cachefile=cachefile, cachedir=".", **lw_kwargs)
 
     # 自适应黑边：根据帧高度和用户期望padding计算最近标准分辨率的top/bottom分配
     padding_top, padding_bottom = _calculate_adaptive_padding(clip.height, padding)
@@ -250,10 +252,30 @@ def wrap_lwlibavsource(filename: str, padding: str, cachedir: str | None = None,
     progress_set_message("Getting timecodes and keyframes from the index file")
     result = info_from_lwindex(cachefile)
 
-    # 向Aegisub报告硬件解码状态（基于prefer_hw参数）
-    # prefer_hw: 0=禁用, 1=d3d11va, 2=dxva2, 3=自动
-    hw_requested = kwargs.get("prefer_hw", 3)
-    result["hw_decode"] = 1 if hw_requested > 0 else 0
+    # 向 Aegisub 报告硬件解码状态：
+    # 1) hw_decode_requested: 是否请求了硬解（来自 prefer_hw）
+    # 2) hw_decode_active: 是否检测到实际激活
+    #    prefer_hw=3 为自动探测（CUVID→QSV→DXVA2→D3D11VA→D3D12VA→VULKAN），
+    #    可能全部失败回退到软解。lsmas 当前版本不设置硬解帧属性，
+    #    因此 VS 路径无法准确判定硬解是否真正激活。
+    #    保守策略：帧属性不可用时 hw_active=0（视为软解），避免误判。
+    hw_requested = int(lw_kwargs.get("prefer_hw", 0))
+    result["hw_decode_requested"] = 1 if hw_requested > 0 else 0
+
+    hw_active = 0
+    if result["hw_decode_requested"]:
+        try:
+            props = clip.get_frame(0).props
+            for prop_name in ("_HWDecode", "_HWAccel", "_HardwareDecode"):
+                if hasattr(props, prop_name):
+                    hw_active = 1 if int(getattr(props, prop_name)) else 0
+                    break
+        except Exception:
+            pass
+
+    result["hw_decode_active"] = hw_active
+    # 兼容旧脚本键名
+    result["hw_decode"] = hw_active
 
     return clip, result
 

@@ -42,7 +42,9 @@
 static const char *kf_key = "__aegi_keyframes";
 static const char *tc_key = "__aegi_timecodes";
 static const char *audio_key = "__aegi_hasaudio";
-static const char *hw_decode_key = "__aegi_hw_decode";
+static const char *hw_decode_active_key = "__aegi_hw_decode_active";
+static const char *hw_decode_requested_key = "__aegi_hw_decode_requested";
+static const char *hw_decode_legacy_key = "__aegi_hw_decode";
 
 namespace {
 class VapourSynthVideoProvider: public VideoProvider {
@@ -61,7 +63,7 @@ class VapourSynthVideoProvider: public VideoProvider {
 	bool has_audio = false;
 
 	HDRType detected_hdr_type_ = HDRType::SDR;  // 检测到的HDR类型
-	bool hw_decode_ = false;  // VS脚本是否使用硬件解码（通过__aegi_hw_decode脚本变量获取）
+	bool hw_decode_ = false;  // VS脚本上报的硬件解码是否实际激活
 	int dv_profile_ = 0;     // Dolby Vision Profile编号（0=无DV/未知）
 
 	agi::scoped_holder<const VSFrame *, void (*)(const VSFrame *) noexcept> GetVSFrame(VSNode *node, int n);
@@ -163,7 +165,9 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 	vs.GetScriptAPI()->getVariable(script, kf_key, clipinfo);
 	vs.GetScriptAPI()->getVariable(script, tc_key, clipinfo);
 	vs.GetScriptAPI()->getVariable(script, audio_key, clipinfo);
-	vs.GetScriptAPI()->getVariable(script, hw_decode_key, clipinfo);
+	vs.GetScriptAPI()->getVariable(script, hw_decode_active_key, clipinfo);
+	vs.GetScriptAPI()->getVariable(script, hw_decode_requested_key, clipinfo);
+	vs.GetScriptAPI()->getVariable(script, hw_decode_legacy_key, clipinfo);
 
 	int numkf = vs.GetAPI()->mapNumElements(clipinfo, kf_key);
 	int numtc = vs.GetAPI()->mapNumElements(clipinfo, tc_key);
@@ -172,12 +176,23 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 	if (!err1)
 		has_audio = bool(audio);
 
-	// 读取VS脚本报告的硬件解码状态
-	int64_t hw_val = vs.GetAPI()->mapGetInt(clipinfo, hw_decode_key, 0, &err1);
-	if (!err1)
-		hw_decode_ = bool(hw_val);
-	else
-		hw_decode_ = false;  // 脚本未设置时默认非硬解
+	// 优先读取实际激活状态，兼容旧脚本的 __aegi_hw_decode。
+	// 若只拿到“请求硬解”但无激活确认，则按非硬解处理，避免误报。
+	int64_t hw_active_val = vs.GetAPI()->mapGetInt(clipinfo, hw_decode_active_key, 0, &err1);
+	if (!err1) {
+		hw_decode_ = bool(hw_active_val);
+	} else {
+		int req_err = 0;
+		int64_t hw_requested_val = vs.GetAPI()->mapGetInt(clipinfo, hw_decode_requested_key, 0, &req_err);
+		if (!req_err) {
+			(void)hw_requested_val;
+			hw_decode_ = false;
+		} else {
+			int legacy_err = 0;
+			int64_t hw_legacy_val = vs.GetAPI()->mapGetInt(clipinfo, hw_decode_legacy_key, 0, &legacy_err);
+			hw_decode_ = !legacy_err && bool(hw_legacy_val);
+		}
+	}
 
 	if (numkf > 0) {
 		const int64_t *kfs = vs.GetAPI()->mapGetIntArray(clipinfo, kf_key, &err1);
