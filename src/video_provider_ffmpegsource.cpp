@@ -75,6 +75,7 @@ class FFmpegSourceVideoProvider final : public VideoProvider, FFmpegSourceProvid
 	char FFMSErrMsg[1024];          ///< FFMS error message
 	FFMS_ErrorInfo ErrInfo;         ///< FFMS error codes/messages
 	bool has_audio = false;
+	bool hw_decode_active = false;  ///< 由 FFMS 实际解码路径上报，而非配置项推断
 
 	void LoadVideo(agi::fs::path const& filename, std::string_view colormatrix);
 
@@ -127,8 +128,7 @@ public:
 	bool WantsCaching() const override             { return true; }
 	bool HasAudio() const override                 { return has_audio; }
 	bool IsHWDecoding() const override {
-		auto hw_name = OPT_GET("Provider/Video/FFmpegSource/HW hw_name")->GetString();
-		return !hw_name.empty() && hw_name != "none";
+		return hw_decode_active;
 	}
 	HDRType GetHDRType() const override {
 		// 帧级RPU存在 → 返回DolbyVision（可使用DV专用LUT）
@@ -248,6 +248,7 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 
 	// load video properties
 	VideoInfo = FFMS_GetVideoProperties(VideoSource);
+	hw_decode_active = VideoInfo && VideoInfo->HardwareDecodeActive != 0;
 
 	const FFMS_Frame *TempFrame = FFMS_GetFrame(VideoSource, 0, &ErrInfo);
 	if (!TempFrame)

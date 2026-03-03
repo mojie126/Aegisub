@@ -64,6 +64,7 @@ class BSVideoProvider final : public VideoProvider {
 	int video_cs = -1;		// Reported or guessed color matrix of first frame
 	int video_cr = -1;		// Reported or guessed color range of first frame
 	bool has_audio = false;
+	bool hw_decode_active = false;
 
 	bool is_linear = false;
 
@@ -107,10 +108,7 @@ public:
 	bool HasAudio() const override { return has_audio; };
 	HDRType GetHDRType() const override { return detected_hdr_type_; };
 	int GetDVProfile() const override { return dv_profile_; };
-	bool IsHWDecoding() const override {
-		auto hw_name = OPT_GET("Provider/Video/BestSource/HW hw_name")->GetString();
-		return !hw_name.empty() && hw_name != "none";
-	};
+	bool IsHWDecoding() const override { return hw_decode_active; };
 };
 
 BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string const& colormatrix, agi::BackgroundRunner *br) try
@@ -149,6 +147,10 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 	});
 	if (cancelled)
 		throw agi::UserCancelException("video loading cancelled by user");
+
+	// BestSource does not silently fall back to software on this path:
+	// if hw_device is set and opening succeeds, hardware decode is active.
+	hw_decode_active = !hw_device.empty();
 
 	bs->SetMaxCacheSize(OPT_GET("Provider/Video/BestSource/Max Cache Size")->GetInt() << 20);
 	bs->SetSeekPreRoll(OPT_GET("Provider/Video/BestSource/Seek Preroll")->GetInt());
