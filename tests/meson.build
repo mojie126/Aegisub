@@ -48,6 +48,7 @@ tests_src = [
     'tests/mocha_motion.cpp',
     'tests/hdr_video_audit.cpp',
     'tests/text_file_writer.cpp',
+    'tests/audit_fixes.cpp',
 ]
 
 # TextFileWriter 源文件（需要从主项目引入）
