@@ -203,44 +203,75 @@ void DialogTranslation::OnExternalCommit(int commit_type) {
 
 bool DialogTranslation::NextBlock() {
 	switching_lines = true;
-	do {
-		if (cur_block == blocks.size() - 1) {
-			c->selectionController->NextLine();
-			AssDialogue *new_line = c->selectionController->GetActiveLine();
-			if (active_line == new_line || !new_line) return false;
 
-			active_line = new_line;
-			blocks = active_line->ParseTags();
-			cur_block = 0;
+	// 先在当前行的后续 block 中查找
+	for (size_t next = cur_block + 1; next < blocks.size(); ++next) {
+		if (!bad_block(blocks[next])) {
+			cur_block = next;
+			switching_lines = false;
+			UpdateDisplay();
+			return true;
 		}
-		else
-			++cur_block;
-	} while (bad_block(blocks[cur_block]));
-	switching_lines = false;
+	}
 
-	UpdateDisplay();
-	return true;
+	// 直接遍历后续行，避免逐行调用 selectionController->NextLine() 产生大量 UI 副作用
+	// （对全挂图字幕文件，逐行触发 listener 会导致编辑框/网格/视频高频更新甚至崩溃）
+	auto it = c->ass->iterator_to(*active_line);
+	for (++it; it != c->ass->Events.end(); ++it) {
+		auto line_blocks = it->ParseTags();
+		for (size_t j = 0; j < line_blocks.size(); ++j) {
+			if (!bad_block(line_blocks[j])) {
+				active_line = &*it;
+				blocks = std::move(line_blocks);
+				cur_block = j;
+				// 找到目标后一次性更新 selection，仅触发一次 listener
+				c->selectionController->SetSelectionAndActive({active_line}, active_line);
+				switching_lines = false;
+				UpdateDisplay();
+				return true;
+			}
+		}
+	}
+
+	switching_lines = false;
+	return false;
 }
 
 bool DialogTranslation::PrevBlock() {
 	switching_lines = true;
-	do {
-		if (cur_block == 0) {
-			c->selectionController->PrevLine();
-			AssDialogue *new_line = c->selectionController->GetActiveLine();
-			if (active_line == new_line || !new_line) return false;
 
-			active_line = new_line;
-			blocks = active_line->ParseTags();
-			cur_block = blocks.size() - 1;
+	// 先在当前行的前序 block 中查找
+	for (size_t prev = cur_block; prev > 0; ) {
+		--prev;
+		if (!bad_block(blocks[prev])) {
+			cur_block = prev;
+			switching_lines = false;
+			UpdateDisplay();
+			return true;
 		}
-		else
-			--cur_block;
-	} while (bad_block(blocks[cur_block]));
-	switching_lines = false;
+	}
 
-	UpdateDisplay();
-	return true;
+	// 直接遍历前序行
+	auto it = c->ass->iterator_to(*active_line);
+	while (it != c->ass->Events.begin()) {
+		--it;
+		auto line_blocks = it->ParseTags();
+		for (size_t j = line_blocks.size(); j > 0; ) {
+			--j;
+			if (!bad_block(line_blocks[j])) {
+				active_line = &*it;
+				blocks = std::move(line_blocks);
+				cur_block = j;
+				c->selectionController->SetSelectionAndActive({active_line}, active_line);
+				switching_lines = false;
+				UpdateDisplay();
+				return true;
+			}
+		}
+	}
+
+	switching_lines = false;
+	return false;
 }
 
 void DialogTranslation::UpdateDisplay() {
