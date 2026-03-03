@@ -50,3 +50,23 @@ ffms2_dep = declare_dependency(
 	include_directories : deps_inc,
 	compile_args : usage_args
 )
+
+gtest_dep = dependency(
+	'gtest',
+	fallback : ['gtest', 'gtest_dep'],
+	version : '>=1.14.0'
+)
+
+ffms2_indexer_test = executable(
+	'ffms2-indexer-test',
+	[
+		'test/indexer.cpp',
+		'test/tests.cpp',
+	],
+	include_directories : deps_inc,
+	dependencies : deps + [gtest_dep],
+	link_with : ffms2,
+	cpp_args : args + usage_args + ['-DSAMPLES_DIR=subprojects/ffms2/test/samples']
+)
+
+test('ffms2 indexer', ffms2_indexer_test)
