@@ -255,6 +255,11 @@ void VideoDisplay::Render() try {
 	int client_w, client_h;
 	GetClientSize(&client_w, &client_h);
 
+	// 清除全客户区域，防止双缓冲下 letterbox 区域的十字线残影
+	E(glClearColor(0.0f, 0.0f, 0.0f, 1.0f));
+	E(glViewport(0, 0, client_w * scale_factor, client_h * scale_factor));
+	E(glClear(GL_COLOR_BUFFER_BIT));
+
 	videoOut->Render(client_w * scale_factor, client_h * scale_factor, viewport_left, viewport_bottom, viewport_width, viewport_height);
 
 	E(glViewport(0, 0, client_w * scale_factor, client_h * scale_factor));
