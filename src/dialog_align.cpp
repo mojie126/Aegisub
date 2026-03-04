@@ -49,6 +49,7 @@
 #include <libaegisub/vfr.h>
 
 #include <wx/dialog.h>
+#include <wx/msgdlg.h>
 #include <wx/sizer.h>
 #include <wx/textctrl.h>
 #if BOOST_VERSION >= 106900

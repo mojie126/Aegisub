@@ -52,6 +52,7 @@
 #include "project.h"
 #include "subs_controller.h"
 #include "subtitles_provider_libass.h"
+#include "theme.h"
 #include "utils.h"
 #include "value_event.h"
 #include "version.h"
@@ -219,6 +220,8 @@ bool AegisubApp::OnInit() {
 		MSWEnableDarkMode(wxApp::DarkMode_Always);
 	}
 #endif
+
+	InitDarkThemeHook();
 
 	// Init commands.
 	cmd::init_builtin_commands();

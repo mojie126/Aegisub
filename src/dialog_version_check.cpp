@@ -32,6 +32,7 @@
 #include "compat.h"
 #include "format.h"
 #include "options.h"
+#include "theme.h"
 #include "string_codec.h"
 #include "version.h"
 
@@ -244,7 +245,7 @@ VersionCheckerResultDialog::VersionCheckerResultDialog(bool has_update, wxString
 		status_font.SetPointSize(status_font.GetPointSize() + 2);
 		status_font.SetWeight(wxFONTWEIGHT_BOLD);
 		status_text->SetFont(status_font);
-		status_text->SetForegroundColour(wxColour(0, 128, 0));
+		status_text->SetForegroundColour(GetSemanticSuccessColour());
 		status_sizer->Add(status_text, 0, wxBOTTOM, FromDIP(4));
 	} else {
 		auto *status_text = new wxStaticText(this, -1, _("Aegisub is up to date."));
@@ -264,7 +265,7 @@ VersionCheckerResultDialog::VersionCheckerResultDialog(bool has_update, wxString
 		auto *ver_latest = new wxStaticText(this, -1,
 			wxString::Format(_("Latest version: %s"), to_wx(update.friendly_name)));
 		if (has_update)
-			ver_latest->SetForegroundColour(wxColour(0, 128, 0));
+			ver_latest->SetForegroundColour(GetSemanticSuccessColour());
 		status_sizer->Add(ver_latest, 0, wxBOTTOM, FromDIP(2));
 	}
 

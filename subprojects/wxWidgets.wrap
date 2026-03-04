@@ -4,4 +4,5 @@ url = https://github.com/wxWidgets/wxWidgets.git
 revision = v3.3.2
 clone-recursive = true
 depth = 1
+diff_files = wxWidgets/0001-fix-owner-drawn-dark-mode-text.patch
 patch_directory = wxWidgets

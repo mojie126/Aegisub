@@ -23,6 +23,7 @@
 #include "include/aegisub/context.h"
 #include "libresrc/libresrc.h"
 #include "options.h"
+#include "theme.h"
 #include "utils.h"
 #include "value_event.h"
 
@@ -269,9 +270,9 @@ DialogFontsCollector::DialogFontsCollector(agi::Context *c)
 	collection_log->SetWrapMode(wxSTC_WRAP_WORD);
 	collection_log->SetMarginWidth(1, 0);
 	collection_log->SetReadOnly(true);
-	collection_log->StyleSetForeground(1, wxColour(0, 200, 0));
-	collection_log->StyleSetForeground(2, wxColour(200, 0, 0));
-	collection_log->StyleSetForeground(3, wxColour(200, 100, 0));
+	collection_log->StyleSetForeground(1, GetSemanticSuccessColour());
+	collection_log->StyleSetForeground(2, GetSemanticErrorColour());
+	collection_log->StyleSetForeground(3, GetSemanticWarningColour());
 	log_sizer->Add(collection_log, wxSizerFlags().Border());
 
 	wxStdDialogButtonSizer *button_sizer = CreateStdDialogButtonSizer(wxOK | wxCANCEL | wxHELP);

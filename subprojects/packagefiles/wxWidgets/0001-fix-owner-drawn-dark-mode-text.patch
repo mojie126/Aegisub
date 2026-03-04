@@ -1,0 +1,17 @@
+diff --git a/src/msw/control.cpp b/src/msw/control.cpp
+index 096f374..0d266b0 100644
+--- a/src/msw/control.cpp
++++ b/src/msw/control.cpp
+@@ -634,6 +634,12 @@ bool wxMSWOwnerDrawnButtonBase::MSWDrawButton(WXDRAWITEMSTRUCT *item)
+     {
+         ::SetTextColor(hdc, ::GetSysColor(COLOR_GRAYTEXT));
+     }
++    else
++    {
++        // Owner-drawn 控件不经过 WM_CTLCOLORSTATIC / DoMSWControlColor 路径，
++        // 需在此显式设置前景色，否则 HDC 默认文本色在深色模式下不正确。
++        ::SetTextColor(hdc, wxColourToRGB(m_win->GetForegroundColour()));
++    }
+ 
+     if ( !::DrawText(hdc, label.t_str(), label.length(), &rectLabel, fmt) )
+     {

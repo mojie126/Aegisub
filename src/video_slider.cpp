@@ -192,7 +192,7 @@ void VideoSlider::OnPaint(wxPaintEvent &) {
 	wxColour face = wxSystemSettings::GetColour(wxSYS_COLOUR_3DFACE);
 	wxColour sel(123,251,232);
 	wxColour notSel(sel.Red()*2/5,sel.Green()*2/5,sel.Blue()*2/5);
-	wxColour bord(0,0,0);
+	wxColour bord = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
 	int x1,x2,y1,y2;
 
 	// Background

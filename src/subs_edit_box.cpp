@@ -45,6 +45,7 @@
 #include "include/aegisub/hotkey.h"
 #include "initial_line_state.h"
 #include "options.h"
+#include "theme.h"
 #include "project.h"
 #include "selection_controller.h"
 #include "subs_edit_ctrl.h"
@@ -246,6 +247,17 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	bottom_sizer->Add(MakeBottomButton("edit/insert_original"));
 	main_sizer->Add(bottom_sizer);
 	main_sizer->Hide(bottom_sizer);
+
+	// BS_OWNERDRAW 控件的首次 WM_DRAWITEM 可能在窗口显示前被吞掉，
+	// 延迟刷新确保窗口可见后触发正确的 owner-drawn 重绘
+	if (IsDarkMode()) {
+		CallAfter([this] {
+			comment_box->Refresh();
+			by_time->Refresh();
+			by_frame->Refresh();
+			split_box->Refresh();
+		});
+	}
 
 	SetSizerAndFit(main_sizer);
 
@@ -474,6 +486,11 @@ void SubsEditBox::UpdateFrameTiming(agi::vfr::Framerate const& fps) {
 	else {
 		by_frame->Enable(false);
 		by_time->SetValue(true);
+	}
+	// BS_OWNERDRAW 按钮调用 EnableWindow 后系统不自动失效重绘，需显式刷新
+	by_frame->Refresh();
+
+	if (!fps.IsLoaded()) {
 		start_time->SetByFrame(false);
 		end_time->SetByFrame(false);
 		duration->SetByFrame(false);
@@ -611,11 +628,8 @@ void SubsEditBox::OnSize(wxSizeEvent &evt) {
 
 	if (changed) {
 		GetSizer()->Layout();
-		// 父窗口Freeze期间绘制被抑制，延迟到Thaw后强制全面板背景擦除和重绘
-		CallAfter([this] {
-			Refresh(true);
-			Update();
-		});
+		// Thaw 后窗口已解冻，直接刷新面板背景
+		Refresh(true);
 	}
 	evt.Skip();
 }
@@ -641,6 +655,12 @@ void SubsEditBox::SetControlsState(bool state) {
 		wxEventBlocker blocker(this);
 		edit_ctrl->SetTextTo("");
 	}
+
+	// 直接刷新 owner-drawn 控件，确保文字颜色与启用状态一致
+	comment_box->Refresh();
+	by_time->Refresh();
+	by_frame->Refresh();
+	split_box->Refresh();
 }
 
 void SubsEditBox::OnSplit(wxCommandEvent&) {
@@ -702,8 +722,13 @@ void SubsEditBox::UpdateCharacterCount(std::string const& text) {
 	size_t length = agi::MaxLineLength(text, ignore);
 	char_count->SetValue(std::to_wstring(length));
 	size_t limit = (size_t)OPT_GET("Subtitle/Character Limit")->GetInt();
-	if (limit && length > limit)
-		char_count->SetBackgroundColour(to_wx(OPT_GET("Colour/Subtitle/Syntax/Background/Error")->GetColor()));
+	if (limit && length > limit) {
+		auto err_opt = GetThemeOptValue("Colour/Subtitle/Syntax/Background/Error");
+		if (err_opt->GetType() == agi::OptionType::Color)
+			char_count->SetBackgroundColour(to_wx(err_opt->GetColor()));
+		else
+			char_count->SetBackgroundColour(GetSemanticErrorColour());
+	}
 	else
 		char_count->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
 }

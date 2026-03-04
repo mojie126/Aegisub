@@ -29,6 +29,7 @@
 #include "options.h"
 #include "project.h"
 #include "selection_controller.h"
+#include "theme.h"
 #include "utils.h"
 
 #include <libaegisub/ass/karaoke.h>
@@ -153,7 +154,7 @@ void AudioKaraoke::OnPaint(wxPaintEvent &) {
 
 	// Draw the split line under the mouse
 	if (click_will_remove_split)
-		dc.SetPen(*wxRED);
+		dc.SetPen(GetSemanticErrorColour());
 	else
 		dc.SetPen(wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT));
 	dc.DrawLine(mouse_pos, 0, mouse_pos, h);
@@ -161,7 +162,7 @@ void AudioKaraoke::OnPaint(wxPaintEvent &) {
 	dc.SetPen(*wxTRANSPARENT_PEN);
 
 	int width_past_bmp = w + scroll_x - rendered_line.GetWidth();
-	dc.SetBrush(*wxWHITE_BRUSH);
+	dc.SetBrush(wxBrush(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW)));
 	if (width_past_bmp > 0)
 		dc.DrawRectangle(w - width_past_bmp, 0, width_past_bmp, h);
 
@@ -174,12 +175,12 @@ void AudioKaraoke::OnPaint(wxPaintEvent &) {
 			wxPoint(4, h / 2),
 			wxPoint(10, h / 2 + 6)
 		};
-		dc.SetBrush(*wxBLACK_BRUSH);
+		dc.SetBrush(wxBrush(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT)));
 		dc.DrawPolygon(3, triangle);
 	}
 
 	if (rendered_line.GetWidth() - scroll_x > w) {
-		dc.SetBrush(*wxWHITE_BRUSH);
+		dc.SetBrush(wxBrush(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW)));
 		dc.DrawRectangle(w - 20, 0, 20, h);
 
 		wxPoint triangle[] = {
@@ -187,7 +188,7 @@ void AudioKaraoke::OnPaint(wxPaintEvent &) {
 			wxPoint(w - 4, h / 2),
 			wxPoint(w - 10, h / 2 + 6)
 		};
-		dc.SetBrush(*wxBLACK_BRUSH);
+		dc.SetBrush(wxBrush(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT)));
 		dc.DrawPolygon(3, triangle);
 	}
 }

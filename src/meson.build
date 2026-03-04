@@ -55,6 +55,7 @@ aegisub_src = files(
     'command/vis_tool.cpp',
     'compat.cpp',
     'context.cpp',
+    'theme.cpp',
     'dialog_about.cpp',
     'dialog_align.cpp',
     'dialog_attachments.cpp',

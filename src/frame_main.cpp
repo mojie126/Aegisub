@@ -53,6 +53,7 @@
 #include "project.h"
 #include "subs_controller.h"
 #include "subs_edit_box.h"
+#include "theme.h"
 #include "utils.h"
 #include "version.h"
 #include "video_box.h"
@@ -189,6 +190,11 @@ void FrameMain::EnableToolBar(agi::OptionValue const& opt) {
 void FrameMain::InitContents() {
 	StartupLog("Create background panel");
 	auto Panel = new wxPanel(this, -1, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | wxCLIP_CHILDREN);
+
+	if (IsDarkMode()) {
+		SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
+		SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
+	}
 
 	StartupLog("Create subtitles grid");
 	context->subsGrid = new BaseGrid(Panel, context.get());

@@ -36,6 +36,7 @@
 #include "include/aegisub/context.h"
 #include "libresrc/libresrc.h"
 #include "options.h"
+#include "theme.h"
 
 #include <libaegisub/signal.h>
 
@@ -183,9 +184,9 @@ void DialogAutomation::SetScriptInfo(int i, Automation4::Script *script)
 	list->SetItem(i, 2, script->GetPrettyFilename().wstring());
 	list->SetItem(i, 3, to_wx(script->GetDescription()));
 	if (!script->GetLoadedState())
-		list->SetItemBackgroundColour(i, wxColour(255,128,128));
+		list->SetItemBackgroundColour(i, GetSemanticErrorColour());
 	else if (!script->GetWarnings().empty())
-		list->SetItemBackgroundColour(i, wxColour(255,255,128));
+		list->SetItemBackgroundColour(i, GetSemanticWarningColour());
 	else
 		list->SetItemBackgroundColour(i, list->GetBackgroundColour());
 }
