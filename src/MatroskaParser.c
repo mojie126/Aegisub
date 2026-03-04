@@ -52,14 +52,15 @@
 
 #include "MatroskaParser.h"
 
-#ifdef HAVE_ALLOCA_H
-#include <alloca.h>
-#elif defined(HAVE_MALLOC_H)
+/* alloca 平台兼容: MSVC 使用 _alloca (定义于 malloc.h),
+ * GCC/Clang 使用 alloca.h, 其余回退到 malloc.h */
+#if defined(_MSC_VER) || defined(__MINGW32__)
 #include <malloc.h>
-#endif /* HAVE_ALLOCA_H */
-
-#ifdef HAVE_UNDERLINE_ALLOCA
-#define	alloca	  _alloca
+#define alloca _alloca
+#elif defined(HAVE_ALLOCA_H) || defined(__GNUC__)
+#include <alloca.h>
+#else
+#include <malloc.h>
 #endif
 
 #ifdef MATROSKA_COMPRESSION_SUPPORT
