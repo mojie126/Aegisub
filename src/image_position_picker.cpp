@@ -63,8 +63,8 @@ void ImagePositionPicker::paintEvent(wxPaintEvent& evt)
  * background, and expects you will redraw it when the window comes
  * back (by sending a paint event).
  *
- * wxWidgets 3.3+ 默认启用 composited 双缓冲，wxClientDC 绘制不再生效。
- * 改为触发标准重绘流程。
+ * wxWidgets 3.3.0/3.3.1 默认启用 WS_EX_COMPOSITED 双缓冲导致 wxClientDC
+ * 绘制不生效; 3.3.2 已还原该行为(#25808)。使用标准重绘流程以兼容所有版本。
  */
 void ImagePositionPicker::paintNow()
 {
