@@ -33,6 +33,7 @@
 #include "persist_location.h"
 #include "project.h"
 #include "selection_controller.h"
+#include "theme.h"
 #include "video_controller.h"
 
 #include <wx/checkbox.h>
@@ -218,7 +219,7 @@ void DialogStyling::OnStyleBoxModified(wxCommandEvent &) {
 		}
 	}
 
-	style_name->SetBackgroundColour(wxColour(255, 108, 108));
+	style_name->SetBackgroundColour(GetSemanticErrorColour());
 	style_name->Refresh();
 }
 

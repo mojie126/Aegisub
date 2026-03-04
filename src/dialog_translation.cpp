@@ -32,6 +32,7 @@
 #include "help_button.h"
 #include "libresrc/libresrc.h"
 #include "options.h"
+#include "theme.h"
 #include "persist_location.h"
 #include "project.h"
 #include "subs_edit_ctrl.h"
@@ -91,7 +92,7 @@ DialogTranslation::DialogTranslation(agi::Context *c)
 		original_text = new wxStyledTextCtrl(original_box->GetStaticBox(), -1, wxDefaultPosition, FromDIP(wxSize(420, 100)));
 		original_text->SetWrapMode(wxSTC_WRAP_WORD);
 		original_text->SetMarginWidth(1, 0);
-		original_text->StyleSetForeground(1, wxColour(10, 60, 200));
+		original_text->StyleSetForeground(1, IsDarkMode() ? wxColour(80, 130, 255) : wxColour(10, 60, 200));
 		original_text->SetReadOnly(true);
 		original_box->Add(original_text, 1, wxEXPAND | wxALL, half_pad);
 

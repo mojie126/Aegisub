@@ -46,6 +46,8 @@ namespace agi { class BackgroundRunner; }
 #include <libaegisub/format.h>
 #include <libaegisub/scoped_ptr.h>
 
+#include <wx/msgdlg.h>
+
 namespace {
 
 /// @class BSVideoProvider

@@ -286,6 +286,65 @@
 			"Lines Primary" : "rgb(187, 0, 0)",
 			"Lines Secondary" : "rgb(106, 32, 19)",
 			"Shaded Area Alpha" : 0.5
+		},
+		"Dark" : {
+			"Style Editor" : {
+				"Background" : {
+					"Preview" : "rgb(40, 50, 64)"
+				}
+			},
+			"Subtitle Grid" : {
+				"Active Border" : "rgb(255, 91, 239)",
+				"Background" : {
+					"Background" : "rgb(30, 30, 30)",
+					"Comment" : "rgb(42, 42, 64)",
+					"Inframe" : "rgb(50, 48, 30)",
+					"Selected Comment" : "rgb(32, 58, 58)",
+					"Selection" : "rgb(10, 56, 32)",
+					"Open Fold" : "rgb(42, 42, 42)",
+					"Closed Fold" : "rgb(52, 52, 52)"
+				},
+				"Collision" : "rgb(255, 80, 80)",
+				"CPS Error" : "rgb(255, 80, 80)",
+				"Header" : "rgb(38, 58, 78)",
+				"Left Column" : "rgb(28, 48, 32)",
+				"Lines" : "rgb(58, 58, 58)",
+				"Selection" : "rgb(220, 220, 220)",
+				"Standard" : "rgb(200, 200, 200)"
+			},
+			"Subtitle" : {
+				"Background" : "rgb(30, 30, 30)",
+				"Syntax" : {
+					"Background" : {
+						"Brackets" : "",
+						"Comment" : "",
+						"Drawing Command" : "",
+						"Drawing X" : "",
+						"Drawing Y" : "",
+						"Error" : "rgb(80, 30, 30)",
+						"Karaoke Template" : "",
+						"Karaoke Variable" : "",
+						"Line Break" : "",
+						"Normal" : "",
+						"Parameters" : "",
+						"Slashes" : "",
+						"Tags" : ""
+					},
+					"Brackets" : "rgb(100, 140, 255)",
+					"Comment" : "rgb(180, 180, 180)",
+					"Drawing Command" : "rgb(180, 180, 180)",
+					"Drawing X" : "rgb(200, 120, 120)",
+					"Drawing Y" : "rgb(120, 200, 120)",
+					"Error" : "rgb(255, 80, 80)",
+					"Karaoke Template" : "rgb(180, 100, 255)",
+					"Karaoke Variable" : "rgb(180, 100, 255)",
+					"Line Break" : "rgb(120, 120, 120)",
+					"Normal" : "rgb(200, 200, 200)",
+					"Parameters" : "rgb(120, 200, 120)",
+					"Slashes" : "rgb(255, 100, 220)",
+					"Tags" : "rgb(160, 160, 160)"
+				}
+			}
 		}
 	},
 

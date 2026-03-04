@@ -10,6 +10,7 @@
 #include "../ass_file.h"
 #include "../ass_dialogue.h"
 #include "../selection_controller.h"
+#include "../theme.h"
 #include "../video_controller.h"
 #include "../project.h"
 #include <wx/wx.h>
@@ -995,7 +996,7 @@ namespace mocha {
 
 				DataHandler temp;
 				if (!temp.best_effort_parse(raw, script_res_x, script_res_y)) {
-					clip_lbl_status->SetForegroundColour(*wxRED);
+					clip_lbl_status->SetForegroundColour(GetSemanticErrorColour());
 					clip_lbl_status->SetLabel(_("Invalid data format or file path"));
 					clip_lbl_status->Refresh();
 					return;
@@ -1019,9 +1020,9 @@ namespace mocha {
 					}
 
 					if (temp.length() == needed) {
-						clip_lbl_status->SetForegroundColour(wxColour(0, 128, 0));
+						clip_lbl_status->SetForegroundColour(GetSemanticSuccessColour());
 					} else {
-						clip_lbl_status->SetForegroundColour(*wxRED);
+						clip_lbl_status->SetForegroundColour(GetSemanticErrorColour());
 					}
 					clip_lbl_status->SetLabel(msg);
 				} else {
@@ -1089,7 +1090,7 @@ namespace mocha {
 					if (temp.best_effort_parse(clip_data_text_, script_res_x, script_res_y)) {
 						has_clip_data_ = true;
 						wxString type_str = temp.is_srs() ? "SRS" : "TSR";
-						lbl_clip_status->SetForegroundColour(wxColour(0, 128, 0));
+						lbl_clip_status->SetForegroundColour(GetSemanticSuccessColour());
 						lbl_clip_status->SetLabel(
 							wxString::Format(
 								_("Clip data loaded: %d frames (%s)"), temp.length(), type_str
@@ -1119,7 +1120,7 @@ namespace mocha {
 						}
 					} else {
 						has_clip_data_ = false;
-						lbl_clip_status->SetForegroundColour(*wxRED);
+						lbl_clip_status->SetForegroundColour(GetSemanticErrorColour());
 						lbl_clip_status->SetLabel(_("Clip data invalid"));
 					}
 				} else {
@@ -1151,7 +1152,7 @@ namespace mocha {
 			// 尝试解析追踪数据（自动检测格式：TSR/SRS/文件路径）
 			DataHandler temp;
 			if (!temp.best_effort_parse(raw, script_res_x, script_res_y)) {
-				lbl_status->SetForegroundColour(*wxRED);
+				lbl_status->SetForegroundColour(GetSemanticErrorColour());
 				lbl_status->SetLabel(_("Invalid data format or file path"));
 				lbl_status->Refresh();
 				return;
@@ -1179,10 +1180,10 @@ namespace mocha {
 
 				if (temp.length() == needed) {
 					// 帧数匹配：显示绿色提示
-					lbl_status->SetForegroundColour(wxColour(0, 128, 0));
+					lbl_status->SetForegroundColour(GetSemanticSuccessColour());
 				} else {
 					// 帧数不匹配：显示红色警告
-					lbl_status->SetForegroundColour(*wxRED);
+					lbl_status->SetForegroundColour(GetSemanticErrorColour());
 				}
 				lbl_status->SetLabel(msg);
 			} else {

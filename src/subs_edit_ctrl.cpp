@@ -34,6 +34,7 @@
 #include "compat.h"
 #include "format.h"
 #include "options.h"
+#include "theme.h"
 #include "include/aegisub/context.h"
 #include "include/aegisub/spellchecker.h"
 #include "selection_controller.h"
@@ -241,8 +242,8 @@ void SubsTextEditCtrl::OnKeyDown(wxKeyEvent &event) {
 void SubsTextEditCtrl::SetSyntaxStyle(int id, wxFont &font, std::string const& name, wxColor const& default_background) {
 	StyleSetFont(id, font);
 	StyleSetBold(id, OPT_GET("Colour/Subtitle/Syntax/Bold/" + name)->GetBool());
-	StyleSetForeground(id, to_wx(OPT_GET("Colour/Subtitle/Syntax/" + name)->GetColor()));
-	const agi::OptionValue *background = OPT_GET("Colour/Subtitle/Syntax/Background/" + name);
+	StyleSetForeground(id, GetThemeColour("Colour/Subtitle/Syntax/" + name));
+	const agi::OptionValue *background = GetThemeOptValue("Colour/Subtitle/Syntax/Background/" + name);
 	if (background->GetType() == agi::OptionType::Color)
 		StyleSetBackground(id, to_wx(background->GetColor()));
 	else
@@ -256,7 +257,7 @@ void SubsTextEditCtrl::SetStyles() {
 	if (!fontname.empty()) font.SetFaceName(fontname);
 	font.SetPointSize(OPT_GET("Subtitle/Edit Box/Font Size")->GetInt());
 
-	auto default_background = to_wx(OPT_GET("Colour/Subtitle/Background")->GetColor());
+	auto default_background = GetThemeColour("Colour/Subtitle/Background");
 
 	namespace ss = agi::ass::SyntaxStyle;
 	SetSyntaxStyle(ss::NORMAL, font, "Normal", default_background);
@@ -282,7 +283,7 @@ void SubsTextEditCtrl::SetStyles() {
 
 	// Misspelling indicator
 	IndicatorSetStyle(0,wxSTC_INDIC_SQUIGGLE);
-	IndicatorSetForeground(0,wxColour(255,0,0));
+	IndicatorSetForeground(0, GetSemanticErrorColour());
 
 	// IME pending text indicator
 	IndicatorSetStyle(1, wxSTC_INDIC_PLAIN);

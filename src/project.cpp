@@ -194,6 +194,17 @@ void Project::CloseSubtitles() {
 	context->selectionController->SetSelectionAndActive({line}, line);
 }
 
+/// @brief 递归刷新窗口的所有子控件
+/// @details 加载视频/音频时模态对话框可能吞掉 owner-drawn 控件的重绘请求，
+/// 加载完成后调用此函数强制刷新，确保控件外观与当前状态一致。
+static void RefreshAllChildren(wxWindow* win) {
+	if (!win) return;
+	for (wxWindow* child : win->GetChildren()) {
+		child->Refresh();
+		RefreshAllChildren(child);
+	}
+}
+
 void Project::LoadUnloadFiles(ProjectProperties properties) {
 	auto load_linked = OPT_GET("App/Auto/Load Linked Files")->GetInt();
 	if (!load_linked) return;
@@ -265,6 +276,14 @@ void Project::LoadUnloadFiles(ProjectProperties properties) {
 	}
 	else if (loaded_video && OPT_GET("Video/Open Audio")->GetBool() && audio_file != video_file && video_provider->HasAudio())
 		DoLoadAudio(video, true);
+
+	// 模态对话框事件循环可能吞掉 owner-drawn 控件的重绘，
+	// 延迟刷新所有子控件确保外观与当前状态一致
+	if (context->parent) {
+		context->parent->CallAfter([parent = context->parent] {
+			RefreshAllChildren(parent);
+		});
+	}
 }
 
 void Project::DoLoadAudio(agi::fs::path const& path, bool quiet) {
@@ -310,6 +329,13 @@ void Project::DoLoadAudio(agi::fs::path const& path, bool quiet) {
 
 void Project::LoadAudio(agi::fs::path path) {
 	DoLoadAudio(path, false);
+
+	// 模态对话框事件循环可能吞掉 owner-drawn 控件的重绘
+	if (context->parent) {
+		context->parent->CallAfter([parent = context->parent] {
+			RefreshAllChildren(parent);
+		});
+	}
 }
 
 void Project::CloseAudio() {
@@ -374,6 +400,13 @@ void Project::LoadVideo(agi::fs::path path) {
 	else
 		context->videoController->SetAspectRatio(AspectRatio::Default);
 	context->videoController->JumpToFrame(0);
+
+	// 模态对话框事件循环可能吞掉 owner-drawn 控件的重绘
+	if (context->parent) {
+		context->parent->CallAfter([parent = context->parent] {
+			RefreshAllChildren(parent);
+		});
+	}
 }
 
 void Project::CloseVideo() {

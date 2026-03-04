@@ -56,6 +56,7 @@
 #include <wx/dcbuffer.h>
 #include <wx/dialog.h>
 #include <wx/image.h>
+#include <wx/msgdlg.h>
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
 #include <wx/stattext.h>

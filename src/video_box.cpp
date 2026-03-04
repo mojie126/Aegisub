@@ -37,6 +37,7 @@
 #include "include/aegisub/context.h"
 #include "include/aegisub/toolbar.h"
 #include "options.h"
+#include "theme.h"
 #include "project.h"
 #include "selection_controller.h"
 #include "video_controller.h"
@@ -251,8 +252,8 @@ void VideoBox::UpdateTimeBoxes() {
 	VideoPosition->SetValue(fmt_wx("%s - %d", agi::Time(time).GetAssFormatted(true), frame));
 	if (boost::binary_search(context->project->Keyframes(), frame)) {
 		// Set the background color to indicate this is a keyframe
-		VideoPosition->SetBackgroundColour(to_wx(OPT_GET("Colour/Subtitle Grid/Background/Selection")->GetColor()));
-		VideoPosition->SetForegroundColour(to_wx(OPT_GET("Colour/Subtitle Grid/Selection")->GetColor()));
+		VideoPosition->SetBackgroundColour(GetThemeColour("Colour/Subtitle Grid/Background/Selection"));
+		VideoPosition->SetForegroundColour(GetThemeColour("Colour/Subtitle Grid/Selection"));
 	}
 	else {
 		VideoPosition->SetBackgroundColour(wxNullColour);

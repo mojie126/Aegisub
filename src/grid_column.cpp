@@ -21,6 +21,7 @@
 #include "compat.h"
 #include "include/aegisub/context.h"
 #include "options.h"
+#include "theme.h"
 #include "video_controller.h"
 #include "fold_controller.h"
 
@@ -418,7 +419,7 @@ public:
 		double cps_max = std::max<float>(cps_min, cps_error->GetDouble());
 		if (cps > cps_min) {
 			double alpha = std::min((cps - cps_min + 1) / (cps_max - cps_min + 1), 1.0);
-			dc.SetBrush(wxBrush(blend(to_wx(bg_color->GetColor()), dc.GetBrush().GetColour(), alpha)));
+			dc.SetBrush(wxBrush(blend(GetThemeColour("Colour/Subtitle Grid/CPS Error"), dc.GetBrush().GetColour(), alpha)));
 			dc.SetPen(*wxTRANSPARENT_PEN);
 			dc.DrawRectangle(x, y + 1, width, ext.GetHeight() + 3);
 			dc.SetTextForeground(blend(*wxBLACK, tc, alpha));
