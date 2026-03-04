@@ -173,6 +173,25 @@ void init() {
 		migrations.emplace_back("video_space_play");
 	}
 
+	// 从 Default 上下文移除 Space → play/toggle/av，
+	// 该绑定会在文本输入控件中拦截空格键。
+	// Audio/Video 上下文已各自绑定 Space，无需 Default 回退。
+	if (boost::find(migrations, "remove_default_space") == end(migrations)) {
+		auto hk_map = hotkey::inst->GetHotkeyMap();
+		bool changed = false;
+		for (auto it = hk_map.lower_bound("play/toggle/av"); it != hk_map.upper_bound("play/toggle/av"); ) {
+			if (it->second.Context() == "Default" && it->second.Str() == "Space") {
+				it = hk_map.erase(it);
+				changed = true;
+			} else {
+				++it;
+			}
+		}
+		if (changed)
+			hotkey::inst->SetHotkeyMap(std::move(hk_map));
+		migrations.emplace_back("remove_default_space");
+	}
+
 	OPT_SET("App/Hotkey Migrations")->SetListString(std::move(migrations));
 }
 

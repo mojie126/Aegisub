@@ -215,9 +215,6 @@
 		"video/play" : [
 			"Ctrl-P"
 		],
-		"play/toggle/av" : [
-			"Space"
-		],
 		"video/zoom/in" : [
 			"Ctrl-KP_Add"
 		],
