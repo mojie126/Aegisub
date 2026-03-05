@@ -28,6 +28,7 @@
 #include <libaegisub/character_count.h>
 
 #include <wx/dc.h>
+#include <wx/settings.h>
 
 void WidthHelper::Age() {
 	for (auto it = begin(widths), e = end(widths); it != e; ) {
@@ -347,7 +348,6 @@ class GridColumnCPS final : public GridColumn {
 	const agi::OptionValue *ignore_punctuation = OPT_GET("Subtitle/Character Counter/Ignore Punctuation");
 	const agi::OptionValue *cps_warn = OPT_GET("Subtitle/Character Counter/CPS Warning Threshold");
 	const agi::OptionValue *cps_error = OPT_GET("Subtitle/Character Counter/CPS Error Threshold");
-	const agi::OptionValue *bg_color = OPT_GET("Colour/Subtitle Grid/CPS Error");
 	const agi::OptionValue *disp_fmt = OPT_GET("Subtitle/Character Counter/Display Format");
 	const agi::OptionValue *col_align = OPT_GET("Subtitle/Character Counter/Column Alignment");
 
@@ -422,7 +422,7 @@ public:
 			dc.SetBrush(wxBrush(blend(GetThemeColour("Colour/Subtitle Grid/CPS Error"), dc.GetBrush().GetColour(), alpha)));
 			dc.SetPen(*wxTRANSPARENT_PEN);
 			dc.DrawRectangle(x, y + 1, width, ext.GetHeight() + 3);
-			dc.SetTextForeground(blend(*wxBLACK, tc, alpha));
+			dc.SetTextForeground(blend(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT), tc, alpha));
 		}
 
 		x += (width + 2 - ext.GetWidth()) / 2;

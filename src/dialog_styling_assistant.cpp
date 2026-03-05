@@ -219,7 +219,7 @@ void DialogStyling::OnStyleBoxModified(wxCommandEvent &) {
 		}
 	}
 
-	style_name->SetBackgroundColour(GetSemanticErrorColour());
+	style_name->SetBackgroundColour(GetSemanticErrorBgColour());
 	style_name->Refresh();
 }
 

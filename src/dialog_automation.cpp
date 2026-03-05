@@ -184,9 +184,9 @@ void DialogAutomation::SetScriptInfo(int i, Automation4::Script *script)
 	list->SetItem(i, 2, script->GetPrettyFilename().wstring());
 	list->SetItem(i, 3, to_wx(script->GetDescription()));
 	if (!script->GetLoadedState())
-		list->SetItemBackgroundColour(i, GetSemanticErrorColour());
+		list->SetItemBackgroundColour(i, GetSemanticErrorBgColour());
 	else if (!script->GetWarnings().empty())
-		list->SetItemBackgroundColour(i, GetSemanticWarningColour());
+		list->SetItemBackgroundColour(i, GetSemanticWarningBgColour());
 	else
 		list->SetItemBackgroundColour(i, list->GetBackgroundColour());
 }

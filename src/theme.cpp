@@ -21,6 +21,9 @@
 #include "compat.h"
 #include "options.h"
 
+#include <libaegisub/exception.h>
+#include <libaegisub/log.h>
+
 #include <wx/app.h>
 #include <wx/panel.h>
 #include <wx/settings.h>
@@ -48,7 +51,11 @@ bool IsDarkMode() {
 wxColour GetThemeColour(const std::string& path) {
 	if (IsDarkMode()) {
 		std::string darkPath = MapToDarkPath(path);
-		return to_wx(OPT_GET(darkPath.c_str())->GetColor());
+		try {
+			return to_wx(OPT_GET(darkPath.c_str())->GetColor());
+		} catch (const agi::InternalError&) {
+			LOG_W("theme/colour") << "Dark path not found, falling back to light: " << darkPath;
+		}
 	}
 	return to_wx(OPT_GET(path.c_str())->GetColor());
 }
@@ -56,7 +63,11 @@ wxColour GetThemeColour(const std::string& path) {
 const agi::OptionValue* GetThemeOptValue(const std::string& path) {
 	if (IsDarkMode()) {
 		std::string darkPath = MapToDarkPath(path);
-		return OPT_GET(darkPath.c_str());
+		try {
+			return OPT_GET(darkPath.c_str());
+		} catch (const agi::InternalError&) {
+			LOG_W("theme/option") << "Dark path not found, falling back to light: " << darkPath;
+		}
 	}
 	return OPT_GET(path.c_str());
 }
@@ -71,6 +82,14 @@ wxColour GetSemanticSuccessColour() {
 
 wxColour GetSemanticWarningColour() {
 	return IsDarkMode() ? wxColour(255, 160, 50) : wxColour(200, 100, 0);
+}
+
+wxColour GetSemanticErrorBgColour() {
+	return IsDarkMode() ? wxColour(80, 30, 30) : wxColour(255, 128, 128);
+}
+
+wxColour GetSemanticWarningBgColour() {
+	return IsDarkMode() ? wxColour(80, 60, 20) : wxColour(255, 255, 128);
 }
 
 void ApplyDarkThemeToWindow(wxWindow* window) {
