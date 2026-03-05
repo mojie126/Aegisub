@@ -7734,13 +7734,25 @@ msgid "Shift+Scrolling on the video display"
 msgstr "在视频显示上按Shift+滚动"
 
 #. preferences.cpp - 深色模式
-#: ../src/preferences.cpp:246
+#: ../src/preferences.cpp:249
 msgid "Dark Mode"
 msgstr "深色模式"
 
-#: ../src/preferences.cpp:247
-msgid "Enable experimental dark mode (restart required)"
-msgstr "启用实验性深色模式（需要重启）"
+#: ../src/preferences.cpp:251
+msgid "Follow System"
+msgstr "跟随系统"
+
+#: ../src/preferences.cpp:251
+msgid "Light"
+msgstr "浅色模式"
+
+#: ../src/preferences.cpp:251
+msgid "Dark"
+msgstr "深色模式"
+
+#: ../src/preferences.cpp:252
+msgid "Theme mode (restart required)"
+msgstr "主题模式（需要重启）"
 
 #. preferences.cpp - CPS显示格式选项
 #: ../src/preferences.cpp:279

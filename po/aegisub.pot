@@ -7405,12 +7405,24 @@ msgstr ""
 msgid "Shift+Scrolling on the video display"
 msgstr ""
 
-#: ../src/preferences.cpp:246
+#: ../src/preferences.cpp:249
 msgid "Dark Mode"
 msgstr ""
 
-#: ../src/preferences.cpp:247
-msgid "Enable experimental dark mode (restart required)"
+#: ../src/preferences.cpp:251
+msgid "Follow System"
+msgstr ""
+
+#: ../src/preferences.cpp:251
+msgid "Light"
+msgstr ""
+
+#: ../src/preferences.cpp:251
+msgid "Dark"
+msgstr ""
+
+#: ../src/preferences.cpp:252
+msgid "Theme mode (restart required)"
 msgstr ""
 
 #: ../src/preferences.cpp:279
