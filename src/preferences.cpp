@@ -704,8 +704,25 @@ public:
 		return ctrl;
 	}
 
+	/// @brief 热键编辑器的按键处理
+	///
+	/// 捕获按键组合并显示对应字符串，同时正确处理确认/取消/修饰键
 	void OnKeyDown(wxKeyEvent &evt) {
-		ctrl->ChangeValue(to_wx(hotkey::keypress_to_str(evt.GetKeyCode(), evt.GetModifiers())));
+		int key = evt.GetKeyCode();
+		int mod = evt.GetModifiers();
+
+		// 忽略独立修饰键，等待用户输入完整组合键
+		if (key == WXK_SHIFT || key == WXK_ALT || key == WXK_CONTROL || key == WXK_RAW_CONTROL) {
+			return;
+		}
+
+		// 无修饰键的Enter确认编辑，Escape取消编辑，交由框架处理
+		if (mod == wxMOD_NONE && (key == WXK_RETURN || key == WXK_ESCAPE)) {
+			evt.Skip();
+			return;
+		}
+
+		ctrl->ChangeValue(to_wx(hotkey::keypress_to_str(key, mod)));
 	}
 
 	bool SetValue(wxVariant const& var) override {
@@ -849,6 +866,24 @@ Interface_Hotkeys::Interface_Hotkeys(wxTreebook *book, Preferences *parent)
 	dvc->AppendColumn(new wxDataViewColumn("Command", new wxDataViewIconTextRenderer("wxDataViewIconText", wxDATAVIEW_CELL_EDITABLE), 1, 250, wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE));
 #endif
 	dvc->AppendColumn(new wxDataViewColumn(_("Description"), new DescriptionRenderer, 2, book->FromDIP(300), wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE));
+
+	// 热键列编辑完成后，若命令名为空则自动跳转到命令列编辑
+	dvc->Bind(wxEVT_DATAVIEW_ITEM_EDITING_DONE, [this](wxDataViewEvent& evt) {
+		if (evt.GetColumn() == 0 && !evt.IsEditCancelled()) {
+			wxDataViewItem item = evt.GetItem();
+			wxVariant value;
+			model->GetValue(value, item, 1);
+			wxDataViewIconText iconText;
+			iconText << value;
+			if (iconText.GetText().empty()) {
+				CallAfter([this, item] {
+					if (item.IsOk())
+						dvc->EditItem(item, dvc->GetColumn(1));
+				});
+			}
+		}
+		evt.Skip();
+	});
 
 	wxSizer *buttons = new wxBoxSizer(wxHORIZONTAL);
 	buttons->Add(quick_search, wxSizerFlags(1).CenterVertical().Border());

@@ -32,7 +32,8 @@ static CommandMap cmd_map;
 static iterator find_command(std::string_view name) {
 	if (auto it = cmd_map.find(name); it != cmd_map.end())
 		return it;
-	}
+	throw CommandNotFound(agi::format(_("'%s' is not a valid command name"), std::string(name)));
+}
 
 	wxString Command::GetTooltip(std::string ht_context) const {
 		wxString ret = StrHelp();
@@ -56,10 +57,13 @@ static iterator find_command(std::string_view name) {
 		return find_command(std::string(name))->second.get();
 	}
 
-	void call(std::string_view name, agi::Context*c) {
+	bool call(std::string_view name, agi::Context*c) {
 		Command &cmd = *find_command(std::string(name))->second;
-		if (cmd.Validate(c))
+		if (cmd.Validate(c)) {
 			cmd(c);
+			return true;
+		}
+		return false;
 	}
 
 	std::vector<std::string_view> get_registered_commands() {

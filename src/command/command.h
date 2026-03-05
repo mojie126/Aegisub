@@ -156,10 +156,11 @@ DEFINE_EXCEPTION(CommandNotFound, CommandError);
 	/// @param name Command name to unregister. The associated command object is deleted.
 	void unreg(std::string_view name);
 
-	/// Call a command.
-	/// @param name Name of the command to call.
-	/// @param c  Current Context.
-	void call(std::string_view name, agi::Context *c);
+	/// @brief 调用命令
+	/// @param name 命令名称
+	/// @param c 当前上下文
+	/// @return 命令验证通过并执行时返回 true，验证不通过时返回 false
+	bool call(std::string_view name, agi::Context *c);
 
 	/// Retrieve a Command object.
 	/// @param name Name of the command to retrieve.
