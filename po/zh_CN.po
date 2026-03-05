@@ -7027,7 +7027,7 @@ msgid "Export image sequence"
 msgstr "导出图片序列"
 
 msgid "Clip export path"
-msgstr "视频片段导出路径"
+msgstr "图片序列导出路径"
 
 msgid "Create video clip"
 msgstr "创建视频剪辑"
