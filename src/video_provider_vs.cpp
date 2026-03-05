@@ -247,8 +247,18 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 		}
 	}
 
-	// Find the first frame Of the video to get some info
-	auto frame = GetVSFrame(source_node, 0);
+	// 将首帧解码放到后台线程，避免主线程阻塞导致界面假死
+	char vsErrorMsg[1024] = {};
+	const VSFrame *raw_frame = nullptr;
+	br->Run([&](agi::ProgressSink *ps) {
+		ps->SetTitle(from_wx(_("Loading")));
+		ps->SetMessage(from_wx(_("Decoding first frame")));
+		ps->SetIndeterminate();
+		raw_frame = vs.GetAPI()->getFrame(0, source_node, vsErrorMsg, sizeof(vsErrorMsg));
+	});
+	if (!raw_frame)
+		throw VapourSynthError(agi::format("Failed to get first frame: %s", vsErrorMsg));
+	agi::scoped_holder<const VSFrame *, void (*)(const VSFrame *) noexcept> frame(raw_frame, vs.GetAPI()->freeFrame);
 
 	const VSMap *props = vs.GetAPI()->getFramePropertiesRO(frame);
 	if (props == nullptr)

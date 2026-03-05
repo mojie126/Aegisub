@@ -193,8 +193,16 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 		}
 	});
 
-	// Decode the first frame to get the color space and pixel format
-	std::unique_ptr<BestVideoFrame> frame(bs->GetFrame(0));
+	// 将首帧解码放到后台线程，避免主线程阻塞导致界面假死
+	std::unique_ptr<BestVideoFrame> frame;
+	br->Run([&](agi::ProgressSink *ps) {
+		ps->SetTitle(from_wx(_("Loading")));
+		ps->SetMessage(from_wx(_("Decoding first frame")));
+		ps->SetIndeterminate();
+		frame.reset(bs->GetFrame(0));
+	});
+	if (!frame)
+		throw VideoDecodeError("Failed to decode first frame");
 	auto avframe = frame->GetAVFrame();
 	video_cs = avframe->colorspace;
 	video_cr = avframe->color_range;

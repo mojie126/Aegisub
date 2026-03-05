@@ -23,10 +23,12 @@
 #include <libaegisub/audio/provider.h>
 
 #include "audio_controller.h"
+#include "compat.h"
 #include "options.h"
 #include "utils.h"
 
 #include <libaegisub/access.h>
+#include <libaegisub/background_runner.h>
 #include <libaegisub/format.h>
 #include <libaegisub/path.h>
 #include <libaegisub/scoped_ptr.h>
@@ -47,13 +49,13 @@ class VapourSynthAudioProvider final : public agi::AudioProvider {
 	void FillBufferWithFrame(void *buf, int frame, int64_t start, int64_t count) const;
 	void FillBuffer(void *buf, int64_t start, int64_t count) const override;
 public:
-	VapourSynthAudioProvider(agi::fs::path const& filename);
+	VapourSynthAudioProvider(agi::fs::path const& filename, agi::BackgroundRunner *br);
 	~VapourSynthAudioProvider();
 
 	bool NeedsCache() const override { return true; }
 };
 
-VapourSynthAudioProvider::VapourSynthAudioProvider(agi::fs::path const& filename) try
+VapourSynthAudioProvider::VapourSynthAudioProvider(agi::fs::path const& filename, agi::BackgroundRunner *br) try
 : vs()
 , script(nullptr, vs.GetScriptAPI()->freeScript)
 , node(nullptr, vs.GetAPI()->freeNode) {
@@ -71,7 +73,18 @@ VapourSynthAudioProvider::VapourSynthAudioProvider(agi::fs::path const& filename
 		throw VapourSynthError("Error creating script API");
 	}
 	vs.GetScriptAPI()->evalSetWorkingDir(script, 1);
-	if (OpenScriptOrVideo(vs.GetAPI(), vs.GetScriptAPI(), script, filename, OPT_GET("Provider/Audio/VapourSynth/Default Script")->GetString())) {
+	int err1 = 0;
+	// 将脚本执行放到后台线程，避免主线程阻塞导致界面假死
+	br->Run([&](agi::ProgressSink *ps) {
+		ps->SetTitle(from_wx(_("Executing VapourSynth Script")));
+		ps->SetMessage("");
+		ps->SetIndeterminate();
+		err1 = OpenScriptOrVideo(vs.GetAPI(), vs.GetScriptAPI(), script, filename, OPT_GET("Provider/Audio/VapourSynth/Default Script")->GetString());
+		ps->SetStayOpen(bool(err1));
+		if (err1)
+			ps->SetMessage(from_wx(_("Failed to execute script! Press \"Close\" to continue.")));
+	});
+	if (err1) {
 		std::string msg = agi::format("Error executing VapourSynth script: %s", vs.GetScriptAPI()->getError(script));
 		throw VapourSynthError(msg);
 	}
@@ -164,7 +177,7 @@ void VapourSynthAudioProvider::FillBuffer(void *buf, int64_t start, int64_t coun
 
 }
 
-std::unique_ptr<agi::AudioProvider> CreateVapourSynthAudioProvider(agi::fs::path const& file, agi::BackgroundRunner *) {
-	return std::make_unique<VapourSynthAudioProvider>(file);
+std::unique_ptr<agi::AudioProvider> CreateVapourSynthAudioProvider(agi::fs::path const& file, agi::BackgroundRunner *br) {
+	return std::make_unique<VapourSynthAudioProvider>(file, br);
 }
 #endif
