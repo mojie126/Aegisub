@@ -38,17 +38,25 @@ wxColour GetThemeColour(const std::string& path);
 ///          否则返回原始路径的 OptionValue。用于需要检查值类型的场景
 const agi::OptionValue* GetThemeOptValue(const std::string& path);
 
-/// @brief 获取深色模式感知的错误色
+/// @brief 获取深色模式感知的错误色（用于前景文字）
 /// @return 浅色模式 rgb(255,0,0) / 深色模式 rgb(255,80,80)
 wxColour GetSemanticErrorColour();
 
-/// @brief 获取深色模式感知的成功色
+/// @brief 获取深色模式感知的成功色（用于前景文字）
 /// @return 浅色模式 rgb(0,128,0) / 深色模式 rgb(80,220,80)
 wxColour GetSemanticSuccessColour();
 
-/// @brief 获取深色模式感知的警告色
+/// @brief 获取深色模式感知的警告色（用于前景文字）
 /// @return 浅色模式 rgb(200,100,0) / 深色模式 rgb(255,160,50)
 wxColour GetSemanticWarningColour();
+
+/// @brief 获取深色模式感知的错误背景色（用于行/区域背景高亮）
+/// @return 浅色模式 rgb(255,128,128) / 深色模式 rgb(80,30,30)
+wxColour GetSemanticErrorBgColour();
+
+/// @brief 获取深色模式感知的警告背景色（用于行/区域背景高亮）
+/// @return 浅色模式 rgb(255,255,128) / 深色模式 rgb(80,60,20)
+wxColour GetSemanticWarningBgColour();
 
 class wxWindow;
 
