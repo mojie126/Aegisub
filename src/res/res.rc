@@ -61,8 +61,8 @@ BEGIN
             VALUE "CompanyName",      "Aegisub"
             VALUE "FileDescription",  "Aegisub subtitle editor"
             VALUE "FileVersion",      BUILD_GIT_VERSION_STRING
-            VALUE "InternalName",     "aegisub"
-            VALUE "OriginalFilename", "aegisub.exe"
+            VALUE "InternalName",     "Aegisub"
+            VALUE "OriginalFilename", "Aegisub.exe"
             VALUE "ProductName",      "Aegisub"
             VALUE "ProductVersion",   BUILD_GIT_VERSION_STRING
         END

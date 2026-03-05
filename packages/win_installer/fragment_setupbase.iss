@@ -29,7 +29,7 @@ UsePreviousSetupType=no
 UsePreviousAppDir=yes
 UsePreviousTasks=no
 UsedUserAreasWarning=no
-UninstallDisplayIcon={app}\aegisub.exe
+UninstallDisplayIcon={app}\Aegisub.exe
 ; Default to a large welcome bitmap, suitable for large fonts
 ; The normal fonts version is selected by code below
 WizardImageFile={#INSTALLER_DIR}\welcome-large.bmp

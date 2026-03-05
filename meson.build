@@ -489,7 +489,7 @@ aegisub_c_pch = ['src/include/agi_pre_c.h']
 link_args = []
 link_depends = []
 if host_machine.system() == 'windows'
-	manifest_file = configure_file(copy : true, input : 'src/res/aegisub.exe.manifest', output : 'aegisub.exe.manifest')
+	manifest_file = configure_file(copy : true, input : 'src/res/Aegisub.exe.manifest', output : 'Aegisub.exe.manifest')
 	link_args += ['/MANIFEST:EMBED', '/MANIFESTINPUT:@0@'.format(manifest_file)]
 	link_depends += manifest_file
 endif
@@ -502,7 +502,7 @@ other_dep = declare_dependency(
 	link_args : ['gifski.lib', 'imagequant_sys.lib', '-luserenv', '-lntdll']
 )
 
-aegisub = executable('aegisub', aegisub_src, version_h, acconf, resrc,
+aegisub = executable('Aegisub', aegisub_src, version_h, acconf, resrc,
 					 link_with : [libresrc, libluabins, libaegisub],
 					 link_args : link_args,
 					 link_depends : link_depends,

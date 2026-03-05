@@ -51,7 +51,7 @@ Remove-Item -LiteralPath "install" -Force -Recurse
 Write-Output 'Make install'
 meson install --no-rebuild --skip-subprojects --destdir $InstallerDir
 Write-Output 'Gathering files'
-Copy-New-Item $InstallerDir\bin\aegisub.exe  $PortableOutputDir
+Copy-New-Item $InstallerDir\bin\Aegisub.exe  $PortableOutputDir
 
 Write-Output 'Copying - translations'
 Copy-New-Items "$InstallerDir\share\locale\*"  "$PortableOutputDir\locale" -Recurse

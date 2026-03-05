@@ -20,7 +20,7 @@ Name: "checkforupdates"; Description: "{cm:CheckForUpdates}"; GroupDescription: 
 
 [Files]
 ; main
-DestDir: {app}; Source: "{#BUILD_ROOT}\aegisub.exe"; Flags: ignoreversion; Components: main
+DestDir: {app}; Source: "{#BUILD_ROOT}\Aegisub.exe"; Flags: ignoreversion; Components: main
 DestDir: {app}; Source: "{#INSTALLER_DIR}\license.txt"; Flags: ignoreversion; Components: main
 ; HDR色彩映射3D LUT文件（PQ/HLG/DV各自独立cube）
 DestDir: {app}\data\cube; Source: "{#SOURCE_ROOT}\src\cube\PQ2SDR.cube"; Flags: ignoreversion; Components: main
@@ -28,15 +28,15 @@ DestDir: {app}\data\cube; Source: "{#SOURCE_ROOT}\src\cube\HLG2SDR.cube"; Flags:
 DestDir: {app}\data\cube; Source: "{#SOURCE_ROOT}\src\cube\DV2SDR.cube"; Flags: ignoreversion; Components: main
 
 [Icons]
-Name: {commonprograms}\Aegisub; Filename: {app}\aegisub.exe; WorkingDir: {app}; IconIndex: 0; Tasks: startmenuicon; Comment: Create and edit subtitle files
+Name: {commonprograms}\Aegisub; Filename: {app}\Aegisub.exe; WorkingDir: {app}; IconIndex: 0; Tasks: startmenuicon; Comment: Create and edit subtitle files
 
 [Registry]
 ; Register in App Paths so the user can conveniently enter 'aegisub' in their Run box
-Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\aegisub.exe"; ValueType: string; ValueName: ""; ValueData: "{app}\aegisub.exe"; Flags: uninsdeletekey
-Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\aegisub.exe"; ValueType: string; ValueName: ""; ValueData: "{app}\aegisub.exe"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\Aegisub.exe"; ValueType: string; ValueName: ""; ValueData: "{app}\Aegisub.exe"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\Aegisub.exe"; ValueType: string; ValueName: ""; ValueData: "{app}\Aegisub.exe"; Flags: uninsdeletekey
 
 [Run]
-Filename: {app}\aegisub.exe; Description: {cm:LaunchProgram,Aegisub}; Flags: nowait postinstall skipifsilent
+Filename: {app}\Aegisub.exe; Description: {cm:LaunchProgram,Aegisub}; Flags: nowait postinstall skipifsilent
 
 [InstallDelete]
 Type: files; Name: "{app}\ffms2_64.dll"
