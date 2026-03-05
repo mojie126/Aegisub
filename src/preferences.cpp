@@ -247,7 +247,9 @@ void Interface(wxTreebook *book, Preferences *parent) {
 
 #if defined(__WXMSW__) && wxVERSION_NUMBER >= 3300
 	auto dark_mode = p->PageSizer(_("Dark Mode"));
-	p->OptionAdd(dark_mode, _("Enable experimental dark mode (restart required)"), "App/Dark Mode");
+	wxString dark_modes[] = { _("Follow System"), _("Light"), _("Dark") };
+	wxArrayString dark_modes_arr(3, dark_modes);
+	p->OptionChoice(dark_mode, _("Theme mode (restart required)"), dark_modes_arr, "App/Dark Mode");
 #endif
 
 	p->SetSizerAndFit(p->sizer);

@@ -32,6 +32,7 @@
 #include "help_button.h"
 #include "libresrc/libresrc.h"
 #include "options.h"
+#include "theme.h"
 #include "persist_location.h"
 #include "utils.h"
 #include "value_event.h"
@@ -620,7 +621,7 @@ namespace {
 
 		eyedropper_bitmap = ICON(eyedropper_tool);
 		eyedropper_bitmap.SetMask(new wxMask(eyedropper_bitmap, wxColour(255, 0, 255)));
-		screen_dropper_icon = new wxStaticBitmap(this, -1, eyedropper_bitmap, wxDefaultPosition, wxDefaultSize, (OPT_GET("App/Dark Mode")->GetBool() ? wxBORDER_SIMPLE : wxRAISED_BORDER));
+		screen_dropper_icon = new wxStaticBitmap(this, -1, eyedropper_bitmap, wxDefaultPosition, wxDefaultSize, (IsDarkMode() ? wxBORDER_SIMPLE : wxRAISED_BORDER));
 		screen_dropper_icon->SetMinSize(screen_dropper_icon->GetSize());
 		screen_dropper = new ColorPickerScreenDropper(this, 7, 7, 8);
 

@@ -216,8 +216,13 @@ bool AegisubApp::OnInit() {
 #endif
 
 #if defined(__WXMSW__) && wxVERSION_NUMBER >= 3300
-	if (OPT_GET("App/Dark Mode")->GetBool()) {
-		MSWEnableDarkMode(wxApp::DarkMode_Always);
+	{
+		int dark_mode = OPT_GET("App/Dark Mode")->GetInt();
+		switch (dark_mode) {
+			case 1: SetAppearance(Appearance::Light); break;
+			case 2: SetAppearance(Appearance::Dark); break;
+			default: SetAppearance(Appearance::System); break;
+		}
 	}
 #endif
 
