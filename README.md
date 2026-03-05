@@ -132,7 +132,7 @@ Building:
 2. From the Visual Studio "x64 Native Tools Command Prompt", generate the build directory: `meson build -Ddefault_library=static` (if building for release, add `--buildtype=release`)
 3. Build with `cd build` and `ninja`
 
-You should now have a binary: `aegisub.exe`.
+You should now have a binary: `Aegisub.exe`.
 
 Installer:
 
