@@ -69,3 +69,9 @@ void InitDarkThemeHook();
 /// @brief 递归应用深色主题背景到窗口及其所有子窗口
 /// @param window 目标窗口，对其中的 wxPanel 实例设置深色背景
 void ApplyDarkThemeToWindow(wxWindow* window);
+
+/// @brief 解析主题感知的颜色配置路径
+/// @param path 原始颜色配置路径 (如 "Colour/Subtitle Grid/Standard")
+/// @return 深色模式下返回已验证存在的深色路径 (如 "Colour/Dark/Subtitle Grid/Standard")，
+///         若深色路径不存在或非深色模式则返回原路径
+std::string ResolveThemeColourPath(const std::string& path);

@@ -134,3 +134,15 @@ void InitDarkThemeHook() {
 		evt.Skip();
 	});
 }
+
+std::string ResolveThemeColourPath(const std::string& path) {
+	if (!IsDarkMode()) return path;
+	std::string darkPath = MapToDarkPath(path);
+	if (darkPath == path) return path;
+	try {
+		OPT_GET(darkPath.c_str());
+		return darkPath;
+	} catch (const agi::InternalError&) {
+		return path;
+	}
+}

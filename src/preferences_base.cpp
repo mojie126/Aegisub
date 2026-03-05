@@ -22,6 +22,7 @@
 #include "compat.h"
 #include "options.h"
 #include "preferences.h"
+#include "theme.h"
 
 #include <libaegisub/exception.h>
 #include <libaegisub/path.h>
@@ -128,8 +129,21 @@ void OptionPage::CellSkip(PageSection section) {
 }
 
 wxControl *OptionPage::OptionAdd(PageSection section, const wxString &name, const char *opt_name, double min, double max, double inc) {
-	parent->AddChangeableOption(opt_name);
 	const auto opt = OPT_GET(opt_name);
+
+	// 深色模式下颜色选项自动映射到对应深色配置路径，
+	// 确保用户在深色模式中编辑和保存的是深色配色方案
+	if (opt->GetType() == agi::OptionType::Color) {
+		const std::string resolved = ResolveThemeColourPath(opt_name);
+		const auto resolved_opt = OPT_GET(resolved.c_str());
+		parent->AddChangeableOption(resolved);
+		auto cb = new ColourButton(section.box, section.box->FromDIP(wxSize(40,10)), false, resolved_opt->GetColor());
+		cb->Bind(EVT_COLOR, ColourUpdater(resolved, parent));
+		Add(section, name, cb);
+		return cb;
+	}
+
+	parent->AddChangeableOption(opt_name);
 
 	switch (opt->GetType()) {
 		case agi::OptionType::Bool: {
@@ -159,13 +173,6 @@ wxControl *OptionPage::OptionAdd(PageSection section, const wxString &name, cons
 			text->Bind(wxEVT_TEXT, StringUpdater(opt_name, parent));
 			Add(section, name, text);
 			return text;
-		}
-
-		case agi::OptionType::Color: {
-			auto cb = new ColourButton(section.box, section.box->FromDIP(wxSize(40,10)), false, opt->GetColor());
-			cb->Bind(EVT_COLOR, ColourUpdater(opt_name, parent));
-			Add(section, name, cb);
-			return cb;
 		}
 
 		default:
