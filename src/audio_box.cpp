@@ -37,6 +37,7 @@
 #include "audio_karaoke.h"
 #include "audio_timing.h"
 #include "options.h"
+#include "theme.h"
 #include "project.h"
 #include "toggle_bitmap.h"
 #include "utils.h"
@@ -62,7 +63,7 @@ AudioBox::AudioBox(wxWindow *parent, agi::Context *context)
 , controller(context->audioController.get())
 , context(context)
 , audio_open_connection(context->audioController->AddAudioPlayerOpenListener(&AudioBox::OnAudioOpen, this))
-, panel(new wxPanel(this, -1, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | (OPT_GET("App/Dark Mode")->GetBool() ? wxBORDER_SIMPLE : wxBORDER_RAISED)))
+, panel(new wxPanel(this, -1, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | (IsDarkMode() ? wxBORDER_SIMPLE : wxBORDER_RAISED)))
 , audioDisplay(new AudioDisplay(panel, context->audioController.get(), context))
 , HorizontalZoom(new wxSlider(panel, Audio_Horizontal_Zoom, -OPT_GET("Audio/Zoom/Horizontal")->GetInt(), -50, 30, wxDefaultPosition, wxDefaultSize, wxSL_VERTICAL|wxSL_BOTH))
 , VerticalZoom(new wxSlider(panel, Audio_Vertical_Zoom, OPT_GET("Audio/Zoom/Vertical")->GetInt(), 0, 100, wxDefaultPosition, wxDefaultSize, wxSL_VERTICAL|wxSL_BOTH|wxSL_INVERSE))

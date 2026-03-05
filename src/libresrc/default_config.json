@@ -17,7 +17,7 @@
 		"Save UI State" : true,
 		"Show Toolbar" : true,
 		"Toolbar Icon Size" : 16,
-		"Dark Mode" : false
+		"Dark Mode" : 0
 	},
 
 

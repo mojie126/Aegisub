@@ -44,8 +44,16 @@ static std::string MapToDarkPath(const std::string& path) {
 	return path;
 }
 
+/// @brief 判断当前是否启用深色模式
+/// @details 根据 "App/Dark Mode" 配置值判断：
+///          0 = 跟随系统，1 = 浅色，2 = 深色
 bool IsDarkMode() {
-	return OPT_GET("App/Dark Mode")->GetBool();
+	int mode = OPT_GET("App/Dark Mode")->GetInt();
+	switch (mode) {
+		case 1: return false;
+		case 2: return true;
+		default: return wxSystemSettings::GetAppearance().IsDark();
+	}
 }
 
 wxColour GetThemeColour(const std::string& path) {
