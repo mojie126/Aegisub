@@ -196,7 +196,8 @@ namespace mocha {
 
 	void MotionConfig::Remove() {
 		const auto path = GetConfigPath();
-		agi::fs::Remove(path);
+		if (agi::fs::FileExists(path))
+			agi::fs::Remove(path);
 	}
 
 	bool MotionConfig::LoadClip(ClipTrackOptions &opts) {

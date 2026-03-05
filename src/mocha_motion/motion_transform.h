@@ -85,7 +85,6 @@ namespace mocha {
 		/// 对应 MoonScript: collectPriorState + affectedBy 机制
 		std::map<std::string, std::vector<EffectTagValue>> typed_effect_tags;
 
-	private:
 		/// 插值数值
 		static double interpolate_number(double before, double after, double progress);
 
