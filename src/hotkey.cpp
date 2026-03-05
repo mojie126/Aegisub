@@ -306,15 +306,19 @@ std::string keypress_to_str(int key_code, int modifier) {
 	return combo;
 }
 
+/// @brief 检查热键是否匹配并执行对应命令
+/// @param context 热键上下文名称
+/// @param c 当前上下文
+/// @param key_code 按键码
+/// @param modifier 修饰键
+/// @return 命令匹配且验证通过并执行时返回 true
 static bool check(std::string_view context, agi::Context *c, int key_code, int modifier) {
 	std::string combo = keypress_to_str(key_code, modifier);
 	if (combo.empty()) return false;
 
 	auto command = inst->Scan(context, combo, OPT_GET("Audio/Medusa Timing Hotkeys")->GetBool());
-	if (!command.empty()) {
-		cmd::call(command, c);
-		return true;
-	}
+	if (!command.empty())
+		return cmd::call(command, c);
 	return false;
 }
 
@@ -324,6 +328,8 @@ bool check(std::string_view context, agi::Context *c, wxKeyEvent &evt) {
 			evt.Skip();
 			return false;
 		}
+		// 清除可能由先前级联检查设置的 Skip 标志
+		evt.Skip(false);
 		return true;
 	}
 	catch (cmd::CommandNotFound const& e) {

@@ -753,6 +753,9 @@ void BaseGrid::OnCharHook(wxKeyEvent &event) {
 		return;
 	}
 
+	if (hotkey::check("Video", context, event))
+		return;
+
 	hotkey::check("Audio", context, event);
 }
 
