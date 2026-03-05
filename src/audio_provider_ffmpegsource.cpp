@@ -36,8 +36,10 @@
 #include <libaegisub/audio/provider.h>
 
 #include "ffmpegsource_common.h"
+#include "compat.h"
 #include "options.h"
 
+#include <libaegisub/background_runner.h>
 #include <libaegisub/fs.h>
 
 #include <map>
@@ -141,7 +143,13 @@ void FFmpegSourceAudioProvider::LoadAudio(agi::fs::path const& filename) {
 	// update access time of index file so it won't get cleaned away
 	agi::fs::Touch(CacheName);
 
-	AudioSource = FFMS_CreateAudioSource(filename.string().c_str(), TrackNumber, Index, FFMS_DELAY_FIRST_VIDEO_TRACK, &ErrInfo);
+	// 将音频源创建放到后台线程，避免主线程阻塞导致界面假死
+	br->Run([&](agi::ProgressSink *ps) {
+		ps->SetTitle(from_wx(_("Loading")));
+		ps->SetMessage(from_wx(_("Opening audio source")));
+		ps->SetIndeterminate();
+		AudioSource = FFMS_CreateAudioSource(filename.string().c_str(), TrackNumber, Index, FFMS_DELAY_FIRST_VIDEO_TRACK, &ErrInfo);
+	});
 	if (!AudioSource)
 		throw agi::AudioProviderError(std::string("Failed to open audio track: ") + ErrInfo.Buffer);
 

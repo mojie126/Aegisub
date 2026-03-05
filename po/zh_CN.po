@@ -297,6 +297,22 @@ msgstr "卡拉OK标签"
 msgid "Indexing"
 msgstr "索引"
 
+#: ../src/video_provider_ffmpegsource.cpp ../src/audio_provider_ffmpegsource.cpp
+msgid "Loading"
+msgstr "加载中"
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Opening video source"
+msgstr "正在打开视频源"
+
+#: ../src/audio_provider_ffmpegsource.cpp
+msgid "Opening audio source"
+msgstr "正在打开音频源"
+
+#: ../src/video_provider_bestsource.cpp ../src/video_provider_vs.cpp
+msgid "Decoding first frame"
+msgstr "正在解码首帧"
+
 #: ../src/audio_provider_bestsource.cpp:60
 #: ../src/video_provider_bestsource.cpp:119
 msgid "Creating cache... This can take a while!"

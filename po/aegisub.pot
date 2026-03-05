@@ -144,6 +144,22 @@ msgstr ""
 msgid "Indexing"
 msgstr ""
 
+#: ../src/video_provider_ffmpegsource.cpp ../src/audio_provider_ffmpegsource.cpp
+msgid "Loading"
+msgstr ""
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Opening video source"
+msgstr ""
+
+#: ../src/audio_provider_ffmpegsource.cpp
+msgid "Opening audio source"
+msgstr ""
+
+#: ../src/video_provider_bestsource.cpp ../src/video_provider_vs.cpp
+msgid "Decoding first frame"
+msgstr ""
+
 #: ../src/audio_provider_bestsource.cpp:60
 #: ../src/video_provider_bestsource.cpp:119
 msgid "Creating cache... This can take a while!"

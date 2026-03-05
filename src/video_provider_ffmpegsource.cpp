@@ -36,10 +36,12 @@
 #include "ffmpegsource_common.h"
 #include "include/aegisub/video_provider.h"
 
+#include "compat.h"
 #include "options.h"
 #include "utils.h"
 #include "video_frame.h"
 
+#include <libaegisub/background_runner.h>
 #include <libaegisub/fs.h>
 #include <libaegisub/log.h>
 
@@ -242,15 +244,24 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 	const auto hw_name_str = OPT_GET("Provider/Video/FFmpegSource/HW hw_name")->GetString();
 	const auto hw_name = hw_name_str.c_str();
 	const int userPadding = std::max(0, static_cast<int>(OPT_GET("Provider/Video/FFmpegSource/ABB")->GetInt()));
-	VideoSource = FFMS_CreateVideoSource(filename.string().c_str(), TrackNumber, Index, Threads, SeekMode, &ErrInfo, hw_name, 0);
+
+	// 将视频源创建和首帧解码放到后台线程，避免主线程阻塞导致界面假死
+	const FFMS_Frame *TempFrame = nullptr;
+	br->Run([&](agi::ProgressSink *ps) {
+		ps->SetTitle(from_wx(_("Loading")));
+		ps->SetMessage(from_wx(_("Opening video source")));
+		ps->SetIndeterminate();
+		VideoSource = FFMS_CreateVideoSource(filename.string().c_str(), TrackNumber, Index, Threads, SeekMode, &ErrInfo, hw_name, 0);
+		if (!VideoSource) return;
+
+		// load video properties
+		VideoInfo = FFMS_GetVideoProperties(VideoSource);
+		hw_decode_active = VideoInfo && VideoInfo->HardwareDecodeActive != 0;
+
+		TempFrame = FFMS_GetFrame(VideoSource, 0, &ErrInfo);
+	});
 	if (!VideoSource)
 		throw VideoOpenError(std::string("Failed to open video track: ") + ErrInfo.Buffer);
-
-	// load video properties
-	VideoInfo = FFMS_GetVideoProperties(VideoSource);
-	hw_decode_active = VideoInfo && VideoInfo->HardwareDecodeActive != 0;
-
-	const FFMS_Frame *TempFrame = FFMS_GetFrame(VideoSource, 0, &ErrInfo);
 	if (!TempFrame)
 		throw VideoOpenError(std::string("Failed to decode first frame: ") + ErrInfo.Buffer);
 
