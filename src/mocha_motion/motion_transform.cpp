@@ -7,6 +7,7 @@
 #include <regex>
 #include <sstream>
 #include <algorithm>
+#include <cmath>
 
 #include "motion_tags.h"
 
@@ -367,9 +368,9 @@ namespace mocha {
 
 	ColorValue Transform::interpolate_color(const ColorValue &before, const ColorValue &after, double progress) {
 		ColorValue result;
-		result.b = static_cast<int>(interpolate_number(before.b, after.b, progress));
-		result.g = static_cast<int>(interpolate_number(before.g, after.g, progress));
-		result.r = static_cast<int>(interpolate_number(before.r, after.r, progress));
+		result.b = static_cast<int>(std::round(interpolate_number(before.b, after.b, progress)));
+		result.g = static_cast<int>(std::round(interpolate_number(before.g, after.g, progress)));
+		result.r = static_cast<int>(std::round(interpolate_number(before.r, after.r, progress)));
 		return result;
 	}
 

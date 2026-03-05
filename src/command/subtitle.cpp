@@ -221,6 +221,8 @@ namespace {
 				selected_lines.begin(), selected_lines.end(),
 				[&](AssDialogue *a, AssDialogue *b) {
 					// 按在事件列表中的位置排序
+					// 严格弱序要求：comp(a, a) 必须为 false
+					if (a == b) return false;
 					for (auto &Event : c->ass->Events) {
 						if (&Event == a) return true;
 						if (&Event == b) return false;

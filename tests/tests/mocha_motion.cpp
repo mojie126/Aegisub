@@ -298,6 +298,51 @@ TEST(MochaTransform, InterpolateAtEndTime) {
 	EXPECT_FALSE(result.empty());
 }
 
+// 颜色插值四舍五入测试：验证 interpolate_color 不会因截断丢失精度
+TEST(MochaTransform, InterpolateColorRounding) {
+	// B=0→255, G=0→255, R=0→255, progress=0.999
+	// 0 + (255-0)*0.999 = 254.745 → 截断为 254，四舍五入为 255
+	ColorValue before{0, 0, 0};
+	ColorValue after{255, 255, 255};
+	auto result = Transform::interpolate_color(before, after, 0.999);
+	EXPECT_EQ(result.b, 255);
+	EXPECT_EQ(result.g, 255);
+	EXPECT_EQ(result.r, 255);
+}
+
+TEST(MochaTransform, InterpolateColorMidpoint) {
+	// B=0→255, progress=0.5 → 127.5 → 四舍五入为 128（非截断的 127）
+	ColorValue before{0, 0, 0};
+	ColorValue after{255, 255, 255};
+	auto result = Transform::interpolate_color(before, after, 0.5);
+	EXPECT_EQ(result.b, 128);
+	EXPECT_EQ(result.g, 128);
+	EXPECT_EQ(result.r, 128);
+}
+
+TEST(MochaTransform, InterpolateColorNoChange) {
+	// 起止相同，任何 progress 都应返回相同值
+	ColorValue c{100, 150, 200};
+	auto result = Transform::interpolate_color(c, c, 0.5);
+	EXPECT_EQ(result.b, 100);
+	EXPECT_EQ(result.g, 150);
+	EXPECT_EQ(result.r, 200);
+}
+
+TEST(MochaTransform, InterpolateColorBoundary) {
+	// progress=0 应返回 before，progress=1 应返回 after
+	ColorValue before{10, 20, 30};
+	ColorValue after{200, 210, 220};
+	auto r0 = Transform::interpolate_color(before, after, 0.0);
+	EXPECT_EQ(r0.b, 10);
+	EXPECT_EQ(r0.g, 20);
+	EXPECT_EQ(r0.r, 30);
+	auto r1 = Transform::interpolate_color(before, after, 1.0);
+	EXPECT_EQ(r1.b, 200);
+	EXPECT_EQ(r1.g, 210);
+	EXPECT_EQ(r1.r, 220);
+}
+
 // ============================================================================
 // MotionLine 行处理测试
 // ============================================================================
