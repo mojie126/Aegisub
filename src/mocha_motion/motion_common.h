@@ -135,6 +135,20 @@ struct ColorValue {
 	int b = 0, g = 0, r = 0;
 };
 
+/// 插值数值
+/// @param before 起始值
+/// @param after 结束值
+/// @param progress 进度 [0.0, 1.0]
+/// @return 插值结果
+double interpolate_number(double before, double after, double progress);
+
+/// 插值颜色（各通道四舍五入）
+/// @param before 起始颜色
+/// @param after 结束颜色
+/// @param progress 进度 [0.0, 1.0]
+/// @return 插值结果颜色
+ColorValue interpolate_color(const ColorValue &before, const ColorValue &after, double progress);
+
 /// 标签值的通用联合类型
 struct TagValue {
 	enum Type { NUMBER, STRING, COLOR, MULTI, TRANSFORM } type = NUMBER;
