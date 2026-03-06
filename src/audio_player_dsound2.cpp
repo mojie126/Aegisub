@@ -421,6 +421,16 @@ void DirectSoundPlayer2Thread::Run()
 				if (FAILED(bfr->SetCurrentPosition(0)))
 					REPORT_ERROR("Could not reset playback buffer cursor before playback.")
 
+				// 播放前应用当前音量，防止事件处理顺序导致音量未初始化
+				{
+					LONG cur_volume = (LONG)((this->volume - 1.0) * 5000.0);
+					if (cur_volume > DSBVOLUME_MAX)
+						cur_volume = DSBVOLUME_MAX;
+					else if (cur_volume < DSBVOLUME_MIN / 2)
+						cur_volume = DSBVOLUME_MIN / 2;
+					bfr->SetVolume(cur_volume);
+				}
+
 				if (bytes_filled < wanted_latency_bytes)
 				{
 					// Very short playback length, do without streaming playback
