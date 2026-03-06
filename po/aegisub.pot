@@ -4017,8 +4017,10 @@ msgstr ""
 
 #: ../src/dialog_shift_times.cpp:96
 #, c-format
-msgid "%s frames"
-msgstr ""
+msgid "%s frame"
+msgid_plural "%s frames"
+msgstr[0] ""
+msgstr[1] ""
 
 #: ../src/dialog_shift_times.cpp:98
 msgid "backward"
@@ -4943,9 +4945,9 @@ msgstr ""
 msgid "Resolution:"
 msgstr ""
 
-#: ../src/dialog_video_details.cpp:62
+#: ../src/dialog_video_details.cpp:66
 #, c-format
-msgid "1 frame"
+msgid "%d frame (%s)"
 msgid_plural "%d frames (%s)"
 msgstr[0] ""
 msgstr[1] ""
