@@ -5226,7 +5226,12 @@ msgstr "样式 '%s' 不存在\n"
 msgid "Could not find font '%s'\n"
 msgstr "无法找到字体 '%s'\n"
 
-#: ../src/font_file_lister.cpp:162
+#: ../src/font_file_lister.cpp:170
+#, c-format
+msgid "Found '%s' (embedded in script)\n"
+msgstr "已找到 '%s'（脚本内嵌）\n"
+
+#: ../src/font_file_lister.cpp:180
 #, c-format
 msgid "Found '%s' at '%s'\n"
 msgstr "已找到 '%s' 字体位于 '%s'\n"
