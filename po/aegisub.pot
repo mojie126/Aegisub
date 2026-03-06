@@ -5107,7 +5107,12 @@ msgstr ""
 msgid "Could not find font '%s'\n"
 msgstr ""
 
-#: ../src/font_file_lister.cpp:162
+#: ../src/font_file_lister.cpp:170
+#, c-format
+msgid "Found '%s' (embedded in script)\n"
+msgstr ""
+
+#: ../src/font_file_lister.cpp:180
 #, c-format
 msgid "Found '%s' at '%s'\n"
 msgstr ""

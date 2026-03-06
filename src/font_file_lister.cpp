@@ -16,12 +16,14 @@
 
 #include "font_file_lister.h"
 
+#include "ass_attachment.h"
 #include "ass_dialogue.h"
 #include "ass_file.h"
 #include "ass_style.h"
 #include "compat.h"
 #include "format.h"
 
+#include <libaegisub/ass/uuencode.h>
 #include <libaegisub/format_flyweight.h>
 #include <libaegisub/format_path.h>
 
@@ -158,10 +160,30 @@ void FontCollector::ProcessChunk(std::pair<StyleInfo, UsageData> const& style) {
 
 	auto res = lister.GetFontPaths(style.first.facename, style.first.bold, style.first.italic, style.second.chars);
 
-	if (res.paths.empty()) {
+	if (res.paths.empty() && !res.embedded) {
 		status_callback(fmt_tl("Could not find font '%s'\n", style.first.facename), 2);
 		PrintUsage(style.second);
 		++missing;
+	}
+	else if (res.paths.empty() && res.embedded) {
+		// 字体在脚本内嵌附件中找到，无本地文件路径
+		status_callback(fmt_tl("Found '%s' (embedded in script)\n", style.first.facename), 1);
+
+		if (res.fake_bold)
+			status_callback(fmt_tl("'%s' does not have a bold variant.\n", style.first.facename), 3);
+		if (res.fake_italic)
+			status_callback(fmt_tl("'%s' does not have an italic variant.\n", style.first.facename), 3);
+
+		if (res.missing.size()) {
+			if (res.missing.size() > 50)
+				status_callback(fmt_tl("'%s' is missing %d glyphs used.\n", style.first.facename, res.missing.size()), 2);
+			else if (res.missing.size() > 0)
+				status_callback(fmt_tl("'%s' is missing the following glyphs used: %s\n", style.first.facename, format_missing(res.missing)), 2);
+			PrintUsage(style.second);
+			++missing_glyphs;
+		}
+		else if (res.fake_bold || res.fake_italic)
+			PrintUsage(style.second);
 	}
 	else {
 		for (auto& elem : res.paths) {
@@ -226,9 +248,38 @@ std::vector<agi::fs::path> FontCollector::GetFontPaths(const AssFile *file) {
 	for (auto const& diag : file->Events)
 		ProcessDialogueLine(&diag, ++index);
 
+#ifdef _WIN32
+	// 将脚本内嵌字体临时注册到当前进程的 GDI 字体表，
+	// 使后续字体查找能识别内嵌字体
+	std::vector<HANDLE> embedded_font_handles;
+	for (auto const& attachment : file->Attachments) {
+		if (attachment.Group() != AssEntryGroup::FONT) continue;
+		auto const& data = attachment.GetEntryData();
+		auto header_end = data.find('\n');
+		if (header_end == std::string::npos) continue;
+
+		auto decoded = agi::ass::UUDecode(data.c_str() + header_end + 1,
+										  data.c_str() + data.size());
+		if (decoded.empty()) continue;
+
+		DWORD num_fonts = 0;
+		HANDLE handle = AddFontMemResourceEx(decoded.data(),
+											 static_cast<DWORD>(decoded.size()),
+											 nullptr, &num_fonts);
+		if (handle)
+			embedded_font_handles.push_back(handle);
+	}
+#endif
+
 	status_callback(_("Searching for font files\n"), 0);
 	for (auto const& style : used_styles) ProcessChunk(style);
 	status_callback(_("Done\n\n"), 0);
+
+#ifdef _WIN32
+	// 清理临时注册的内嵌字体
+	for (HANDLE h : embedded_font_handles)
+		RemoveFontMemResourceEx(h);
+#endif
 
 	std::vector<agi::fs::path> paths;
 	paths.reserve(results.size());

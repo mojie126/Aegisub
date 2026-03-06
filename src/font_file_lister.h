@@ -37,6 +37,8 @@ struct CollectionResult {
 	std::vector<agi::fs::path> paths;
 	bool fake_bold = false;
 	bool fake_italic = false;
+	/// 字体通过 AddFontMemResourceEx 找到（脚本内嵌附件），无本地文件路径
+	bool embedded = false;
 };
 
 #ifdef _WIN32

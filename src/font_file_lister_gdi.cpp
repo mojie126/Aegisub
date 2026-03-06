@@ -159,8 +159,12 @@ CollectionResult GdiFontFileLister::GetFontPaths(std::string const& facename, in
 
 	if (!is_query_font_face_3_succeeded) {
 		IDWriteFont* font;
-		if (FAILED(font_collection_sh->GetFontFromFontFace(font_face_sh, &font)))
+		if (FAILED(font_collection_sh->GetFontFromFontFace(font_face_sh, &font))) {
+			// 字体存在于 GDI 但不在系统字体集合中（可能是通过
+			// AddFontMemResourceEx 注册的内嵌字体），无法进行字形检查
+			ret.embedded = true;
 			return ret;
+		}
 		agi::scoped_holder<IDWriteFont*> font_sh(font, [](IDWriteFont* p) { p->Release(); });
 
 		BOOL exists;
@@ -171,6 +175,11 @@ CollectionResult GdiFontFileLister::GetFontPaths(std::string const& facename, in
 				ret.missing += character;
 		}
 	}
+
+	// 字体已通过 GDI 验证存在；下方尝试获取本地文件路径。
+	// 对于内嵌字体（通过 AddFontMemResourceEx 加载），本地文件路径不存在，
+	// 预设 embedded=true，仅在成功获取路径时清除
+	ret.embedded = true;
 
 	UINT32 file_count = 1;
 	IDWriteFontFile* font_file;
@@ -209,6 +218,8 @@ CollectionResult GdiFontFileLister::GetFontPaths(std::string const& facename, in
 	if (normalized_path.empty())
 		return ret;
 
+	// 成功获取本地文件路径，非内嵌字体
+	ret.embedded = false;
 	ret.paths.push_back(agi::fs::path(normalized_path));
 
 	return ret;
