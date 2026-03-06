@@ -304,7 +304,7 @@ TEST(MochaTransform, InterpolateColorRounding) {
 	// 0 + (255-0)*0.999 = 254.745 → 截断为 254，四舍五入为 255
 	ColorValue before{0, 0, 0};
 	ColorValue after{255, 255, 255};
-	auto result = Transform::interpolate_color(before, after, 0.999);
+	auto result = interpolate_color(before, after, 0.999);
 	EXPECT_EQ(result.b, 255);
 	EXPECT_EQ(result.g, 255);
 	EXPECT_EQ(result.r, 255);
@@ -314,7 +314,7 @@ TEST(MochaTransform, InterpolateColorMidpoint) {
 	// B=0→255, progress=0.5 → 127.5 → 四舍五入为 128（非截断的 127）
 	ColorValue before{0, 0, 0};
 	ColorValue after{255, 255, 255};
-	auto result = Transform::interpolate_color(before, after, 0.5);
+	auto result = interpolate_color(before, after, 0.5);
 	EXPECT_EQ(result.b, 128);
 	EXPECT_EQ(result.g, 128);
 	EXPECT_EQ(result.r, 128);
@@ -323,7 +323,7 @@ TEST(MochaTransform, InterpolateColorMidpoint) {
 TEST(MochaTransform, InterpolateColorNoChange) {
 	// 起止相同，任何 progress 都应返回相同值
 	ColorValue c{100, 150, 200};
-	auto result = Transform::interpolate_color(c, c, 0.5);
+	auto result = interpolate_color(c, c, 0.5);
 	EXPECT_EQ(result.b, 100);
 	EXPECT_EQ(result.g, 150);
 	EXPECT_EQ(result.r, 200);
@@ -333,14 +333,32 @@ TEST(MochaTransform, InterpolateColorBoundary) {
 	// progress=0 应返回 before，progress=1 应返回 after
 	ColorValue before{10, 20, 30};
 	ColorValue after{200, 210, 220};
-	auto r0 = Transform::interpolate_color(before, after, 0.0);
+	auto r0 = interpolate_color(before, after, 0.0);
 	EXPECT_EQ(r0.b, 10);
 	EXPECT_EQ(r0.g, 20);
 	EXPECT_EQ(r0.r, 30);
-	auto r1 = Transform::interpolate_color(before, after, 1.0);
+	auto r1 = interpolate_color(before, after, 1.0);
 	EXPECT_EQ(r1.b, 200);
 	EXPECT_EQ(r1.g, 210);
 	EXPECT_EQ(r1.r, 220);
+}
+
+// 数值插值测试：验证 interpolate_number 线性插值正确性
+TEST(MochaTransform, InterpolateNumberBasic) {
+	EXPECT_DOUBLE_EQ(interpolate_number(0.0, 100.0, 0.0), 0.0);
+	EXPECT_DOUBLE_EQ(interpolate_number(0.0, 100.0, 1.0), 100.0);
+	EXPECT_DOUBLE_EQ(interpolate_number(0.0, 100.0, 0.5), 50.0);
+	EXPECT_DOUBLE_EQ(interpolate_number(10.0, 20.0, 0.3), 13.0);
+	// 反向插值
+	EXPECT_DOUBLE_EQ(interpolate_number(100.0, 0.0, 0.25), 75.0);
+	// 相同值
+	EXPECT_DOUBLE_EQ(interpolate_number(42.0, 42.0, 0.7), 42.0);
+}
+
+TEST(MochaTransform, InterpolateNumberNearBoundary) {
+	// progress 接近 1 时精度验证
+	double result = interpolate_number(0.0, 255.0, 0.999);
+	EXPECT_NEAR(result, 254.745, 1e-9);
 }
 
 // ============================================================================

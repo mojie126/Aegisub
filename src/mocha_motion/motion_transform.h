@@ -84,12 +84,6 @@ namespace mocha {
 		/// 类型感知的 effect 标签值 {标签名 -> 值列表}
 		/// 对应 MoonScript: collectPriorState + affectedBy 机制
 		std::map<std::string, std::vector<EffectTagValue>> typed_effect_tags;
-
-		/// 插值数值
-		static double interpolate_number(double before, double after, double progress);
-
-		/// 插值颜色
-		static ColorValue interpolate_color(const ColorValue &before, const ColorValue &after, double progress);
 	};
 
 /// 变换标签标记化管理

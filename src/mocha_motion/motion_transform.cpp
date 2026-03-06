@@ -362,11 +362,11 @@ namespace mocha {
 		return result;
 	}
 
-	double Transform::interpolate_number(double before, double after, double progress) {
+	double interpolate_number(double before, double after, double progress) {
 		return (1.0 - progress) * before + progress * after;
 	}
 
-	ColorValue Transform::interpolate_color(const ColorValue &before, const ColorValue &after, double progress) {
+	ColorValue interpolate_color(const ColorValue &before, const ColorValue &after, double progress) {
 		ColorValue result;
 		result.b = static_cast<int>(std::round(interpolate_number(before.b, after.b, progress)));
 		result.g = static_cast<int>(std::round(interpolate_number(before.g, after.g, progress)));
