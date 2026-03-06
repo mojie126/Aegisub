@@ -230,6 +230,7 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 	edit_ctrl->Bind(wxEVT_CHAR_HOOK, &SubsEditBox::OnKeyDown, this);
 
 	secondary_editor = new wxTextCtrl(this, -1, "", wxDefaultPosition, wxDefaultSize, (IsDarkMode() ? wxBORDER_SIMPLE : wxBORDER_SUNKEN) | wxTE_MULTILINE | wxTE_READONLY);
+	UpdateSecondaryEditorFont();
 	// Here we use the height of secondary_editor as the initial size of edit_ctrl,
 	// which is more reasonable than the default given by wxWidgets.
 	// See: https://github.com/wxWidgets/wxWidgets/issues/18471#comment:1
@@ -285,6 +286,10 @@ SubsEditBox::SubsEditBox(wxWindow *parent, agi::Context *context)
 
 	// 监听图标大小变更，实时刷新编辑框按钮
 	icon_size_slot = OPT_SUB("App/Toolbar Icon Size", &SubsEditBox::OnIconSizeChange, this);
+
+	// 监听字幕编辑框字体设置变更，同步更新原文编辑框字体
+	connections.push_back(OPT_SUB("Subtitle/Edit Box/Font Face", &SubsEditBox::UpdateSecondaryEditorFont, this));
+	connections.push_back(OPT_SUB("Subtitle/Edit Box/Font Size", &SubsEditBox::UpdateSecondaryEditorFont, this));
 
 	context->textSelectionController->SetControl(edit_ctrl);
 	edit_ctrl->SetFocus();
@@ -681,6 +686,15 @@ void SubsEditBox::DoOnSplit(bool show_original) {
 	wxSizer* parent_sizer = GetParent()->GetSizer();
 	if (parent_sizer) parent_sizer->Layout();
 	Thaw();
+}
+
+void SubsEditBox::UpdateSecondaryEditorFont() {
+	wxFont font = *wxNORMAL_FONT;
+	font.SetEncoding(wxFONTENCODING_DEFAULT);
+	wxString fontname = FontFace("Subtitle/Edit Box");
+	if (!fontname.empty()) font.SetFaceName(fontname);
+	font.SetPointSize(OPT_GET("Subtitle/Edit Box/Font Size")->GetInt());
+	secondary_editor->SetFont(font);
 }
 
 void SubsEditBox::OnStyleChange(wxCommandEvent &evt) {
