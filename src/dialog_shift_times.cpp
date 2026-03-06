@@ -93,7 +93,7 @@ static wxString get_history_string(json::Object &obj) {
 
 	auto shift_amount = to_wx(obj["amount"]);
 	if (!obj["is by time"])
-		shift_amount = fmt_plural(wxAtoi(shift_amount), "1 frame", "%s frames", shift_amount);
+		shift_amount = fmt_plural(wxAtoi(shift_amount), "%s frame", "%s frames", shift_amount);
 
 	wxString shift_direction = obj["is backward"] ? _("backward") : _("forward");
 
@@ -132,7 +132,7 @@ static wxString get_history_string(json::Object &obj) {
 }
 
 DialogShiftTimes::DialogShiftTimes(agi::Context *context)
-: wxDialog(context->parent, -1, _("Shift Times"))
+: wxDialog(context->parent, -1, _("Shift Times"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 , context(context)
 , history_filename(config::path->Decode("?user/shift_history.json"))
 , timecodes_loaded_slot(context->project->AddTimecodesListener(&DialogShiftTimes::OnTimecodesLoaded, this))
@@ -355,6 +355,9 @@ void DialogShiftTimes::LoadHistory() {
 	}
 	catch (json::Exception const& e) {
 		LOG_D("dialog_shift_times/load_history") << "Cannot load shift times history: " << e.what();
+	}
+	catch (std::exception const& e) {
+		LOG_E("dialog_shift_times/load_history") << "Cannot load shift times history: " << e.what();
 	}
 	catch (...) {
 		history_box->Thaw();
