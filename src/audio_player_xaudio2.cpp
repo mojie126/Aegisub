@@ -363,6 +363,8 @@ void XAudio2Thread::Run() {
 
 			next_input_frame = start_frame;
 			playback_should_be_running = true;
+			// 播放前应用当前音量，防止事件处理顺序导致音量未初始化
+			pSourceVoice->SetVolume(static_cast<float>(volume));
 			pSourceVoice->Start();
 			SetEvent(is_playing);
 			goto do_fill_buffer;
