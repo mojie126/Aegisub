@@ -183,6 +183,10 @@ class DirectSoundPlayer2Thread {
 	/// @return Number of bytes written
 	DWORD FillAndUnlockBuffers(void *buf1, DWORD buf1sz, void *buf2, DWORD buf2sz, int64_t &input_frame, IDirectSoundBuffer8 *bfr);
 
+	/// @brief 将当前音量值应用到 DirectSound 缓冲区
+	/// @param bfr DirectSound 缓冲区对象
+	void ApplyVolume(IDirectSoundBuffer8 *bfr);
+
 	/// @brief Check for error state and throw exception if one occurred
 	void CheckError();
 
@@ -289,6 +293,16 @@ unsigned int __stdcall DirectSoundPlayer2Thread::ThreadProc(void *parameter)
 {
 	static_cast<DirectSoundPlayer2Thread*>(parameter)->Run();
 	return 0;
+}
+
+void DirectSoundPlayer2Thread::ApplyVolume(IDirectSoundBuffer8 *bfr)
+{
+	LONG dsVolume = static_cast<LONG>((volume - 1.0) * 5000.0);
+	if (dsVolume > DSBVOLUME_MAX)
+		dsVolume = DSBVOLUME_MAX;
+	else if (dsVolume < DSBVOLUME_MIN / 2)
+		dsVolume = DSBVOLUME_MIN / 2;
+	bfr->SetVolume(dsVolume);
 }
 
 /// Macro used to set error_message, error_happened and end the thread
@@ -422,14 +436,7 @@ void DirectSoundPlayer2Thread::Run()
 					REPORT_ERROR("Could not reset playback buffer cursor before playback.")
 
 				// 播放前应用当前音量，防止事件处理顺序导致音量未初始化
-				{
-					LONG cur_volume = (LONG)((this->volume - 1.0) * 5000.0);
-					if (cur_volume > DSBVOLUME_MAX)
-						cur_volume = DSBVOLUME_MAX;
-					else if (cur_volume < DSBVOLUME_MIN / 2)
-						cur_volume = DSBVOLUME_MIN / 2;
-					bfr->SetVolume(cur_volume);
-				}
+				ApplyVolume(bfr.get());
 
 				if (bytes_filled < wanted_latency_bytes)
 				{
@@ -473,15 +480,7 @@ stop_playback:
 			goto do_fill_buffer;
 
 		case WAIT_OBJECT_0+3:
-			{
-				LONG invert_volume = (LONG)((this->volume - 1.0) * 5000.0); // Hrmm weirdly it's half?
-				// Look, I would have used a min max but it just errored out for me lol.
-				if (invert_volume > DSBVOLUME_MAX)
-					invert_volume = DSBVOLUME_MAX;
-				else if (invert_volume < DSBVOLUME_MIN / 2)
-					invert_volume = DSBVOLUME_MIN / 2;
-				bfr->SetVolume(invert_volume);
-			}
+			ApplyVolume(bfr.get());
 			// Change volume
 			// We aren't thread safe right now, filling the buffers grabs volume directly
 			// from the field set by the controlling thread, but it shouldn't be a major
