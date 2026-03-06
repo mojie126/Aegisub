@@ -386,7 +386,7 @@ void XAudio2Thread::Run() {
 
 		case WAIT_OBJECT_0 + 3:
 			// Change volume
-			pSourceVoice->SetVolume(volume);
+			pSourceVoice->SetVolume(static_cast<float>(volume));
 			break;
 
 		case WAIT_OBJECT_0 + 4:
