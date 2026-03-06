@@ -287,12 +287,12 @@ namespace {
 				}
 			);
 
-			// 两阶段处理：先处理所有行收集结果，再统一跨行合并后插入
-			// 对应 MoonScript combineWithLine：跨源行的结果也可以合并
+			// 两阶段处理：先处理所有行收集结果，再按组插入
+			// 每条源行的结果保持为独立组，不跨行合并
 
-			// 阶段 1：处理所有选中行，收集结果（带进度和取消支持）
+			// 阶段 1：处理所有选中行，按组收集结果（带进度和取消支持）
 			// 对应 MoonScript: aegisub.progress.set, aegisub.progress.is_cancelled
-			std::vector<mocha::MotionLine> all_result_lines;
+			std::vector<std::vector<mocha::MotionLine>> grouped_results;
 			const int total_lines = static_cast<int>(selected_lines.size());
 			bool cancelled = false;
 
@@ -350,11 +350,7 @@ namespace {
 					}
 				}
 
-				all_result_lines.insert(
-					all_result_lines.end(),
-					std::make_move_iterator(new_lines.begin()),
-					std::make_move_iterator(new_lines.end())
-				);
+				grouped_results.push_back(std::move(new_lines));
 
 				++line_index;
 			}
@@ -362,17 +358,12 @@ namespace {
 			// 关闭进度对话框
 			progress.reset();
 
-			// 用户取消时不修改字幕
-			if (cancelled || all_result_lines.empty()) return;
-
-			// 按起始时间排序后执行跨行合并
-			std::sort(
-				all_result_lines.begin(), all_result_lines.end(),
-				[](const mocha::MotionLine &a, const mocha::MotionLine &b) {
-					return a.start_time < b.start_time;
-				}
-			);
-			processor.cross_line_combine(all_result_lines);
+			// 用户取消或所有组均无结果时不修改字幕
+			bool has_any_results = false;
+			for (const auto &group : grouped_results) {
+				if (!group.empty()) { has_any_results = true; break; }
+			}
+			if (cancelled || !has_any_results) return;
 
 			// 阶段 2：记录选中行之后的插入位置
 			// selected_lines 已按反序排列（最晚行在前），最后一个元素是正序中最早的行
@@ -431,23 +422,39 @@ namespace {
 			}
 
 
-			// 所有行已按时间排序（正向或反向追踪都已通过时间调整体现）
-			// 直接顺序插入到选中行之后
-			for (const auto &ml : all_result_lines) {
-				auto *new_diag = new AssDialogue;
-				new_diag->Text = ml.text;
-				new_diag->Style = ml.style;
-				new_diag->Start = ml.start_time;
-				new_diag->End = ml.end_time;
-				new_diag->Comment = ml.comment;
-				new_diag->Layer = ml.layer;
-				new_diag->Margin[0] = ml.margin_l;
-				new_diag->Margin[1] = ml.margin_r;
-				new_diag->Margin[2] = ml.margin_t;
-				new_diag->Actor = ml.actor;
-				new_diag->Effect = ml.effect;
+			// 按原始行顺序逐组插入结果
+			// grouped_results 与 selected_lines 对应，为反序（最晚行在前）
+			// 反向遍历 grouped_results 使得插入顺序与原始行顺序一致
+			// 组间插入空白注释行作为视觉分割
+			bool first_group = true;
+			for (int gi = static_cast<int>(grouped_results.size()) - 1; gi >= 0; --gi) {
+				// 跳过空组，避免产生多余分隔行
+				if (grouped_results[gi].empty()) continue;
 
-				c->ass->Events.insert(insert_pos, *new_diag);
+				// 在非首组之前插入空白注释行作为组间分隔
+				if (!first_group) {
+					auto *separator = new AssDialogue;
+					separator->Comment = true;
+					c->ass->Events.insert(insert_pos, *separator);
+				}
+				first_group = false;
+
+				for (const auto &ml : grouped_results[gi]) {
+					auto *new_diag = new AssDialogue;
+					new_diag->Text = ml.text;
+					new_diag->Style = ml.style;
+					new_diag->Start = ml.start_time;
+					new_diag->End = ml.end_time;
+					new_diag->Comment = ml.comment;
+					new_diag->Layer = ml.layer;
+					new_diag->Margin[0] = ml.margin_l;
+					new_diag->Margin[1] = ml.margin_r;
+					new_diag->Margin[2] = ml.margin_t;
+					new_diag->Actor = ml.actor;
+					new_diag->Effect = ml.effect;
+
+					c->ass->Events.insert(insert_pos, *new_diag);
+				}
 			}
 
 			// 提交修改（保持原来的选中状态）
