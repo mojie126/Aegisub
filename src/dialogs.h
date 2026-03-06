@@ -95,6 +95,8 @@ bool getOnOK();
 
 long getGifQuality();
 
+int getGifSpeedRate();
+
 int getCropX();
 
 int getCropY();

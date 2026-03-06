@@ -3541,6 +3541,14 @@ msgstr ""
 msgid "Frame: "
 msgstr ""
 
+#: ../src/dialog_jumpto.cpp
+msgid "Resolution Scale:"
+msgstr ""
+
+#: ../src/dialog_jumpto.cpp
+msgid "Scale down output resolution. 1:2 = half width and height, producing smaller files"
+msgstr ""
+
 #: ../src/dialog_jumpto.cpp:74
 msgid "Time: "
 msgstr ""

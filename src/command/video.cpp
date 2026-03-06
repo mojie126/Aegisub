@@ -356,7 +356,7 @@ namespace {
 		return fwrite(buf, 1, buf_len, f) == buf_len ? GIFSKI_OK : 1;
 	}
 
-	bool CreateGifFromWxImages(const agi::Context *c, agi::ProgressSink *ps, const std::wstring &outputPath, const double delay, const int totalFrame) {
+	bool CreateGifFromWxImages(const agi::Context *c, agi::ProgressSink *ps, const std::wstring &outputPath, const double delay, const int totalFrame, const int speed_rate = 1) {
 		const int start_frame = getStartFrame();
 		const int end_frame = getEndFrame();
 		if (start_frame > end_frame) {
@@ -407,8 +407,9 @@ namespace {
 		// Initialize gifski
 		GifskiSettings settings;
 		settings.quality = getGifQuality();
-		settings.width = cw;
-		settings.height = ch;
+		// scale_factor > 1 时缩小输出分辨率，宽高各除以 scale_factor
+		settings.width = (speed_rate > 1) ? (cw / speed_rate) : cw;
+		settings.height = (speed_rate > 1) ? (ch / speed_rate) : ch;
 		settings.fast = false;
 		settings.repeat = 0;
 
@@ -503,7 +504,6 @@ namespace {
 			}
 
 			// 计算累计时间戳（秒），delay 为毫秒/帧
-			// gifski API 要求 PTS 为秒，首帧 PTS=0，后续帧递增
 			double pts = current_frame * (delay / 1000.0);
 			error = gifski_add_frame_rgba(g, current_frame, cw, ch, pixels.data(), pts);
 			if (error != GIFSKI_OK) {
@@ -584,17 +584,23 @@ namespace {
 		if (getOnOK()) {
 			DialogProgress progress(nullptr, _("Export gif image"), wxEmptyString);
 			const double delay = static_cast<double>(getEndTime() - getStartTime()) / (getEndFrame() - getStartFrame() + 1);
+			const int speed_rate = getGifSpeedRate();
 			// 使用 agi::fs::path 构建 GIF 文件路径，确保编码正确
 			// 对文件名进行非法字符清理（dummy 视频名包含冒号等 Windows 非法字符）
 			wxString safe_name = SanitizeFileName(fName.GetName());
-			wxString gif_name = wxString::Format(wxT("%s_[%ld-%ld].gif"),
-				safe_name, getStartFrame(), getEndFrame());
+			wxString gif_name;
+			if (speed_rate > 1)
+				gif_name = wxString::Format(wxT("%s_[%ld-%ld]_s%d.gif"),
+					safe_name, getStartFrame(), getEndFrame(), speed_rate);
+			else
+				gif_name = wxString::Format(wxT("%s_[%ld-%ld].gif"),
+					safe_name, getStartFrame(), getEndFrame());
 			agi::fs::path gif_path = output_dir / agi::fs::path(gif_name.ToStdWstring());
 			try {
 				progress.Run(
 					[&](agi::ProgressSink *ps) {
 						CreateGifFromWxImages(
-							c, ps, gif_path.wstring(), delay, getEndFrame() - getStartFrame() + 1
+							c, ps, gif_path.wstring(), delay, getEndFrame() - getStartFrame() + 1, speed_rate
 						);
 					}
 				);

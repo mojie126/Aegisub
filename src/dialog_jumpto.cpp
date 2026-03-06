@@ -62,6 +62,7 @@
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
 #include <wx/timer.h>
+#include <wx/choice.h>
 #include <wx/tglbtn.h>
 
 long sFrame;
@@ -70,6 +71,7 @@ int startTime;
 int endTime;
 bool onOK = false;
 long onGifQuality;
+int onGifSpeedRate = 1; ///< GIF导出速率倍率（1/2/4/8/16）
 
 /// 裁剪区域坐标（视频实际像素坐标）
 int cropX = 0;
@@ -568,6 +570,8 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		wxTextCtrl *editEndFrame; ///< 结束帧编辑控件
 		long gifQuality;
 		wxSpinCtrl *editGifQuality;
+		int gifSpeedRate; ///< 速率倍率（1/2/4/8/16）
+		wxChoice *choiceSpeedRate; ///< 速率倍率下拉框
 		CropSelectionPanel *cropPanel; ///< 裁剪区域选择面板
 		wxToggleButton *playBtn; ///< 循环播放控制按钮
 
@@ -583,6 +587,8 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 
 		void OnEditGifQuality(wxCommandEvent &event);
 
+		void OnChoiceSpeedRate(wxCommandEvent &event);
+
 		/// Dialog initializer to set default focus and selection
 		void OnInitDialog(wxInitDialogEvent &);
 
@@ -594,7 +600,8 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		, c(c)
 		, startFrame(INT_MAX)
 		, endFrame(INT_MIN)
-		, gifQuality(90) {
+		, gifQuality(90)
+		, gifSpeedRate(4) {
 		d.SetIcon(GETICON(jumpto_button_16));
 
 		// 从选中行计算起止帧
@@ -655,6 +662,22 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		editGifQuality->SetToolTip(_("GIF image quality (1-100), higher values produce better quality but larger files"));
 		range_grid->Add(editGifQuality, 1, wxEXPAND);
 
+		range_grid->Add(
+			new wxStaticText(&d, -1, _("Resolution Scale:")),
+			0, wxALIGN_CENTER_VERTICAL
+		);
+		wxArrayString speedChoices;
+		speedChoices.Add("1:1");
+		speedChoices.Add("1:2");
+		speedChoices.Add("1:4");
+		speedChoices.Add("1:6");
+		speedChoices.Add("1:8");
+		speedChoices.Add("1:10");
+		choiceSpeedRate = new wxChoice(&d, -1, wxDefaultPosition, wxSize(-1, -1), speedChoices);
+		choiceSpeedRate->SetSelection(2);
+		choiceSpeedRate->SetToolTip(_("Scale down output resolution. 1:2 = half width and height, producing smaller files"));
+		range_grid->Add(choiceSpeedRate, 1, wxEXPAND);
+
 		range_sizer->Add(range_grid, 0, wxEXPAND | wxALL, inner_pad);
 
 		// ====== 裁剪区域组 ======
@@ -707,6 +730,7 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		editStartFrame->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditStartFrame, this);
 		editEndFrame->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditEndFrame, this);
 		editGifQuality->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditGifQuality, this);
+		choiceSpeedRate->Bind(wxEVT_CHOICE, &DialogJumpFrameTo::OnChoiceSpeedRate, this);
 		playBtn->Bind(
 			wxEVT_TOGGLEBUTTON, [this](wxCommandEvent &) {
 				// 切换播放前同步帧范围
@@ -735,6 +759,7 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		d.EndModal(0);
 		onOK = true;
 		onGifQuality = gifQuality = editGifQuality->GetValue();
+		onGifSpeedRate = gifSpeedRate;
 
 		// 保存裁剪区域到全局变量
 		if (cropPanel->HasSelection()) {
@@ -774,6 +799,14 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 
 	void DialogJumpFrameTo::OnEditGifQuality(wxCommandEvent &event) {
 		onGifQuality = gifQuality = editGifQuality->GetValue();
+	}
+
+	void DialogJumpFrameTo::OnChoiceSpeedRate(wxCommandEvent &event) {
+		/// 分辨率缩放比例映射表：索引 0~5 对应 1/2/4/6/8/10
+		static constexpr int kSpeedRates[] = {1, 2, 4, 6, 8, 10};
+		int sel = choiceSpeedRate->GetSelection();
+		if (sel >= 0 && sel < static_cast<int>(std::size(kSpeedRates)))
+			gifSpeedRate = kSpeedRates[sel];
 	}
 
 	/// 帧序列导出对话框（仅帧范围，不含裁剪和GIF质量）
@@ -927,6 +960,10 @@ bool getOnOK() {
 
 long getGifQuality() {
 	return onGifQuality;
+}
+
+int getGifSpeedRate() {
+	return onGifSpeedRate;
 }
 
 int getCropX() {
