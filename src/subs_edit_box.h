@@ -163,6 +163,9 @@ class SubsEditBox final : public wxPanel {
 	void OnSplit(wxCommandEvent&);
 	void DoOnSplit(bool show_original);
 
+	/// 更新原文编辑框的字体设置，使其与用户自定义的字幕编辑框字体一致
+	void UpdateSecondaryEditorFont();
+
 	/// @brief Set a field in each selected line to a specified value
 	/// @param set   Callable which updates a passed line
 	/// @param desc  Undo description to use

@@ -49,6 +49,7 @@ tests_src = [
     'tests/hdr_video_audit.cpp',
     'tests/text_file_writer.cpp',
     'tests/audit_fixes.cpp',
+    'tests/style_rename.cpp',
 ]
 
 # TextFileWriter 源文件（需要从主项目引入）

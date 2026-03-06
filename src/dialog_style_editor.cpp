@@ -51,8 +51,6 @@
 #include "utils.h"
 #include "validators.h"
 
-#include <libaegisub/of_type_adaptor.h>
-
 #include <algorithm>
 #include <freetype/freetype.h>
 
@@ -114,27 +112,75 @@ wxArrayString LoadFontsFromDirectory(const wxString &directory) {
 class StyleRenamer {
 	agi::Context *c;
 	bool found_any = false;
-	bool do_replace = false;
-	bool modified_current = false; ///< 当前行的 \r 标签是否被修改
 	std::string source_name;
 	std::string new_name;
 
-	/// @brief 处理单个覆写参数，检查是否为引用目标样式的 \r 标签
-	static void ProcessTag(std::string const& tag, AssOverrideParameter* param, void *userData) {
-		StyleRenamer *self = static_cast<StyleRenamer*>(userData);
-		if (tag == "\\r" && param->GetType() == VariableDataType::TEXT && param->Get<std::string>() == self->source_name) {
-			if (self->do_replace) {
-				param->Set(self->new_name);
-				self->modified_current = true;
+	/// @brief 在文本中直接替换覆写块内的 \r 标签样式引用
+	///
+	/// 使用字符串级别的定向替换而非 ParseTags/UpdateText 往返，
+	/// 避免对含 Lua 模板代码等非标准内容造成误修改。
+	/// @param text 对话行原始文本
+	/// @param replace 是否执行替换（false 时仅检测是否存在引用）
+	/// @return 替换后的文本（replace=false 时返回值无意义）
+	std::string ReplaceStyleInOverrides(const std::string& text, bool replace) {
+		std::string result;
+		result.reserve(text.size());
+		std::string target = "\\r" + source_name;
+
+		size_t pos = 0;
+		while (pos < text.size()) {
+			if (text[pos] == '{') {
+				size_t end = text.find('}', pos);
+				if (end == std::string::npos) {
+					result += text.substr(pos);
+					break;
+				}
+
+				// 在覆写块内搜索 \rSourceName
+				size_t bpos = pos;
+				size_t block_end = end + 1;
+				while (bpos < block_end) {
+					size_t found = text.find(target, bpos);
+					if (found == std::string::npos || found >= block_end) {
+						result += text.substr(bpos, block_end - bpos);
+						break;
+					}
+
+					// 验证匹配位置：\r 标签参数以 \ 或 } 结束
+					size_t after = found + target.size();
+					if (after >= text.size() || text[after] == '\\' || text[after] == '}') {
+						if (replace) {
+							result += text.substr(bpos, found - bpos);
+							result += "\\r" + new_name;
+							bpos = after;
+						}
+						else {
+							found_any = true;
+							return {};
+						}
+					}
+					else {
+						result += text.substr(bpos, after - bpos);
+						bpos = after;
+					}
+				}
+				pos = block_end;
 			}
-			else
-				self->found_any = true;
+			else {
+				size_t next = text.find('{', pos);
+				if (next == std::string::npos) {
+					result += text.substr(pos);
+					break;
+				}
+				result += text.substr(pos, next - pos);
+				pos = next;
+			}
 		}
+		return result;
 	}
 
 	void Walk(bool replace) {
 		found_any = false;
-		do_replace = replace;
 
 		for (auto& diag : c->ass->Events) {
 			if (diag.Style == source_name) {
@@ -144,12 +190,13 @@ class StyleRenamer {
 					found_any = true;
 			}
 
-			modified_current = false;
-			auto blocks = diag.ParseTags();
-			for (auto block : blocks | agi::of_type<AssDialogueBlockOverride>())
-				block->ProcessParameters(&StyleRenamer::ProcessTag, this);
-			if (replace && modified_current)
-				diag.UpdateText(blocks);
+			const std::string& text = diag.Text.get();
+			if (text.find("\\r") != std::string::npos) {
+				std::string new_text = ReplaceStyleInOverrides(text, replace);
+				if (found_any) return;
+				if (replace && new_text != text)
+					diag.Text = std::move(new_text);
+			}
 
 			if (found_any) return;
 		}
