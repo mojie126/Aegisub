@@ -136,6 +136,13 @@ class StyleRenamer {
 					break;
 				}
 
+				// 仅处理标准 ASS 覆写块，跳过 {!...!} 等模板/脚本块
+				if (pos + 1 >= text.size() || text[pos + 1] != '\\') {
+					result += text.substr(pos, end - pos + 1);
+					pos = end + 1;
+					continue;
+				}
+
 				// 在覆写块内搜索 \rSourceName
 				size_t bpos = pos;
 				size_t block_end = end + 1;
