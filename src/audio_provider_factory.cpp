@@ -145,8 +145,9 @@ std::unique_ptr<agi::AudioProvider> GetAudioProvider(fs::path const& filename,
 
 	bool needs_cache = provider->NeedsCache();
 
-	// Give it a converter if needed
-	if (provider->GetBytesPerSample() != 2 || provider->GetSampleRate() < 32000 || provider->GetChannels() != 1)
+	// 仅对低采样率音频做兼容性转换。
+	// 高采样率音频保留原始格式，避免在加载阶段被提前下混导致播放音量下降。
+	if (provider->GetSampleRate() < 32000)
 		provider = CreateConvertAudioProvider(std::move(provider));
 
 	// Change provider to RAM/HD cache if needed
