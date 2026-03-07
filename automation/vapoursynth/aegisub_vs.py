@@ -382,19 +382,32 @@ def get_keyframes(filename: str, clip: vs.VideoNode, fallback: str | List[int],
 
 def check_audio(filename: str, **kwargs: Any) -> bool:
     """
-    Checks whether the given file has an audio track by trying to open it with
-    BestSource. Requires the `bs` plugin to return correct results, but
-    won't crash if it's not installed.
-    Additional keyword arguments are passed on to BestSource.
+    检查文件是否包含音频轨道。
+
+    依次尝试以下方式探测：
+      1. BestSource (bs) 插件
+      2. L-SMASH Works (lsmas) 插件的 LWLibavAudioSource
+
+    任一方式成功即返回 True。全部失败或插件不可用时返回 False。
+    kwargs 仅传递给 BestSource。
     """
     progress_set_message("Checking if the file has an audio track")
     progress_set_indeterminate()
+
+    # 方式 1：BestSource
     try:
         ensure_plugin("bs", "BestSource", "")
         vs.core.bs.AudioSource(source=filename, **kwargs)
         return True
-    except AttributeError:
+    except (AttributeError, vs.Error):
         pass
-    except vs.Error:
+
+    # 方式 2：lsmas LWLibavAudioSource
+    try:
+        if hasattr(core, "lsmas") and hasattr(core.lsmas, "LWLibavAudioSource"):
+            core.lsmas.LWLibavAudioSource(source=filename)
+            return True
+    except (AttributeError, vs.Error):
         pass
+
     return False
