@@ -407,9 +407,9 @@ namespace {
 		// Initialize gifski
 		GifskiSettings settings;
 		settings.quality = getGifQuality();
-		// scale_factor > 1 时缩小输出分辨率，宽高各除以 scale_factor
-		settings.width = (speed_rate > 1) ? (cw / speed_rate) : cw;
-		settings.height = (speed_rate > 1) ? (ch / speed_rate) : ch;
+		// scale_factor > 1 时缩小输出分辨率，宽高至少保留 1 像素
+		settings.width = std::max(1, (speed_rate > 1) ? (cw / speed_rate) : cw);
+		settings.height = std::max(1, (speed_rate > 1) ? (ch / speed_rate) : ch);
 		settings.fast = false;
 		settings.repeat = 0;
 
