@@ -41,6 +41,13 @@ static std::string ReplaceStyleInOverrides(const std::string& text,
 				break;
 			}
 
+			// 仅处理标准 ASS 覆写块，跳过 {!...!} 等模板/脚本块
+			if (pos + 1 >= text.size() || text[pos + 1] != '\\') {
+				result += text.substr(pos, end - pos + 1);
+				pos = end + 1;
+				continue;
+			}
+
 			// 在覆写块内搜索 \rSourceName
 			size_t bpos = pos;
 			size_t block_end = end + 1;
@@ -181,6 +188,12 @@ TEST(StyleRenameTest, LuaBlock_NoMatch) {
 	EXPECT_EQ("{!retime(\"line\",0,200)!}", DoReplace("{!retime(\"line\",0,200)!}", "OldStyle", "NewStyle"));
 }
 
+/// Lua 模板块中的字符串即使包含 \rOld 也不应被替换
+TEST(StyleRenameTest, LuaBlock_MatchingSequencePreserved) {
+	EXPECT_EQ("{! return \"\\rOld\\fs20\" !}",
+	          DoReplace("{! return \"\\rOld\\fs20\" !}", "Old", "New"));
+}
+
 /// 混合覆写块和 Lua 块：仅覆写块被修改
 TEST(StyleRenameTest, LuaBlock_MixedWithOverride) {
 	EXPECT_EQ("{\\rNew}{!code()!}text",
@@ -230,6 +243,11 @@ TEST(StyleRenameTest, Detect_NotFound) {
 /// 纯文本中即使包含 \rStyleName 也不应检测到（不在覆写块内）
 TEST(StyleRenameTest, Detect_NotInOverride) {
 	EXPECT_FALSE(HasReference("text\\rOldStyle", "OldStyle"));
+}
+
+/// Lua 模板块中的字符串不应被当作覆写块引用
+TEST(StyleRenameTest, Detect_LuaBlockIgnored) {
+	EXPECT_FALSE(HasReference("{! return \"\\rOldStyle\" !}", "OldStyle"));
 }
 
 /// 样式名为更长名称的前缀时不应检测到
