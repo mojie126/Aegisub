@@ -7323,7 +7323,7 @@ msgstr ""
 
 #: ../src/mocha_motion/motion_dialog.cpp
 msgid ""
-"Reverse tracking data order. Use when Mocha tracked from last frame to first frame."
+"Reverse tracking: automatically set start frame to the last frame of the selected lines. Mocha always exports data in forward chronological order regardless of tracking direction."
 msgstr ""
 
 #: ../src/mocha_motion/motion_dialog.cpp

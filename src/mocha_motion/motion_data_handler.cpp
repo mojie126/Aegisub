@@ -309,8 +309,8 @@ void DataHandler::reverse_data() {
 		return;
 	}
 	// 反转所有追踪数据数组，使帧顺序翻转
-	// 对应原始 dialog_mocha.cpp 中 parseData(insertFromStart=true) 的行为
-	// 用于反向追踪场景：Mocha 从最后一帧向第一帧追踪时，导出的数据是倒序的
+	// 注意：Mocha 无论正向还是反向追踪，导出数据始终为时间正序，
+	// 当前流程不再调用此方法。保留供可能的手动倒序数据使用。
 	std::reverse(x_position.begin(), x_position.end());
 	std::reverse(y_position.begin(), y_position.end());
 	std::reverse(z_position.begin(), z_position.end());
