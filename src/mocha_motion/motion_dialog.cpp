@@ -542,6 +542,8 @@ namespace mocha {
 			bind_update(chk_x_pos);
 			bind_update(chk_y_pos);
 			bind_update(chk_reverse);
+			bind_update(chk_linear);
+			bind_update(chk_kill_trans);
 
 			// 保存配置勾选状态变化时即时持久化
 			chk_write_conf->Bind(wxEVT_CHECKBOX, &MotionDialogImpl::OnWriteConfChanged, this);
@@ -699,6 +701,11 @@ namespace mocha {
 			bool rc_to_vc = chk_rc_to_vc->IsChecked();
 			bool clip_only = chk_clip_only->IsChecked();
 			bool relative = chk_relative->IsChecked();
+			bool linear = chk_linear->IsChecked();
+
+			// 单行模式下 kill_trans 通常不生效（除非因 \org/clip 回退到逐帧）
+			// 禁用 Multi-line(\t) 以减少困惑
+			chk_kill_trans->Enable(!linear);
 
 			// 缩放关闭时，禁用边框/阴影/模糊/倍率
 			// 对应 MoonScript: border/shadow/blur 依赖 scale

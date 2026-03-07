@@ -449,8 +449,14 @@ namespace mocha {
 				// 线性模式：直接还原变换标签
 				line.dont_touch_transforms();
 			} else {
-				// 非线性模式：去重标签
+				// 非线性模式：标记化变换标签后去重，再还原
+				// 必须先 tokenize，否则 deduplicate_tags 会：
+				//   1. 将 \t(...) 内部的标签与外部同名标签视为重复，误删外部标签
+				//   2. \t 注册正则使用非贪婪 .*?，无法正确匹配含嵌套括号的
+				//      \t(\1img(png,-80,0)) 等标签，导致截断和孤立括号
+				line.tokenize_transforms();
 				line.deduplicate_tags();
+				line.dont_touch_transforms();
 			}
 
 			// 移位卡拉 OK 标签

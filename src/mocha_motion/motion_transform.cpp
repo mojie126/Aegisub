@@ -358,6 +358,19 @@ namespace mocha {
 			}
 		}
 
+		// 保留 effect 中不可插值的标签原文（如 \img 系列）
+		// 这些标签未被 gather_tags_in_effect() 收集，插值时会被遗漏
+		for (const auto &[name, tag_def] : registry.all_tags()) {
+			if (typed_effect_tags.count(name) > 0) continue;
+			if (tag_def.type == TagType::TRANSFORM) continue;
+			std::sregex_iterator it(effect.begin(), effect.end(), tag_def.compiled_pattern);
+			std::sregex_iterator end_it;
+			while (it != end_it) {
+				replacement += (*it)[0].str();
+				++it;
+			}
+		}
+
 		result.replace(pos, placeholder.length(), replacement);
 		return result;
 	}
