@@ -32,6 +32,7 @@
 #include <ass_style.h>
 #include <dialog_manager.h>
 #include <format.h>
+#include <algorithm>
 #include <iomanip>
 #include <regex>
 
@@ -263,13 +264,8 @@ namespace {
 				return;
 			}
 
-			// 如果启用反向追踪，先反转追踪数据数组
-			if (result.options.reverse_tracking) {
-				result.main_data.reverse_data();
-				if (result.has_clip_data) {
-					result.clip_data.reverse_data();
-				}
-			}
+			// Mocha 无论正向还是反向追踪，导出数据始终为时间正序，
+			// 无需翻转数据数组。reverse_tracking 仅用于对话框中自动设置起始帧。
 
 			// 构建运动处理器，传入用户选项和脚本分辨率
 			mocha::MotionProcessor processor(result.options, result.script_res_x, result.script_res_y);
@@ -336,20 +332,6 @@ namespace {
 					collection_start_frame
 				);
 
-				// 如果启用反向追踪，反转输出行的时间分配
-				if (result.options.reverse_tracking && new_lines.size() > 1) {
-					std::vector<std::pair<int, int>> times;
-					times.reserve(new_lines.size());
-					for (const auto &nl : new_lines) {
-						times.emplace_back(nl.start_time, nl.end_time);
-					}
-					std::reverse(times.begin(), times.end());
-					for (size_t i = 0; i < new_lines.size(); ++i) {
-						new_lines[i].start_time = times[i].first;
-						new_lines[i].end_time = times[i].second;
-					}
-				}
-
 				grouped_results.push_back(std::move(new_lines));
 
 				++line_index;
@@ -367,14 +349,17 @@ namespace {
 
 			// 阶段 2：记录选中行之后的插入位置
 			// selected_lines 已按反序排列（最晚行在前），最后一个元素是正序中最早的行
-			// 在该行的位置插入新行（删除原始行后，插入位置自动调整到正确位置）
-			AssDialogue *last_selected = selected_lines.back();
+			// 正式模式：在最早行的位置插入（删除原始行后，插入位置自动调整）
+			// 预览模式：在最晚行之后插入，保留所有已注释原始行在结果前方
+			AssDialogue *anchor_line = result.options.preview
+				? selected_lines.front()   // 预览：最晚行（反序首元素）
+				: selected_lines.back();   // 正式：最早行（反序末元素）
 
 			// 使用行的索引而非迭代器，避免删除行时迭代器失效
 			int insert_index = -1;
 			int idx = 0;
 			for (const auto &event : c->ass->Events) {
-				if (&event == last_selected) {
+				if (&event == anchor_line) {
 					insert_index = idx + 1; // 该行之后
 					break;
 				}
@@ -438,6 +423,13 @@ namespace {
 					c->ass->Events.insert(insert_pos, *separator);
 				}
 				first_group = false;
+
+				// 按时间升序排序组内结果，确保无论正向还是反向追踪
+				// 插入 Events 后均为时间正序
+				std::sort(grouped_results[gi].begin(), grouped_results[gi].end(),
+					[](const mocha::MotionLine &a, const mocha::MotionLine &b) {
+						return a.start_time < b.start_time;
+					});
 
 				for (const auto &ml : grouped_results[gi]) {
 					auto *new_diag = new AssDialogue;

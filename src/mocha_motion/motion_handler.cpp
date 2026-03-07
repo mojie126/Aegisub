@@ -298,7 +298,8 @@ namespace mocha {
 ///
 /// 对应 MoonScript nonlinear()。
 /// 核心流程：
-///   1. 逆序遍历帧（从 relativeEnd 到 relativeStart，保证插入到事件列表后为正序）
+///   1. 逆序遍历帧（从 relativeEnd 到 relativeStart），输出为逆时序
+///      调用方需对输出排序以恢复时间正序
 ///   2. 每帧计算精确的起止时间（10ms 对齐，避免渲染空隙）
 ///   3. 处理变换标签：kill_trans=true 时逐帧插值 \t，否则仅偏移时间
 ///   4. 处理 \fade：转换为逐帧 \alpha 值或偏移 \fade 时间参数
@@ -316,7 +317,8 @@ namespace mocha {
 										std::function<int(int)> &ms_from_frame,
 										std::vector<MotionLine> &result) {
 		// 对应 MoonScript nonlinear()
-		// 逆序遍历帧（MoonScript 从 relativeEnd 到 relativeStart）保证插入顺序
+		// 逆序遍历帧（沿袭 MoonScript 从 relativeEnd 到 relativeStart 的遍历顺序）
+		// 注意：输出向量为逆时序（最晚帧在前），调用方需对输出排序以恢复正序
 		int rel_start = line.relative_start;
 		int rel_end = line.relative_end;
 

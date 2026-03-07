@@ -120,6 +120,8 @@ namespace mocha {
 			int collection_end_frame_ = 0;
 			/// 上一次的 relative 状态，用于检测切换
 			bool last_relative_ = true;
+			/// 上一次的 reverse_tracking 状态，用于检测切换
+			bool last_reverse_ = false;
 
 			// 结果
 			MotionDialogResult result;
@@ -375,8 +377,10 @@ namespace mocha {
 			chk_reverse = new wxCheckBox(&d, wxID_ANY, _("Reverse tracking"));
 			chk_reverse->SetToolTip(
 				_(
-					"Reverse tracking data order. Use when Mocha tracked from "
-					"last frame to first frame."
+					"Reverse tracking: automatically set start frame to the "
+					"last frame of the selected lines. Mocha always exports "
+					"data in forward chronological order regardless of "
+					"tracking direction."
 				)
 			);
 
@@ -512,6 +516,10 @@ namespace mocha {
 			// 记录初始 relative 状态，用于后续切换检测
 			last_relative_ = result.options.relative;
 
+			// last_reverse_ 始终初始化为 false，使首次 UpdateDependencies()
+			// 能检测到配置中已勾选的反向追踪并自动设置起始帧
+			last_reverse_ = false;
+
 			// 帧范围计算完毕后刷新数据状态
 			// OnPaste 在 collection 帧范围初始化之前调用，此时帧比较条件不成立，
 			// 需在帧范围就绪后重新检测以显示完整的帧数比较信息
@@ -533,6 +541,7 @@ namespace mocha {
 			bind_update(chk_clip_only);
 			bind_update(chk_x_pos);
 			bind_update(chk_y_pos);
+			bind_update(chk_reverse);
 
 			// 保存配置勾选状态变化时即时持久化
 			chk_write_conf->Bind(wxEVT_CHECKBOX, &MotionDialogImpl::OnWriteConfChanged, this);
@@ -755,6 +764,50 @@ namespace mocha {
 						const int effective_rel = (old_val <= 0) ? 1 : old_val;
 						const int new_val = effective_rel + collection_start_frame_ - 1;
 						spin_start_frame->SetValue(new_val);
+					}
+				}
+			}
+
+			// 检测反向追踪是否发生了切换，切换时自动调整起始帧
+			bool reverse = chk_reverse->IsChecked();
+			if (reverse != last_reverse_) {
+				last_reverse_ = reverse;
+				if (collection_end_frame_ > collection_start_frame_) {
+					const int total_frames = collection_end_frame_ - collection_start_frame_;
+					if (reverse) {
+						// 反向追踪：设置为选中行的最后一帧
+						// relative 最后一帧 = total_frames（1-indexed）
+						// absolute 最后一帧 = collection_end_frame_ - 1（End 时间对应的帧号
+						// 是下一帧的起始，减1得到实际末帧）
+						// 两者在 processor 中均转换为 ref_frame = total_frames
+						if (relative) {
+							spin_start_frame->SetValue(std::max(1, total_frames));
+						} else {
+							int last_abs = collection_end_frame_ - 1;
+							if (last_abs < collection_start_frame_) last_abs = collection_start_frame_;
+							spin_start_frame->SetValue(last_abs);
+						}
+						// 同步更新独立 clip 追踪的起始帧
+						if (clip_options_.relative) {
+							clip_options_.start_frame = std::max(1, total_frames);
+						} else {
+							int clip_last = collection_end_frame_ - 1;
+							if (clip_last < collection_start_frame_) clip_last = collection_start_frame_;
+							clip_options_.start_frame = clip_last;
+						}
+					} else {
+						// 正向追踪：恢复为选中行的第一帧
+						if (relative) {
+							spin_start_frame->SetValue(1);
+						} else {
+							spin_start_frame->SetValue(collection_start_frame_);
+						}
+						// 同步恢复独立 clip 追踪的起始帧
+						if (clip_options_.relative) {
+							clip_options_.start_frame = 1;
+						} else {
+							clip_options_.start_frame = collection_start_frame_;
+						}
 					}
 				}
 			}

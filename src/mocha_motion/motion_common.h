@@ -55,7 +55,7 @@ struct MotionOptions {
 	int start_frame = 1;         // 起始帧编号
 	bool write_conf = true;      // 写入配置
 	bool preview = false;        // 便捷预览模式
-	bool reverse_tracking = false; // 反向追踪
+	bool reverse_tracking = false; // 反向追踪：自动将起始帧设为选中行最后一帧
 };
 
 /// 独立 clip 追踪配置选项
