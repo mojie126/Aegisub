@@ -84,24 +84,22 @@ public:
 
 namespace agi {
 std::unique_ptr<AudioProvider> CreateConvertAudioProvider(std::unique_ptr<AudioProvider> provider) {
-	// 低采样率音频需先转换为 16-bit 单声道，再进行倍频
-	// 高采样率音频不强制转换——DS2/XAudio2 原生支持多声道播放,
-	// 强制下混会因通道平均 (L+R)/N 导致 3~6dB 的音量损失
-	if (provider->GetSampleRate() < 32000) {
-		if (provider->AreSamplesFloat()) {
+	// 按需转换为 16-bit 单声道
+	bool needs_conversion = provider->AreSamplesFloat() || provider->GetBytesPerSample() != 2 || provider->GetChannels() != 1;
+	if (needs_conversion) {
+		if (provider->AreSamplesFloat())
 			LOG_D("audio_provider") << "Converting float to S16";
-		}
-		if (provider->GetBytesPerSample() != 2) {
+		if (provider->GetBytesPerSample() != 2)
 			LOG_D("audio_provider") << "Converting " << provider->GetBytesPerSample() << " bytes per sample to S16";
-		}
-		if (provider->GetChannels() != 1) {
+		if (provider->GetChannels() != 1)
 			LOG_D("audio_provider") << "Downmixing to mono from " << provider->GetChannels() << " channels";
-		}
 		provider = std::make_unique<ConvertAudioProvider>(std::move(provider));
-		while (provider->GetSampleRate() < 32000) {
-			LOG_D("audio_provider") << "Doubling sample rate";
-			provider = std::make_unique<SampleDoublingAudioProvider>(std::move(provider));
-		}
+	}
+
+	// 低采样率音频倍频至 32kHz 以上，避免部分播放器兼容性问题
+	while (provider->GetSampleRate() < 32000) {
+		LOG_D("audio_provider") << "Doubling sample rate";
+		provider = std::make_unique<SampleDoublingAudioProvider>(std::move(provider));
 	}
 
 	return provider;
