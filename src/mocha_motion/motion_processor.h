@@ -42,7 +42,7 @@ public:
 	/// 对应 MoonScript prepareLines()
 	void prepare_lines(std::vector<MotionLine>& lines);
 
-	/// 后处理行集合（detokenize, combine identical 等）
+	/// 后处理行集合（恢复 \t 占位符、去重、合并相同行等）
 	/// 对应 MoonScript postprocLines()
 	void postprocess_lines(std::vector<MotionLine>& lines);
 
