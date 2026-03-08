@@ -165,10 +165,18 @@ void TimeEdit::OnKeyDown(wxKeyEvent &event) {
 }
 
 void TimeEdit::OnChar(wxKeyEvent &event) {
+	const int unicode_key = event.GetUnicodeKey();
+	const int key_code = event.GetKeyCode();
+	const bool is_printable_alt_char = unicode_key >= WXK_SPACE || (key_code >= WXK_SPACE && key_code < 127);
+	if (event.AltDown() && !event.CmdDown() && is_printable_alt_char && !HasReservedMnemonic(this, key_code)) {
+		event.Skip(false);
+		return;
+	}
+
 	event.Skip();
 	if (byFrame || insert) return;
 
-	int key = event.GetUnicodeKey();
+	int key = unicode_key;
 	if ((key < '0' || key > '9') && key != ';' && key != '.' && key != ',') return;
 
 	event.Skip(false);

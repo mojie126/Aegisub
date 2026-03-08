@@ -71,6 +71,12 @@ void AddFullScreenButton(wxWindow *window);
 
 void SetFloatOnParent(wxWindow *window);
 
+/// @brief 判断按键是否应保留给助记键系统处理
+/// @param window 当前控件
+/// @param key_code 按键码
+/// @return 命中需保留的助记键时返回 true
+bool HasReservedMnemonic(wxWindow *window, int key_code);
+
 /// Forward a mouse wheel event to the window under the mouse if needed
 /// @param source The initial target of the wheel event
 /// @param evt The event

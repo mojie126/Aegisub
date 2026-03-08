@@ -21,6 +21,8 @@
 #include <libaegisub/exception.h>
 #include <libaegisub/util.h>
 
+#include "utils.h"
+
 #include <wx/combobox.h>
 #include <wx/spinctrl.h>
 #include <wx/textctrl.h>
@@ -61,6 +63,12 @@ bool IntValidator::TransferToWindow() {
 
 void IntValidator::OnChar(wxKeyEvent& event) {
 	int chr = event.GetKeyCode();
+	const bool is_printable_alt_char = chr >= WXK_SPACE && chr < WXK_START;
+	if (event.AltDown() && !event.CmdDown() && is_printable_alt_char && !HasReservedMnemonic(GetWindow(), chr)) {
+		event.Skip(false);
+		return;
+	}
+
 	if (chr < WXK_SPACE || chr == WXK_DELETE || chr > WXK_START) {
 		event.Skip();
 		return;
@@ -107,6 +115,12 @@ DoubleValidator::DoubleValidator(DoubleValidator const& rgt)
 
 void DoubleValidator::OnChar(wxKeyEvent& event) {
 	int chr = event.GetKeyCode();
+	const bool is_printable_alt_char = chr >= WXK_SPACE && chr < WXK_START;
+	if (event.AltDown() && !event.CmdDown() && is_printable_alt_char && !HasReservedMnemonic(GetWindow(), chr)) {
+		event.Skip(false);
+		return;
+	}
+
 	if (chr < WXK_SPACE || chr == WXK_DELETE || chr > WXK_START) {
 		event.Skip();
 		return;
