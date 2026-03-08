@@ -69,9 +69,6 @@
 		"audio/play/toggle" : [
 			"B"
 		],
-		"play/toggle/av" : [
-			"Space"
-		],
 		"audio/scroll/left" : [
 			"A"
 		],
@@ -321,7 +318,7 @@
 		]
 	},
 	"Video" : {
-		"play/toggle/av" : [
+		"video/play/line" : [
 			"Space"
 		],
 		"video/frame/next" : [

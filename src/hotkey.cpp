@@ -35,7 +35,7 @@ namespace {
 		Combo("Video", "time/align", "KP_TAB"),
 	};
 	static const std::array<Combo, 1> added_hotkeys_video_space = {
-		Combo("Video", "play/toggle/av", "Space"),
+		Combo("Video", "video/play/line", "Space"),
 	};
 	static const std::array<Combo, 1> added_hotkeys_7035 = {
 		Combo("Audio", "audio/play/line", "R"),
@@ -167,7 +167,7 @@ void init() {
 		migrations.emplace_back("space -> play/toggle/av");
 	}
 
-	// 确保 Video 上下文中存在 Space → play/toggle/av 快捷键
+	// 确保 Video 上下文中存在 Space → video/play/line 快捷键
 	if (boost::find(migrations, "video_space_play") == end(migrations)) {
 		migrate_hotkeys(added_hotkeys_video_space);
 		migrations.emplace_back("video_space_play");
@@ -190,6 +190,36 @@ void init() {
 		if (changed)
 			hotkey::inst->SetHotkeyMap(std::move(hk_map));
 		migrations.emplace_back("remove_default_space");
+	}
+
+	// 移除 Audio 上下文中的 Space 热键，
+	// 将 Video 上下文中 Space 从 play/toggle/av 迁移到 video/play/line
+	if (boost::find(migrations, "space_to_video_play_line") == end(migrations)) {
+		auto hk_map = hotkey::inst->GetHotkeyMap();
+		bool changed = false;
+		for (auto it = hk_map.lower_bound("play/toggle/av"); it != hk_map.upper_bound("play/toggle/av"); ) {
+			if (it->second.Str() == "Space" &&
+			    (it->second.Context() == "Audio" || it->second.Context() == "Video")) {
+				if (it->second.Context() == "Video") {
+					bool has_new = false;
+					for (auto const& h : boost::make_iterator_range(hk_map.equal_range("video/play/line"))) {
+						if (h.second.Context() == "Video" && h.second.Str() == "Space") {
+							has_new = true;
+							break;
+						}
+					}
+					if (!has_new)
+						hk_map.insert({"video/play/line", agi::hotkey::Combo("Video", "video/play/line", "Space")});
+				}
+				it = hk_map.erase(it);
+				changed = true;
+			} else {
+				++it;
+			}
+		}
+		if (changed)
+			hotkey::inst->SetHotkeyMap(std::move(hk_map));
+		migrations.emplace_back("space_to_video_play_line");
 	}
 
 	OPT_SET("App/Hotkey Migrations")->SetListString(std::move(migrations));
