@@ -740,6 +740,9 @@ bool BaseGrid::IsDisplayed(const AssDialogue *line) const {
 }
 
 void BaseGrid::OnCharHook(wxKeyEvent &event) {
+	if (HandleHotkeysOnPrintableKey(event, context, {"Subtitle Grid", "Video", "Audio"}))
+		return;
+
 	if (hotkey::check("Subtitle Grid", context, event))
 		return;
 
@@ -760,6 +763,9 @@ void BaseGrid::OnCharHook(wxKeyEvent &event) {
 }
 
 void BaseGrid::OnKeyDown(wxKeyEvent &event) {
+	if (HandleHotkeysOnPrintableKey(event, context, {"Subtitle Grid", "Video", "Audio"}))
+		return;
+
 	int w,h;
 	GetClientSize(&w, &h);
 

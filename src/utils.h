@@ -32,12 +32,17 @@
 #include <libaegisub/fs.h>
 
 #include <cstdint>
+#include <initializer_list>
 #include <string>
 
 #include <wx/bitmap.h>
 #include <wx/string.h>
 
 #include <hb.h>
+
+namespace agi {
+	struct Context;
+}
 
 class wxFrame;
 class wxKeyEvent;
@@ -76,6 +81,13 @@ void SetFloatOnParent(wxWindow *window);
 /// @param key_code 按键码
 /// @return 命中需保留的助记键时返回 true
 bool HasReservedMnemonic(wxWindow *window, int key_code);
+
+/// @brief 对可打印字符按键执行一组热键上下文检查
+/// @param event 当前按键事件
+/// @param context 当前项目上下文
+/// @param contexts 需要依次检查的热键上下文列表
+/// @return 命中并执行任一热键时返回 true
+bool HandleHotkeysOnPrintableKey(wxKeyEvent &event, agi::Context *context, std::initializer_list<std::string_view> contexts);
 
 /// Forward a mouse wheel event to the window under the mouse if needed
 /// @param source The initial target of the wheel event
