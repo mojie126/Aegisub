@@ -12,6 +12,8 @@
 // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+#pragma once
+
 #include <array>
 #include <string_view>
 #include <vector>
@@ -67,6 +69,11 @@ public:
 	/// @param entry 0-base position of entry
 	/// @exception MRUError thrown when an invalid key is used.
 	agi::fs::path const& GetEntry(std::string_view key, const size_t entry);
+
+	/// @brief 清除指定列表的所有条目
+	/// @param key 列表名称
+	/// @exception MRUError 当使用无效键时抛出
+	void Clear(std::string_view key);
 
 	/// Write MRU lists to disk.
 	void Flush();

@@ -398,6 +398,86 @@ msgstr ""
 msgid "Bring forward all open documents to the front"
 msgstr ""
 
+#: ../src/command/app.cpp
+msgid "Clear &Cache..."
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Clear Cache"
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Clear audio and video index cache files"
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Clear all audio and video cache files?"
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Confirm"
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Deleted %d cache files."
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Clear &Log Files..."
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Clear Log Files"
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Clear accumulated log files"
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Clear all log files?"
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Deleted %d log files."
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Clear &Recent Lists..."
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Clear Recent Lists"
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Clear all recently opened file lists"
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Clear all recently opened file lists?"
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Clear Auto&save/Backup..."
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Clear Autosave/Backup"
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Clear autosave and automatic backup files"
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Clear all autosave and automatic backup files?"
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Deleted %d autosave/backup files."
+msgstr ""
+
 #: ../src/command/audio.cpp:66
 msgid "&Close Audio"
 msgstr ""

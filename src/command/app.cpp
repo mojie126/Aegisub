@@ -33,7 +33,9 @@
 
 #include "command.h"
 
+#include <libaegisub/fs.h>
 #include <libaegisub/log.h>
+#include <libaegisub/path.h>
 
 #include "../compat.h"
 #include "../dialog_detached_video.h"
@@ -299,11 +301,130 @@ struct app_bring_to_front final : public Command {
 };
 #endif
 
+struct app_clear_cache final : public Command {
+	CMD_NAME("app/clear_cache")
+	STR_MENU("Clear &Cache...")
+	STR_DISP("Clear Cache")
+	STR_HELP("Clear audio and video index cache files")
+
+	void operator()(agi::Context *c) override {
+		if (wxMessageBox(_("Clear all audio and video cache files?"), _("Confirm"), wxYES_NO | wxICON_QUESTION, c->parent) != wxYES)
+			return;
+
+		int count = 0;
+
+		auto countAndRemove = [&](agi::fs::path const& dir, std::string const& pattern) {
+			if (!agi::fs::DirectoryExists(dir)) return;
+			for (auto const& file : agi::fs::DirectoryIterator(dir, pattern)) {
+				try {
+					agi::fs::Remove(dir / file);
+					++count;
+				}
+				catch (agi::Exception const& e) {
+					LOG_W("app/clear_cache") << "Failed to delete " << (dir / file) << ": " << e.GetMessage();
+				}
+			}
+		};
+
+		countAndRemove(config::path->Decode("?local/ffms2cache/"), "*.ffindex");
+		countAndRemove(config::path->Decode("?local/bsindex/"), "*.bsindex");
+		countAndRemove(config::path->Decode("?local/bsindex/"), "*.json");
+		countAndRemove(config::path->Decode("?local/vscache/"), "");
+
+		wxMessageBox(wxString::Format(_("Deleted %d cache files."), count), _("Clear Cache"), wxOK | wxICON_INFORMATION, c->parent);
+	}
+};
+
+struct app_clear_log final : public Command {
+	CMD_NAME("app/clear_log")
+	STR_MENU("Clear &Log Files...")
+	STR_DISP("Clear Log Files")
+	STR_HELP("Clear accumulated log files")
+
+	void operator()(agi::Context *c) override {
+		if (wxMessageBox(_("Clear all log files?"), _("Confirm"), wxYES_NO | wxICON_QUESTION, c->parent) != wxYES)
+			return;
+
+		int count = 0;
+		auto dir = config::path->Decode("?user/log/");
+		if (agi::fs::DirectoryExists(dir)) {
+			for (auto const& file : agi::fs::DirectoryIterator(dir, "*.json")) {
+				try {
+					agi::fs::Remove(dir / file);
+					++count;
+				}
+				catch (agi::Exception const& e) {
+					LOG_W("app/clear_log") << "Failed to delete " << (dir / file) << ": " << e.GetMessage();
+				}
+			}
+		}
+
+		wxMessageBox(wxString::Format(_("Deleted %d log files."), count), _("Clear Log Files"), wxOK | wxICON_INFORMATION, c->parent);
+	}
+};
+
+struct app_clear_recent final : public Command {
+	CMD_NAME("app/clear_recent")
+	STR_MENU("Clear &Recent Lists...")
+	STR_DISP("Clear Recent Lists")
+	STR_HELP("Clear all recently opened file lists")
+
+	void operator()(agi::Context *c) override {
+		if (wxMessageBox(_("Clear all recently opened file lists?"), _("Confirm"), wxYES_NO | wxICON_QUESTION, c->parent) != wxYES)
+			return;
+
+		config::mru->Clear("Audio");
+		config::mru->Clear("Keyframes");
+		config::mru->Clear("Subtitle");
+		config::mru->Clear("Timecodes");
+		config::mru->Clear("Video");
+	}
+};
+
+struct app_clear_autosave final : public Command {
+	CMD_NAME("app/clear_autosave")
+	STR_MENU("Clear Auto&save/Backup...")
+	STR_DISP("Clear Autosave/Backup")
+	STR_HELP("Clear autosave and automatic backup files")
+
+	void operator()(agi::Context *c) override {
+		if (wxMessageBox(_("Clear all autosave and automatic backup files?"), _("Confirm"), wxYES_NO | wxICON_QUESTION, c->parent) != wxYES)
+			return;
+
+		int count = 0;
+
+		auto countAndRemove = [&](agi::fs::path const& dir, std::string const& pattern) {
+			if (!agi::fs::DirectoryExists(dir)) return;
+			for (auto const& file : agi::fs::DirectoryIterator(dir, pattern)) {
+				try {
+					agi::fs::Remove(dir / file);
+					++count;
+				}
+				catch (agi::Exception const& e) {
+					LOG_W("app/clear_autosave") << "Failed to delete " << (dir / file) << ": " << e.GetMessage();
+				}
+			}
+		};
+
+		countAndRemove(config::path->Decode(OPT_GET("Path/Auto/Save")->GetString()), "*.AUTOSAVE.ass");
+
+		auto backup_str = OPT_GET("Path/Auto/Backup")->GetString();
+		if (!backup_str.empty())
+			countAndRemove(config::path->Decode(backup_str), "*.ORIGINAL.*");
+
+		wxMessageBox(wxString::Format(_("Deleted %d autosave/backup files."), count), _("Clear Autosave/Backup"), wxOK | wxICON_INFORMATION, c->parent);
+	}
+};
+
 }
 
 namespace cmd {
 	void init_app() {
 		reg(std::make_unique<app_about>());
+		reg(std::make_unique<app_clear_autosave>());
+		reg(std::make_unique<app_clear_cache>());
+		reg(std::make_unique<app_clear_log>());
+		reg(std::make_unique<app_clear_recent>());
 		reg(std::make_unique<app_display_audio_subs>());
 		reg(std::make_unique<app_display_full>());
 		reg(std::make_unique<app_display_subs>());

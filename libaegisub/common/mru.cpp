@@ -101,6 +101,12 @@ void MRUManager::Remove(std::string_view key, agi::fs::path const& entry) {
 	Flush();
 }
 
+void MRUManager::Clear(std::string_view key) {
+	auto& map = Find(key);
+	map.clear();
+	Flush();
+}
+
 const MRUManager::MRUListMap* MRUManager::Get(std::string_view key) {
 	return &Find(key);
 }
