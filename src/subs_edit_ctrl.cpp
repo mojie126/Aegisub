@@ -33,6 +33,7 @@
 #include "command/command.h"
 #include "compat.h"
 #include "format.h"
+#include "include/aegisub/hotkey.h"
 #include "options.h"
 #include "theme.h"
 #include "include/aegisub/context.h"
@@ -200,6 +201,17 @@ void SubsTextEditCtrl::OnLoseFocus(wxFocusEvent &event) {
 }
 
 void SubsTextEditCtrl::OnChar(wxKeyEvent &event) {
+	// Windows 下 Alt+字符会额外生成系统字符事件。
+	// 对于不应交给顶级菜单助记键处理的组合，需在此吞掉后续字符事件，
+	// 否则会触发系统默认提示音。
+	const int unicode_key = event.GetUnicodeKey();
+	const int key_code = event.GetKeyCode();
+	const bool is_printable_alt_char = unicode_key >= WXK_SPACE || (key_code >= WXK_SPACE && key_code < 127);
+	if (event.AltDown() && !event.CmdDown() && is_printable_alt_char && !HasReservedMnemonic(this, key_code)) {
+		event.Skip(false);
+		return;
+	}
+
 	event.Skip();
 
 	// TODO upgrade system to support both RTL and LTR by fixing data
@@ -221,6 +233,7 @@ void SubsTextEditCtrl::OnChar(wxKeyEvent &event) {
 
 void SubsTextEditCtrl::OnKeyDown(wxKeyEvent &event) {
 	if (osx::ime::process_key_event(this, event)) return;
+	if (context && hotkey::check("Subtitle Edit Box", context, event)) return;
 	event.Skip();
 
 	// Workaround for wxSTC eating tabs.

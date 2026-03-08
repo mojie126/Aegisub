@@ -45,9 +45,44 @@
 #include <unicode/locid.h>
 #include <unicode/unistr.h>
 #include <wx/clipbrd.h>
+#include <wx/control.h>
 #include <wx/filedlg.h>
+#include <wx/frame.h>
+#include <wx/menu.h>
 #include <wx/stdpaths.h>
 #include <wx/window.h>
+
+namespace {
+
+bool LabelHasMnemonic(const wxString &label, wxUniChar target) {
+	for (size_t pos = label.find('&'); pos != wxString::npos; pos = label.find('&', pos + 1)) {
+		if (pos + 1 >= label.size()) break;
+		if (label[pos + 1] == '&') {
+			++pos;
+			continue;
+		}
+		return wxTolower(label[pos + 1]) == target;
+	}
+	return false;
+}
+
+bool WindowTreeHasMnemonic(wxWindow *window, wxUniChar target) {
+	if (!window) return false;
+
+	if (auto *control = dynamic_cast<wxControl *>(window)) {
+		if (LabelHasMnemonic(control->GetLabel(), target))
+			return true;
+	}
+
+	for (auto *child : window->GetChildren()) {
+		if (WindowTreeHasMnemonic(child, target))
+			return true;
+	}
+
+	return false;
+}
+
+}
 
 #ifdef __APPLE__
 #include <libaegisub/util_osx.h>
@@ -135,6 +170,24 @@ bool ForwardMouseWheelEvent([[maybe_unused]] wxWindow *source, [[maybe_unused]] 
 #else
 	return true;
 #endif
+}
+
+bool HasReservedMnemonic(wxWindow *window, int key_code) {
+	const wxUniChar target = wxTolower(static_cast<wchar_t>(key_code));
+	auto *top = wxGetTopLevelParent(window);
+	if (!top) return false;
+
+	if (auto *frame = wxDynamicCast(top, wxFrame)) {
+		if (auto *menu_bar = frame->GetMenuBar()) {
+			for (size_t i = 0; i < menu_bar->GetMenuCount(); ++i) {
+				if (LabelHasMnemonic(menu_bar->GetMenuLabel(i), target))
+					return true;
+			}
+		}
+		return false;
+	}
+
+	return WindowTreeHasMnemonic(top, target);
 }
 
 std::string GetClipboard() {
