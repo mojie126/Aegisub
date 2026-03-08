@@ -57,10 +57,12 @@
 #include "value_event.h"
 #include "version.h"
 
+#include <libaegisub/cajun/elements.h>
 #include <libaegisub/dispatch.h>
 #include <libaegisub/format_path.h>
 #include <libaegisub/fs.h>
 #include <libaegisub/io.h>
+#include <libaegisub/json.h>
 #include <libaegisub/log.h>
 #include <libaegisub/path.h>
 #include <libaegisub/util.h>
@@ -201,6 +203,35 @@ bool AegisubApp::OnInit() {
 	}
 	catch (agi::Exception const& err) {
 		wxMessageBox(fmt_tl("Configuration file is invalid. Error reported:\n%s", err.GetMessage()), _("Error"));
+	}
+
+	// 迁移 "App/Dark Mode"：旧版为 bool 类型，新版为 int 类型
+	// bool 值在 ConfigUser() 合并时因类型不匹配被丢弃，需读取原始 JSON 恢复
+	try {
+		auto user_config = config::path->Decode("?user/config.json");
+		if (agi::fs::FileExists(user_config)) {
+			auto stream = agi::io::Open(user_config);
+			auto root = agi::json_util::parse(*stream);
+			json::Object const& obj = root;
+			auto app_it = obj.find("App");
+			if (app_it != obj.end()) {
+				json::Object const& app_obj = app_it->second;
+				auto dm_it = app_obj.find("Dark Mode");
+				if (dm_it != app_obj.end()) {
+					// 旧版配置为 bool 类型，尝试按 bool 读取
+					json::Boolean old_val = dm_it->second;
+					// true → 2（深色），false → 1（浅色）
+					int new_val = old_val ? 2 : 1;
+					OPT_SET("App/Dark Mode")->SetInt(new_val);
+					config::opt->Flush();
+					LOG_I("config/migrate") << "Migrated App/Dark Mode from bool ("
+						<< (old_val ? "true" : "false") << ") to int (" << new_val << ")";
+				}
+			}
+		}
+	}
+	catch (...) {
+		// 非 bool 类型（已经是 int）或文件不存在等情况，无需处理
 	}
 
 #ifdef _WIN32

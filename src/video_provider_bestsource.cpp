@@ -195,14 +195,23 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 
 	// 将首帧解码放到后台线程，避免主线程阻塞导致界面假死
 	std::unique_ptr<BestVideoFrame> frame;
+	std::string firstFrameError;
 	br->Run([&](agi::ProgressSink *ps) {
 		ps->SetTitle(from_wx(_("Loading")));
 		ps->SetMessage(from_wx(_("Decoding first frame")));
 		ps->SetIndeterminate();
-		frame.reset(bs->GetFrame(0));
+		try {
+			frame.reset(bs->GetFrame(0));
+		}
+		catch (BestSourceException const& e) {
+			// BestSourceException 继承自 std::runtime_error，
+			// DialogProgress::Run() 仅捕获 agi::Exception，
+			// 若不在此处捕获，异常将在后台线程中未被处理导致 std::terminate
+			firstFrameError = e.what();
+		}
 	});
 	if (!frame)
-		throw VideoDecodeError("Failed to decode first frame");
+		throw VideoDecodeError("Failed to decode first frame" + (firstFrameError.empty() ? "" : ": " + firstFrameError));
 	auto avframe = frame->GetAVFrame();
 	video_cs = avframe->colorspace;
 	video_cr = avframe->color_range;
