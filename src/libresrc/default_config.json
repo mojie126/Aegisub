@@ -704,6 +704,10 @@
 		"Align to Video" : {
 			"Tolerance" : 20,
 			"Maximized" : true
+		},
+		"GIF Export" : {
+			"Quality" : 90,
+			"Resolution Scale" : 4
 		}
 	},
 
