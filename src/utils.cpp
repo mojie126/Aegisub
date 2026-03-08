@@ -31,6 +31,7 @@
 
 #include "compat.h"
 #include "format.h"
+#include "include/aegisub/hotkey.h"
 #include "options.h"
 
 #include <libaegisub/dispatch.h>
@@ -188,6 +189,21 @@ bool HasReservedMnemonic(wxWindow *window, int key_code) {
 	}
 
 	return WindowTreeHasMnemonic(top, target);
+}
+
+bool HandleHotkeysOnPrintableKey(wxKeyEvent &event, agi::Context *context, std::initializer_list<std::string_view> contexts) {
+	const int unicode_key = event.GetUnicodeKey();
+	const int key_code = event.GetKeyCode();
+	const bool is_printable_char = unicode_key >= WXK_SPACE || (key_code >= WXK_SPACE && key_code < 127);
+	if (!is_printable_char)
+		return false;
+
+	for (auto hotkey_context : contexts) {
+		if (hotkey::check(hotkey_context, context, event))
+			return true;
+	}
+
+	return false;
 }
 
 std::string GetClipboard() {

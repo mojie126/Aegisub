@@ -162,10 +162,13 @@ void VideoSlider::OnMouse(wxMouseEvent &event) {
 }
 
 void VideoSlider::OnCharHook(wxKeyEvent &event) {
-	hotkey::check("Video", c, event);
+	HandleHotkeysOnPrintableKey(event, c, {"Video"});
 }
 
 void VideoSlider::OnKeyDown(wxKeyEvent &event) {
+	if (HandleHotkeysOnPrintableKey(event, c, {"Video"}))
+		return;
+
 	// Forward up/down/pgup/pgdn/home/end to grid as those aren't yet handled by commands
 	switch (event.GetKeyCode()) {
 		case WXK_UP:
