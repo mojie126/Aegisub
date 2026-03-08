@@ -555,6 +555,86 @@ msgstr "将所有内容置于最前"
 msgid "Bring forward all open documents to the front"
 msgstr "将所有打开的文档置于最前"
 
+#: ../src/command/app.cpp
+msgid "Clear &Cache..."
+msgstr "清理缓存(&C)…"
+
+#: ../src/command/app.cpp
+msgid "Clear Cache"
+msgstr "清理缓存"
+
+#: ../src/command/app.cpp
+msgid "Clear audio and video index cache files"
+msgstr "清理音视频索引缓存文件"
+
+#: ../src/command/app.cpp
+msgid "Clear all audio and video cache files?"
+msgstr "确定清理所有音视频缓存文件？"
+
+#: ../src/command/app.cpp
+msgid "Confirm"
+msgstr "确认"
+
+#: ../src/command/app.cpp
+msgid "Deleted %d cache files."
+msgstr "已删除 %d 个缓存文件。"
+
+#: ../src/command/app.cpp
+msgid "Clear &Log Files..."
+msgstr "清理日志文件(&L)…"
+
+#: ../src/command/app.cpp
+msgid "Clear Log Files"
+msgstr "清理日志文件"
+
+#: ../src/command/app.cpp
+msgid "Clear accumulated log files"
+msgstr "清理累积的日志文件"
+
+#: ../src/command/app.cpp
+msgid "Clear all log files?"
+msgstr "确定清理所有日志文件？"
+
+#: ../src/command/app.cpp
+msgid "Deleted %d log files."
+msgstr "已删除 %d 个日志文件。"
+
+#: ../src/command/app.cpp
+msgid "Clear &Recent Lists..."
+msgstr "清除最近记录(&R)…"
+
+#: ../src/command/app.cpp
+msgid "Clear Recent Lists"
+msgstr "清除最近记录"
+
+#: ../src/command/app.cpp
+msgid "Clear all recently opened file lists"
+msgstr "清除所有最近打开的文件记录"
+
+#: ../src/command/app.cpp
+msgid "Clear all recently opened file lists?"
+msgstr "确定清除所有最近打开的文件记录？"
+
+#: ../src/command/app.cpp
+msgid "Clear Auto&save/Backup..."
+msgstr "清理自动保存/备份(&S)…"
+
+#: ../src/command/app.cpp
+msgid "Clear Autosave/Backup"
+msgstr "清理自动保存/备份"
+
+#: ../src/command/app.cpp
+msgid "Clear autosave and automatic backup files"
+msgstr "清理自动保存和自动备份文件"
+
+#: ../src/command/app.cpp
+msgid "Clear all autosave and automatic backup files?"
+msgstr "确定清理所有自动保存和自动备份文件？"
+
+#: ../src/command/app.cpp
+msgid "Deleted %d autosave/backup files."
+msgstr "已删除 %d 个自动保存/备份文件。"
+
 #: ../src/command/audio.cpp:66
 msgid "&Close Audio"
 msgstr "关闭音频(&C)"

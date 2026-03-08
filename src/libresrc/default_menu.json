@@ -215,7 +215,12 @@
         { "command" : "grid/tags/simplify" },
         { "command" : "grid/tags/hide" },
         {},
-        { "command" : "app/toggle/toolbar" }
+        { "command" : "app/toggle/toolbar" },
+        {},
+        { "command" : "app/clear_cache" },
+        { "command" : "app/clear_log" },
+        { "command" : "app/clear_recent" },
+        { "command" : "app/clear_autosave" }
     ],
     "main/help" : [
         { "command" : "help/contents" },
