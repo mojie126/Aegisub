@@ -250,11 +250,19 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 	// 将首帧解码放到后台线程，避免主线程阻塞导致界面假死
 	char vsErrorMsg[1024] = {};
 	const VSFrame *raw_frame = nullptr;
+	DoviProbeResult dovi_probe;
 	br->Run([&](agi::ProgressSink *ps) {
 		ps->SetTitle(from_wx(_("Loading")));
 		ps->SetMessage(from_wx(_("Decoding first frame")));
 		ps->SetIndeterminate();
 		raw_frame = vs.GetAPI()->getFrame(0, source_node, vsErrorMsg, sizeof(vsErrorMsg));
+		// 流级 DV 探测涉及 avformat_open_input + find_stream_info，
+		// 属于 I/O 密集操作，在后台线程中执行以避免阻塞主线程
+		// 对 .py/.vpy 脚本文件跳过探测
+#ifdef WITH_FFMPEG
+		if (raw_frame && !agi::fs::HasExtension(filename, "py") && !agi::fs::HasExtension(filename, "vpy"))
+			dovi_probe = ProbeDolbyVision(filename.string());
+#endif
 	});
 	if (!raw_frame)
 		throw VapourSynthError(agi::format("Failed to get first frame: %s", vsErrorMsg));
@@ -306,22 +314,21 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 			LOG_D("vapoursynth") << "HDR detection: SDR, _Transfer=" << (err_transfer ? -1 : (int)transfer);
 		}
 
-		// 帧属性检测未找到DV/HDR时，使用 libavformat 流级探测作为后备
+		// 帧属性检测未找到DV/HDR时，使用后台线程中预先探测的流级数据作为后备
 		// LWLibavSource 等源滤镜可能不暴露 _DolbyVisionRPU 或正确的 _Transfer
 #ifdef WITH_FFMPEG
 		if (detected_hdr_type_ == HDRType::SDR && !agi::fs::HasExtension(filename, "py") && !agi::fs::HasExtension(filename, "vpy")) {
-			DoviProbeResult probe = ProbeDolbyVision(filename.string());
-			if (probe.has_dovi) {
+			if (dovi_probe.has_dovi) {
 				detected_hdr_type_ = HDRType::DolbyVision;
-				dv_profile_ = probe.dv_profile;
-				LOG_D("vapoursynth") << "HDR detection (stream probe): DolbyVision, profile=" << probe.dv_profile
-					<< " transfer=" << probe.transfer << " primaries=" << probe.color_primaries;
-			} else if (probe.transfer == 16) {
+				dv_profile_ = dovi_probe.dv_profile;
+				LOG_D("vapoursynth") << "HDR detection (stream probe): DolbyVision, profile=" << dovi_probe.dv_profile
+					<< " transfer=" << dovi_probe.transfer << " primaries=" << dovi_probe.color_primaries;
+			} else if (dovi_probe.transfer == 16) {
 				detected_hdr_type_ = HDRType::PQ;
-				LOG_D("vapoursynth") << "HDR detection (stream probe): PQ, transfer=" << probe.transfer;
-			} else if (probe.transfer == 18) {
+				LOG_D("vapoursynth") << "HDR detection (stream probe): PQ, transfer=" << dovi_probe.transfer;
+			} else if (dovi_probe.transfer == 18) {
 				detected_hdr_type_ = HDRType::HLG;
-				LOG_D("vapoursynth") << "HDR detection (stream probe): HLG, transfer=" << probe.transfer;
+				LOG_D("vapoursynth") << "HDR detection (stream probe): HLG, transfer=" << dovi_probe.transfer;
 			}
 		}
 #endif

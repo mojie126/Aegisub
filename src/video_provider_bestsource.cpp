@@ -196,6 +196,7 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 	// 将首帧解码放到后台线程，避免主线程阻塞导致界面假死
 	std::unique_ptr<BestVideoFrame> frame;
 	std::string firstFrameError;
+	DoviProbeResult dovi_probe;
 	br->Run([&](agi::ProgressSink *ps) {
 		ps->SetTitle(from_wx(_("Loading")));
 		ps->SetMessage(from_wx(_("Decoding first frame")));
@@ -208,7 +209,13 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 			// DialogProgress::Run() 仅捕获 agi::Exception，
 			// 若不在此处捕获，异常将在后台线程中未被处理导致 std::terminate
 			firstFrameError = e.what();
+			return;
 		}
+		// 流级 DV 探测涉及 avformat_open_input + find_stream_info，
+		// 属于 I/O 密集操作，在后台线程中执行以避免阻塞主线程
+#ifdef WITH_FFMPEG
+		dovi_probe = ProbeDolbyVision(filename.string());
+#endif
 	});
 	if (!frame)
 		throw VideoDecodeError("Failed to decode first frame" + (firstFrameError.empty() ? "" : ": " + firstFrameError));
@@ -238,22 +245,21 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 			LOG_D("bestsource") << "HDR detection: SDR, color_trc=" << trc;
 		}
 
-		// 帧级检测未发现HDR时，使用 libavformat 流级探测作为后备
+		// 帧级检测未发现HDR时，使用后台线程中预先探测的流级数据作为后备
 		// 硬件解码时帧级传输特性和DV RPU可能缺失（UNSPECIFIED/空）
 #ifdef WITH_FFMPEG
 		if (detected_hdr_type_ == HDRType::SDR) {
-			DoviProbeResult probe = ProbeDolbyVision(filename.string());
-			if (probe.has_dovi) {
+			if (dovi_probe.has_dovi) {
 				detected_hdr_type_ = HDRType::DolbyVision;
-				dv_profile_ = probe.dv_profile;
-				LOG_D("bestsource") << "HDR detection (stream probe): DolbyVision, profile=" << probe.dv_profile
-					<< " transfer=" << probe.transfer << " primaries=" << probe.color_primaries;
-			} else if (probe.transfer == 16) {
+				dv_profile_ = dovi_probe.dv_profile;
+				LOG_D("bestsource") << "HDR detection (stream probe): DolbyVision, profile=" << dovi_probe.dv_profile
+					<< " transfer=" << dovi_probe.transfer << " primaries=" << dovi_probe.color_primaries;
+			} else if (dovi_probe.transfer == 16) {
 				detected_hdr_type_ = HDRType::PQ;
-				LOG_D("bestsource") << "HDR detection (stream probe): PQ, transfer=" << probe.transfer;
-			} else if (probe.transfer == 18) {
+				LOG_D("bestsource") << "HDR detection (stream probe): PQ, transfer=" << dovi_probe.transfer;
+			} else if (dovi_probe.transfer == 18) {
 				detected_hdr_type_ = HDRType::HLG;
-				LOG_D("bestsource") << "HDR detection (stream probe): HLG, transfer=" << probe.transfer;
+				LOG_D("bestsource") << "HDR detection (stream probe): HLG, transfer=" << dovi_probe.transfer;
 			}
 		}
 #endif

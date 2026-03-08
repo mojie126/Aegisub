@@ -213,8 +213,20 @@ void VideoDisplay::UploadFrameData(FrameReadyEvent &evt) {
 }
 
 void VideoDisplay::Render() try {
-	if (!con->project->VideoProvider() || !InitContext() || (!videoOut && !pending_frame))
+	if (!con->project->VideoProvider() || !InitContext())
 		return;
+
+	// 提供者已切换但新帧尚未到达时清屏为黑色，
+	// 避免画布调整大小后显示未初始化的帧缓冲内容
+	if (!videoOut && !pending_frame) {
+		int client_w, client_h;
+		GetClientSize(&client_w, &client_h);
+		E(glClearColor(0.0f, 0.0f, 0.0f, 1.0f));
+		E(glViewport(0, 0, client_w * scale_factor, client_h * scale_factor));
+		E(glClear(GL_COLOR_BUFFER_BIT));
+		SwapBuffers();
+		return;
+	}
 
 	if (!videoOut)
 		videoOut = std::make_unique<VideoOutGL>();

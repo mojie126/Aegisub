@@ -163,6 +163,7 @@ catch (agi::EnvironmentError const& err) {
 }
 
 void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::string_view colormatrix) {
+	// 创建索引器（需在主线程，用于枚举轨道和多轨选择对话框）
 	FFMS_Indexer *Indexer = FFMS_CreateIndexer(filename.string().c_str(), &ErrInfo);
 	if (!Indexer) {
 		if (ErrInfo.SubType == FFMS_ERROR_FILE_READ)
@@ -175,6 +176,7 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 	if (TrackList.size() <= 0)
 		throw VideoNotSupported("no video tracks found");
 
+	// 多视频轨道时需在主线程显示选择对话框
 	int TrackNumber = -1;
 	if (TrackList.size() > 1) {
 		auto Selection = AskForTrackSelection(TrackList, FFMS_TYPE_VIDEO);
@@ -183,204 +185,214 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 		TrackNumber = static_cast<int>(Selection);
 	}
 
-	// generate a name for the cache file
+	// 主线程预读取配置项，避免后台线程访问 OPT_GET
 	auto CacheName = GetCacheFilename(filename);
-
-	// try to read index
-	agi::scoped_holder<FFMS_Index*, void (FFMS_CC*)(FFMS_Index*)>
-		Index(FFMS_ReadIndex(CacheName.string().c_str(), &ErrInfo), FFMS_DestroyIndex);
-
-	if (Index && FFMS_IndexBelongsToFile(Index, filename.string().c_str(), &ErrInfo))
-		Index = nullptr;
-
-	// time to examine the index and check if the track we want is indexed
-	// technically this isn't really needed since all video tracks should always be indexed,
-	// but a bit of sanity checking never hurt anyone
-	if (Index && TrackNumber >= 0) {
-		FFMS_Track *TempTrackData = FFMS_GetTrackFromIndex(Index, TrackNumber);
-		if (FFMS_GetNumFrames(TempTrackData) <= 0)
-			Index = nullptr;
-	}
-
-	// moment of truth
-	if (!Index) {
-		auto TrackMask = TrackSelection::None;
-		if (OPT_GET("Provider/FFmpegSource/Index All Tracks")->GetBool() || OPT_GET("Video/Open Audio")->GetBool())
-			TrackMask = TrackSelection::All;
-		Index = DoIndexing(Indexer, CacheName, TrackMask, GetErrorHandlingMode());
-	}
-	else {
-		FFMS_CancelIndexing(Indexer);
-	}
-
-	// update access time of index file so it won't get cleaned away
-	agi::fs::Touch(CacheName);
-
-	// we have now read the index and may proceed with cleaning the index cache
-	CleanCache();
-
-	// track number still not set?
-	if (TrackNumber < 0) {
-		// just grab the first track
-		TrackNumber = FFMS_GetFirstIndexedTrackOfType(Index, FFMS_TYPE_VIDEO, &ErrInfo);
-		if (TrackNumber < 0)
-			throw VideoNotSupported(std::string("Couldn't find any video tracks: ") + ErrInfo.Buffer);
-	}
-
-	// Check if there's an audio track
-	has_audio = FFMS_GetFirstTrackOfType(Index, FFMS_TYPE_AUDIO, nullptr) != -1;
-
-	// set thread count
 	int Threads = OPT_GET("Provider/Video/FFmpegSource/Decoding Threads")->GetInt();
-
-	// set seekmode
-	// TODO: give this its own option?
-	int SeekMode;
-	if (OPT_GET("Provider/Video/FFmpegSource/Unsafe Seeking")->GetBool())
-		SeekMode = FFMS_SEEK_UNSAFE;
-	else
-		SeekMode = FFMS_SEEK_NORMAL;
-
+	int SeekMode = OPT_GET("Provider/Video/FFmpegSource/Unsafe Seeking")->GetBool()
+		? FFMS_SEEK_UNSAFE : FFMS_SEEK_NORMAL;
 	const auto hw_name_str = OPT_GET("Provider/Video/FFmpegSource/HW hw_name")->GetString();
 	const auto hw_name = hw_name_str.c_str();
 	const int userPadding = std::max(0, static_cast<int>(OPT_GET("Provider/Video/FFmpegSource/ABB")->GetInt()));
+	bool optIndexAll = OPT_GET("Provider/FFmpegSource/Index All Tracks")->GetBool();
+	bool optOpenAudio = OPT_GET("Video/Open Audio")->GetBool();
+	auto IndexEH = GetErrorHandlingMode();
 
-	// 将视频源创建和首帧解码放到后台线程，避免主线程阻塞导致界面假死
-	const FFMS_Frame *TempFrame = nullptr;
+	// 将索引读取、验证、视频源创建等全部移入后台线程，
+	// 消除 FFMS_ReadIndex (~80ms) 在主线程的阻塞
+	std::string load_error;
 	br->Run([&](agi::ProgressSink *ps) {
 		ps->SetTitle(from_wx(_("Loading")));
-		ps->SetMessage(from_wx(_("Opening video source")));
+		ps->SetMessage(from_wx(_("Checking index...")));
 		ps->SetIndeterminate();
+		try {
+		// 索引读取移入后台线程，减少主线程阻塞
+		agi::scoped_holder<FFMS_Index*, void (FFMS_CC*)(FFMS_Index*)>
+			Index(FFMS_ReadIndex(CacheName.string().c_str(), &ErrInfo), FFMS_DestroyIndex);
+
+		if (Index && FFMS_IndexBelongsToFile(Index, filename.string().c_str(), &ErrInfo))
+			Index = nullptr;
+
+		if (Index && TrackNumber >= 0) {
+			FFMS_Track *TempTrackData = FFMS_GetTrackFromIndex(Index, TrackNumber);
+			if (FFMS_GetNumFrames(TempTrackData) <= 0)
+				Index = nullptr;
+		}
+
+		// 内联 DoIndexing 逻辑，避免嵌套 br->Run
+		if (!Index) {
+			auto TrackMask = TrackSelection::None;
+			if (optIndexAll || optOpenAudio)
+				TrackMask = TrackSelection::All;
+			ps->SetTitle(from_wx(_("Indexing")));
+			ps->SetMessage(from_wx(_("Reading timecodes and frame/sample data")));
+			TIndexCallback callback = [](int64_t Current, int64_t Total, void *Private) -> int {
+				auto sink = static_cast<agi::ProgressSink *>(Private);
+				sink->SetProgress(Current, Total);
+				return sink->IsCancelled();
+			};
+			if (TrackMask == TrackSelection::All)
+				FFMS_TrackTypeIndexSettings(Indexer, FFMS_TYPE_AUDIO, 1, 0);
+			else if (TrackMask != TrackSelection::None)
+				FFMS_TrackIndexSettings(Indexer, static_cast<int>(TrackMask), 1, 0);
+			FFMS_TrackTypeIndexSettings(Indexer, FFMS_TYPE_VIDEO, 1, 0);
+			FFMS_SetProgressCallback(Indexer, callback, ps);
+			Index = FFMS_DoIndexing2(Indexer, IndexEH, &ErrInfo);
+			if (!Index)
+				throw VideoOpenError(std::string("Failed to index: ") + ErrInfo.Buffer);
+			FFMS_WriteIndex(CacheName.string().c_str(), Index, &ErrInfo);
+		}
+		else {
+			FFMS_CancelIndexing(Indexer);
+		}
+
+		agi::fs::Touch(CacheName);
+		CleanCache();
+
+		if (TrackNumber < 0) {
+			TrackNumber = FFMS_GetFirstIndexedTrackOfType(Index, FFMS_TYPE_VIDEO, &ErrInfo);
+			if (TrackNumber < 0)
+				throw VideoNotSupported(std::string("Couldn't find any video tracks: ") + ErrInfo.Buffer);
+		}
+
+		has_audio = FFMS_GetFirstTrackOfType(Index, FFMS_TYPE_AUDIO, nullptr) != -1;
+
+		// 视频源创建
+		ps->SetTitle(from_wx(_("Loading")));
+		ps->SetMessage(from_wx(_("Opening video source")));
 		VideoSource = FFMS_CreateVideoSource(filename.string().c_str(), TrackNumber, Index, Threads, SeekMode, &ErrInfo, hw_name, 0);
-		if (!VideoSource) return;
+		if (!VideoSource)
+			throw VideoOpenError(std::string("Failed to open video track: ") + ErrInfo.Buffer);
 
 		// load video properties
 		VideoInfo = FFMS_GetVideoProperties(VideoSource);
 		hw_decode_active = VideoInfo && VideoInfo->HardwareDecodeActive != 0;
 
-		TempFrame = FFMS_GetFrame(VideoSource, 0, &ErrInfo);
+		const FFMS_Frame *TempFrame = FFMS_GetFrame(VideoSource, 0, &ErrInfo);
+		if (!TempFrame)
+			throw VideoOpenError(std::string("Failed to decode first frame: ") + ErrInfo.Buffer);
+
+		Width  = TempFrame->EncodedWidth;
+		Height = TempFrame->EncodedHeight;
+
+		// 根据帧实际高度计算自适应黑边分配
+		if (userPadding > 0) {
+			const bool rotated = (VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 180 == -90);
+			const int displayHeight = rotated ? Width : Height;
+			const auto ap = CalculateAdaptivePadding(displayHeight, userPadding);
+			paddingTop = ap.top;
+			paddingBottom = ap.bottom;
+		}
+
+		if (VideoInfo->SARDen > 0 && VideoInfo->SARNum > 0)
+			DAR = double(Width) * VideoInfo->SARNum / ((double)Height * VideoInfo->SARDen);
+		else
+			DAR = double(Width) / Height;
+
+		VideoCS = TempFrame->ColorSpace;
+		VideoCR = TempFrame->ColorRange;
+		VideoTransfer = TempFrame->TransferCharateristics;
+		VideoColorPrimaries = TempFrame->ColorPrimaries;
+		hasFrameLevelRPU = (TempFrame->DolbyVisionRPUSize > 0);
+		hasDolbyVision = hasFrameLevelRPU;
+
+		// 硬件解码时帧级色彩属性可能为 UNSPECIFIED，从流参数回退
+		if ((VideoTransfer <= 0 || VideoTransfer == 2 /*AVCOL_TRC_UNSPECIFIED*/)
+			&& VideoInfo->StreamTransferCharacteristics > 0
+			&& VideoInfo->StreamTransferCharacteristics != 2)
+			VideoTransfer = VideoInfo->StreamTransferCharacteristics;
+		if ((VideoCS <= 0 || VideoCS == 2 /*AVCOL_SPC_UNSPECIFIED*/)
+			&& VideoInfo->StreamColorSpace > 0
+			&& VideoInfo->StreamColorSpace != 2)
+			VideoCS = VideoInfo->StreamColorSpace;
+		if ((VideoColorPrimaries <= 0 || VideoColorPrimaries == 2 /*AVCOL_PRI_UNSPECIFIED*/)
+			&& VideoInfo->StreamColorPrimaries > 0
+			&& VideoInfo->StreamColorPrimaries != 2)
+			VideoColorPrimaries = VideoInfo->StreamColorPrimaries;
+
+		// 流级别 Dolby Vision 配置记录检测（帧级 RPU 在硬件解码时可能缺失）
+		if (!hasDolbyVision && VideoInfo->HasDolbyVision)
+			hasDolbyVision = true;
+
+		// 记录 DV Profile 编号（用于后续 LUT 选择策略）
+		if (hasDolbyVision)
+			dvProfile_ = VideoInfo->DolbyVisionProfile;
+
+		LOG_D("provider/video/ffms") << "HDR detection: TransferCharateristics=" << VideoTransfer
+			<< " ColorSpace=" << VideoCS << " ColorRange=" << VideoCR
+			<< " ColorPrimaries=" << VideoColorPrimaries
+			<< " FrameColorPrimaries=" << TempFrame->ColorPrimaries
+			<< " DolbyVisionRPUSize=" << TempFrame->DolbyVisionRPUSize
+			<< " hasDolbyVision=" << hasDolbyVision
+			<< " hasFrameLevelRPU=" << hasFrameLevelRPU
+			<< " StreamTransfer=" << VideoInfo->StreamTransferCharacteristics
+			<< " StreamColorSpace=" << VideoInfo->StreamColorSpace
+			<< " StreamColorPrimaries=" << VideoInfo->StreamColorPrimaries
+			<< " HasDV=" << VideoInfo->HasDolbyVision
+			<< " DVProfile=" << VideoInfo->DolbyVisionProfile;
+
+		// 从 FFMS_VideoProperties 获取 HDR 元数据辅助检测
+		LOG_D("provider/video/ffms") << "VideoProperties: HasMasteringDisplayPrimaries=" << VideoInfo->HasMasteringDisplayPrimaries
+			<< " HasMasteringDisplayLuminance=" << VideoInfo->HasMasteringDisplayLuminance
+			<< " HasContentLightLevel=" << VideoInfo->HasContentLightLevel
+			<< " MaxLuminance=" << VideoInfo->MasteringDisplayMaxLuminance
+			<< " ContentLightLevelMax=" << VideoInfo->ContentLightLevelMax;
+
+		ColorMatrix::guess_colorspace(VideoCS, VideoCR, Width, Height);
+
+		SetColorSpace(std::string(colormatrix));
+
+		int output_resizer = FFMS_RESIZER_BICUBIC;
+		const bool hw_enabled = !hw_name_str.empty() && hw_name_str != "none";
+		// For HW decode + black border workflow, prefer faster colorspace conversion.
+		if (hw_enabled && (paddingTop > 0 || paddingBottom > 0))
+			output_resizer = FFMS_RESIZER_FAST_BILINEAR;
+
+		const int TargetFormat[] = { FFMS_GetPixFmt("bgra"), -1 };
+		if (FFMS_SetOutputFormatV2(VideoSource, TargetFormat, Width, Height, output_resizer, &ErrInfo))
+			throw VideoOpenError(std::string("Failed to set output format: ") + ErrInfo.Buffer);
+
+		// get frame info data
+		FFMS_Track *FrameData = FFMS_GetTrackFromVideo(VideoSource);
+		if (FrameData == nullptr)
+			throw VideoOpenError("failed to get frame data");
+		const FFMS_TrackTimeBase *TimeBase = FFMS_GetTimeBase(FrameData);
+		if (TimeBase == nullptr)
+			throw VideoOpenError("failed to get track time base");
+
+		// build list of keyframes and timecodes
+		std::vector<int> TimecodesVector;
+		for (int CurFrameNum = 0; CurFrameNum < VideoInfo->NumFrames; CurFrameNum++) {
+			const FFMS_FrameInfo *CurFrameData = FFMS_GetFrameInfo(FrameData, CurFrameNum);
+			if (!CurFrameData)
+				throw VideoOpenError("Couldn't get info about frame " + std::to_string(CurFrameNum));
+
+			// keyframe?
+			if (CurFrameData->KeyFrame)
+				KeyFramesList.push_back(CurFrameNum);
+
+			// calculate timestamp and add to timecodes vector
+			// 使用四舍五入而非截断，避免亚毫秒精度导致帧时间码偏移
+			int Timestamp = std::lround(CurFrameData->PTS * TimeBase->Num / TimeBase->Den);
+			TimecodesVector.push_back(Timestamp);
+		}
+
+		// 蓝光 m2ts 等容器的 PTS 可能以较大偏移量起始，需归零化处理
+		if (!TimecodesVector.empty() && TimecodesVector.front() != 0) {
+			int offset = TimecodesVector.front();
+			for (auto& tc : TimecodesVector)
+				tc -= offset;
+		}
+
+		if (TimecodesVector.size() < 2)
+			Timecodes = 25.0;
+		else
+			Timecodes = agi::vfr::Framerate(TimecodesVector);
+		} catch (agi::Exception const& e) {
+			load_error = e.GetMessage();
+		}
 	});
-	if (!VideoSource)
-		throw VideoOpenError(std::string("Failed to open video track: ") + ErrInfo.Buffer);
-	if (!TempFrame)
-		throw VideoOpenError(std::string("Failed to decode first frame: ") + ErrInfo.Buffer);
-
-	Width  = TempFrame->EncodedWidth;
-	Height = TempFrame->EncodedHeight;
-
-	// 根据帧实际高度计算自适应黑边分配
-	if (userPadding > 0) {
-		const bool rotated = (VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 180 == -90);
-		const int displayHeight = rotated ? Width : Height;
-		const auto ap = CalculateAdaptivePadding(displayHeight, userPadding);
-		paddingTop = ap.top;
-		paddingBottom = ap.bottom;
-	}
-
-	if (VideoInfo->SARDen > 0 && VideoInfo->SARNum > 0)
-		DAR = double(Width) * VideoInfo->SARNum / ((double)Height * VideoInfo->SARDen);
-	else
-		DAR = double(Width) / Height;
-
-	VideoCS = TempFrame->ColorSpace;
-	VideoCR = TempFrame->ColorRange;
-	VideoTransfer = TempFrame->TransferCharateristics;
-	VideoColorPrimaries = TempFrame->ColorPrimaries;
-	hasFrameLevelRPU = (TempFrame->DolbyVisionRPUSize > 0);
-	hasDolbyVision = hasFrameLevelRPU;
-
-	// 硬件解码时帧级色彩属性可能为 UNSPECIFIED，从流参数回退
-	if ((VideoTransfer <= 0 || VideoTransfer == 2 /*AVCOL_TRC_UNSPECIFIED*/)
-		&& VideoInfo->StreamTransferCharacteristics > 0
-		&& VideoInfo->StreamTransferCharacteristics != 2)
-		VideoTransfer = VideoInfo->StreamTransferCharacteristics;
-	if ((VideoCS <= 0 || VideoCS == 2 /*AVCOL_SPC_UNSPECIFIED*/)
-		&& VideoInfo->StreamColorSpace > 0
-		&& VideoInfo->StreamColorSpace != 2)
-		VideoCS = VideoInfo->StreamColorSpace;
-	if ((VideoColorPrimaries <= 0 || VideoColorPrimaries == 2 /*AVCOL_PRI_UNSPECIFIED*/)
-		&& VideoInfo->StreamColorPrimaries > 0
-		&& VideoInfo->StreamColorPrimaries != 2)
-		VideoColorPrimaries = VideoInfo->StreamColorPrimaries;
-
-	// 流级别 Dolby Vision 配置记录检测（帧级 RPU 在硬件解码时可能缺失）
-	if (!hasDolbyVision && VideoInfo->HasDolbyVision)
-		hasDolbyVision = true;
-
-	// 记录 DV Profile 编号（用于后续 LUT 选择策略）
-	if (hasDolbyVision)
-		dvProfile_ = VideoInfo->DolbyVisionProfile;
-
-	LOG_D("provider/video/ffms") << "HDR detection: TransferCharateristics=" << VideoTransfer
-		<< " ColorSpace=" << VideoCS << " ColorRange=" << VideoCR
-		<< " ColorPrimaries=" << VideoColorPrimaries
-		<< " FrameColorPrimaries=" << TempFrame->ColorPrimaries
-		<< " DolbyVisionRPUSize=" << TempFrame->DolbyVisionRPUSize
-		<< " hasDolbyVision=" << hasDolbyVision
-		<< " hasFrameLevelRPU=" << hasFrameLevelRPU
-		<< " StreamTransfer=" << VideoInfo->StreamTransferCharacteristics
-		<< " StreamColorSpace=" << VideoInfo->StreamColorSpace
-		<< " StreamColorPrimaries=" << VideoInfo->StreamColorPrimaries
-		<< " HasDV=" << VideoInfo->HasDolbyVision
-		<< " DVProfile=" << VideoInfo->DolbyVisionProfile;
-
-	// 从 FFMS_VideoProperties 获取 HDR 元数据辅助检测
-	LOG_D("provider/video/ffms") << "VideoProperties: HasMasteringDisplayPrimaries=" << VideoInfo->HasMasteringDisplayPrimaries
-		<< " HasMasteringDisplayLuminance=" << VideoInfo->HasMasteringDisplayLuminance
-		<< " HasContentLightLevel=" << VideoInfo->HasContentLightLevel
-		<< " MaxLuminance=" << VideoInfo->MasteringDisplayMaxLuminance
-		<< " ContentLightLevelMax=" << VideoInfo->ContentLightLevelMax;
-
-	ColorMatrix::guess_colorspace(VideoCS, VideoCR, Width, Height);
-
-	SetColorSpace(std::string(colormatrix));
-
-	int output_resizer = FFMS_RESIZER_BICUBIC;
-	const bool hw_enabled = !hw_name_str.empty() && hw_name_str != "none";
-	// For HW decode + black border workflow, prefer faster colorspace conversion.
-	if (hw_enabled && (paddingTop > 0 || paddingBottom > 0))
-		output_resizer = FFMS_RESIZER_FAST_BILINEAR;
-
-	const int TargetFormat[] = { FFMS_GetPixFmt("bgra"), -1 };
-	if (FFMS_SetOutputFormatV2(VideoSource, TargetFormat, Width, Height, output_resizer, &ErrInfo))
-		throw VideoOpenError(std::string("Failed to set output format: ") + ErrInfo.Buffer);
-
-	// get frame info data
-	FFMS_Track *FrameData = FFMS_GetTrackFromVideo(VideoSource);
-	if (FrameData == nullptr)
-		throw VideoOpenError("failed to get frame data");
-	const FFMS_TrackTimeBase *TimeBase = FFMS_GetTimeBase(FrameData);
-	if (TimeBase == nullptr)
-		throw VideoOpenError("failed to get track time base");
-
-	// build list of keyframes and timecodes
-	std::vector<int> TimecodesVector;
-	for (int CurFrameNum = 0; CurFrameNum < VideoInfo->NumFrames; CurFrameNum++) {
-		const FFMS_FrameInfo *CurFrameData = FFMS_GetFrameInfo(FrameData, CurFrameNum);
-		if (!CurFrameData)
-			throw VideoOpenError("Couldn't get info about frame " + std::to_string(CurFrameNum));
-
-		// keyframe?
-		if (CurFrameData->KeyFrame)
-			KeyFramesList.push_back(CurFrameNum);
-
-		// calculate timestamp and add to timecodes vector
-		// 使用四舍五入而非截断，避免亚毫秒精度导致帧时间码偏移
-		int Timestamp = std::lround(CurFrameData->PTS * TimeBase->Num / TimeBase->Den);
-		TimecodesVector.push_back(Timestamp);
-	}
-
-	// 蓝光 m2ts 等容器的 PTS 可能以较大偏移量起始，需归零化处理
-	if (!TimecodesVector.empty() && TimecodesVector.front() != 0) {
-		int offset = TimecodesVector.front();
-		for (auto& tc : TimecodesVector)
-			tc -= offset;
-	}
-
-	if (TimecodesVector.size() < 2)
-		Timecodes = 25.0;
-	else
-		Timecodes = agi::vfr::Framerate(TimecodesVector);
+	if (!load_error.empty())
+		throw VideoOpenError(load_error);
 }
 
 void FFmpegSourceVideoProvider::GetFrame(int n, VideoFrame &out) {
