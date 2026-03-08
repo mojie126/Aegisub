@@ -37,6 +37,8 @@
 #include "video_controller.h"
 #include "video_display.h"
 
+#include <libaegisub/dispatch.h>
+
 #include <libaegisub/audio/provider.h>
 #include <libaegisub/format_path.h>
 #include <libaegisub/fs.h>
@@ -82,11 +84,17 @@ void Project::ReloadAudio() {
 		LoadAudio(audio_file);
 }
 
+static void UpdateAllChildren(wxWindow* win);
+
 void Project::ReloadVideo() {
 	if (video_provider) {
 		// 保存旧维度，用于检测 ABB 等设置变更导致的尺寸变化
 		const int old_w = video_provider->GetWidth();
 		const int old_h = video_provider->GetHeight();
+
+		const bool shouldFreeze = context->parent && !context->parent->IsFrozen();
+		if (shouldFreeze) context->parent->Freeze();
+
 		DoLoadVideo(video_file);
 		// 视频维度变化时（如 ABB 改变），需要更新显示宽高比
 		if (video_provider && (video_provider->GetWidth() != old_w || video_provider->GetHeight() != old_h)) {
@@ -97,6 +105,11 @@ void Project::ReloadVideo() {
 				context->videoController->SetAspectRatio(AspectRatio::Default);
 		}
 		context->videoController->JumpToFrame(context->videoController->GetFrameN());
+
+		if (shouldFreeze) {
+			context->parent->Thaw();
+			UpdateAllChildren(context->parent);
+		}
 	}
 }
 
@@ -205,6 +218,17 @@ static void RefreshAllChildren(wxWindow* win) {
 	}
 }
 
+/// @brief 递归处理窗口及所有子控件的待绘消息
+/// @details Thaw() 仅标记需要重绘（RDW_INVALIDATE），
+/// 此函数通过逐控件调用 Update() 强制立即处理 WM_PAINT，
+/// 使布局变更在后续阻塞操作前可见。
+static void UpdateAllChildren(wxWindow* win) {
+	if (!win) return;
+	win->Update();
+	for (wxWindow* child : win->GetChildren())
+		UpdateAllChildren(child);
+}
+
 void Project::LoadUnloadFiles(ProjectProperties properties) {
 	auto load_linked = OPT_GET("App/Auto/Load Linked Files")->GetInt();
 	if (!load_linked) return;
@@ -252,16 +276,26 @@ void Project::LoadUnloadFiles(ProjectProperties properties) {
 	if (video != video_file) {
 		if (video.empty())
 			CloseVideo();
-		else if ((loaded_video = DoLoadVideo(video))) {
-			auto vc = context->videoController.get();
-			vc->JumpToFrame(properties.video_position);
+		else {
+			const bool shouldFreeze = context->parent && !context->parent->IsFrozen();
+			if (shouldFreeze) context->parent->Freeze();
 
-			auto ar_mode = static_cast<AspectRatio>(properties.ar_mode);
-			if (ar_mode == AspectRatio::Custom)
-				vc->SetAspectRatio(properties.ar_value);
-			else
-				vc->SetAspectRatio(ar_mode);
-			context->videoDisplay->SetWindowZoom(properties.video_zoom);
+			if ((loaded_video = DoLoadVideo(video))) {
+				auto vc = context->videoController.get();
+				vc->JumpToFrame(properties.video_position);
+
+				auto ar_mode = static_cast<AspectRatio>(properties.ar_mode);
+				if (ar_mode == AspectRatio::Custom)
+					vc->SetAspectRatio(properties.ar_value);
+				else
+					vc->SetAspectRatio(ar_mode);
+				context->videoDisplay->SetWindowZoom(properties.video_zoom);
+			}
+
+			if (shouldFreeze) {
+				context->parent->Thaw();
+				UpdateAllChildren(context->parent);
+			}
 		}
 	}
 
@@ -348,21 +382,35 @@ bool Project::DoLoadVideo(agi::fs::path const& path) {
 	if (!progress)
 		progress = new DialogProgress(context->parent);
 
+	// 暂存旧提供者，避免赋值时同步销毁阻塞主线程 (~34ms)
+	auto old_provider = std::move(video_provider);
 	try {
 		auto old_matrix = context->ass->GetScriptInfo("YCbCr Matrix");
 		video_provider = std::make_unique<AsyncVideoProvider>(path, old_matrix, context->videoController.get(), progress);
 	}
-	catch (agi::UserCancelException const&) { return false; }
+	catch (agi::UserCancelException const&) {
+		video_provider = std::move(old_provider);
+		return false;
+	}
 	catch (agi::fs::FileSystemError const& err) {
+		video_provider = std::move(old_provider);
 		config::mru->Remove("Video", path);
 		ShowError(to_wx(err.GetMessage()));
 		return false;
 	}
 	catch (VideoProviderError const& err) {
+		video_provider = std::move(old_provider);
 		ShowError(to_wx(err.GetMessage()));
 		return false;
 	}
 
+	// 异步销毁旧提供者，避免 worker->Sync 阻塞主线程 (~34ms)
+	if (old_provider) {
+		std::shared_ptr<AsyncVideoProvider> p(old_provider.release());
+		agi::dispatch::Background().Async([p]() {});
+	}
+
+	LOG_D("provider/video/load") << "AnnounceVideoProviderModified";
 	AnnounceVideoProviderModified(video_provider.get());
 
 	UpdateVideoProperties(context->ass.get(), video_provider.get(), context->parent);
@@ -390,7 +438,19 @@ bool Project::DoLoadVideo(agi::fs::path const& path) {
 
 void Project::LoadVideo(agi::fs::path path) {
 	if (path.empty()) return;
-	if (!DoLoadVideo(path)) return;
+
+	// 冻结主窗口，防止视频加载期间多次布局变更导致界面错乱；
+	// 进度对话框属于 owned window（非 child），不受 WM_SETREDRAW 影响
+	const bool shouldFreeze = context->parent && !context->parent->IsFrozen();
+	if (shouldFreeze) context->parent->Freeze();
+
+	if (!DoLoadVideo(path)) {
+		if (shouldFreeze) {
+			context->parent->Thaw();
+			UpdateAllChildren(context->parent);
+		}
+		return;
+	}
 	if (OPT_GET("Video/Open Audio")->GetBool() && audio_file != video_file && video_provider->HasAudio())
 		DoLoadAudio(video_file, true);
 
@@ -400,6 +460,13 @@ void Project::LoadVideo(agi::fs::path path) {
 	else
 		context->videoController->SetAspectRatio(AspectRatio::Default);
 	context->videoController->JumpToFrame(0);
+
+	// 解冻后立即强制重绘所有子窗口，
+	// Thaw 仅标记 RDW_INVALIDATE，需补充同步处理 WM_PAINT
+	if (shouldFreeze) {
+		context->parent->Thaw();
+		UpdateAllChildren(context->parent);
+	}
 
 	// 模态对话框事件循环可能吞掉 owner-drawn 控件的重绘
 	if (context->parent) {
@@ -581,21 +648,31 @@ void Project::LoadList(std::vector<agi::fs::path> const& files) {
 			subs.clear();
 	}
 
-	if (!video.empty() && DoLoadVideo(video)) {
-		double dar = video_provider->GetDAR();
-		if (dar > 0)
-			context->videoController->SetAspectRatio(dar);
-		else
-			context->videoController->SetAspectRatio(AspectRatio::Default);
-		context->videoController->JumpToFrame(0);
+	{
+		const bool shouldFreeze = context->parent && !context->parent->IsFrozen();
+		if (shouldFreeze) context->parent->Freeze();
 
-		// We loaded these earlier, but loading video unloaded them
-		// Non-Do version of Load in case they've vanished or changed between
-		// then and now
-		if (!timecodes.empty())
-			LoadTimecodes(timecodes);
-		if (!keyframes.empty())
-			LoadKeyframes(keyframes);
+		if (!video.empty() && DoLoadVideo(video)) {
+			double dar = video_provider->GetDAR();
+			if (dar > 0)
+				context->videoController->SetAspectRatio(dar);
+			else
+				context->videoController->SetAspectRatio(AspectRatio::Default);
+			context->videoController->JumpToFrame(0);
+
+			// We loaded these earlier, but loading video unloaded them
+			// Non-Do version of Load in case they've vanished or changed between
+			// then and now
+			if (!timecodes.empty())
+				LoadTimecodes(timecodes);
+			if (!keyframes.empty())
+				LoadKeyframes(keyframes);
+		}
+
+		if (shouldFreeze) {
+			context->parent->Thaw();
+			UpdateAllChildren(context->parent);
+		}
 	}
 
 	if (!audio.empty())
