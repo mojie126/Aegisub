@@ -69,9 +69,6 @@
 		"audio/play/toggle" : [
 			"B"
 		],
-		"play/toggle/av" : [
-			"Space"
-		],
 		"audio/scroll/left" : [
 			"A"
 		],
@@ -225,7 +222,7 @@
 		"video/play" : [
 			"Ctrl-P"
 		],
-		"play/toggle/av" : [
+		"video/play/line" : [
 			"Space"
 		],
 		"video/zoom/in" : [
