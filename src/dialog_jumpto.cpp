@@ -600,8 +600,8 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		, c(c)
 		, startFrame(INT_MAX)
 		, endFrame(INT_MIN)
-		, gifQuality(90)
-		, gifSpeedRate(4) {
+		, gifQuality(OPT_GET("Tool/GIF Export/Quality")->GetInt())
+		, gifSpeedRate(OPT_GET("Tool/GIF Export/Resolution Scale")->GetInt()) {
 		d.SetIcon(GETICON(jumpto_button_16));
 
 		// 从选中行计算起止帧
@@ -674,7 +674,14 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		speedChoices.Add("1:8");
 		speedChoices.Add("1:10");
 		choiceSpeedRate = new wxChoice(&d, -1, wxDefaultPosition, wxSize(-1, -1), speedChoices);
-		choiceSpeedRate->SetSelection(2);
+		{
+			static constexpr int kRates[] = {1, 2, 4, 6, 8, 10};
+			int idx = 2;
+			for (int i = 0; i < static_cast<int>(std::size(kRates)); ++i) {
+				if (kRates[i] == gifSpeedRate) { idx = i; break; }
+			}
+			choiceSpeedRate->SetSelection(idx);
+		}
 		choiceSpeedRate->SetToolTip(_("Scale down output resolution. 1:2 = half width and height, producing smaller files"));
 		range_grid->Add(choiceSpeedRate, 1, wxEXPAND);
 
@@ -760,6 +767,9 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		onOK = true;
 		onGifQuality = gifQuality = editGifQuality->GetValue();
 		onGifSpeedRate = gifSpeedRate;
+
+		OPT_SET("Tool/GIF Export/Quality")->SetInt(gifQuality);
+		OPT_SET("Tool/GIF Export/Resolution Scale")->SetInt(gifSpeedRate);
 
 		// 保存裁剪区域到全局变量
 		if (cropPanel->HasSelection()) {
