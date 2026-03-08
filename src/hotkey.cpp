@@ -55,6 +55,33 @@ namespace {
 	};
 #endif
 
+	bool HasBinding(const agi::hotkey::Hotkey::HotkeyMap &hk_map, const char *command, const char *context, const char *combo) {
+		for (auto const& hotkey : boost::make_iterator_range(hk_map.equal_range(command))) {
+			if (hotkey.second.Context() == context && hotkey.second.Str() == combo)
+				return true;
+		}
+		return false;
+	}
+
+	size_t CountBindingsForCombo(const agi::hotkey::Hotkey::HotkeyMap &hk_map, const char *context, const char *combo) {
+		size_t count = 0;
+		for (auto const& hotkey : hk_map) {
+			if (hotkey.second.Context() == context && hotkey.second.Str() == combo)
+				++count;
+		}
+		return count;
+	}
+
+	bool EraseBinding(agi::hotkey::Hotkey::HotkeyMap &hk_map, const char *command, const char *context, const char *combo) {
+		for (auto it = hk_map.lower_bound(command); it != hk_map.upper_bound(command); ++it) {
+			if (it->second.Context() == context && it->second.Str() == combo) {
+				hk_map.erase(it);
+				return true;
+			}
+		}
+		return false;
+	}
+
 	template<std::size_t SIZ>
 	void migrate_hotkeys(const std::array<Combo, SIZ> &added) {
 		auto hk_map = hotkey::inst->GetHotkeyMap();
@@ -197,26 +224,22 @@ void init() {
 	if (boost::find(migrations, "space_to_video_play_line") == end(migrations)) {
 		auto hk_map = hotkey::inst->GetHotkeyMap();
 		bool changed = false;
-		for (auto it = hk_map.lower_bound("play/toggle/av"); it != hk_map.upper_bound("play/toggle/av"); ) {
-			if (it->second.Str() == "Space" &&
-			    (it->second.Context() == "Audio" || it->second.Context() == "Video")) {
-				if (it->second.Context() == "Video") {
-					bool has_new = false;
-					for (auto const& h : boost::make_iterator_range(hk_map.equal_range("video/play/line"))) {
-						if (h.second.Context() == "Video" && h.second.Str() == "Space") {
-							has_new = true;
-							break;
-						}
-					}
-					if (!has_new)
-						hk_map.insert({"video/play/line", agi::hotkey::Combo("Video", "video/play/line", "Space")});
-				}
-				it = hk_map.erase(it);
-				changed = true;
-			} else {
-				++it;
-			}
+
+		// 仅迁移明确仍处于旧默认状态的绑定，避免覆盖用户自定义的 Space 热键。
+		// Audio: 旧默认是 Audio/play/toggle/av -> Space，新默认为移除该绑定。
+		if (HasBinding(hk_map, "play/toggle/av", "Audio", "Space") &&
+			CountBindingsForCombo(hk_map, "Audio", "Space") == 1) {
+			changed |= EraseBinding(hk_map, "play/toggle/av", "Audio", "Space");
 		}
+
+		// Video: 仅当 Video/Space 仍然只绑定到旧默认命令时，才迁移到 video/play/line。
+		if (HasBinding(hk_map, "play/toggle/av", "Video", "Space") &&
+			CountBindingsForCombo(hk_map, "Video", "Space") == 1) {
+			if (!HasBinding(hk_map, "video/play/line", "Video", "Space"))
+				hk_map.insert({"video/play/line", agi::hotkey::Combo("Video", "video/play/line", "Space")});
+			changed |= EraseBinding(hk_map, "play/toggle/av", "Video", "Space");
+		}
+
 		if (changed)
 			hotkey::inst->SetHotkeyMap(std::move(hk_map));
 		migrations.emplace_back("space_to_video_play_line");
