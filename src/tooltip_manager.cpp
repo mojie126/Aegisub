@@ -38,6 +38,7 @@
 #include "include/aegisub/hotkey.h"
 
 #include <libaegisub/hotkey.h>
+#include <libaegisub/signal.h>
 
 #include <list>
 #include <wx/weakref.h>
@@ -48,16 +49,17 @@ struct ToolTipBinding {
 	wxString toolTip;
 	const char *command;
 	const char *context;
+	agi::signal::Connection connection;
 	void Update();
 };
 
 void ToolTipManager::Bind(wxWindow *window, wxString tooltip, const char *context, const char *command) {
-	ToolTipBinding tip{window, tooltip, command, context};
+	ToolTipBinding tip{window, tooltip, command, context, {}};
 	tip.Update();
 
 	static std::list<ToolTipBinding> tips;
-	tips.push_back(tip);
-	hotkey::inst->AddHotkeyChangeListener(&ToolTipBinding::Update, &tips.back());
+	tips.push_back(std::move(tip));
+	tips.back().connection = hotkey::inst->AddHotkeyChangeListener(&ToolTipBinding::Update, &tips.back());
 }
 
 void ToolTipBinding::Update() {

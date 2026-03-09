@@ -1273,12 +1273,13 @@ void AudioDisplay::OnAudioOpen(agi::AudioProvider *provider)
 
 void AudioDisplay::OnTimingController()
 {
+	timing_connections.clear();
 	AudioTimingController *timing_controller = controller->GetTimingController();
 	if (timing_controller)
 	{
-		timing_controller->AddMarkerMovedListener(&AudioDisplay::OnMarkerMoved, this);
-		timing_controller->AddUpdatedPrimaryRangeListener(&AudioDisplay::OnSelectionChanged, this);
-		timing_controller->AddUpdatedStyleRangesListener(&AudioDisplay::OnStyleRangesChanged, this);
+		timing_connections.push_back(timing_controller->AddMarkerMovedListener(&AudioDisplay::OnMarkerMoved, this));
+		timing_connections.push_back(timing_controller->AddUpdatedPrimaryRangeListener(&AudioDisplay::OnSelectionChanged, this));
+		timing_connections.push_back(timing_controller->AddUpdatedStyleRangesListener(&AudioDisplay::OnStyleRangesChanged, this));
 
 		OnStyleRangesChanged();
 		OnMarkerMoved();

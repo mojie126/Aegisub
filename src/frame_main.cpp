@@ -115,11 +115,13 @@ FrameMain::FrameMain()
 	this->SetClientSize(this->FromDIP(wxSize(920, 700)));
 
 	StartupLog("Initializing context controls");
-	context->ass->AddCommitListener(&FrameMain::UpdateTitle, this);
-	context->subsController->AddFileOpenListener(&FrameMain::OnSubtitlesOpen, this);
-	context->subsController->AddFileSaveListener(&FrameMain::UpdateTitle, this);
-	context->project->AddAudioProviderListener(&FrameMain::OnAudioOpen, this);
-	context->project->AddVideoProviderListener(&FrameMain::OnVideoOpen, this);
+	signal_connections = agi::signal::make_vector({
+		context->ass->AddCommitListener(&FrameMain::UpdateTitle, this),
+		context->subsController->AddFileOpenListener(&FrameMain::OnSubtitlesOpen, this),
+		context->subsController->AddFileSaveListener(&FrameMain::UpdateTitle, this),
+		context->project->AddAudioProviderListener(&FrameMain::OnAudioOpen, this),
+		context->project->AddVideoProviderListener(&FrameMain::OnVideoOpen, this),
+	});
 
 	StartupLog("Initializing context frames");
 	context->parent = this;

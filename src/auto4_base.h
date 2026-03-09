@@ -209,6 +209,7 @@ namespace Automation4 {
 	class LocalScriptManager final : public ScriptManager {
 		agi::Context *context;
 		agi::signal::Connection file_open_connection;
+		agi::signal::Connection script_change_connection;
 
 		void SaveLoadedList();
 	public:

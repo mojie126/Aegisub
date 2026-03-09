@@ -64,6 +64,8 @@ class AudioDisplay: public wxWindow {
 	agi::signal::Connection audio_open_connection;
 
 	std::vector<agi::signal::Connection> connections;
+	/// TimingController 相关的信号连接
+	std::vector<agi::signal::Connection> timing_connections;
 	agi::Context *context;
 	WindowImeBlocker ime_blocker_;
 

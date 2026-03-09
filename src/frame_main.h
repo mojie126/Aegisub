@@ -74,6 +74,7 @@ class FrameMain : public wxFrame {
 	void EnableToolBar(agi::OptionValue const& opt);
 
 	std::vector<agi::signal::Connection> opt_connections; ///< OPT_SUB连接，防止对象销毁后回调悬空
+	std::vector<agi::signal::Connection> signal_connections; ///< 信号连接，防止对象销毁后回调悬空
 
 	AudioBox *audioBox;      ///< The audio area
 	VideoBox *videoBox;      ///< The video area

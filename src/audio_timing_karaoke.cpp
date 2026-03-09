@@ -158,8 +158,8 @@ AudioTimingControllerKaraoke::AudioTimingControllerKaraoke(agi::Context *c, agi:
 	connections.push_back(kara->AddSyllablesChangedListener(&AudioTimingControllerKaraoke::Revert, this));
 	connections.push_back(OPT_SUB("Audio/Auto/Commit", [this](agi::OptionValue const& opt) { auto_commit = opt.GetBool(); }));
 
-	keyframes_provider.AddMarkerMovedListener([this]{ AnnounceMarkerMoved(); });
-	video_position_provider.AddMarkerMovedListener([this]{ AnnounceMarkerMoved(); });
+	connections.push_back(keyframes_provider.AddMarkerMovedListener([this]{ AnnounceMarkerMoved(); }));
+	connections.push_back(video_position_provider.AddMarkerMovedListener([this]{ AnnounceMarkerMoved(); }));
 
 	Revert();
 }
