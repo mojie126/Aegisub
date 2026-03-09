@@ -170,15 +170,14 @@ namespace mocha {
 			return (it != properties.end()) ? it->second : 0;
 		};
 
+		// 对应 MoonScript importantTags：仅包含 xscale/yscale/border/shadow/zrot
+		// xrot/yrot/zdepth 为 C++ 扩展字段，不在此预填充（由回调按需处理）
 		std::vector<ImportantTag> important_tags = {
 			{"xscale", R"(\\fscx[\d.]+)", "\\fscx%g", options_.x_scale, 0},
 			{"yscale", R"(\\fscy[\d.]+)", "\\fscy%g", options_.x_scale, 0},
 			{"border", R"(\\bord[\d.]+)", "\\bord%g", options_.border, 0},
 			{"shadow", R"(\\shad[-.0-9]+)", "\\shad%g", options_.shadow, 0},
-			{"xrot", R"(\\frx[-.0-9]+)", "\\frx%g", options_.x_rotation, -1e9}, // 无 skip 值
-			{"yrot", R"(\\fry[-.0-9]+)", "\\fry%g", options_.y_rotation, -1e9}, // 无 skip 值
 			{"zrot", R"(\\frz[-.0-9]+|\\fr[-.0-9]+)", "\\frz%g", options_.z_rotation, -1e9}, // 无 skip 值
-			{"zdepth", R"(\\z[-.0-9]+)", "\\z%g", options_.z_position, -1e9}, // 无 skip 值
 		};
 
 		std::string result;

@@ -38,8 +38,8 @@ struct MotionOptions {
 	double blur_scale = 1.0;     // 模糊衰减因子
 
 	// 旋转（3D）
-	bool x_rotation = true;      // 应用 X 轴旋转数据（\frx）
-	bool y_rotation = true;      // 应用 Y 轴旋转数据（\fry）
+	bool x_rotation = false;     // 应用 X 轴旋转数据（\frx）
+	bool y_rotation = false;     // 应用 Y 轴旋转数据（\fry）
 	bool z_rotation = false;     // 应用 Z 轴旋转数据（\frz）
 
 	// Clip 相关

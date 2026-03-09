@@ -7118,39 +7118,15 @@ msgid "Factor:"
 msgstr ""
 
 #: ../src/mocha_motion/motion_dialog.cpp
-msgid "3D (\\frx, \\fry, \\frz, \\z)"
+msgid "Rotation (\\frz)"
 msgstr ""
 
 #: ../src/mocha_motion/motion_dialog.cpp
-msgid "X Rot(\\frx)"
+msgid "&Rotation"
 msgstr ""
 
 #: ../src/mocha_motion/motion_dialog.cpp
-msgid "Apply X-axis rotation data to the selected lines"
-msgstr ""
-
-#: ../src/mocha_motion/motion_dialog.cpp
-msgid "Y Rot(\\fry)"
-msgstr ""
-
-#: ../src/mocha_motion/motion_dialog.cpp
-msgid "Apply Y-axis rotation data to the selected lines"
-msgstr ""
-
-#: ../src/mocha_motion/motion_dialog.cpp
-msgid "Z Rot(\\frz)"
-msgstr ""
-
-#: ../src/mocha_motion/motion_dialog.cpp
-msgid "Apply Z-axis rotation data to the selected lines"
-msgstr ""
-
-#: ../src/mocha_motion/motion_dialog.cpp
-msgid "Z Pos(\\z)"
-msgstr ""
-
-#: ../src/mocha_motion/motion_dialog.cpp
-msgid "Apply Z position (depth) data to the selected lines"
+msgid "Apply rotation data to the selected lines"
 msgstr ""
 
 #: ../src/mocha_motion/motion_dialog.cpp
@@ -7289,11 +7265,7 @@ msgid "Apply scale data to clip"
 msgstr ""
 
 #: ../src/mocha_motion/motion_dialog.cpp
-msgid "Clip Rotation (Z-axis)"
-msgstr ""
-
-#: ../src/mocha_motion/motion_dialog.cpp
-msgid "Apply Z-axis rotation data to clip (2D plane rotation only)"
+msgid "Apply rotation data to clip"
 msgstr ""
 
 #: ../src/mocha_motion/motion_dialog.cpp
@@ -7408,7 +7380,7 @@ msgstr ""
 
 #: ../src/mocha_motion/motion_dialog.cpp
 msgid ""
-"SRS (Shake Rotoshape) data does not contain rotation or depth information. 3D-related options (X/Y/Z Rotation, Z Position) will have no effect."
+"SRS (Shake Rotoshape) data does not contain rotation information. The Rotation option will have no effect."
 msgstr ""
 
 #: ../src/mocha_motion/motion_dialog.cpp
