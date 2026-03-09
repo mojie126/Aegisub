@@ -402,6 +402,11 @@ namespace mocha {
 
 			// 加载持久化配置（对应 MoonScript: options\read!, options\updateInterface）
 			MotionConfig::Load(result.options);
+			// 单一 Rotation UI 不再暴露旧 3D 扩展字段，
+			// 避免历史配置残留导致隐藏的 \frx/\fry/\z 仍然生效
+			result.options.x_rotation = false;
+			result.options.y_rotation = false;
+			result.options.z_position = false;
 			chk_x_pos->SetValue(result.options.x_position);
 			chk_y_pos->SetValue(result.options.y_position);
 			chk_origin->SetValue(result.options.origin);
@@ -556,7 +561,12 @@ namespace mocha {
 			opts.border = chk_border->IsChecked() && opts.x_scale;
 			opts.shadow = chk_shadow->IsChecked() && opts.x_scale;
 			opts.blur = chk_blur->IsChecked() && opts.x_scale;
+			// 单一 Rotation UI 仅保留 \frz，旧 3D 扩展字段必须显式清零，
+			// 防止历史配置残留绕过当前界面继续影响结果
+			opts.x_rotation = false;
+			opts.y_rotation = false;
 			opts.z_rotation = chk_rotation->IsChecked();
+			opts.z_position = false;
 			opts.rect_clip = chk_rect_clip->IsChecked();
 			opts.vect_clip = chk_vect_clip->IsChecked();
 			opts.rc_to_vc = chk_rc_to_vc->IsChecked();
