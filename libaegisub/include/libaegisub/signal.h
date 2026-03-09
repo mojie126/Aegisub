@@ -51,7 +51,9 @@ namespace detail {
 /// returned connection in a Connection, which transfers ownership of the
 /// connection to the slot. If there is any chance that the signal will outlive
 /// the slot, this must be done.
-class UnscopedConnection {
+class [[nodiscard("Discarding an UnscopedConnection leaks the connection. "
+	"Store it in a Connection or pass it to Connection's constructor.")]]
+UnscopedConnection {
 	friend class Connection;
 	detail::ConnectionToken *token;
 public:
