@@ -41,6 +41,11 @@
 #ifdef __UNIX__
 #include <unistd.h>
 #endif
+#ifdef __WXMSW__
+#include <windows.h>
+#include <imm.h>
+#pragma comment(lib, "imm32.lib")
+#endif
 #include <algorithm>
 #include <map>
 #include <unicode/locid.h>
@@ -204,6 +209,34 @@ bool HandleHotkeysOnPrintableKey(wxKeyEvent &event, agi::Context *context, std::
 	}
 
 	return false;
+}
+
+void WindowImeBlocker::EnsureDisabled(wxWindow *window) {
+#ifdef __WXMSW__
+	if (!window) return;
+
+	if (HWND hwnd = static_cast<HWND>(window->GetHandle())) {
+		if (reinterpret_cast<HWND>(hwnd_) == hwnd)
+			return;
+
+		hwnd_ = reinterpret_cast<std::uintptr_t>(hwnd);
+		himc_ = reinterpret_cast<std::uintptr_t>(ImmAssociateContext(hwnd, nullptr));
+	}
+#else
+	(void)window;
+#endif
+}
+
+void WindowImeBlocker::Restore() {
+#ifdef __WXMSW__
+	HWND hwnd = reinterpret_cast<HWND>(hwnd_);
+	HIMC himc = reinterpret_cast<HIMC>(himc_);
+	if (hwnd && himc && IsWindow(hwnd))
+		ImmAssociateContext(hwnd, himc);
+#endif
+
+	hwnd_ = 0;
+	himc_ = 0;
 }
 
 std::string GetClipboard() {

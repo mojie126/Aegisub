@@ -62,9 +62,14 @@ VideoSlider::VideoSlider (wxWindow* parent, agi::Context *c)
 	SetClientSize(FromDIP(20), FromDIP(25));
 	SetMinSize(FromDIP(wxSize(20, 25)));
 	SetBackgroundStyle(wxBG_STYLE_PAINT);
+	ime_blocker_.EnsureDisabled(this);
 
 	c->videoSlider = this;
 	VideoOpened(c->project->VideoProvider());
+}
+
+VideoSlider::~VideoSlider() {
+	ime_blocker_.Restore();
 }
 
 void VideoSlider::SetValue(int value) {
@@ -162,10 +167,12 @@ void VideoSlider::OnMouse(wxMouseEvent &event) {
 }
 
 void VideoSlider::OnCharHook(wxKeyEvent &event) {
+	ime_blocker_.EnsureDisabled(this);
 	HandleHotkeysOnPrintableKey(event, c, {"Video"});
 }
 
 void VideoSlider::OnKeyDown(wxKeyEvent &event) {
+	ime_blocker_.EnsureDisabled(this);
 	if (HandleHotkeysOnPrintableKey(event, c, {"Video"}))
 		return;
 
@@ -268,5 +275,6 @@ void VideoSlider::OnPaint(wxPaintEvent &) {
 }
 
 void VideoSlider::OnFocus(wxFocusEvent &) {
+	ime_blocker_.EnsureDisabled(this);
 	Refresh(false);
 }

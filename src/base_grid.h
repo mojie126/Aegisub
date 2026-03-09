@@ -29,6 +29,8 @@
 
 #include <libaegisub/signal.h>
 
+#include "utils.h"
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -99,8 +101,11 @@ class BaseGrid final : public wxWindow {
 	/// Cached grid body context menu
 	std::unique_ptr<wxMenu> context_menu;
 
+	WindowImeBlocker ime_blocker_;
+
 	void OnDPIChanged(wxDPIChangedEvent &e);
 	void OnContextMenu(wxContextMenuEvent &evt);
+	void OnFocus(wxFocusEvent &event);
 	void OnHighlightVisibleChange(agi::OptionValue const& opt);
 	void OnKeyDown(wxKeyEvent &event);
 	void OnCharHook(wxKeyEvent &event);

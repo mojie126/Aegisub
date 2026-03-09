@@ -70,6 +70,8 @@ BaseGrid::BaseGrid(wxWindow* parent, agi::Context *context)
 , columns_visible(OPT_GET("Subtitle/Grid/Column")->GetListBool())
 , seek_listener(context->videoController->AddSeekListener(&BaseGrid::OnSeek, this))
 {
+	ime_blocker_.EnsureDisabled(this);
+
 	scrollBar->SetScrollbar(0,10,100,10);
 
 	auto scrollbarpositioner = new wxBoxSizer(wxHORIZONTAL);
@@ -118,7 +120,9 @@ BaseGrid::BaseGrid(wxWindow* parent, agi::Context *context)
 	Bind(wxEVT_CONTEXT_MENU, &BaseGrid::OnContextMenu, this);
 }
 
-BaseGrid::~BaseGrid() { }
+BaseGrid::~BaseGrid() {
+	ime_blocker_.Restore();
+}
 
 BEGIN_EVENT_TABLE(BaseGrid,wxWindow)
 	EVT_PAINT(BaseGrid::OnPaint)
@@ -127,6 +131,7 @@ BEGIN_EVENT_TABLE(BaseGrid,wxWindow)
 	EVT_MOUSE_EVENTS(BaseGrid::OnMouseEvent)
 	EVT_KEY_DOWN(BaseGrid::OnKeyDown)
 	EVT_CHAR_HOOK(BaseGrid::OnCharHook)
+	EVT_SET_FOCUS(BaseGrid::OnFocus)
 	EVT_MENU_RANGE(MENU_SHOW_COL,MENU_SHOW_COL+15,BaseGrid::OnShowColMenu)
 	EVT_DPI_CHANGED(BaseGrid::OnDPIChanged)
 END_EVENT_TABLE()
@@ -147,6 +152,11 @@ void BaseGrid::OnSubtitlesCommit(int type) {
 		for (auto const& rect : text_refresh_rects)
 			RefreshRect(rect, false);
 	}
+}
+
+void BaseGrid::OnFocus(wxFocusEvent &event) {
+	ime_blocker_.EnsureDisabled(this);
+	event.Skip();
 }
 
 void BaseGrid::OnShowColMenu(wxCommandEvent &event) {
@@ -740,6 +750,8 @@ bool BaseGrid::IsDisplayed(const AssDialogue *line) const {
 }
 
 void BaseGrid::OnCharHook(wxKeyEvent &event) {
+	ime_blocker_.EnsureDisabled(this);
+
 	if (HandleHotkeysOnPrintableKey(event, context, {"Subtitle Grid", "Video", "Audio"}))
 		return;
 
@@ -763,6 +775,8 @@ void BaseGrid::OnCharHook(wxKeyEvent &event) {
 }
 
 void BaseGrid::OnKeyDown(wxKeyEvent &event) {
+	ime_blocker_.EnsureDisabled(this);
+
 	if (HandleHotkeysOnPrintableKey(event, context, {"Subtitle Grid", "Video", "Audio"}))
 		return;
 
