@@ -823,20 +823,36 @@ namespace mocha {
 
 		void MotionDialogImpl::OnActivate(wxActivateEvent &event) {
 			// 对话框获得焦点时自动获取剪切板内容到追踪数据输入框
-			// 每次获得前台焦点都更新，方便用户在 Mocha 和 Aegisub 之间切换
+			// 仅当主文本框为空或当前内容无法解析为有效追踪数据时自动填充，
+			// 防止已有有效数据被意外覆盖
+			// （关闭 clip 子对话框时剪切板可能残留遮罩数据，
+			//  若无条件覆盖会导致主追踪数据被替换为遮罩数据）
 			if (event.GetActive()) {
-				if (wxTheClipboard->Open()) {
-					if (wxTheClipboard->IsSupported(wxDF_TEXT)) {
-						wxTextDataObject clipboard_data;
-						wxTheClipboard->GetData(clipboard_data);
-						const wxString text = clipboard_data.GetText();
-						// 仅当剪切板内容与当前不同时才更新，避免不必要的重解析
-						if (!text.IsEmpty() && text != data_text->GetValue()) {
-							data_text->SetValue(text);
-							UpdateDataStatus();
-						}
+				bool should_auto_paste = false;
+				const wxString current = data_text->GetValue();
+				if (current.IsEmpty()) {
+					should_auto_paste = true;
+				} else {
+					// 当前内容非空时，检查是否为有效追踪数据
+					// 若无法解析则允许覆盖，若已有有效数据则保留
+					DataHandler temp;
+					if (!temp.best_effort_parse(current.ToStdString(), script_res_x, script_res_y)) {
+						should_auto_paste = true;
 					}
-					wxTheClipboard->Close();
+				}
+				if (should_auto_paste) {
+					if (wxTheClipboard->Open()) {
+						if (wxTheClipboard->IsSupported(wxDF_TEXT)) {
+							wxTextDataObject clipboard_data;
+							wxTheClipboard->GetData(clipboard_data);
+							const wxString text = clipboard_data.GetText();
+							if (!text.IsEmpty() && text != current) {
+								data_text->SetValue(text);
+								UpdateDataStatus();
+							}
+						}
+						wxTheClipboard->Close();
+					}
 				}
 			}
 			event.Skip();
@@ -1075,18 +1091,8 @@ namespace mocha {
 
 			clip_text->Bind(wxEVT_TEXT, [&](wxCommandEvent &) { update_clip_status(); });
 
-			// 自动粘贴剪贴板：当没有已有数据时，自动将剪贴板内容填入
-			// 与主对话框的 OnPaste() 行为一致
-			if (clip_data_text_.empty()) {
-				if (wxTheClipboard->Open()) {
-					if (wxTheClipboard->IsSupported(wxDF_TEXT)) {
-						wxTextDataObject cb_data;
-						wxTheClipboard->GetData(cb_data);
-						clip_text->SetValue(cb_data.GetText());
-					}
-					wxTheClipboard->Close();
-				}
-			}
+			// 仅恢复之前保存的 clip 数据，不自动读取剪贴板
+			// 避免主数据通过剪贴板意外填入 clip 文本框
 			// 初始状态更新
 			update_clip_status();
 

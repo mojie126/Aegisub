@@ -34,3 +34,4 @@ build*/
 # Documentation (generated/temporary)
 docs/*.md
 docs/*.txt
+docs/am/
