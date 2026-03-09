@@ -151,6 +151,10 @@ VideoDisplay::VideoDisplay(wxToolBar *toolbar, bool freeSize, wxComboBox *zoomBo
 	Bind(wxEVT_ENTER_WINDOW, &VideoDisplay::OnMouseEvent, this);
 	Bind(wxEVT_KEY_DOWN, &VideoDisplay::OnKeyDown, this);
 	Bind(wxEVT_CHAR_HOOK, &VideoDisplay::OnKeyDown, this);
+	Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent &event) {
+		ime_blocker_.EnsureDisabled(this);
+		event.Skip();
+	});
 	Bind(wxEVT_LEAVE_WINDOW, &VideoDisplay::OnMouseLeave, this);
 	Bind(wxEVT_LEFT_DCLICK, &VideoDisplay::OnMouseEvent, this);
 	Bind(wxEVT_LEFT_DOWN, &VideoDisplay::OnMouseEvent, this);
@@ -179,6 +183,7 @@ VideoDisplay::VideoDisplay(wxToolBar *toolbar, bool freeSize, wxComboBox *zoomBo
 	// 尝试提前创建GL上下文，减少首帧渲染时的初始化延迟
 	// 若窗口尚未显示则会无害地返回false，在后续Render时再重试
 	InitContext();
+	ime_blocker_.EnsureDisabled(this);
 
 	con->videoController->JumpToFrame(con->videoController->GetFrameN());
 
@@ -188,6 +193,7 @@ VideoDisplay::VideoDisplay(wxToolBar *toolbar, bool freeSize, wxComboBox *zoomBo
 }
 
 VideoDisplay::~VideoDisplay () {
+	ime_blocker_.Restore();
 	Unload();
 	con->videoController->Unbind(EVT_FRAME_READY, &VideoDisplay::UploadFrameData, this);
 }
@@ -540,6 +546,7 @@ void VideoDisplay::OnContextMenu(wxContextMenuEvent&) {
 }
 
 void VideoDisplay::OnKeyDown(wxKeyEvent &event) {
+	ime_blocker_.EnsureDisabled(this);
 	hotkey::check("Video", con, event);
 }
 

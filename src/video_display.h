@@ -34,6 +34,7 @@
 
 #include <libaegisub/signal.h>
 
+#include "utils.h"
 #include "vector2d.h"
 #include "visual_tool_vector_clip.h"
 
@@ -66,6 +67,7 @@ class VideoDisplay final : public wxGLCanvas {
 	agi::Context *con;
 
 	std::unique_ptr<wxMenu> context_menu;
+	WindowImeBlocker ime_blocker_;
 
 	/// 当前窗口缩放级别下理想视口的物理像素大小。
 	/// 包含黑边区域（letter/pillarboxing），不受内容缩放和平移影响。

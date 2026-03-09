@@ -606,10 +606,12 @@ AudioDisplay::AudioDisplay(wxWindow *parent, AudioController *controller, agi::C
 	Bind(wxEVT_KEY_DOWN, &AudioDisplay::OnKeyDown, this);
 	scroll_timer.Bind(wxEVT_TIMER, &AudioDisplay::OnScrollTimer, this);
 	load_timer.Bind(wxEVT_TIMER, &AudioDisplay::OnLoadTimer, this);
+	ime_blocker_.EnsureDisabled(this);
 }
 
 AudioDisplay::~AudioDisplay()
 {
+	ime_blocker_.Restore();
 }
 
 void AudioDisplay::ScrollBy(int pixel_amount)
@@ -1180,6 +1182,7 @@ bool AudioDisplay::ForwardMouseEvent(wxMouseEvent &event) {
 
 void AudioDisplay::OnKeyDown(wxKeyEvent& event)
 {
+	ime_blocker_.EnsureDisabled(this);
 	hotkey::check("Audio", context, event);
 }
 
@@ -1209,6 +1212,7 @@ void AudioDisplay::OnSize(wxSizeEvent &)
 
 void AudioDisplay::OnFocus(wxFocusEvent &)
 {
+	ime_blocker_.EnsureDisabled(this);
 	// The scrollbar indicates focus so repaint that
 	RefreshRect(scrollbar->GetBounds(), false);
 }

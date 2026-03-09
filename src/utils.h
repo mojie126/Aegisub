@@ -89,6 +89,24 @@ bool HasReservedMnemonic(wxWindow *window, int key_code);
 /// @return 命中并执行任一热键时返回 true
 bool HandleHotkeysOnPrintableKey(wxKeyEvent &event, agi::Context *context, std::initializer_list<std::string_view> contexts);
 
+/// @brief Windows 下为非文本控件临时禁用 IME 输入法上下文
+///
+/// 某些接收可打印键热键的非文本控件（例如字幕列表、视频/音频视图）在启用 IME 时，
+/// Shift+字符等组合可能先被输入法截获，导致热键无法进入 wx 事件分发。
+/// 该辅助类在窗口获得焦点或初始化时分离 IME 上下文，并在对象销毁时尽力恢复。
+class WindowImeBlocker {
+	std::uintptr_t hwnd_ = 0;
+	std::uintptr_t himc_ = 0;
+
+public:
+	/// @brief 确保目标窗口已禁用 IME
+	/// @param window 需要保护的窗口
+	void EnsureDisabled(wxWindow *window);
+
+	/// @brief 恢复此前分离的 IME 上下文
+	void Restore();
+};
+
 /// Forward a mouse wheel event to the window under the mouse if needed
 /// @param source The initial target of the wheel event
 /// @param evt The event

@@ -29,6 +29,8 @@
 
 #include <libaegisub/signal.h>
 
+#include "utils.h"
+
 #include <vector>
 #include <wx/window.h>
 
@@ -43,6 +45,7 @@ class VideoSlider: public wxWindow {
 	agi::Context *c; ///< Associated project context
 	std::vector<int> keyframes; ///< Currently loaded keyframes
 	std::vector<agi::signal::Connection> connections;
+	WindowImeBlocker ime_blocker_;
 
 	int val = 0; ///< Current frame number
 	int max = 1; ///< Last frame number
@@ -67,6 +70,7 @@ class VideoSlider: public wxWindow {
 
 public:
 	VideoSlider(wxWindow* parent, agi::Context *c);
+	~VideoSlider();
 
 	DECLARE_EVENT_TABLE()
 };

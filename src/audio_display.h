@@ -30,8 +30,9 @@
 //
 #include <libaegisub/signal.h>
 
+#include "utils.h"
+
 #include <chrono>
-#include <cstdint>
 #include <memory>
 
 #include <wx/gdicmn.h>
@@ -64,6 +65,7 @@ class AudioDisplay: public wxWindow {
 
 	std::vector<agi::signal::Connection> connections;
 	agi::Context *context;
+	WindowImeBlocker ime_blocker_;
 
 	/// The audio renderer manager
 	std::unique_ptr<AudioRenderer> audio_renderer;
