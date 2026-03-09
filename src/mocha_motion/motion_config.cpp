@@ -155,10 +155,7 @@ namespace mocha {
 			main_obj["shadow"] = json::UnknownElement(opts.shadow);
 			main_obj["blur"] = json::UnknownElement(opts.blur);
 			main_obj["blurScale"] = json::UnknownElement(opts.blur_scale);
-			main_obj["xRotation"] = json::UnknownElement(opts.x_rotation);
-			main_obj["yRotation"] = json::UnknownElement(opts.y_rotation);
 			main_obj["zRotation"] = json::UnknownElement(opts.z_rotation);
-			main_obj["zPosition"] = json::UnknownElement(opts.z_position);
 			main_obj["writeConf"] = json::UnknownElement(opts.write_conf);
 			main_obj["relative"] = json::UnknownElement(opts.relative);
 			main_obj["startFrame"] = json::UnknownElement((int64_t) opts.start_frame);

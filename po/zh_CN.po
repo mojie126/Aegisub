@@ -7306,37 +7306,16 @@ msgstr ""
 "模糊缩放比例衰减（或增幅）系数。"
 "1.0=完整追踪比例，0.5=半效果。"
 
-#. 3D 通道（组标题）
-msgid "3D (\\frx, \\fry, \\frz, \\z)"
-msgstr "3D (\\frx, \\fry, \\frz, \\z)"
-
-msgid "X Rot(\\frx)"
-msgstr "X旋转(\\frx)"
-
-msgid "Y Rot(\\fry)"
-msgstr "Y旋转(\\fry)"
-
-msgid "Z Rot(\\frz)"
-msgstr "Z旋转(\\frz)"
-
-msgid "Z Pos(\\z)"
-msgstr "Z轴(\\z)"
-
-msgid "Apply X-axis rotation data to the selected lines"
-msgstr "将X轴旋转数据应用到选中行"
-
-msgid "Apply Y-axis rotation data to the selected lines"
-msgstr "将Y轴旋转数据应用到选中行"
+#. 旋转（组标题）
+msgid "Rotation (\\frz)"
+msgstr "旋转 (\\frz)"
 
 #. 旋转复选框
 msgid "&Rotation"
 msgstr "旋转(&R)"
 
-msgid "Apply Z-axis rotation data to the selected lines"
-msgstr "将Z轴旋转数据应用到选中行"
-
-msgid "Apply Z position (depth) data to the selected lines"
-msgstr "将Z轴位置（深度）数据应用到选中行"
+msgid "Apply rotation data to the selected lines"
+msgstr "将旋转数据应用到选中行"
 
 #. 裁剪选项（组标题）
 msgid "Clip (\\clip)"
@@ -7499,12 +7478,8 @@ msgstr "将Y轴位置数据应用到clip"
 msgid "Apply scale data to clip"
 msgstr "将缩放数据应用到clip"
 
-#. clip 对话框中的旋转标签
-msgid "Clip Rotation (Z-axis)"
-msgstr "Clip旋转（Z轴）"
-
-msgid "Apply Z-axis rotation data to clip (2D plane rotation only)"
-msgstr "将Z轴旋转数据应用到clip（仅限2D平面旋转）"
+msgid "Apply rotation data to clip"
+msgstr "将旋转数据应用到裁剪"
 
 msgid "Clip Type:"
 msgstr "Clip类型："
@@ -7716,9 +7691,9 @@ msgstr "绝对起始帧超出范围（晚于追踪数据结束）"
 #~ msgid "You already have timecodes loaded. Would you like to replace them with timecodes from the video file?"
 #~ msgstr "你已经加载过时间码。是否要用视频文件中的时间码替换？"
 
-#. motion_dialog.cpp - SRS 数据无3D信息警告
-msgid "SRS (Shake Rotoshape) data does not contain rotation or depth information. 3D-related options (X/Y/Z Rotation, Z Position) will have no effect."
-msgstr "SRS (Shake Rotoshape) 数据不包含旋转或深度信息。3D相关选项（X/Y/Z旋转、Z位置）将不会生效。"
+#. motion_dialog.cpp - SRS 数据无旋转信息警告
+msgid "SRS (Shake Rotoshape) data does not contain rotation information. The Rotation option will have no effect."
+msgstr "SRS (Shake Rotoshape) 数据不包含旋转信息。旋转选项将不会生效。"
 
 #. motion_dialog.cpp - clip 对话框 SRS Z旋转警告
 msgid "SRS (Shake Rotoshape) clip data does not contain rotation information. The Clip Rotation option will have no effect."
