@@ -2658,6 +2658,66 @@ msgstr ""
 msgid "Open a placeholder video clip with solid color"
 msgstr ""
 
+#: ../src/command/video.cpp:631
+msgid "Use &Image Video..."
+msgstr ""
+
+#: ../src/command/video.cpp:632
+msgid "Use Image Video"
+msgstr ""
+
+#: ../src/command/video.cpp:633
+msgid "Open image or image sequence as video source"
+msgstr ""
+
+#: ../src/dialog_image_video.cpp
+msgid "Image video options"
+msgstr ""
+
+#: ../src/dialog_image_video.cpp
+msgid "Image file:"
+msgstr ""
+
+#: ../src/dialog_image_video.cpp
+msgid "Sequence info:"
+msgstr ""
+
+#: ../src/dialog_image_video.cpp
+msgid "No image selected"
+msgstr ""
+
+#: ../src/dialog_image_video.cpp
+msgid "Select image file"
+msgstr ""
+
+#: ../src/dialog_image_video.cpp
+msgid "Image files"
+msgstr ""
+
+#: ../src/dialog_image_video.cpp
+msgid "File not found"
+msgstr ""
+
+#: ../src/dialog_image_video.cpp
+#, c-format
+msgid "Single image: %s"
+msgstr ""
+
+#: ../src/dialog_image_video.cpp
+#, c-format
+msgid "%d images: %s ... %s"
+msgstr ""
+
+#: ../src/dialog_image_video.cpp
+#, c-format
+msgid "Duration: %s (%d frames)"
+msgstr ""
+
+#: ../src/dialog_image_video.cpp
+#, c-format
+msgid "Duration: - (%d frames)"
+msgstr ""
+
 #: ../src/command/video.cpp:634 ../src/command/video.cpp:635
 msgid "Reload Video"
 msgstr ""
@@ -6253,6 +6313,7 @@ msgstr ""
 msgid "Please choose the folder:"
 msgstr ""
 
+#: ../src/dialog_image_video.cpp
 #: ../src/preferences_base.cpp:223
 msgid "Browse..."
 msgstr ""

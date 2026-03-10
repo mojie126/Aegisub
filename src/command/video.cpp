@@ -1109,6 +1109,20 @@ namespace {
 		}
 	};
 
+	struct video_open_image final : public Command {
+		CMD_NAME("video/open/image")
+		CMD_ICON(use_dummy_video_menu)
+		STR_MENU("Use &Image Video...")
+		STR_DISP("Use Image Video")
+		STR_HELP("Open image or image sequence as video source")
+
+		void operator()(agi::Context *c) override {
+			std::string fn = CreateImageVideo(c->parent);
+			if (!fn.empty())
+				c->project->LoadVideo(fn);
+		}
+	};
+
 	struct video_reload final : public Command {
 		CMD_NAME("video/reload")
 		STR_MENU("Reload Video")
@@ -1314,6 +1328,7 @@ namespace cmd {
 		reg(std::make_unique<video_jump_start>());
 		reg(std::make_unique<video_open>());
 		reg(std::make_unique<video_open_dummy>());
+		reg(std::make_unique<video_open_image>());
 		reg(std::make_unique<video_reload>());
 		reg(std::make_unique<video_opt_autoscroll>());
 		reg(std::make_unique<video_pan_reset>());

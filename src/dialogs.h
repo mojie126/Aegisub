@@ -63,6 +63,8 @@ int GetSelectedChoices(wxWindow *parent, wxArrayInt &selections, wxString const 
 
 std::string CreateDummyVideo(wxWindow *parent);
 
+std::string CreateImageVideo(wxWindow *parent);
+
 bool ShowPasteOverDialog(wxWindow *parent);
 
 bool ShowPlainTextImportDialog();

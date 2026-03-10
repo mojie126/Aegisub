@@ -740,6 +740,9 @@
 			},
 			"Pattern" : false
 		},
+		"Image" : {
+			"FPS String" : "24000/1001"
+		},
 		"HDR" : {
 			"Tone Mapping" : false
 		},
