@@ -3693,6 +3693,10 @@ msgstr ""
 msgid "Time: "
 msgstr ""
 
+#: ../src/dialog_jumpto.cpp:902
+msgid "Subtitle only (PNG)"
+msgstr ""
+
 #: ../src/dialog_kara_timing_copy.cpp:57
 msgid "Source: "
 msgstr ""

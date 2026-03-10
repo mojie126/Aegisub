@@ -627,8 +627,8 @@ namespace {
 		}
 	};
 
-	/// 导出视频帧图像序列（JPEG）
-	bool export_clip_image_sequences(const agi::Context *c, agi::ProgressSink *ps, const char *output_filename, long start_frame, long end_frame, const char *img_path) {
+	/// 导出视频帧图像序列（JPEG），或仅导出字幕（PNG）
+	bool export_clip_image_sequences(const agi::Context *c, agi::ProgressSink *ps, const char *output_filename, long start_frame, long end_frame, const char *img_path, bool subtitle_only) {
 		int current_frame = 1, duration_frame = end_frame - start_frame + 1;
 		std::string output_path;
 		auto clip_export_path = OPT_GET("Path/ClipExport")->GetString();
@@ -659,33 +659,54 @@ namespace {
 			}
 		}
 
-		if (!wxImage::FindHandler(wxBITMAP_TYPE_JPEG))
+		if (!subtitle_only && !wxImage::FindHandler(wxBITMAP_TYPE_JPEG))
 			wxImage::AddHandler(new wxJPEGHandler);
+		if (subtitle_only && !wxImage::FindHandler(wxBITMAP_TYPE_PNG))
+			wxImage::AddHandler(new wxPNGHandler);
 		// 如果HDR色彩映射已启用，对图片序列导出帧应用CPU侧LUT色彩映射
 		const bool seq_hdr_enabled = OPT_GET("Video/HDR/Tone Mapping")->GetBool();
-		const HDRType seq_hdr_type = c->project->VideoProvider()->GetHDRType();
+		const HDRType seq_hdr_type = seq_hdr_enabled ? c->project->VideoProvider()->GetHDRType() : HDRType::SDR;
 		// ABB 黑边填充值（首帧获取后确定）
 		int seq_padding_top = 0, seq_padding_bottom = 0;
+		if (subtitle_only) {
+			// 字幕帧本身不含padding信息，从视频帧获取
+			auto first_vf = c->project->VideoProvider()->GetFrame(start_frame, c->project->Timecodes().TimeAtFrame(start_frame), false);
+			seq_padding_top = first_vf->padding_top;
+			seq_padding_bottom = first_vf->padding_bottom;
+		}
 
 		ps->SetMessage(from_wx(agi::wxformat(_("Exporting video clips, frame: [%ld ~ %ld], total: %d, please later"), start_frame, end_frame, duration_frame)));
 		for (int i = start_frame; i <= end_frame; ++i) {
-			std::string image_filename{(wxString(output_path) + wxFileName::GetPathSeparator() + agi::wxformat(std::string(img_path) + "_[%ld-%ld]_%05d.jpg", start_frame, end_frame, current_frame)).ToStdString()};
-			auto seq_vf = c->project->VideoProvider()->GetFrame(i, c->project->Timecodes().TimeAtFrame(i), true);
-			wxImage img = GetImage(*seq_vf);
-			if (seq_hdr_enabled)
-				VideoOutGL::ApplyHDRLutToImage(img, seq_hdr_type);
-			// 首帧时获取padding值，后续帧复用
-			if (i == start_frame) {
-				seq_padding_top = seq_vf->padding_top;
-				seq_padding_bottom = seq_vf->padding_bottom;
-			}
-			if (seq_padding_top > 0 || seq_padding_bottom > 0)
-				img = AddPaddingToImage(img, seq_padding_top, seq_padding_bottom);
-			const bool res = img.SaveFile(image_filename, wxBITMAP_TYPE_JPEG);
-			ps->SetProgress(current_frame, duration_frame);
-			if (ps->IsCancelled()) break;
-			if (!res) {
-				return res;
+			const double time = c->project->Timecodes().TimeAtFrame(i);
+			if (subtitle_only) {
+				std::string image_filename{(wxString(output_path) + wxFileName::GetPathSeparator() + agi::wxformat(std::string(img_path) + "_[%ld-%ld]_%05d.png", start_frame, end_frame, current_frame)).ToStdString()};
+				auto sub_vf = c->project->VideoProvider()->GetSubtitles(time);
+				wxImage img = GetImageWithAlpha(sub_vf);
+				if (seq_hdr_enabled)
+					VideoOutGL::ApplyHDRLutToImage(img, seq_hdr_type);
+				if (seq_padding_top > 0 || seq_padding_bottom > 0)
+					img = AddPaddingToImage(img, seq_padding_top, seq_padding_bottom);
+				const bool res = img.SaveFile(image_filename, wxBITMAP_TYPE_PNG);
+				ps->SetProgress(current_frame, duration_frame);
+				if (ps->IsCancelled()) break;
+				if (!res) return res;
+			} else {
+				std::string image_filename{(wxString(output_path) + wxFileName::GetPathSeparator() + agi::wxformat(std::string(img_path) + "_[%ld-%ld]_%05d.jpg", start_frame, end_frame, current_frame)).ToStdString()};
+				auto seq_vf = c->project->VideoProvider()->GetFrame(i, time, true);
+				wxImage img = GetImage(*seq_vf);
+				if (seq_hdr_enabled)
+					VideoOutGL::ApplyHDRLutToImage(img, seq_hdr_type);
+				// 首帧时获取padding值，后续帧复用
+				if (i == start_frame) {
+					seq_padding_top = seq_vf->padding_top;
+					seq_padding_bottom = seq_vf->padding_bottom;
+				}
+				if (seq_padding_top > 0 || seq_padding_bottom > 0)
+					img = AddPaddingToImage(img, seq_padding_top, seq_padding_bottom);
+				const bool res = img.SaveFile(image_filename, wxBITMAP_TYPE_JPEG);
+				ps->SetProgress(current_frame, duration_frame);
+				if (ps->IsCancelled()) break;
+				if (!res) return res;
 			}
 			current_frame++;
 		}
@@ -743,7 +764,7 @@ namespace {
 			try {
 				progress.Run(
 					[&](agi::ProgressSink *ps) {
-						export_clip_image_sequences(c, ps, path.c_str(), getSeqStartFrame(), getSeqEndFrame(), img_path.c_str());
+						export_clip_image_sequences(c, ps, path.c_str(), getSeqStartFrame(), getSeqEndFrame(), img_path.c_str(), getSeqSubtitleOnly());
 					}
 				);
 			} catch (agi::Exception &err) {

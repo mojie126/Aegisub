@@ -132,6 +132,8 @@ long getSeqEndFrame();
 
 bool getSeqOnOK();
 
+bool getSeqSubtitleOnly();
+
 void ShowKanjiTimerDialog(agi::Context *c);
 
 void ShowLogWindow(agi::Context *c);
