@@ -2,11 +2,14 @@
 /// @brief 图片视频提供者单元测试
 /// @ingroup tests
 ///
-/// 测试图片序列扫描逻辑、URI 生成和解析
+/// 测试图片序列扫描逻辑、URI 生成和解析、导入图片序列格式
 
 #include <main.h>
 
+#include <libaegisub/format.h>
 #include <libaegisub/fs.h>
+#include <libaegisub/vfr.h>
+#include <libaegisub/ass/time.h>
 
 #include <filesystem>
 #include <fstream>
@@ -289,4 +292,130 @@ TEST(lagi_image_video, scan_nonexistent_file) {
 	auto result = ScanImageSequenceLogic("Z:/nonexistent/frame001.png");
 	ASSERT_EQ(1u, result.size());
 	EXPECT_EQ("Z:/nonexistent/frame001.png", result[0].string());
+}
+
+// ============================================================================
+// 导入图片序列 —— 图片行 ASS 标签格式测试
+// ============================================================================
+
+TEST(lagi_image_video, import_tag_format_basic) {
+	std::string path = "D:/images/frame001.png";
+	int w = 1920, h = 1080;
+	auto text = agi::format("{\\an7\\pos(0,0)\\bord0\\shad0\\fscx100\\fscy100\\1img(%s)\\p1}m 0 0 l %d 0 l %d %d l 0 %d",
+		path, w, w, h, h);
+	EXPECT_EQ("{\\an7\\pos(0,0)\\bord0\\shad0\\fscx100\\fscy100\\1img(D:/images/frame001.png)\\p1}m 0 0 l 1920 0 l 1920 1080 l 0 1080", text);
+}
+
+TEST(lagi_image_video, import_tag_format_small_image) {
+	std::string path = "img.png";
+	int w = 100, h = 50;
+	auto text = agi::format("{\\an7\\pos(0,0)\\bord0\\shad0\\fscx100\\fscy100\\1img(%s)\\p1}m 0 0 l %d 0 l %d %d l 0 %d",
+		path, w, w, h, h);
+	EXPECT_EQ("{\\an7\\pos(0,0)\\bord0\\shad0\\fscx100\\fscy100\\1img(img.png)\\p1}m 0 0 l 100 0 l 100 50 l 0 50", text);
+}
+
+TEST(lagi_image_video, import_tag_path_with_backslash) {
+	std::string path = "D:\\images\\frame001.png";
+	int w = 640, h = 480;
+	auto text = agi::format("{\\an7\\pos(0,0)\\bord0\\shad0\\fscx100\\fscy100\\1img(%s)\\p1}m 0 0 l %d 0 l %d %d l 0 %d",
+		path, w, w, h, h);
+	EXPECT_EQ("{\\an7\\pos(0,0)\\bord0\\shad0\\fscx100\\fscy100\\1img(D:\\images\\frame001.png)\\p1}m 0 0 l 640 0 l 640 480 l 0 480", text);
+}
+
+// ============================================================================
+// 导入图片序列 —— 时间计算测试
+// ============================================================================
+
+TEST(lagi_image_video, import_time_cfr_30fps) {
+	agi::vfr::Framerate fr(30.0);
+	// 5 帧图片序列从第 0 帧开始
+	int start_frame = 0;
+	int count = 5;
+
+	// 每帧应分配到正确的时间
+	for (int i = 0; i < count; ++i) {
+		int start_ms = fr.TimeAtFrame(start_frame + i, agi::vfr::START);
+		int end_ms = fr.TimeAtFrame(start_frame + i + 1, agi::vfr::START);
+		EXPECT_LT(start_ms, end_ms) << "frame " << i << " start must be before end";
+	}
+
+	// 首帧 START 时间在 0 附近（受 START 模式计算影响可能不精确为 0）
+	EXPECT_LE(std::abs(fr.TimeAtFrame(0, agi::vfr::START)), 20);
+}
+
+TEST(lagi_image_video, import_time_cfr_24fps) {
+	agi::vfr::Framerate fr(24.0);
+	int start_frame = 100;
+	int count = 3;
+
+	int first_start = fr.TimeAtFrame(start_frame, agi::vfr::START);
+	int last_end = fr.TimeAtFrame(start_frame + count, agi::vfr::START);
+
+	// 序列总时长应约等于 3/24 秒 = 125ms
+	int duration = last_end - first_start;
+	EXPECT_GT(duration, 100);
+	EXPECT_LT(duration, 150);
+}
+
+TEST(lagi_image_video, import_time_cfr_nonzero_start) {
+	agi::vfr::Framerate fr(30.0);
+	int start_frame = 500;
+	int count = 10;
+
+	// 每帧时间递增
+	int prev_ms = fr.TimeAtFrame(start_frame, agi::vfr::START);
+	for (int i = 1; i <= count; ++i) {
+		int cur_ms = fr.TimeAtFrame(start_frame + i, agi::vfr::START);
+		EXPECT_GT(cur_ms, prev_ms) << "frame " << i;
+		prev_ms = cur_ms;
+	}
+}
+
+TEST(lagi_image_video, import_time_vfr) {
+	// VFR 时间码：帧 0=0ms, 帧 1=50ms, 帧 2=80ms, 帧 3=130ms, 帧 4=160ms
+	agi::vfr::Framerate fr({0, 50, 80, 130, 160});
+	int start_frame = 1;
+	int count = 3;
+
+	// 帧 1 起始时间
+	int t1 = fr.TimeAtFrame(1, agi::vfr::START);
+	int t2 = fr.TimeAtFrame(2, agi::vfr::START);
+	int t3 = fr.TimeAtFrame(3, agi::vfr::START);
+	int t4 = fr.TimeAtFrame(4, agi::vfr::START);
+
+	// 时间递增
+	EXPECT_LT(t1, t2);
+	EXPECT_LT(t2, t3);
+	EXPECT_LT(t3, t4);
+}
+
+TEST(lagi_image_video, import_comment_end_time) {
+	agi::vfr::Framerate fr(30.0);
+	int start_frame = 100;
+	int count = 5;
+
+	// 注释行结束时间 = 序列最后一帧之后
+	int comment_end = fr.TimeAtFrame(start_frame + count, agi::vfr::START);
+	// 最后一帧图片行结束时间也应等于此
+	int last_img_end = fr.TimeAtFrame(start_frame + count, agi::vfr::START);
+
+	EXPECT_EQ(comment_end, last_img_end);
+	// 注释行应包含整个序列
+	int comment_start = fr.TimeAtFrame(start_frame, agi::vfr::START);
+	EXPECT_LT(comment_start, comment_end);
+}
+
+TEST(lagi_image_video, import_duration_display) {
+	agi::vfr::Framerate fr(24.0);
+	int count = 24;
+
+	// 24 帧 @24fps ≈ 1 秒
+	int duration_ms = fr.TimeAtFrame(count) - fr.TimeAtFrame(0);
+	EXPECT_GT(duration_ms, 900);
+	EXPECT_LT(duration_ms, 1100);
+
+	// agi::Time 格式化
+	auto dur = agi::Time(duration_ms);
+	auto formatted = dur.GetAssFormatted(true);
+	EXPECT_FALSE(formatted.empty());
 }

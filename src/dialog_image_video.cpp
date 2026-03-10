@@ -5,6 +5,7 @@
 /// 提供文件选择、帧率设置、图片序列信息显示的对话框
 
 #include "compat.h"
+#include "dialogs.h"
 #include "format.h"
 #include "help_button.h"
 #include "libresrc/libresrc.h"
@@ -173,4 +174,160 @@ std::string CreateImageVideo(wxWindow *parent) {
 	OPT_SET("Video/Image/FPS String")->SetString(from_wx(dlg.fps));
 
 	return ImageVideoProvider::MakeFilename(from_wx(dlg.fps), from_wx(dlg.filepath));
+}
+
+namespace {
+/// @brief 导入图片序列对话框
+struct DialogImportImageSequence {
+	wxDialog d;
+
+	agi::vfr::Framerate fr;
+	wxString filepath;
+
+	wxStaticText *info_fps;
+	wxStaticText *info_sequence;
+	wxStaticText *info_size;
+	wxStaticText *info_duration;
+	wxTextCtrl *file_display;
+	wxFlexGridSizer *sizer;
+
+	std::vector<agi::fs::path> detected_files;
+	int img_width  = 0;
+	int img_height = 0;
+
+	void OnBrowse(wxCommandEvent &evt);
+	void UpdateInfo();
+
+	DialogImportImageSequence(wxWindow *parent, agi::vfr::Framerate const& fr);
+};
+
+DialogImportImageSequence::DialogImportImageSequence(wxWindow *parent, agi::vfr::Framerate const& fr)
+: d(parent, -1, _("Import image sequence"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+, fr(fr)
+{
+	d.SetIcons(GETICONS(use_dummy_video_menu));
+
+	// 文件选择行
+	auto file_sizer = new wxBoxSizer(wxHORIZONTAL);
+	file_display = new wxTextCtrl(&d, -1, "", wxDefaultPosition, d.FromDIP(wxSize(400, -1)), wxTE_READONLY);
+	auto browse_btn = new wxButton(&d, -1, _("Browse..."));
+	file_sizer->Add(file_display, wxSizerFlags(1).Expand());
+	file_sizer->Add(browse_btn, wxSizerFlags().Border(wxLEFT, d.FromDIP(5)));
+
+	sizer = new wxFlexGridSizer(2, d.FromDIP(5), d.FromDIP(5));
+	sizer->AddGrowableCol(1, 1);
+
+	auto add = [&](wxString const& label, wxWindow *ctrl) {
+		sizer->Add(new wxStaticText(&d, -1, label), wxSizerFlags().Center().Left());
+		sizer->Add(ctrl, wxSizerFlags().Expand().Center().Left());
+	};
+	auto add_sizer = [&](wxString const& label, wxSizer *ctrl) {
+		sizer->Add(new wxStaticText(&d, -1, label), wxSizerFlags().Center().Left());
+		sizer->Add(ctrl, wxSizerFlags(1).Expand().Center().Left());
+	};
+
+	add_sizer(_("Image file:"), file_sizer);
+	add(_("Frame rate:"), info_fps = new wxStaticText(&d, -1, wxString::Format("%.3f fps", fr.FPS())));
+	add(_("Sequence:"), info_sequence = new wxStaticText(&d, -1, _("No image selected")));
+	add(_("Image size:"), info_size = new wxStaticText(&d, -1, "-"));
+	add(_("Duration:"), info_duration = new wxStaticText(&d, -1, "-"));
+
+	// 说明文字
+	auto note = new wxStaticText(&d, -1,
+		_("Only PNG files are supported. The image sequence will be imported as subtitle lines using the \\1img tag."));
+	note->Wrap(d.FromDIP(450));
+
+	auto btn_sizer = d.CreateStdDialogButtonSizer(wxOK | wxCANCEL);
+	btn_sizer->GetAffirmativeButton()->Enable(false);
+
+	auto main_sizer = new wxBoxSizer(wxVERTICAL);
+	main_sizer->Add(sizer, wxSizerFlags().Border().Expand());
+	main_sizer->Add(note, wxSizerFlags().Border(wxLEFT | wxRIGHT | wxBOTTOM).Expand());
+	main_sizer->Add(new wxStaticLine(&d, wxHORIZONTAL), wxSizerFlags().HorzBorder().Expand());
+	main_sizer->Add(btn_sizer, wxSizerFlags().Expand().Border());
+
+	d.SetSizerAndFit(main_sizer);
+	d.SetMinSize(d.GetSize());
+	d.CenterOnParent();
+
+	browse_btn->Bind(wxEVT_BUTTON, &DialogImportImageSequence::OnBrowse, this);
+}
+
+void DialogImportImageSequence::OnBrowse(wxCommandEvent &) {
+	wxFileDialog dlg(&d, _("Select PNG image file"), "", "",
+		"PNG (*.png)|*.png",
+		wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+
+	if (dlg.ShowModal() == wxID_OK) {
+		filepath = dlg.GetPath();
+		file_display->SetValue(filepath);
+		UpdateInfo();
+	}
+}
+
+void DialogImportImageSequence::UpdateInfo() {
+	detected_files.clear();
+	img_width = 0;
+	img_height = 0;
+
+	if (filepath.empty()) {
+		info_sequence->SetLabel(_("No image selected"));
+		info_size->SetLabel("-");
+		info_duration->SetLabel("-");
+		return;
+	}
+
+	agi::fs::path path(from_wx(filepath));
+	if (!agi::fs::FileExists(path)) {
+		info_sequence->SetLabel(_("File not found"));
+		info_size->SetLabel("-");
+		info_duration->SetLabel("-");
+		return;
+	}
+
+	detected_files = ImageVideoProvider::ScanImageSequence(path);
+	int count = static_cast<int>(detected_files.size());
+
+	if (count == 1) {
+		info_sequence->SetLabel(fmt_tl("Single image: %s", path.filename().string()));
+	} else {
+		info_sequence->SetLabel(fmt_tl("%d images: %s ... %s",
+			count,
+			detected_files.front().filename().string(),
+			detected_files.back().filename().string()));
+	}
+
+	// 读取第一张图片尺寸
+	wxImage img;
+	if (img.LoadFile(to_wx(detected_files.front().string()))) {
+		img_width = img.GetWidth();
+		img_height = img.GetHeight();
+		info_size->SetLabel(wxString::Format("%d x %d", img_width, img_height));
+	} else {
+		info_size->SetLabel(_("Failed to load image file"));
+	}
+
+	// 计算时长（count 帧的时间跨度）
+	auto dur = agi::Time(fr.TimeAtFrame(count) - fr.TimeAtFrame(0));
+	info_duration->SetLabel(fmt_tl("%s (%d frames)", dur.GetAssFormatted(true), count));
+
+	// 启用确认按钮
+	auto *ok_btn = d.FindWindow(wxID_OK);
+	if (ok_btn) ok_btn->Enable(count > 0 && img_width > 0);
+
+	d.GetSizer()->Layout();
+	d.Fit();
+}
+}
+
+ImportImageSequenceResult ShowImportImageSequence(wxWindow *parent, agi::vfr::Framerate const& fr) {
+	DialogImportImageSequence dlg(parent, fr);
+	if (dlg.d.ShowModal() != wxID_OK)
+		return {};
+
+	ImportImageSequenceResult result;
+	result.files = std::move(dlg.detected_files);
+	result.img_width = dlg.img_width;
+	result.img_height = dlg.img_height;
+	return result;
 }

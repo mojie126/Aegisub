@@ -17,9 +17,12 @@
 #define DIALOGS_H
 
 #include <libaegisub/color.h>
+#include <libaegisub/fs.h>
+#include <libaegisub/vfr.h>
 
 #include <functional>
 #include <string>
+#include <vector>
 #include <wx/string.h>
 
 class AssFile;
@@ -64,6 +67,20 @@ int GetSelectedChoices(wxWindow *parent, wxArrayInt &selections, wxString const 
 std::string CreateDummyVideo(wxWindow *parent);
 
 std::string CreateImageVideo(wxWindow *parent);
+
+/// @brief 导入图片序列对话框的返回结果
+struct ImportImageSequenceResult {
+	std::vector<agi::fs::path> files;
+	int img_width  = 0;
+	int img_height = 0;
+	explicit operator bool() const { return !files.empty(); }
+};
+
+/// @brief 显示导入图片序列对话框
+/// @param parent 父窗口
+/// @param fr 视频帧率（用于展示时长信息）
+/// @return 图片文件列表和尺寸，用户取消时返回空结果
+ImportImageSequenceResult ShowImportImageSequence(wxWindow *parent, agi::vfr::Framerate const& fr);
 
 bool ShowPasteOverDialog(wxWindow *parent);
 

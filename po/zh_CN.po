@@ -8246,4 +8246,49 @@ msgstr "设置文本为右到左"
 msgid "Change the direction of the text to RTL"
 msgstr "将文本方向更改为从右到左"
 
+#: ../src/command/video.cpp
+msgid "Import image sequence"
+msgstr "导入图片序列"
+
+#: ../src/command/video.cpp
+msgid "Import PNG image files as subtitle lines using \\1img tag"
+msgstr "使用 \\1img 标签将 PNG 图片文件导入为字幕行"
+
+#: ../src/command/video.cpp
+msgid "import image sequence"
+msgstr "导入图片序列"
+
+#: ../src/dialog_image_video.cpp
+msgid "Select PNG image file"
+msgstr "选择 PNG 图片文件"
+
+#: ../src/dialog_image_video.cpp
+msgid "Failed to load image file"
+msgstr "加载图片文件失败"
+
+#: ../src/dialog_image_video.cpp
+msgid "Frame rate:"
+msgstr "帧率:"
+
+#: ../src/dialog_image_video.cpp
+msgid "Sequence:"
+msgstr "序列:"
+
+#: ../src/dialog_image_video.cpp
+msgid "Image size:"
+msgstr "图片尺寸:"
+
+#: ../src/dialog_image_video.cpp
+msgid "Duration:"
+msgstr "时长:"
+
+#: ../src/dialog_image_video.cpp
+msgid "Only PNG files are supported. The image sequence will be imported as subtitle lines using the \\1img tag."
+msgstr "仅支持 PNG 格式文件。图片序列将使用 \\1img 标签导入为字幕行。"
+
+#: ../src/command/video.cpp
+#, c-format
+msgid "1img sequence: %s ~ %s | frames %d~%d (%d images) | %dx%d"
+msgstr "1img 序列: %s ~ %s | 帧 %d~%d (共 %d 张) | %dx%d"
+
 
