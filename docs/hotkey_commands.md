@@ -64,7 +64,6 @@
 | `audio/open/blank` | 打开 2 小时 30 分钟的空白音频（用于调试） |
 | `audio/open/noise` | 打开 2 小时 30 分钟的噪音音频（用于调试） |
 | `audio/open/video` | 从当前视频文件打开音频 |
-
 | `audio/opt/autocommit` | 自动提交所有更改 |
 | `audio/opt/autonext` | 提交时自动转到下一行 |
 | `audio/opt/autoscroll` | 自动滚动音频显示到选定行 |
