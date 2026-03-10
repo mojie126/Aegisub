@@ -34,6 +34,7 @@
 #include "command.h"
 
 #include "../ass_dialogue.h"
+#include "../ass_file.h"
 #include "../async_video_provider.h"
 #include "../compat.h"
 #include "../dialog_detached_video.h"
@@ -780,6 +781,60 @@ namespace {
 		}
 	};
 
+	/// @brief 导入图片序列为字幕行命令
+	struct video_import_image_sequence final : public validator_video_loaded {
+		CMD_NAME("video/import/image_sequence")
+		STR_MENU("Import image sequence")
+		STR_DISP("Import image sequence")
+		STR_HELP("Import PNG image files as subtitle lines using \\1img tag")
+		CMD_TYPE(COMMAND_VALIDATE)
+
+		bool Validate(const agi::Context *c) override {
+			return c->project->VideoProvider() && !c->selectionController->GetSelectedSet().empty();
+		}
+
+		void operator()(agi::Context *c) override {
+			auto fr = c->project->Timecodes();
+			auto result = ShowImportImageSequence(c->parent, fr);
+			if (!result) return;
+
+			// 获取插入位置：当前选中行之后
+			AssDialogue *active = c->selectionController->GetActiveLine();
+			if (!active) return;
+			auto pos = std::next(c->ass->iterator_to(*active));
+			int start_ms = static_cast<int>(active->Start);
+
+			// 插入注释行：包含时间/帧号/序列范围信息
+			int start_frame = c->videoController->FrameAtTime(start_ms, agi::vfr::START);
+			int count = static_cast<int>(result.files.size());
+			auto *comment_line = new AssDialogue;
+			comment_line->Comment = true;
+			comment_line->Start = start_ms;
+			comment_line->End = fr.TimeAtFrame(start_frame + count, agi::vfr::START);
+			comment_line->Style = active->Style;
+			comment_line->Text = from_wx(agi::wxformat(_("1img sequence: %s ~ %s | frames %d~%d (%d images) | %dx%d"),
+				to_wx(result.files.front().filename().string()),
+				to_wx(result.files.back().filename().string()),
+				start_frame, start_frame + count - 1, count,
+				result.img_width, result.img_height));
+			c->ass->Events.insert(pos, *comment_line);
+
+			// 插入图片行
+			for (int i = 0; i < count; ++i) {
+				auto line = new AssDialogue;
+				line->Start = fr.TimeAtFrame(start_frame + i, agi::vfr::START);
+				line->End = fr.TimeAtFrame(start_frame + i + 1, agi::vfr::START);
+				line->Style = active->Style;
+				line->Text = agi::format("{\\an7\\pos(0,0)\\bord0\\shad0\\fscx100\\fscy100\\1img(%s)\\p1}m 0 0 l %d 0 l %d %d l 0 %d",
+					result.files[i].string(), result.img_width, result.img_width, result.img_height, result.img_height);
+				c->ass->Events.insert(pos, *line);
+			}
+
+			c->ass->Commit(_("import image sequence"), AssFile::COMMIT_DIAG_ADDREM);
+			c->selectionController->SetSelectionAndActive({comment_line}, comment_line);
+		}
+	};
+
 	struct video_frame_copy final : public validator_video_loaded {
 		CMD_NAME("video/frame/copy")
 		STR_MENU("Copy image to Clipboard")
@@ -1344,5 +1399,6 @@ namespace cmd {
 		reg(std::make_unique<video_to_gif>());
 		reg(std::make_unique<video_frame_export>());
 		reg(std::make_unique<video_save_clip>());
+		reg(std::make_unique<video_import_image_sequence>());
 	}
 }

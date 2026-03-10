@@ -20,6 +20,7 @@
         {},
         { "command" : "video/save/gif" },
         { "command" : "video/save/clip" },
+        { "command" : "video/import/image_sequence" },
         { "command" : "audio/save/clip" },
         {},
         { "command" : "subtitle/apply/mocha", "text" : "Apply Mocha-Motion" },
