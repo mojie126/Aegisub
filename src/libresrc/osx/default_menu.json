@@ -158,6 +158,7 @@
         { "command" : "video/close" },
         { "recent" : "Video" },
         { "command" : "video/open/dummy" },
+        { "command" : "video/open/image" },
         { "command" : "video/details" },
         {},
         { "command" : "timecode/open" },

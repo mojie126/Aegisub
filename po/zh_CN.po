@@ -2779,6 +2779,66 @@ msgstr "使用空白视频"
 msgid "Open a placeholder video clip with solid color"
 msgstr "打开一个纯色的空白视频片段"
 
+#: ../src/command/video.cpp:631
+msgid "Use &Image Video..."
+msgstr "使用图片视频(&I)…"
+
+#: ../src/command/video.cpp:632
+msgid "Use Image Video"
+msgstr "使用图片视频"
+
+#: ../src/command/video.cpp:633
+msgid "Open image or image sequence as video source"
+msgstr "将图片或图片序列作为视频源打开"
+
+#: ../src/dialog_image_video.cpp
+msgid "Image video options"
+msgstr "图片视频选项"
+
+#: ../src/dialog_image_video.cpp
+msgid "Image file:"
+msgstr "图片文件:"
+
+#: ../src/dialog_image_video.cpp
+msgid "Sequence info:"
+msgstr "序列信息:"
+
+#: ../src/dialog_image_video.cpp
+msgid "No image selected"
+msgstr "未选择图片"
+
+#: ../src/dialog_image_video.cpp
+msgid "Select image file"
+msgstr "选择图片文件"
+
+#: ../src/dialog_image_video.cpp
+msgid "Image files"
+msgstr "图片文件"
+
+#: ../src/dialog_image_video.cpp
+msgid "File not found"
+msgstr "文件未找到"
+
+#: ../src/dialog_image_video.cpp
+#, c-format
+msgid "Single image: %s"
+msgstr "单张图片: %s"
+
+#: ../src/dialog_image_video.cpp
+#, c-format
+msgid "%d images: %s ... %s"
+msgstr "%d 张图片: %s ... %s"
+
+#: ../src/dialog_image_video.cpp
+#, c-format
+msgid "Duration: %s (%d frames)"
+msgstr "时长: %s (%d 帧)"
+
+#: ../src/dialog_image_video.cpp
+#, c-format
+msgid "Duration: - (%d frames)"
+msgstr "时长: - (%d 帧)"
+
 #: ../src/command/video.cpp:634 ../src/command/video.cpp:635
 msgid "Reload Video"
 msgstr "重载视频"
@@ -6402,9 +6462,10 @@ msgstr "还原为默认(&R)"
 msgid "Please choose the folder:"
 msgstr "请选择文件夹："
 
+#: ../src/dialog_image_video.cpp
 #: ../src/preferences_base.cpp:223
 msgid "Browse..."
-msgstr "更改…"
+msgstr "浏览…"
 
 #: ../src/preferences_base.cpp:258
 msgid "Choose..."

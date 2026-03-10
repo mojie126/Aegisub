@@ -31,6 +31,7 @@
 #include <wx/choicdlg.h>
 
 std::unique_ptr<VideoProvider> CreateDummyVideoProvider(agi::fs::path const&, std::string_view, agi::BackgroundRunner *);
+std::unique_ptr<VideoProvider> CreateImageVideoProvider(agi::fs::path const&, std::string_view, agi::BackgroundRunner *);
 std::unique_ptr<VideoProvider> CreateYUV4MPEGVideoProvider(agi::fs::path const&, std::string_view, agi::BackgroundRunner *);
 std::unique_ptr<VideoProvider> CreateFFmpegSourceVideoProvider(agi::fs::path const&, std::string_view, agi::BackgroundRunner *);
 std::unique_ptr<VideoProvider> CreateAvisynthVideoProvider(agi::fs::path const&, std::string_view, agi::BackgroundRunner *);
@@ -126,6 +127,7 @@ namespace {
 
 	const factory providers[] = {
 		{"Dummy", CreateDummyVideoProvider, true},
+		{"Image", CreateImageVideoProvider, true},
 		{"YUV4MPEG", CreateYUV4MPEGVideoProvider, true},
 #ifdef WITH_FFMS2
 		{"FFmpegSource", CreateFFmpegSourceVideoProvider, false},
