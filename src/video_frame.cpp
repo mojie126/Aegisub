@@ -141,5 +141,14 @@ wxImage AddPaddingToImage(const wxImage &img, int padding_top, int padding_botto
 	unsigned char *dst_data = padded.GetData() + static_cast<size_t>(top) * src_w * 3;
 	memcpy(dst_data, src_data, static_cast<size_t>(src_w) * src_h * 3);
 
+	// 处理Alpha通道：若原图含Alpha则复制，填充区域设为全透明
+	if (img.HasAlpha()) {
+		padded.InitAlpha();
+		memset(padded.GetAlpha(), 0, static_cast<size_t>(src_w) * dst_h);
+		const unsigned char *src_alpha = img.GetAlpha();
+		unsigned char *dst_alpha = padded.GetAlpha() + static_cast<size_t>(top) * src_w;
+		memcpy(dst_alpha, src_alpha, static_cast<size_t>(src_w) * src_h);
+	}
+
 	return padded;
 }

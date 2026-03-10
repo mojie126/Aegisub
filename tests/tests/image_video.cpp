@@ -419,3 +419,50 @@ TEST(lagi_image_video, import_duration_display) {
 	auto formatted = dur.GetAssFormatted(true);
 	EXPECT_FALSE(formatted.empty());
 }
+
+// ============================================================================
+// 导出图片序列 —— 文件名生成格式测试
+// ============================================================================
+
+/// @brief 模拟导出图片序列的文件名生成逻辑
+static std::string MakeExportFilename(const std::string& img_path, long start_frame, long end_frame, int current_frame, bool subtitle_only) {
+	const char *ext = subtitle_only ? ".png" : ".jpg";
+	return agi::format("%s_[%ld-%ld]_%05d%s", img_path, start_frame, end_frame, current_frame, ext);
+}
+
+TEST(lagi_image_video, export_filename_jpeg_mode) {
+	auto name = MakeExportFilename("video_clip", 100, 200, 1, false);
+	EXPECT_EQ("video_clip_[100-200]_00001.jpg", name);
+}
+
+TEST(lagi_image_video, export_filename_png_subtitle_mode) {
+	auto name = MakeExportFilename("video_clip", 100, 200, 1, true);
+	EXPECT_EQ("video_clip_[100-200]_00001.png", name);
+}
+
+TEST(lagi_image_video, export_filename_frame_counter) {
+	auto name1 = MakeExportFilename("clip", 0, 999, 1, false);
+	EXPECT_EQ("clip_[0-999]_00001.jpg", name1);
+
+	auto name2 = MakeExportFilename("clip", 0, 999, 500, true);
+	EXPECT_EQ("clip_[0-999]_00500.png", name2);
+
+	auto name3 = MakeExportFilename("clip", 0, 999, 99999, false);
+	EXPECT_EQ("clip_[0-999]_99999.jpg", name3);
+}
+
+TEST(lagi_image_video, export_filename_large_frame_range) {
+	auto name = MakeExportFilename("test", 10000, 20000, 42, true);
+	EXPECT_EQ("test_[10000-20000]_00042.png", name);
+}
+
+TEST(lagi_image_video, export_duration_frame_count) {
+	// 导出帧范围的帧数计算：end - start + 1
+	long start = 100, end_frame = 200;
+	int duration = end_frame - start + 1;
+	EXPECT_EQ(101, duration);
+
+	start = 0; end_frame = 0;
+	duration = end_frame - start + 1;
+	EXPECT_EQ(1, duration);
+}

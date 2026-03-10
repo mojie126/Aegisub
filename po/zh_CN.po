@@ -3819,6 +3819,10 @@ msgstr "帧序："
 msgid "Time: "
 msgstr "时间："
 
+#: ../src/dialog_jumpto.cpp:902
+msgid "Subtitle only (PNG)"
+msgstr "仅导出字幕（PNG）"
+
 #: ../src/dialog_kara_timing_copy.cpp:57
 msgid "Source: "
 msgstr "来源："

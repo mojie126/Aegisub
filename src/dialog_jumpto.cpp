@@ -84,6 +84,7 @@ bool hasCropRegion = false;
 long seqStartFrame = 0;
 long seqEndFrame = 0;
 bool seqOnOK = false;
+bool seqSubtitleOnly = false;
 
 namespace {
 	struct DialogJumpTo {
@@ -838,6 +839,8 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 
 		void OnInitDialog(wxInitDialogEvent &);
 
+		wxCheckBox *subtitleOnlyCheck;
+
 		explicit DialogFrameSeqExport(agi::Context *c);
 	};
 
@@ -861,8 +864,8 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		}
 
 		auto *main_sizer = new wxBoxSizer(wxVERTICAL);
-		const int pad = d.FromDIP(6);
-		const int inner_pad = d.FromDIP(4);
+		const int pad = d.FromDIP(10);
+		const int inner_pad = d.FromDIP(6);
 
 		// ====== 帧范围组 ======
 		auto *range_box = new wxStaticBox(&d, wxID_ANY, _("Frame Range"));
@@ -876,7 +879,7 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 			0, wxALIGN_CENTER_VERTICAL
 		);
 		editStartFrame = new wxTextCtrl(
-			&d, -1, "", wxDefaultPosition, wxSize(-1, -1),
+			&d, -1, "", wxDefaultPosition, d.FromDIP(wxSize(120, -1)),
 			wxTE_PROCESS_ENTER, IntValidator(static_cast<int>(startFrame))
 		);
 		editStartFrame->SetMaxLength(std::to_string(c->project->VideoProvider()->GetFrameCount() - 1).size());
@@ -887,7 +890,7 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 			0, wxALIGN_CENTER_VERTICAL
 		);
 		editEndFrame = new wxTextCtrl(
-			&d, -1, "", wxDefaultPosition, wxSize(-1, -1),
+			&d, -1, "", wxDefaultPosition, d.FromDIP(wxSize(120, -1)),
 			wxTE_PROCESS_ENTER, IntValidator(static_cast<int>(endFrame))
 		);
 		editEndFrame->SetMaxLength(std::to_string(c->project->VideoProvider()->GetFrameCount() - 1).size());
@@ -895,13 +898,19 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 
 		range_sizer->Add(range_grid, 0, wxEXPAND | wxALL, inner_pad);
 
+		// ====== 选项 ======
+		subtitleOnlyCheck = new wxCheckBox(&d, -1, _("Subtitle only (PNG)"));
+		subtitleOnlyCheck->SetValue(false);
+
 		// ====== 按钮 ======
 		const auto ButtonSizer = d.CreateStdDialogButtonSizer(wxOK | wxCANCEL);
 
 		// ====== 组装总布局 ======
 		main_sizer->Add(range_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, pad);
+		main_sizer->Add(subtitleOnlyCheck, 0, wxLEFT | wxRIGHT | wxTOP, pad);
 		main_sizer->Add(ButtonSizer, 0, wxEXPAND | wxALL, pad);
 		d.SetSizerAndFit(main_sizer);
+		d.SetMinSize(d.GetSize());
 		d.CenterOnParent();
 
 		d.Bind(wxEVT_INIT_DIALOG, &DialogFrameSeqExport::OnInitDialog, this);
@@ -927,11 +936,13 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		d.EndModal(0);
 		seqStartFrame = startFrame;
 		seqEndFrame = endFrame;
+		seqSubtitleOnly = subtitleOnlyCheck->GetValue();
 		seqOnOK = true;
 	}
 
 	void DialogFrameSeqExport::OnCANCEL(wxCommandEvent &) {
 		d.EndModal(0);
+		seqSubtitleOnly = false;
 		seqOnOK = false;
 	}
 
@@ -1014,4 +1025,8 @@ long getSeqEndFrame() {
 
 bool getSeqOnOK() {
 	return seqOnOK;
+}
+
+bool getSeqSubtitleOnly() {
+	return seqSubtitleOnly;
 }
