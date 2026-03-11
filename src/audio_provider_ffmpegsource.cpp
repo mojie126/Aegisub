@@ -98,14 +98,18 @@ void FFmpegSourceAudioProvider::LoadAudio(agi::fs::path const& filename) {
 	int TrackNumber = -1;
 	if (TrackList.size() > 1) {
 		auto Selection = AskForTrackSelection(TrackList, FFMS_TYPE_AUDIO);
-		if (Selection == TrackSelection::None)
+		if (Selection == TrackSelection::None) {
+			FFMS_CancelIndexing(Indexer);
 			throw agi::UserCancelException("audio loading canceled by user");
+		}
 		TrackNumber = static_cast<int>(Selection);
 	}
 	else if (TrackList.size() == 1)
 		TrackNumber = TrackList.begin()->first;
-	else
+	else {
+		FFMS_CancelIndexing(Indexer);
 		throw agi::AudioDataNotFound("no audio tracks found");
+	}
 
 	// generate a name for the cache file
 	agi::fs::path CacheName = GetCacheFilename(filename);
