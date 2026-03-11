@@ -241,12 +241,16 @@ std::shared_ptr<VideoFrame> VideoController::GetFrame(int frame, bool raw) const
 }
 
 void VideoController::OnVideoError(VideoProviderErrorEvent const& err) {
+	if (!provider || (err.provider_id && err.provider_id != provider->GetProviderId()))
+		return;
 	wxLogError(
 		fmt_tl("Failed seeking video. The video file may be corrupt or incomplete.\nError message reported: %s",
 		err.GetMessage()));
 }
 
 void VideoController::OnSubtitlesError(SubtitlesProviderErrorEvent const& err) {
+	if (!provider || (err.provider_id && err.provider_id != provider->GetProviderId()))
+		return;
 	wxLogError(
 		fmt_tl("Failed rendering subtitles.\nError message reported: %s",
 		err.GetMessage()));
