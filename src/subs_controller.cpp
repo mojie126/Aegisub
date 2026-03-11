@@ -101,7 +101,7 @@ struct SubsController::UndoInfo {
 		Selection new_sel;
 
 		for (auto const& info : script_info)
-			c->ass->Info.push_back(*new AssInfo(info.first, info.second));
+			c->ass->Info.emplace_back(info.first, info.second);
 		for (auto const& style : styles)
 			c->ass->Styles.push_back(*new AssStyle(style));
 		c->ass->Attachments = attachments;

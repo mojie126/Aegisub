@@ -173,15 +173,19 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 	}
 
 	std::map<int, std::string> TrackList = GetTracksOfType(Indexer, FFMS_TYPE_VIDEO);
-	if (TrackList.size() <= 0)
+	if (TrackList.size() <= 0) {
+		FFMS_CancelIndexing(Indexer);
 		throw VideoNotSupported("no video tracks found");
+	}
 
 	// 多视频轨道时需在主线程显示选择对话框
 	int TrackNumber = -1;
 	if (TrackList.size() > 1) {
 		auto Selection = AskForTrackSelection(TrackList, FFMS_TYPE_VIDEO);
-		if (Selection == TrackSelection::None)
+		if (Selection == TrackSelection::None) {
+			FFMS_CancelIndexing(Indexer);
 			throw agi::UserCancelException("video loading cancelled by user");
+		}
 		TrackNumber = static_cast<int>(Selection);
 	}
 
