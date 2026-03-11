@@ -215,6 +215,9 @@ bool VideoDisplay::InitContext() {
 }
 
 void VideoDisplay::UploadFrameData(FrameReadyEvent &evt) {
+	auto provider = con->project->VideoProvider();
+	if (!provider || evt.provider_id != provider->GetProviderId())
+		return;
 	pending_frame = evt.frame;
 	Render();
 }

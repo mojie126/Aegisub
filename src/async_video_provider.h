@@ -51,6 +51,9 @@ class AsyncVideoProvider {
 	/// Event handler to send FrameReady events to
 	wxEvtHandler *parent;
 
+	/// Unique id for current provider instance
+	const uint_fast32_t provider_id;
+
 	int frame_number = -1; ///< Last frame number requested
 	double time = -1.; ///< Time of the frame to pass to the subtitle renderer
 
@@ -171,6 +174,7 @@ public:
 	std::string GetDecoderName() const    { return source_provider->GetDecoderName(); }
 	bool ShouldSetVideoProperties() const { return source_provider->ShouldSetVideoProperties(); }
 	bool HasAudio() const                 { return source_provider->HasAudio(); }
+	uint_fast32_t GetProviderId() const   { return provider_id; }
 
 	/// @brief Constructor
 	/// @param video_filename File to open
@@ -185,21 +189,25 @@ struct FrameReadyEvent final : public wxEvent {
 	std::shared_ptr<VideoFrame> frame;
 	/// Time which was used for subtitle rendering
 	double time;
+	/// Provider instance id for stale event filtering
+	uint_fast32_t provider_id;
 	wxEvent *Clone() const override { return new FrameReadyEvent(*this); };
-	FrameReadyEvent(std::shared_ptr<VideoFrame> frame, double time)
-	: frame(std::move(frame)), time(time) { }
+	FrameReadyEvent(std::shared_ptr<VideoFrame> frame, double time, uint_fast32_t provider_id)
+	: frame(std::move(frame)), time(time), provider_id(provider_id) { }
 };
 
 // These exceptions are wxEvents so that they can be passed directly back to
 // the parent thread as events
 struct VideoProviderErrorEvent final : public wxEvent, public agi::Exception {
+	uint_fast32_t provider_id;
 	wxEvent *Clone() const override { return new VideoProviderErrorEvent(*this); };
-	VideoProviderErrorEvent(VideoProviderError const& err);
+	VideoProviderErrorEvent(VideoProviderError const& err, uint_fast32_t provider_id);
 };
 
 struct SubtitlesProviderErrorEvent final : public wxEvent, public agi::Exception {
+	uint_fast32_t provider_id;
 	wxEvent *Clone() const override { return new SubtitlesProviderErrorEvent(*this); };
-	SubtitlesProviderErrorEvent(std::string const& msg);
+	SubtitlesProviderErrorEvent(std::string const& msg, uint_fast32_t provider_id);
 };
 
 wxDECLARE_EVENT(EVT_FRAME_READY, FrameReadyEvent);

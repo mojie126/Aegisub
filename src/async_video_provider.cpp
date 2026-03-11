@@ -40,6 +40,10 @@ enum {
 	SUBS_FILE_ALREADY_LOADED = -2
 };
 
+namespace {
+	std::atomic<uint_fast32_t> next_provider_id{0};
+}
+
 /// @brief 从ASS事件文本中提取\\img标签引用的图片文件路径
 /// @param subs ASS字幕文件
 /// @return 去重后的图片路径列表
@@ -125,7 +129,7 @@ std::shared_ptr<VideoFrame> AsyncVideoProvider::ProcFrame(int frame_number, doub
 		try {
 			source_provider->GetFrame(frame_number, *frame);
 		}
-		catch (VideoProviderError const& err) { throw VideoProviderErrorEvent(err); }
+		catch (VideoProviderError const& err) { throw VideoProviderErrorEvent(err, provider_id); }
 
 		// 存入L2缓存（LRU淘汰策略）
 		auto cached_frame = std::make_shared<VideoFrame>(*frame);
@@ -174,7 +178,7 @@ std::shared_ptr<VideoFrame> AsyncVideoProvider::ProcFrame(int frame_number, doub
 			}
 		}
 	}
-	catch (agi::Exception const& err) { throw SubtitlesProviderErrorEvent(err.GetMessage()); }
+	catch (agi::Exception const& err) { throw SubtitlesProviderErrorEvent(err.GetMessage(), provider_id); }
 
 	try {
 		subs_provider->DrawSubtitles(*frame, time / 1000.);
@@ -256,7 +260,7 @@ static std::unique_ptr<SubtitlesProvider> get_subs_provider(wxEvtHandler *evt_ha
 		return SubtitlesProviderFactory::GetProvider(br);
 	}
 	catch (agi::Exception const& err) {
-		evt_handler->AddPendingEvent(SubtitlesProviderErrorEvent(err.GetMessage()));
+		evt_handler->AddPendingEvent(SubtitlesProviderErrorEvent(err.GetMessage(), 0));
 		return nullptr;
 	}
 }
@@ -266,6 +270,7 @@ AsyncVideoProvider::AsyncVideoProvider(agi::fs::path const& video_filename, std:
 , subs_provider(get_subs_provider(parent, br))
 , source_provider(VideoProviderFactory::GetProvider(video_filename, colormatrix, br))
 , parent(parent)
+, provider_id(next_provider_id.fetch_add(1, std::memory_order_relaxed) + 1)
 {
 	// 根据视频分辨率动态计算L2缓存容量，限制总缓存内存约256MB
 	size_t frame_bytes = static_cast<size_t>(source_provider->GetWidth()) * source_provider->GetHeight() * 4;
@@ -392,7 +397,7 @@ void AsyncVideoProvider::ProcAsync(uint_fast32_t req_version, bool check_updated
 	last_rendered = frame_number;
 
 	try {
-		auto evt = new FrameReadyEvent(ProcFrame(frame_number, time), time);
+		auto evt = new FrameReadyEvent(ProcFrame(frame_number, time), time, provider_id);
 		evt->SetEventType(EVT_FRAME_READY);
 		parent->QueueEvent(evt);
 	}
@@ -441,13 +446,15 @@ wxDEFINE_EVENT(EVT_FRAME_READY, FrameReadyEvent);
 wxDEFINE_EVENT(EVT_VIDEO_ERROR, VideoProviderErrorEvent);
 wxDEFINE_EVENT(EVT_SUBTITLES_ERROR, SubtitlesProviderErrorEvent);
 
-VideoProviderErrorEvent::VideoProviderErrorEvent(VideoProviderError const& err)
+VideoProviderErrorEvent::VideoProviderErrorEvent(VideoProviderError const& err, uint_fast32_t provider_id)
 : agi::Exception(std::string(err.GetMessage()))
+, provider_id(provider_id)
 {
 	SetEventType(EVT_VIDEO_ERROR);
 }
-SubtitlesProviderErrorEvent::SubtitlesProviderErrorEvent(std::string const& err)
+SubtitlesProviderErrorEvent::SubtitlesProviderErrorEvent(std::string const& err, uint_fast32_t provider_id)
 : agi::Exception(std::string(err))
+, provider_id(provider_id)
 {
 	SetEventType(EVT_SUBTITLES_ERROR);
 }
