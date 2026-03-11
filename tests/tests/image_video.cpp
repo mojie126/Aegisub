@@ -56,13 +56,23 @@ std::vector<std::filesystem::path> ScanImageSequenceLogic(std::filesystem::path 
 			continue;
 		if (file_match[1].str() != prefix || file_match[3].str() != suffix)
 			continue;
-		if (file_match[2].str().size() != digit_width)
-			continue;
 		result.push_back(entry.path());
 	}
 
 	std::sort(result.begin(), result.end(), [](auto const& a, auto const& b) {
-		return a.filename().string() < b.filename().string();
+		std::string na = a.filename().string();
+		std::string nb = b.filename().string();
+		std::smatch ma, mb;
+		if (std::regex_match(na, ma, digit_regex) && std::regex_match(nb, mb, digit_regex)) {
+			auto da = ma[2].str();
+			auto db = mb[2].str();
+			auto va = std::stoull(da);
+			auto vb = std::stoull(db);
+			if (va != vb) return va < vb;
+			if (da.size() != db.size()) return da.size() > db.size();
+			return na < nb;
+		}
+		return na < nb;
 	});
 
 	if (result.empty())
@@ -263,16 +273,67 @@ TEST(lagi_image_video, scan_sequence_ignores_different_extension) {
 	ASSERT_EQ(2u, result.size());
 }
 
-TEST(lagi_image_video, scan_sequence_ignores_different_digit_width) {
+TEST(lagi_image_video, scan_sequence_mixed_digit_width) {
 	TempDir tmp("img_dw");
 	tmp.touch("frame01.png");
 	tmp.touch("frame02.png");
 	tmp.touch("frame001.png");
 
 	auto result = ScanImageSequenceLogic(tmp.path() / "frame01.png");
-	ASSERT_EQ(2u, result.size());
-	EXPECT_EQ("frame01.png", result[0].filename().string());
-	EXPECT_EQ("frame02.png", result[1].filename().string());
+	ASSERT_EQ(3u, result.size());
+	// 按数值自然排序：数值相同则位数更长优先
+	EXPECT_EQ("frame001.png", result[0].filename().string());
+	EXPECT_EQ("frame01.png", result[1].filename().string());
+	EXPECT_EQ("frame02.png", result[2].filename().string());
+}
+
+TEST(lagi_image_video, scan_sequence_equal_value_prefers_longer_digits) {
+	TempDir tmp("img_eq");
+	tmp.touch("f001.png");
+	tmp.touch("f01.png");
+	tmp.touch("f1.png");
+
+	auto result = ScanImageSequenceLogic(tmp.path() / "f1.png");
+	ASSERT_EQ(3u, result.size());
+	EXPECT_EQ("f001.png", result[0].filename().string());
+	EXPECT_EQ("f01.png", result[1].filename().string());
+	EXPECT_EQ("f1.png", result[2].filename().string());
+}
+
+TEST(lagi_image_video, scan_sequence_unpadded_numbers) {
+	TempDir tmp("img_unpad");
+	tmp.touch("frame1.png");
+	tmp.touch("frame2.png");
+	tmp.touch("frame9.png");
+	tmp.touch("frame10.png");
+	tmp.touch("frame99.png");
+	tmp.touch("frame100.png");
+
+	auto result = ScanImageSequenceLogic(tmp.path() / "frame9.png");
+	ASSERT_EQ(6u, result.size());
+	EXPECT_EQ("frame1.png", result[0].filename().string());
+	EXPECT_EQ("frame2.png", result[1].filename().string());
+	EXPECT_EQ("frame9.png", result[2].filename().string());
+	EXPECT_EQ("frame10.png", result[3].filename().string());
+	EXPECT_EQ("frame99.png", result[4].filename().string());
+	EXPECT_EQ("frame100.png", result[5].filename().string());
+}
+
+TEST(lagi_image_video, scan_sequence_large_numbers) {
+	TempDir tmp("img_large");
+	tmp.touch("img_999.png");
+	tmp.touch("img_1000.png");
+	tmp.touch("img_9999.png");
+	tmp.touch("img_10000.png");
+	tmp.touch("img_99999.png");
+
+	auto result = ScanImageSequenceLogic(tmp.path() / "img_1000.png");
+	ASSERT_EQ(5u, result.size());
+	EXPECT_EQ("img_999.png", result[0].filename().string());
+	EXPECT_EQ("img_1000.png", result[1].filename().string());
+	EXPECT_EQ("img_9999.png", result[2].filename().string());
+	EXPECT_EQ("img_10000.png", result[3].filename().string());
+	EXPECT_EQ("img_99999.png", result[4].filename().string());
 }
 
 TEST(lagi_image_video, scan_sorted_order) {

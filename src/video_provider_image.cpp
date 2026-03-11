@@ -201,17 +201,24 @@ std::vector<agi::fs::path> ImageVideoProvider::ScanImageSequence(agi::fs::path c
 		if (file_match[1].str() != prefix || file_match[3].str() != suffix)
 			continue;
 
-		// 数字位数必须一致（或不检查位数，允许不同宽度）
-		std::string file_digits = file_match[2].str();
-		if (file_digits.size() != digit_width)
-			continue;
-
 		result.push_back(dir / name);
 	}
 
-	// 按文件名排序（自然排序，通过数字部分排序）
+	// 按数字部分的数值自然排序
 	std::sort(result.begin(), result.end(), [&](auto const& a, auto const& b) {
-		return a.filename().string() < b.filename().string();
+		std::string na = a.filename().string();
+		std::string nb = b.filename().string();
+		std::smatch ma, mb;
+		if (std::regex_match(na, ma, digit_regex) && std::regex_match(nb, mb, digit_regex)) {
+			auto da = ma[2].str();
+			auto db = mb[2].str();
+			auto va = std::stoull(da);
+			auto vb = std::stoull(db);
+			if (va != vb) return va < vb;
+			if (da.size() != db.size()) return da.size() > db.size();
+			return na < nb;
+		}
+		return na < nb;
 	});
 
 	// 如果扫描结果为空（不应发生），至少包含选中的文件
