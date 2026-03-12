@@ -39,6 +39,7 @@
 
 #include <cmath>
 #include <wx/colour.h>
+#include <wx/toolbar.h>
 
 static const float pi = 3.1415926536f;
 static const float deg2rad = pi / 180.f;
