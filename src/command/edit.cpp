@@ -838,7 +838,7 @@ static void combine_lines(agi::Context *c, void (*combiner)(AssDialogue *, AssDi
 
 static void combine_karaoke(AssDialogue *first, AssDialogue *second) {
 	if (second)
-		first->Text = agi::Str(first->Text.get(), "{\\k", std::to_string((second->End - second->Start) / 10), "}", second->Text.get());
+		first->Text = agi::Str(first->Text.get(), " {\\k", std::to_string(std::max(0, (int)(second->Start - first->End) / 10)), "}", second->Text.get());
 	else
 		first->Text = agi::Str("{\\k", std::to_string((first->End - first->Start) / 10), "}", first->Text.get());
 }
