@@ -1,5 +1,5 @@
 /// @file audit_fixes.cpp
-/// @brief 审计修复的单元测试：ExtractImgPaths、L2缓存容量、EndOfStreamDist
+/// @brief 审计修复的单元测试：ExtractImgPaths、L2缓存容量、EndOfStreamDist、Extradata过期计数器、combine_karaoke
 ///
 /// @warning 本文件中的辅助函数是对实际实现逻辑的**镜像副本**。
 ///          修改实际代码后，必须同步更新此处对应的副本函数。
@@ -225,4 +225,154 @@ TEST(AuditFixesTest, EndOfStreamDist_H264_ThreadDominant) {
 TEST(AuditFixesTest, EndOfStreamDist_H264_HWDecode) {
 	// has_b_frames=4, reorder=6(4+2), thread=0 -> base=7, h264=(4+1)*2=10 -> max=10
 	EXPECT_EQ(10, ComputeEndOfStreamDist(6, 0, true, 4));
+}
+
+// ============================================================
+// #7: Extradata 过期计数器
+// 对照: src/ass_file.h :: EXTRADATA_EXPIRATION_LIMIT
+//       src/ass_parser.cpp :: ParseExtradataLine()
+//       src/ass_file.cpp :: CleanExtradata()
+// ============================================================
+
+#include "ass_file.h"
+#include <unordered_set>
+
+/// @brief 模拟 CleanExtradata 的过期清除逻辑
+/// MIRROR-OF: src/ass_file.cpp :: CleanExtradata()
+/// @param entries extradata 条目（id, counter）
+/// @param ids_used 被引用的 id 集合
+/// @param limit 过期阈值
+static void SimulateCleanExtradata(
+	std::vector<std::pair<uint32_t, int>>& entries,
+	const std::unordered_set<uint32_t>& ids_used,
+	int limit)
+{
+	for (auto& e : entries) {
+		if (ids_used.count(e.first))
+			e.second = 0;
+		else
+			e.second++;
+	}
+	entries.erase(std::remove_if(entries.begin(), entries.end(),
+		[&](const std::pair<uint32_t, int>& e) {
+			return e.second >= limit;
+		}), entries.end());
+}
+
+/// 加载时计数器为 LIMIT+1，未引用条目首次清理即被删除
+TEST(AuditFixesTest, Extradata_LoadedUnusedDeletedOnFirstClean) {
+	const int LIMIT = EXTRADATA_EXPIRATION_LIMIT;
+	// 模拟加载：counter = LIMIT + 1
+	std::vector<std::pair<uint32_t, int>> entries = {
+		{1, LIMIT + 1}, {2, LIMIT + 1}, {3, LIMIT + 1}
+	};
+	// id=1 被引用，id=2,3 未被引用
+	std::unordered_set<uint32_t> used = {1};
+	SimulateCleanExtradata(entries, used, LIMIT);
+	// id=1 保留(counter=0)，id=2,3 的 counter 从11变12 >= 10，被清除
+	ASSERT_EQ(1u, entries.size());
+	EXPECT_EQ(1u, entries[0].first);
+	EXPECT_EQ(0, entries[0].second);
+}
+
+/// 被引用的条目计数器始终为0，永不过期
+TEST(AuditFixesTest, Extradata_ReferencedNeverExpires) {
+	const int LIMIT = EXTRADATA_EXPIRATION_LIMIT;
+	std::vector<std::pair<uint32_t, int>> entries = {{1, LIMIT + 1}};
+	std::unordered_set<uint32_t> used = {1};
+	for (int i = 0; i < 20; i++)
+		SimulateCleanExtradata(entries, used, LIMIT);
+	ASSERT_EQ(1u, entries.size());
+	EXPECT_EQ(0, entries[0].second);
+}
+
+/// 从 counter=0 开始的条目需要恰好 LIMIT 次未引用才被清除
+TEST(AuditFixesTest, Extradata_GradualExpiration) {
+	const int LIMIT = EXTRADATA_EXPIRATION_LIMIT;
+	std::vector<std::pair<uint32_t, int>> entries = {{1, 0}};
+	std::unordered_set<uint32_t> empty;
+	// 前 LIMIT-1 次不应被清除
+	for (int i = 0; i < LIMIT - 1; i++) {
+		SimulateCleanExtradata(entries, empty, LIMIT);
+		ASSERT_EQ(1u, entries.size()) << "round " << i;
+	}
+	// 第 LIMIT 次应被清除
+	SimulateCleanExtradata(entries, empty, LIMIT);
+	EXPECT_TRUE(entries.empty());
+}
+
+// ============================================================
+// #8: combine_karaoke 卡拉OK合并逻辑
+// 对照: src/command/edit.cpp :: combine_karaoke()
+// ============================================================
+
+#include <libaegisub/string.h>
+
+/// @brief 模拟 combine_karaoke 的合并逻辑
+/// MIRROR-OF: src/command/edit.cpp :: combine_karaoke()
+/// @param first_text 首行文本（会被就地修改）
+/// @param first_start 首行起始时间（毫秒）
+/// @param first_end 首行结束时间（毫秒）
+/// @param second_text 次行文本，nullptr 表示首次调用
+/// @param second_start 次行起始时间（毫秒）
+static void SimulateCombineKaraoke(
+	std::string& first_text,
+	int first_start, int first_end,
+	const char* second_text, int second_start)
+{
+	if (second_text)
+		first_text = agi::Str(first_text, " {\\k", std::to_string(std::max(0, (second_start - first_end) / 10)), "}", second_text);
+	else
+		first_text = agi::Str("{\\k", std::to_string((first_end - first_start) / 10), "}", first_text);
+}
+
+/// 首行包裹：用 duration 作为 k 值
+TEST(AuditFixesTest, CombineKaraoke_FirstLineWrapped) {
+	std::string text = "Hello";
+	SimulateCombineKaraoke(text, 0, 1000, nullptr, 0);
+	EXPECT_EQ("{\\k100}Hello", text);
+}
+
+/// 合并次行：用两行间的时间间隔作为 k 值
+TEST(AuditFixesTest, CombineKaraoke_GapBetweenLines) {
+	std::string text = "{\\k100}Hello";
+	// first_end=1000, second_start=1500, gap=500ms=50cs
+	SimulateCombineKaraoke(text, 0, 1000, "World", 1500);
+	EXPECT_EQ("{\\k100}Hello {\\k50}World", text);
+}
+
+/// 三行合并完整流程（模拟 combine_lines 调用顺序）
+TEST(AuditFixesTest, CombineKaraoke_ThreeLines) {
+	// Line 1: 0ms-1000ms "A", Line 2: 1500ms-2500ms "B", Line 3: 3000ms-4000ms "C"
+	std::string text = "A";
+	int first_end = 1000;
+
+	// 第一步：combiner(first, nullptr)
+	SimulateCombineKaraoke(text, 0, first_end, nullptr, 0);
+	EXPECT_EQ("{\\k100}A", text);
+
+	// 第二步：combiner(first, sel[1])，之后 first_end 更新为 max(1000,2500)=2500
+	SimulateCombineKaraoke(text, 0, first_end, "B", 1500);
+	first_end = std::max(first_end, 2500);
+	EXPECT_EQ("{\\k100}A {\\k50}B", text);
+
+	// 第三步：combiner(first, sel[2])，first_end 已更新为 2500
+	SimulateCombineKaraoke(text, 0, first_end, "C", 3000);
+	EXPECT_EQ("{\\k100}A {\\k50}B {\\k50}C", text);
+}
+
+/// 相邻行（无间隔）产生 k0
+TEST(AuditFixesTest, CombineKaraoke_ZeroGap) {
+	std::string text = "{\\k50}X";
+	// first_end=500, second_start=500, gap=0
+	SimulateCombineKaraoke(text, 0, 500, "Y", 500);
+	EXPECT_EQ("{\\k50}X {\\k0}Y", text);
+}
+
+/// 重叠行（负间隔）clamp 到 k0
+TEST(AuditFixesTest, CombineKaraoke_OverlappingLines) {
+	std::string text = "{\\k100}X";
+	// first_end=1000, second_start=800, gap=-200ms → clamp 到 0
+	SimulateCombineKaraoke(text, 0, 1000, "Y", 800);
+	EXPECT_EQ("{\\k100}X {\\k0}Y", text);
 }
