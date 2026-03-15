@@ -46,6 +46,7 @@ tests_src = [
     'tests/vfr.cpp',
     'tests/word_split.cpp',
     'tests/mocha_motion.cpp',
+    'tests/ycbcr.cpp',
     'tests/hdr_video_audit.cpp',
     'tests/text_file_writer.cpp',
     'tests/audit_fixes.cpp',
