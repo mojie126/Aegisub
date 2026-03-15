@@ -18,19 +18,9 @@
 #include <cstdint>
 
 #include <libaegisub/color.h>
+#include <libaegisub/ycbcr.h>
 
 namespace agi {
-enum class ycbcr_matrix {
-	bt601,
-	bt709,
-	fcc,
-	smpte_240m
-};
-
-enum class ycbcr_range {
-	tv,
-	pc
-};
 
 /// A converter between YCbCr colorspaces and RGB
 class ycbcr_converter {

@@ -16,13 +16,30 @@
 
 #include "libaegisub/ycbcr_conv.h"
 
+#include "libaegisub/exception.h"
+
 namespace {
-double matrix_coefficients[][3] = {
-	{.299, .587, .114},    // BT.601
-	{.2126, .7152, .0722}, // BT.709
-	{.3, .59, .11},        // FCC
-	{.212, .701, .087},    // SMPTE 240M
-};
+const std::array<double, 3> matrix_coefficients_bt601 = {.299, .587, .114};
+const std::array<double, 3> matrix_coefficients_bt709 = {.2126, .7152, .0722};
+const std::array<double, 3> matrix_coefficients_fcc = {.3, .59, .11};
+const std::array<double, 3> matrix_coefficients_smpte240m = {.212, .701, .087};
+
+const std::array<double, 3> &get_coefficients(agi::ycbcr_matrix mat) {
+	using enum agi::ycbcr_matrix;
+	switch (mat) {
+        case BT709:
+			return matrix_coefficients_bt709;
+        case FCC:
+			return matrix_coefficients_fcc;
+        case BT470BG:
+        case SMPTE170M:
+			return matrix_coefficients_bt601;
+        case SMPTE240M:
+			return matrix_coefficients_smpte240m;
+		default:
+			throw agi::InternalError("Unsupported colorspace conversion");
+	}
+}
 
 void row_mult(std::array<double, 9>& arr, std::array<double, 3> values) {
 	size_t i = 0;
@@ -44,7 +61,7 @@ void col_mult(std::array<double, 9>& m, std::array<double, 3> v) {
 
 namespace agi {
 void ycbcr_converter::init_src(ycbcr_matrix src_mat, ycbcr_range src_range) {
-	auto coeff = matrix_coefficients[(int)src_mat];
+	auto const& coeff = get_coefficients(src_mat);
 	double Kr = coeff[0];
 	double Kg = coeff[1];
 	double Kb = coeff[2];
@@ -54,7 +71,7 @@ void ycbcr_converter::init_src(ycbcr_matrix src_mat, ycbcr_range src_range) {
 		1,          -Kg/(1-Kr), -Kb/(1-Kr),
 	}};
 
-	if (src_range == ycbcr_range::pc) {
+	if (src_range == ycbcr_range::JPEG) {
 		row_mult(to_ycbcr, {{1., .5, .5}});
 		shift_to = {{0, 128., 128.}};
 	}
@@ -65,7 +82,7 @@ void ycbcr_converter::init_src(ycbcr_matrix src_mat, ycbcr_range src_range) {
 }
 
 void ycbcr_converter::init_dst(ycbcr_matrix dst_mat, ycbcr_range dst_range) {
-	auto coeff = matrix_coefficients[(int)dst_mat];
+	auto const& coeff = get_coefficients(dst_mat);
 	double Kr = coeff[0];
 	double Kg = coeff[1];
 	double Kb = coeff[2];
@@ -75,7 +92,7 @@ void ycbcr_converter::init_dst(ycbcr_matrix dst_mat, ycbcr_range dst_range) {
 		1,  (1-Kb),        0,
 	}};
 
-	if (dst_range == ycbcr_range::pc) {
+	if (dst_range == ycbcr_range::JPEG) {
 		col_mult(from_ycbcr, {{1., 2., 2.}});
 		shift_from = {{0, -128., -128.}};
 	}
