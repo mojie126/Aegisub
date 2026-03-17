@@ -94,7 +94,7 @@ public:
 		ColorMatrix::override_colormatrix(CS, CR, matrix, Width, Height);
 
 		if (FFMS_SetInputFormatV(VideoSource, CS, CR, FFMS_GetPixFmt(""), &ErrInfo))
-			throw VideoOpenError(std::string("Failed to set input format: ") + ErrInfo.Buffer);
+			throw VideoOpenError(from_wx(_("Failed to set input format: ")) + std::string(ErrInfo.Buffer));
 
 		ColorSpace = matrix;
 	}
@@ -175,7 +175,7 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 	std::map<int, std::string> TrackList = GetTracksOfType(Indexer, FFMS_TYPE_VIDEO);
 	if (TrackList.size() <= 0) {
 		FFMS_CancelIndexing(Indexer);
-		throw VideoNotSupported("no video tracks found");
+		throw VideoNotSupported(from_wx(_("No video tracks found")));
 	}
 
 	// 多视频轨道时需在主线程显示选择对话框
@@ -184,7 +184,7 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 		auto Selection = AskForTrackSelection(TrackList, FFMS_TYPE_VIDEO);
 		if (Selection == TrackSelection::None) {
 			FFMS_CancelIndexing(Indexer);
-			throw agi::UserCancelException("video loading cancelled by user");
+			throw agi::UserCancelException(from_wx(_("Video loading cancelled by user")));
 		}
 		TrackNumber = static_cast<int>(Selection);
 	}
@@ -242,7 +242,7 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 			FFMS_SetProgressCallback(Indexer, callback, ps);
 			Index = FFMS_DoIndexing2(Indexer, IndexEH, &ErrInfo);
 			if (!Index)
-				throw VideoOpenError(std::string("Failed to index: ") + ErrInfo.Buffer);
+				throw VideoOpenError(from_wx(_("Failed to index: ")) + std::string(ErrInfo.Buffer));
 			FFMS_WriteIndex(CacheName.string().c_str(), Index, &ErrInfo);
 		}
 		else {
@@ -255,7 +255,7 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 		if (TrackNumber < 0) {
 			TrackNumber = FFMS_GetFirstIndexedTrackOfType(Index, FFMS_TYPE_VIDEO, &ErrInfo);
 			if (TrackNumber < 0)
-				throw VideoNotSupported(std::string("Couldn't find any video tracks: ") + ErrInfo.Buffer);
+				throw VideoNotSupported(from_wx(_("Couldn't find any video tracks: ")) + std::string(ErrInfo.Buffer));
 		}
 
 		has_audio = FFMS_GetFirstTrackOfType(Index, FFMS_TYPE_AUDIO, nullptr) != -1;
@@ -265,7 +265,7 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 		ps->SetMessage(from_wx(_("Opening video source")));
 		VideoSource = FFMS_CreateVideoSource(filename.string().c_str(), TrackNumber, Index, Threads, SeekMode, &ErrInfo, hw_name, 0);
 		if (!VideoSource)
-			throw VideoOpenError(std::string("Failed to open video track: ") + ErrInfo.Buffer);
+			throw VideoOpenError(from_wx(_("Failed to open video track: ")) + std::string(ErrInfo.Buffer));
 
 		// load video properties
 		VideoInfo = FFMS_GetVideoProperties(VideoSource);
@@ -273,7 +273,7 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 
 		const FFMS_Frame *TempFrame = FFMS_GetFrame(VideoSource, 0, &ErrInfo);
 		if (!TempFrame)
-			throw VideoOpenError(std::string("Failed to decode first frame: ") + ErrInfo.Buffer);
+			throw VideoOpenError(from_wx(_("Failed to decode first frame: ")) + std::string(ErrInfo.Buffer));
 
 		Width  = TempFrame->EncodedWidth;
 		Height = TempFrame->EncodedHeight;
@@ -353,22 +353,22 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 
 		const int TargetFormat[] = { FFMS_GetPixFmt("bgra"), -1 };
 		if (FFMS_SetOutputFormatV2(VideoSource, TargetFormat, Width, Height, output_resizer, &ErrInfo))
-			throw VideoOpenError(std::string("Failed to set output format: ") + ErrInfo.Buffer);
+			throw VideoOpenError(from_wx(_("Failed to set output format: ")) + std::string(ErrInfo.Buffer));
 
 		// get frame info data
 		FFMS_Track *FrameData = FFMS_GetTrackFromVideo(VideoSource);
 		if (FrameData == nullptr)
-			throw VideoOpenError("failed to get frame data");
+			throw VideoOpenError(from_wx(_("Failed to get frame data")));
 		const FFMS_TrackTimeBase *TimeBase = FFMS_GetTimeBase(FrameData);
 		if (TimeBase == nullptr)
-			throw VideoOpenError("failed to get track time base");
+			throw VideoOpenError(from_wx(_("Failed to get track time base")));
 
 		// build list of keyframes and timecodes
 		std::vector<int> TimecodesVector;
 		for (int CurFrameNum = 0; CurFrameNum < VideoInfo->NumFrames; CurFrameNum++) {
 			const FFMS_FrameInfo *CurFrameData = FFMS_GetFrameInfo(FrameData, CurFrameNum);
 			if (!CurFrameData)
-				throw VideoOpenError("Couldn't get info about frame " + std::to_string(CurFrameNum));
+				throw VideoOpenError(from_wx(_("Couldn't get info about frame ")) + std::to_string(CurFrameNum));
 
 			// keyframe?
 			if (CurFrameData->KeyFrame)
@@ -404,7 +404,7 @@ void FFmpegSourceVideoProvider::GetFrame(int n, VideoFrame &out) {
 
 	const auto frame = FFMS_GetFrame(VideoSource, n, &ErrInfo);
 	if (!frame)
-		throw VideoDecodeError(std::string("Failed to retrieve frame: ") +  ErrInfo.Buffer);
+		throw VideoDecodeError(from_wx(_("Failed to retrieve frame: ")) + std::string(ErrInfo.Buffer));
 
 	const size_t row_bytes = static_cast<size_t>(Width) * 4;
 	const size_t tight_frame_bytes = row_bytes * static_cast<size_t>(Height);
@@ -417,7 +417,7 @@ void FFmpegSourceVideoProvider::GetFrame(int n, VideoFrame &out) {
 		src_pitch = -src_pitch;
 	}
 	if (src_pitch < static_cast<int>(row_bytes))
-		throw VideoDecodeError("Retrieved frame pitch is smaller than expected row size.");
+		throw VideoDecodeError(from_wx(_("Retrieved frame pitch is smaller than expected row size.")));
 
 	if (out.data.size() != tight_frame_bytes)
 		out.data.resize(tight_frame_bytes);
