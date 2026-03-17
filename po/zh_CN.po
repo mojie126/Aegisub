@@ -305,6 +305,62 @@ msgstr "加载中"
 msgid "Opening video source"
 msgstr "正在打开视频源"
 
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Checking index..."
+msgstr "正在检查索引..."
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "No video tracks found"
+msgstr "未找到视频轨道"
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Video loading cancelled by user"
+msgstr "用户已取消加载视频"
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Failed to set input format: "
+msgstr "设置输入格式失败："
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Failed to index: "
+msgstr "建立索引失败："
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Couldn't find any video tracks: "
+msgstr "找不到任何视频轨道："
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Failed to open video track: "
+msgstr "打开视频轨道失败："
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Failed to decode first frame: "
+msgstr "解码首帧失败："
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Failed to set output format: "
+msgstr "设置输出格式失败："
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Failed to get frame data"
+msgstr "获取帧数据失败"
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Failed to get track time base"
+msgstr "获取轨道时间基失败"
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Couldn't get info about frame "
+msgstr "无法获取帧信息："
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Failed to retrieve frame: "
+msgstr "获取帧失败："
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Retrieved frame pitch is smaller than expected row size."
+msgstr "获取到的帧行跨度小于预期行大小。"
+
 #: ../src/audio_provider_ffmpegsource.cpp
 msgid "Opening audio source"
 msgstr "正在打开音频源"

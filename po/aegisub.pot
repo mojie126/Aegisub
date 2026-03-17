@@ -152,6 +152,62 @@ msgstr ""
 msgid "Opening video source"
 msgstr ""
 
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Checking index..."
+msgstr ""
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "No video tracks found"
+msgstr ""
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Video loading cancelled by user"
+msgstr ""
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Failed to set input format: "
+msgstr ""
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Failed to index: "
+msgstr ""
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Couldn't find any video tracks: "
+msgstr ""
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Failed to open video track: "
+msgstr ""
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Failed to decode first frame: "
+msgstr ""
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Failed to set output format: "
+msgstr ""
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Failed to get frame data"
+msgstr ""
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Failed to get track time base"
+msgstr ""
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Couldn't get info about frame "
+msgstr ""
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Failed to retrieve frame: "
+msgstr ""
+
+#: ../src/video_provider_ffmpegsource.cpp
+msgid "Retrieved frame pitch is smaller than expected row size."
+msgstr ""
+
 #: ../src/audio_provider_ffmpegsource.cpp
 msgid "Opening audio source"
 msgstr ""
