@@ -239,6 +239,8 @@ void VideoBox::UpdateHDRToggleState() {
 		}
 
 		hdrToggle->SetToolTip(tooltip_text);
+		if (context->videoDisplay)
+			context->videoDisplay->SetHDRMapping(hdrToggle->GetValue());
 	}
 }
 

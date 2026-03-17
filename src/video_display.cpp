@@ -238,8 +238,10 @@ void VideoDisplay::Render() try {
 		return;
 	}
 
-	if (!videoOut)
+	if (!videoOut) {
 		videoOut = std::make_unique<VideoOutGL>();
+		videoOut->EnableHDRToneMapping(hdrToneMappingEnabled);
+	}
 
 	if (!tool)
 		cmd::call("video/tool/cross", con);
@@ -613,9 +615,10 @@ void VideoDisplay::ZoomAndPan(double newZoomValue, Vector2D anchorPoint, wxPoint
 }
 
 void VideoDisplay::SetHDRMapping(bool enable) {
+	hdrToneMappingEnabled = enable;
 	if (!videoOut)
 		videoOut = std::make_unique<VideoOutGL>();
-	videoOut->EnableHDRToneMapping(enable);
+	videoOut->EnableHDRToneMapping(hdrToneMappingEnabled);
 	Render();
 }
 

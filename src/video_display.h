@@ -117,6 +117,8 @@ class VideoDisplay final : public wxGLCanvas {
 
 	/// The video renderer
 	std::unique_ptr<VideoOutGL> videoOut;
+	/// 用户期望的HDR色调映射状态（用于provider切换后恢复）
+	bool hdrToneMappingEnabled = false;
 
 	/// The active visual typesetting tool
 	std::unique_ptr<VisualToolBase> tool;
