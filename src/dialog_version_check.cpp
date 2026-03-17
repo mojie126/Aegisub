@@ -33,7 +33,6 @@
 #include "format.h"
 #include "options.h"
 #include "theme.h"
-#include "string_codec.h"
 #include "version.h"
 
 #include <libaegisub/cajun/reader.h>
