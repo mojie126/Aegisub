@@ -24,8 +24,8 @@
 #include <map>
 
 namespace mocha {
-/// 变换标签 (\t) 管理器
-/// 负责解析、插值和重建 \t 标签
+	/// 变换标签 (\t) 管理器
+	/// 负责解析、插值和重建 \t 标签
 	class Transform {
 	public:
 		Transform() = default;
@@ -86,46 +86,43 @@ namespace mocha {
 		std::map<std::string, std::vector<EffectTagValue>> typed_effect_tags;
 	};
 
-/// 变换标签标记化管理
+	/// 变换标签标记化管理
 	namespace transform_utils {
-/// 生成占位符字符串
-/// @param count 占位符编号
+		/// 生成占位符字符串
+		/// @param count 占位符编号
 		std::string make_placeholder(int count);
 
-/// 占位符正则匹配模式
+		/// 占位符正则匹配模式
 		extern const std::string placeholder_pattern;
 
-/// 将行文本中的 \t 标签替换为占位符
-/// @param text 行文本
-/// @param transforms 输出：提取的 Transform 列表
-/// @param line_duration 行的持续时间
-/// @return 标记化后的文本
-		std::string tokenize_transforms(const std::string &text,
-										std::vector<Transform> &transforms, int line_duration);
+		/// 将行文本中的 \t 标签替换为占位符
+		/// @param text 行文本
+		/// @param transforms 输出：提取的 Transform 列表
+		/// @param line_duration 行的持续时间
+		/// @return 标记化后的文本
+		std::string tokenize_transforms(const std::string &text, std::vector<Transform> &transforms, int line_duration);
 
-/// 将占位符还原为 \t 标签
-/// @param text 标记化的文本
-/// @param transforms Transform 列表
-/// @param time_shift 时间偏移量
-/// @param line_duration 行的持续时间（毫秒），用于抑制超出范围的变换
-/// @return 还原后的文本
-		std::string detokenize_transforms(const std::string &text,
-										const std::vector<Transform> &transforms, int time_shift = 0, int line_duration = 0);
+		/// 将占位符还原为 \t 标签
+		/// @param text 标记化的文本
+		/// @param transforms Transform 列表
+		/// @param time_shift 时间偏移量
+		/// @param line_duration 行的持续时间（毫秒），用于抑制超出范围的变换
+		/// @return 还原后的文本
+		std::string detokenize_transforms(const std::string &text, const std::vector<Transform> &transforms, int time_shift = 0, int line_duration = 0);
 
-/// 创建还原后文本的副本（不修改原始 transforms）
-		std::string detokenize_transforms_copy(const std::string &text,
-												const std::vector<Transform> &transforms, int time_shift = 0, int line_duration = 0);
+		/// 创建还原后文本的副本（不修改原始 transforms）
+		std::string detokenize_transforms_copy(const std::string &text, const std::vector<Transform> &transforms, int time_shift = 0, int line_duration = 0);
 
-/// 在指定时间点插值所有变换并替换占位符
-/// @param text 标记化的文本
-/// @param transforms Transform 列表
-/// @param time_shift 时间偏移量
-/// @param time 当前时间点
-/// @param line_properties 行的样式属性
-/// @param prior_inline_tags 从行内联标签收集的先前状态值
-/// @param res_x 脚本水平分辨率
-/// @param res_y 脚本垂直分辨率
-/// @return 插值后的文本
+		/// 在指定时间点插值所有变换并替换占位符
+		/// @param text 标记化的文本
+		/// @param transforms Transform 列表
+		/// @param time_shift 时间偏移量
+		/// @param time 当前时间点
+		/// @param line_properties 行的样式属性
+		/// @param prior_inline_tags 从行内联标签收集的先前状态值
+		/// @param res_x 脚本水平分辨率
+		/// @param res_y 脚本垂直分辨率
+		/// @return 插值后的文本
 		std::string interpolate_transforms_copy(const std::string &text,
 												const std::vector<Transform> &transforms, int time_shift,
 												int time, const std::map<std::string, double> &line_properties,

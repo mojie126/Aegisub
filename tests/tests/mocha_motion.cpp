@@ -956,3 +956,54 @@ TEST(MochaHandler, SetupCallbacksClipOnly) {
 	EXPECT_NE(result.find("\\pos(960,540)"), std::string::npos);
 	EXPECT_NE(result.find("\\fscx100"), std::string::npos);
 }
+
+// ============================================================================
+// interpolate_transforms_copy 回归测试
+// ============================================================================
+
+TEST(MochaTransform, InterpolateTransformsCopyNoShift) {
+	// 回归点：time_shift 不应改变 Transform 自身的时间窗口。
+	auto t = Transform::from_string("(1000,2000,\\fscx200)", 3000, 0);
+	t.gather_tags_in_effect();
+	t.token = "__T0__";
+
+	std::vector<Transform> transforms = {t};
+	std::map<std::string, double> line_props;
+	line_props["xscale"] = 100.0;
+
+	std::map<std::string, Transform::EffectTagValue> prior_tags;
+	Transform::EffectTagValue etv;
+	etv.type = Transform::EffectTagValue::NUM;
+	etv.number = 100.0;
+	prior_tags["xscale"] = etv;
+
+	std::string text = t.token + "\\pos(0,0)";
+	auto result = transform_utils::interpolate_transforms_copy(
+		text, transforms, 1000, 500, line_props, prior_tags, 0, 0);
+
+	EXPECT_NE(result.find("\\fscx100"), std::string::npos)
+		<< "Expected start value before transform window, got: " << result;
+}
+
+TEST(MochaTransform, InterpolateTransformsCopyAtEnd) {
+	auto t = Transform::from_string("(100,500,\\fscx200)", 1000, 0);
+	t.gather_tags_in_effect();
+	t.token = "__T1__";
+
+	std::vector<Transform> transforms = {t};
+	std::map<std::string, double> line_props;
+	line_props["xscale"] = 100.0;
+
+	std::map<std::string, Transform::EffectTagValue> prior_tags;
+	Transform::EffectTagValue etv;
+	etv.type = Transform::EffectTagValue::NUM;
+	etv.number = 100.0;
+	prior_tags["xscale"] = etv;
+
+	std::string text = t.token + "\\pos(0,0)";
+	auto result = transform_utils::interpolate_transforms_copy(
+		text, transforms, 0, 800, line_props, prior_tags, 0, 0);
+
+	EXPECT_NE(result.find("\\fscx200"), std::string::npos)
+		<< "Expected end value after transform window, got: " << result;
+}

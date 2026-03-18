@@ -4,10 +4,10 @@
 
 #include "motion_transform.h"
 
+#include <ranges>
 #include <regex>
 #include <sstream>
 #include <algorithm>
-#include <cmath>
 
 #include "motion_tags.h"
 
@@ -16,18 +16,18 @@ namespace mocha {
 // Transform 类实现
 // ============================================================
 
-/// 从 \t 标签的括号内容解析出 Transform 对象
-/// @param transform_string 括号内的完整内容，如 "(0,1000,1.5,\\1c&HFF0000&)"
-/// @param line_duration 所属行的持续时间（毫秒），用于默认 end_time
-/// @param tag_index 该 \t 在行内的出现次序
-/// @return 解析完成的 Transform 对象
-///
-/// 解析策略优先级（从最完整到最简）：
-///   (t1,t2,accel,effect) - 完全指定
-///   (t1,t2,effect)       - 默认 accel=1.0
-///   (accel,effect)       - 默认 t1=0, t2=line_duration
-///   (effect)             - 全部使用默认值
-/// 解析完成后自动调用 gather_tags_in_effect() 收集效果中的标签
+	/// 从 \t 标签的括号内容解析出 Transform 对象
+	/// @param transform_string 括号内的完整内容，如 "(0,1000,1.5,\\1c&HFF0000&)"
+	/// @param line_duration 所属行的持续时间（毫秒），用于默认 end_time
+	/// @param tag_index 该 \t 在行内的出现次序
+	/// @return 解析完成的 Transform 对象
+	///
+	/// 解析策略优先级（从最完整到最简）：
+	///   (t1,t2,accel,effect) - 完全指定
+	///   (t1,t2,effect)       - 默认 accel=1.0
+	///   (accel,effect)       - 默认 t1=0, t2=line_duration
+	///   (effect)             - 全部使用默认值
+	/// 解析完成后自动调用 gather_tags_in_effect() 收集效果中的标签
 	Transform Transform::from_string(const std::string &transform_string, int line_duration, int tag_index) {
 		Transform t;
 		t.raw_string = transform_string;
@@ -120,8 +120,8 @@ namespace mocha {
 						// 对应 MoonScript: convertColorValue
 						etv.type = EffectTagValue::COL;
 						std::string hex = captured;
-						// 补齐到6位
-						while (hex.size() < 6) hex = "0" + hex;
+						// 补齐到6位 — 使用单次 insert 避免在循环中创建不必要的临时字符串
+						if (hex.size() < 6) hex.insert(0, 6 - hex.size(), '0');
 						try {
 							etv.color.b = std::stoi(hex.substr(0, 2), nullptr, 16);
 							etv.color.g = std::stoi(hex.substr(2, 2), nullptr, 16);
@@ -182,23 +182,23 @@ namespace mocha {
 		}
 	}
 
-/// 在指定时间点对 \t 变换进行插值计算
-/// @param text 包含占位符的行文本
-/// @param placeholder 本 Transform 对应的占位符字符串（如 __TRANSFORM_0__）
-/// @param time 当前时间点（毫秒），用于计算插值进度
-/// @param line_properties 行的样式默认属性值，作为插值的后备起始状态
-/// @param prior_inline_tags 从行内联标签收集的先前状态值（优先于 line_properties）
-/// @param res_x, res_y 脚本分辨率（留作 clip 等的坐标计算）
-///
-/// 插值公式：
-///   linear_progress = (time - start_time) / (end_time - start_time)
-///   progress = linear_progress ^ accel  （accel 控制曲线形状）
-///   result = before * (1 - progress) + after * progress
-/// 边界处理：progress <= 0 取起始值，>= 1 取结束值
-///
-/// 对应 MoonScript Transform.moon: collectPriorState + interpolate
-/// prior_inline_tags 实现了 MoonScript 中 collectPriorState 的功能：
-/// 先从行内联标签扫描实际当前值，再回退到样式默认值
+	/// 在指定时间点对 \t 变换进行插值计算
+	/// @param text 包含占位符的行文本
+	/// @param placeholder 本 Transform 对应的占位符字符串（如 __TRANSFORM_0__）
+	/// @param time 当前时间点（毫秒），用于计算插值进度
+	/// @param line_properties 行的样式默认属性值，作为插值的后备起始状态
+	/// @param prior_inline_tags 从行内联标签收集的先前状态值（优先于 line_properties）
+	/// @param res_x, res_y 脚本分辨率（留作 clip 等的坐标计算）
+	///
+	/// 插值公式：
+	///   linear_progress = (time - start_time) / (end_time - start_time)
+	///   progress = linear_progress ^ accel  （accel 控制曲线形状）
+	///   result = before * (1 - progress) + after * progress
+	/// 边界处理：progress <= 0 取起始值，>= 1 取结束值
+	///
+	/// 对应 MoonScript Transform.moon: collectPriorState + interpolate
+	/// prior_inline_tags 实现了 MoonScript 中 collectPriorState 的功能：
+	/// 先从行内联标签扫描实际当前值，再回退到样式默认值
 	std::string Transform::interpolate(const std::string &text, const std::string &placeholder,
 										int time, const std::map<std::string, double> &line_properties,
 										const std::map<std::string, EffectTagValue> &prior_inline_tags,
@@ -223,11 +223,10 @@ namespace mocha {
 			// 对应 MoonScript: collectPriorState 中的扫描逻辑
 			// affectedBy 机制：如 \1a 受 \alpha 影响，先查 \1a，再查 alpha
 			auto find_prior = [&](const std::string &name) -> const EffectTagValue * {
-				auto it = prior_inline_tags.find(name);
+				const auto it = prior_inline_tags.find(name);
 				if (it != prior_inline_tags.end()) return &it->second;
 				// 查询 affectedBy 链
-				const TagDef *td = registry.get(name);
-				if (td) {
+				if (const TagDef *td = registry.get(name)) {
 					for (const auto &parent_name : td->affected_by) {
 						auto pit = prior_inline_tags.find(parent_name);
 						if (pit != prior_inline_tags.end()) return &pit->second;
@@ -336,7 +335,7 @@ namespace mocha {
 
 					// 根据标签定义选择整数或浮点格式
 					// 对应 MoonScript: formatInt（如 \be）vs formatNumber
-					auto format_value = [&](double v) {
+					auto format_value = [&](const double v) {
 						if (tag_def->is_integer)
 							return tag_def->format_int(static_cast<int>(std::round(v)));
 						return tag_def->format_float(v);
@@ -361,7 +360,7 @@ namespace mocha {
 		// 保留 effect 中不可插值的标签原文（如 \img 系列）
 		// 这些标签未被 gather_tags_in_effect() 收集，插值时会被遗漏
 		for (const auto &[name, tag_def] : registry.all_tags()) {
-			if (typed_effect_tags.count(name) > 0) continue;
+			if (typed_effect_tags.contains(name)) continue;
 			if (tag_def.type == TagType::TRANSFORM) continue;
 			std::sregex_iterator it(effect.begin(), effect.end(), tag_def.compiled_pattern);
 			std::sregex_iterator end_it;
@@ -375,11 +374,11 @@ namespace mocha {
 		return result;
 	}
 
-	double interpolate_number(double before, double after, double progress) {
+	double interpolate_number(const double before, const double after, const double progress) {
 		return (1.0 - progress) * before + progress * after;
 	}
 
-	ColorValue interpolate_color(const ColorValue &before, const ColorValue &after, double progress) {
+	ColorValue interpolate_color(const ColorValue &before, const ColorValue &after, const double progress) {
 		ColorValue result;
 		result.b = static_cast<int>(std::round(interpolate_number(before.b, after.b, progress)));
 		result.g = static_cast<int>(std::round(interpolate_number(before.g, after.g, progress)));
@@ -394,7 +393,7 @@ namespace mocha {
 	namespace transform_utils {
 		const std::string placeholder_pattern = R"(\\\x03(\d+)\\\x03)";
 
-		std::string make_placeholder(int count) {
+		std::string make_placeholder(const int count) {
 			// 对应 MoonScript: "\\\3#{count}\\\3"
 			std::string result;
 			result += "\\\x03";
@@ -403,21 +402,20 @@ namespace mocha {
 			return result;
 		}
 
-/// 将文本中的 \t 标签替换为占位符（标记化）
-/// @param text 原始标签文本
-/// @param transforms [输出] 收集到的所有 Transform 对象
-/// @param line_duration 行持续时间，传给 Transform::from_string
-/// @return 所有 \t 被替换为占位符后的文本
-///
-/// 这是 Issue #69 修复的核心机制之一：
-///   标记化后，\t(\c&H0000FF&) 中的 \c 不再暴露在外层文本中，
-///   后续的 deduplicate_tag("\\c") 不会误删该 \c。
-/// 实现细节：
-///   1. 从后向前替换（避免位置偏移）
-///   2. 替换后反转 transforms 数组使其恢复出现顺序
-///   3. 正则 R"(\\t(\([^()]*(?:\([^()]*\)[^()]*)*\)))" 支持一层嵌套括号
-		std::string tokenize_transforms(const std::string &text,
-										std::vector<Transform> &transforms, int line_duration) {
+		/// 将文本中的 \t 标签替换为占位符（标记化）
+		/// @param text 原始标签文本
+		/// @param transforms [输出] 收集到的所有 Transform 对象
+		/// @param line_duration 行持续时间，传给 Transform::from_string
+		/// @return 所有 \t 被替换为占位符后的文本
+		///
+		/// 这是 Issue #69 修复的核心机制之一：
+		///   标记化后，\t(\c&H0000FF&) 中的 \c 不再暴露在外层文本中，
+		///   后续的 deduplicate_tag("\\c") 不会误删该 \c。
+		/// 实现细节：
+		///   1. 从后向前替换（避免位置偏移）
+		///   2. 替换后反转 transforms 数组使其恢复出现顺序
+		///   3. 正则 R"(\\t(\([^()]*(?:\([^()]*\)[^()]*)*\)))" 支持一层嵌套括号
+		std::string tokenize_transforms(const std::string &text, std::vector<Transform> &transforms, int line_duration) {
 			transforms.clear();
 			std::string result = text;
 
@@ -454,30 +452,30 @@ namespace mocha {
 			}
 
 			// 从后向前替换（避免位置偏移）
-			for (auto rit = matches.rbegin(); rit != matches.rend(); ++rit) {
+			for (auto &matche : std::ranges::reverse_view(matches)) { // NOLINT
 				++count;
 				std::string placeholder = make_placeholder(count);
 
-				Transform transform = Transform::from_string(rit->content, line_duration, 0);
+				Transform transform = Transform::from_string(matche.content, line_duration, 0);
 				transform.token = placeholder;
 				transforms.push_back(transform);
 
-				result.replace(rit->pos, rit->len, placeholder);
+				result.replace(matche.pos, matche.len, placeholder);
 			}
 
 			// 反转 transforms 使其按出现顺序排列
-			std::reverse(transforms.begin(), transforms.end());
+			std::ranges::reverse(transforms);
 
 			return result;
 		}
 
-/// 将占位符还原为 \t 标签（反标记化），用于线性模式输出
-/// @param text 包含占位符的文本
-/// @param transforms 标记化时收集的 Transform 对象
-/// @param time_shift 时间偏移量（毫秒），用于调整 \t 的时间参数
-/// @return 还原后的文本，\t 标签的时间参数已减去 time_shift
-		std::string detokenize_transforms(const std::string &text,
-										const std::vector<Transform> &transforms, int time_shift, int line_duration) {
+		/// 将占位符还原为 \t 标签（反标记化），用于线性模式输出
+		/// @param text 包含占位符的文本
+		/// @param transforms 标记化时收集的 Transform 对象
+		/// @param time_shift 时间偏移量（毫秒），用于调整 \t 的时间参数
+		/// @param line_duration 行的持续时间（毫秒），用于抑制超出范围的变换
+		/// @return 还原后的文本，\t 标签的时间参数已减去 time_shift
+		std::string detokenize_transforms(const std::string &text, const std::vector<Transform> &transforms, const int time_shift, const int line_duration) {
 			std::string result = text;
 
 			for (const auto &t : transforms) {
@@ -495,36 +493,37 @@ namespace mocha {
 			return result;
 		}
 
-		std::string detokenize_transforms_copy(const std::string &text,
-												const std::vector<Transform> &transforms, int time_shift, int line_duration) {
+		std::string detokenize_transforms_copy(const std::string &text, const std::vector<Transform> &transforms, const int time_shift, const int line_duration) {
 			// 与 detokenize_transforms 相同，但不修改原始 transforms
 			return detokenize_transforms(text, transforms, time_shift, line_duration);
 		}
 
-/// 在指定时间点对所有 \t 占位符进行插值并输出结果，用于逐帧模式
-/// @param text 包含占位符的文本
-/// @param transforms 标记化时收集的 Transform 对象
-/// @param time_shift 时间偏移量
-/// @param time 当前帧的绝对时间（毫秒）
-/// @param line_properties 行的当前标签属性，作为插值起始值
-/// @param prior_inline_tags 从行内联标签收集的先前状态值
-/// @param res_x, res_y 脚本分辨率
-/// @return 所有占位符被替换为插值结果后的文本
-///
-/// 与 detokenize 的区别：detokenize 保留 \t 标签结构，
-/// 而 interpolate 直接计算出该时间点的标签值
+		/// 在指定时间点对所有 \t 占位符进行插值并输出结果，用于逐帧模式
+		/// @param text 包含占位符的文本
+		/// @param transforms 标记化时收集的 Transform 对象
+		/// @param time_shift 时间偏移量
+		/// @param time 当前帧的绝对时间（毫秒）
+		/// @param line_properties 行的当前标签属性，作为插值起始值
+		/// @param prior_inline_tags 从行内联标签收集的先前状态值
+		/// @param res_x, res_y 脚本分辨率
+		/// @return 所有占位符被替换为插值结果后的文本
+		///
+		/// 与 detokenize 的区别：detokenize 保留 \t 标签结构，
+		/// 而 interpolate 直接计算出该时间点的标签值
 		std::string interpolate_transforms_copy(const std::string &text,
 												const std::vector<Transform> &transforms, int time_shift,
-												int time, const std::map<std::string, double> &line_properties,
+												const int time, const std::map<std::string, double> &line_properties,
 												const std::map<std::string, Transform::EffectTagValue> &prior_inline_tags,
-												int res_x, int res_y) {
+												const int res_x, const int res_y) {
 			std::string result = text;
 
+			// time 已经是相对于原始行起始时间的偏移量，
+			// 与 Transform 的 start_time/end_time 在同一坐标系中，
+			// 无需对 Transform 的时间窗口进行偏移。
+			// （time_shift 仅用于 detokenize_transforms 中生成新 \t 标签的时间参数，
+			//   此处保留参数签名以兼容现有接口）
 			for (const auto &t : transforms) {
-				Transform shifted = t;
-				shifted.start_time -= time_shift;
-				shifted.end_time -= time_shift;
-				result = shifted.interpolate(result, t.token, time, line_properties, prior_inline_tags, res_x, res_y);
+				result = t.interpolate(result, t.token, time, line_properties, prior_inline_tags, res_x, res_y);
 			}
 
 			return result;
