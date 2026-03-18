@@ -207,11 +207,6 @@ namespace mocha {
 			result += buf;
 		}
 
-		// 如果启用了变换插值，添加缺少的 alpha 标签
-		if (options_.kill_trans) {
-			result += get_missing_alphas(block, properties);
-		}
-
 		return result;
 	}
 
@@ -295,6 +290,10 @@ namespace mocha {
 			line.dont_touch_transforms();
 			line.tokenize_transforms();
 
+			// 标记当前行是否包含 \fade，用于决定是否补充 alpha 标签。
+			// 仅当存在 \fade 时才需要 alpha 参与逐帧透明度换算。
+			const bool line_has_fade = line.text.find("\\fade(") != std::string::npos;
+
 			// 4. 去重标签
 			line.deduplicate_tags();
 
@@ -318,8 +317,11 @@ namespace mocha {
 
 			// 7. 在首个 override 块中添加缺少的必要标签
 			line.run_callback_on_first_override(
-				[this, &line](const std::string &block) {
+				[this, &line, line_has_fade](const std::string &block) {
 					std::string tags = get_missing_tags(block, line.properties);
+					if (options_.kill_trans && line_has_fade) {
+						tags += get_missing_alphas(block, line.properties);
+					}
 					if (tags.empty()) return block;
 					return "{" + tags + block.substr(1);
 				}
@@ -348,7 +350,7 @@ namespace mocha {
 			//   遗漏对不存在样式名的 \r 补全影响极小（罕见的拼写错误场景），
 			//   而误识别扩展标签的后果严重（透明度等属性丢失）。
 			line.run_callback_on_overrides(
-				[this, &line, style](const std::string &block, int) {
+				[this, &line, style, line_has_fade](const std::string &block, int) {
 					std::string result = block;
 					static const std::regex reset_re(R"(\\r(?!nd[sxyz\d])([^\\}]*)(.*))");
 					std::smatch m;
@@ -382,6 +384,9 @@ namespace mocha {
 							reset_props = line.properties;
 						}
 						std::string missing = get_missing_tags(remainder, reset_props);
+						if (options_.kill_trans && line_has_fade) {
+							missing += get_missing_alphas(remainder, reset_props);
+						}
 						if (!missing.empty()) {
 							result = std::regex_replace(
 								result, reset_re,
@@ -397,7 +402,7 @@ namespace mocha {
 			line.run_callback_on_overrides(
 				[&line](const std::string &block, int) {
 					static const std::regex org_re(R"(\\org\([-.0-9]+,[-.0-9]+\))");
-				if (std::regex_search(block, org_re)) {
+					if (std::regex_search(block, org_re)) {
 						line.has_org = true;
 					}
 					return block;
@@ -409,7 +414,7 @@ namespace mocha {
 				line.run_callback_on_overrides(
 					[this, &line](const std::string &block, int) {
 						std::string result = block;
-					static const std::regex clip_re(R"((\\i?clip\([^)]+\)))");
+						static const std::regex clip_re(R"((\\i?clip\([^)]+\)))");
 						std::smatch m;
 						if (std::regex_search(result, m, clip_re)) {
 							line.has_clip = true;
