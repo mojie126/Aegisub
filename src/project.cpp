@@ -189,6 +189,9 @@ bool Project::DoLoadSubtitles(agi::fs::path const& path, std::string encoding, P
 }
 
 void Project::LoadSubtitles(agi::fs::path path, std::string encoding, bool load_linked) {
+	// 在加载字幕（触发渲染）之前设置目录，保证首帧即可解析相对路径图片
+	if (video_provider && !path.empty())
+		video_provider->SetSubtitleDir(path.parent_path().string());
 	ProjectProperties properties;
 	if (DoLoadSubtitles(path, encoding, properties)) {
 		// 加载新字幕后，将当前已加载的视频/音频/时间码/关键帧路径
@@ -202,6 +205,8 @@ void Project::LoadSubtitles(agi::fs::path path, std::string encoding, bool load_
 void Project::CloseSubtitles() {
 	context->subsController->Close();
 	context->path->SetToken("?script", "");
+	if (video_provider)
+		video_provider->SetSubtitleDir({});
 	LoadUnloadFiles(context->ass->Properties);
 	auto line = &*context->ass->Events.begin();
 	context->selectionController->SetSelectionAndActive({line}, line);
@@ -414,6 +419,8 @@ bool Project::DoLoadVideo(agi::fs::path const& path) {
 	AnnounceVideoProviderModified(video_provider.get());
 
 	UpdateVideoProperties(context->ass.get(), video_provider.get(), context->parent);
+	if (const auto sub_path = context->subsController->Filename(); !sub_path.empty() && agi::fs::FileExists(sub_path))
+		video_provider->SetSubtitleDir(sub_path.parent_path().string());
 	video_provider->LoadSubtitles(context->ass.get());
 
 	timecodes = video_provider->GetFPS();

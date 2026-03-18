@@ -92,6 +92,8 @@ void SubtitlesProvider::LoadSubtitles(AssFile *subs, int time) {
 	push_header_buf("\xEF\xBB\xBF[Script Info]\n");
 	for (auto const& line : subs->Info)
 		push_line_buf(line.GetEntryData());
+	if (!subtitle_dir.empty())
+		push_line_buf("Update Details: " + subtitle_dir);
 
 	push_header_buf("[V4+ Styles]\n");
 	for (auto const& line : subs->Styles)
