@@ -23,7 +23,6 @@
 #include <atomic>
 #include <list>
 #include <memory>
-#include <set>
 #include <unordered_map>
 #include <wx/event.h>
 
@@ -119,6 +118,9 @@ class AsyncVideoProvider {
 	VideoFrame GetBlankFrame(bool white);
 
 public:
+	/// @brief 设置字幕文件所在目录（用于渲染器解析相对路径图片）
+	void SetSubtitleDir(std::string dir) throw();
+
 	/// @brief Load the passed subtitle file
 	/// @param subs File to load
 	///

@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -57,11 +56,15 @@ class SubtitlesProvider {
 	/// @brief 计算数据块的FNV-1a哈希指纹
 	static uint64_t compute_fingerprint(const char *data, size_t len);
 
+	/// @brief 字幕文件所在目录路径（用于传递给渲染器解析相对路径图片）
+	std::string subtitle_dir;
+
 public:
 	virtual ~SubtitlesProvider() = default;
 	void LoadSubtitles(AssFile *subs, int time = -1);
 	virtual void DrawSubtitles(VideoFrame &dst, double time)=0;
 	virtual void Reinitialize() { }
+	void SetSubtitleDir(std::string dir) { subtitle_dir = std::move(dir); }
 };
 
 namespace agi { class BackgroundRunner; }

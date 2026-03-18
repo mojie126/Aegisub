@@ -286,6 +286,15 @@ AsyncVideoProvider::~AsyncVideoProvider() {
 	worker->Sync([]{});
 }
 
+void AsyncVideoProvider::SetSubtitleDir(std::string dir) throw() {
+	worker->Async(
+		[this, d = std::move(dir)]() mutable {
+			if (subs_provider)
+				subs_provider->SetSubtitleDir(std::move(d));
+		}
+	);
+}
+
 void AsyncVideoProvider::LoadSubtitles(const AssFile *new_subs) throw() {
 	uint_fast32_t req_version = ++version;
 
