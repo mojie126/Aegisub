@@ -247,7 +247,8 @@ namespace {
 
 			// 验证追踪数据帧数是否匹配
 			// 对应 MoonScript: mainData.dataObject\checkLength lineCollection.totalFrames
-			if (!result.main_data.check_length(total_frames)) {
+			if (result.main_data.type() != mocha::DataType::NONE
+				&& !result.main_data.check_length(total_frames)) {
 				wxMessageBox(
 					agi::wxformat(_("The trace data is asymmetrical with the selected row data and requires %d frames"), total_frames),
 					_("Error"), wxICON_ERROR
