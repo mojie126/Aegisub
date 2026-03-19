@@ -84,6 +84,12 @@ TEST(VersionCheck, NumericSuffixOrdering) {
 	EXPECT_FALSE(IsNewerVersion("3.4.4-fix9", "3.4.4-fix10"));
 }
 
+TEST(VersionCheck, NumericSuffixOrderingIsCaseInsensitive) {
+	EXPECT_TRUE(IsNewerVersion("3.4.4-FIX10", "3.4.4-fix2"));
+	EXPECT_TRUE(IsNewerVersion("3.4.4-Rc10", "3.4.4-rC2"));
+	EXPECT_FALSE(IsNewerVersion("3.4.4-fIx2", "3.4.4-FIX10"));
+}
+
 TEST(VersionCheck, HigherPatchPreReleaseNewerThanLowerPatch) {
 	EXPECT_TRUE(IsNewerVersion("3.4.5-RC1", "3.4.4"));
 	EXPECT_TRUE(IsNewerVersion("3.4.5-RC1", "3.4.4-fix"));

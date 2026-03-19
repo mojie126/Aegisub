@@ -164,7 +164,10 @@ bool IsNewerVersion(const std::string& remote, const std::string& local) {
 			try { num = std::stoi(s.substr(num_start)); }
 			catch (...) {}
 		}
-		return {s.substr(0, num_start), num};
+		std::string alpha = s.substr(0, num_start);
+		for (char& c : alpha)
+			c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+		return {alpha, num};
 	};
 
 	auto [r_alpha, r_num] = split_suffix(r_pre);

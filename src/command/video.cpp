@@ -682,8 +682,7 @@ namespace {
 				std::string image_filename{(wxString(output_path) + wxFileName::GetPathSeparator() + agi::wxformat(std::string(img_path) + "_[%ld-%ld]_%05d.png", start_frame, end_frame, current_frame)).ToStdString()};
 				auto sub_vf = c->project->VideoProvider()->GetSubtitles(time);
 				wxImage img = GetImageWithAlpha(sub_vf);
-				if (seq_hdr_enabled)
-					VideoOutGL::ApplyHDRLutToImage(img, seq_hdr_type);
+				// 字幕透明图已经是渲染后的 SDR 叠加层，不应再套视频 HDR LUT。
 				if (seq_padding_top > 0 || seq_padding_bottom > 0)
 					img = AddPaddingToImage(img, seq_padding_top, seq_padding_bottom);
 				const bool res = img.SaveFile(image_filename, wxBITMAP_TYPE_PNG);

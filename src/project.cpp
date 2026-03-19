@@ -66,6 +66,7 @@ Project::Project(agi::Context *c) : context(c) {
 		OPT_SUB("Provider/Video/BestSource/HW hw_name", &Project::ReloadVideo, this),
 		OPT_SUB("Subtitle/Provider", &Project::ReloadVideo, this),
 		OPT_SUB("Video/Provider", &Project::ReloadVideo, this),
+		context->subsController->AddFileSaveListener(&Project::OnSubtitlesSaved, this),
 	});
 }
 
@@ -77,6 +78,25 @@ void Project::UpdateRelativePaths() {
 	context->ass->Properties.video_file     = context->path->MakeRelative(video_file, "?script"sv).generic_string();
 	context->ass->Properties.timecodes_file = context->path->MakeRelative(timecodes_file, "?script"sv).generic_string();
 	context->ass->Properties.keyframes_file = context->path->MakeRelative(keyframes_file, "?script"sv).generic_string();
+}
+
+void Project::SyncVideoSubtitleDirFromCurrentScript(bool reload_subtitles) {
+	if (!video_provider) return;
+
+	const auto sub_path = context->subsController->Filename();
+	if (!sub_path.empty() && agi::fs::FileExists(sub_path))
+		video_provider->SetSubtitleDir(sub_path.parent_path().string());
+	else
+		video_provider->SetSubtitleDir({});
+
+	if (reload_subtitles)
+		video_provider->LoadSubtitles(context->ass.get());
+}
+
+void Project::OnSubtitlesSaved() {
+	// 另存为/重命名后需立即刷新渲染器中的相对资源根目录，
+	// 否则 \img 等相对路径仍会按旧脚本目录解析。
+	SyncVideoSubtitleDirFromCurrentScript(true);
 }
 
 void Project::ReloadAudio() {
@@ -188,12 +208,31 @@ bool Project::DoLoadSubtitles(agi::fs::path const& path, std::string encoding, P
 	return true;
 }
 
-void Project::LoadSubtitles(agi::fs::path path, std::string encoding, bool load_linked) {
-	// 在加载字幕（触发渲染）之前设置目录，保证首帧即可解析相对路径图片
+bool Project::DoLoadSubtitlesWithVideoSync(agi::fs::path const& path, std::string encoding, ProjectProperties &properties) {
+	const auto previous_sub_path = context->subsController->Filename();
+
 	if (video_provider && !path.empty())
 		video_provider->SetSubtitleDir(path.parent_path().string());
+
+	if (DoLoadSubtitles(path, std::move(encoding), properties))
+		return true;
+
+	// 加载失败时恢复旧字幕的资源根目录，并重新推送当前字幕，
+	// 避免旧脚本继续渲染时误用新路径解析相对资源。
+	if (video_provider) {
+		if (!previous_sub_path.empty() && agi::fs::FileExists(previous_sub_path))
+			video_provider->SetSubtitleDir(previous_sub_path.parent_path().string());
+		else
+			video_provider->SetSubtitleDir({});
+		video_provider->LoadSubtitles(context->ass.get());
+	}
+
+	return false;
+}
+
+void Project::LoadSubtitles(agi::fs::path path, std::string encoding, bool load_linked) {
 	ProjectProperties properties;
-	if (DoLoadSubtitles(path, encoding, properties)) {
+	if (DoLoadSubtitlesWithVideoSync(path, std::move(encoding), properties)) {
 		// 加载新字幕后，将当前已加载的视频/音频/时间码/关键帧路径
 		// 写回 Properties，避免内嵌字幕覆盖导致路径信息丢失
 		UpdateRelativePaths();
@@ -205,8 +244,7 @@ void Project::LoadSubtitles(agi::fs::path path, std::string encoding, bool load_
 void Project::CloseSubtitles() {
 	context->subsController->Close();
 	context->path->SetToken("?script", "");
-	if (video_provider)
-		video_provider->SetSubtitleDir({});
+	SyncVideoSubtitleDirFromCurrentScript(false);
 	LoadUnloadFiles(context->ass->Properties);
 	auto line = &*context->ass->Events.begin();
 	context->selectionController->SetSelectionAndActive({line}, line);
@@ -419,8 +457,7 @@ bool Project::DoLoadVideo(agi::fs::path const& path) {
 	AnnounceVideoProviderModified(video_provider.get());
 
 	UpdateVideoProperties(context->ass.get(), video_provider.get(), context->parent);
-	if (const auto sub_path = context->subsController->Filename(); !sub_path.empty() && agi::fs::FileExists(sub_path))
-		video_provider->SetSubtitleDir(sub_path.parent_path().string());
+	SyncVideoSubtitleDirFromCurrentScript(false);
 	video_provider->LoadSubtitles(context->ass.get());
 
 	timecodes = video_provider->GetFPS();
@@ -651,7 +688,7 @@ void Project::LoadList(std::vector<agi::fs::path> const& files) {
 
 	ProjectProperties properties;
 	if (!subs.empty()) {
-		if (!DoLoadSubtitles(subs, "", properties))
+		if (!DoLoadSubtitlesWithVideoSync(subs, "", properties))
 			subs.clear();
 	}
 

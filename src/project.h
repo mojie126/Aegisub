@@ -47,19 +47,22 @@ class Project {
 	DialogProgress *progress = nullptr;
 	agi::Context *context = nullptr;
 
-	/// OPT_SUB连接，防止对象销毁后回调悬空
+	/// 持久化信号连接，防止对象销毁后回调悬空
 	std::vector<agi::signal::Connection> opt_connections;
 
 	void ShowError(wxString const& message);
 	void ShowError(std::string const& message);
 
 	bool DoLoadSubtitles(agi::fs::path const& path, std::string encoding, ProjectProperties &properties);
+	bool DoLoadSubtitlesWithVideoSync(agi::fs::path const& path, std::string encoding, ProjectProperties &properties);
 	void DoLoadAudio(agi::fs::path const& path, bool quiet);
 	bool DoLoadVideo(agi::fs::path const& path);
 	void DoLoadTimecodes(agi::fs::path const& path);
 	void DoLoadKeyframes(agi::fs::path const& path);
 
 	void LoadUnloadFiles(ProjectProperties properties);
+	void SyncVideoSubtitleDirFromCurrentScript(bool reload_subtitles);
+	void OnSubtitlesSaved();
 	void UpdateRelativePaths();
 
 	void SetPath(agi::fs::path& var, const char *token, const char *mru, agi::fs::path const& value);
