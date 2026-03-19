@@ -107,12 +107,11 @@ struct MotionLine {
 	void dont_touch_transforms();
 
 	/// 插值变换标签并返回文本副本
-	/// @param shift 时间偏移量
-	/// @param start 当前帧的起始时间
+	/// @param start 当前帧的起始时间（毫秒）
 	/// @param res_x 脚本水平分辨率
 	/// @param res_y 脚本垂直分辨率
 	/// @return 插值后的文本
-	std::string interpolate_transforms_copy(int shift, int start, int res_x = 0, int res_y = 0) const;
+	std::string interpolate_transforms_copy(int start, int res_x = 0, int res_y = 0) const;
 
 	/// 从行内联标签中收集先前状态值
 	/// 对应 MoonScript Transform.moon: collectPriorState

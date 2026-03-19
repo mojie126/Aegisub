@@ -116,15 +116,14 @@ namespace mocha {
 		/// 在指定时间点插值所有变换并替换占位符
 		/// @param text 标记化的文本
 		/// @param transforms Transform 列表
-		/// @param time_shift 时间偏移量
-		/// @param time 当前时间点
+		/// @param time 当前帧相对于原始行起始时间的偏移（毫秒）
 		/// @param line_properties 行的样式属性
 		/// @param prior_inline_tags 从行内联标签收集的先前状态值
 		/// @param res_x 脚本水平分辨率
 		/// @param res_y 脚本垂直分辨率
 		/// @return 插值后的文本
 		std::string interpolate_transforms_copy(const std::string &text,
-												const std::vector<Transform> &transforms, int time_shift,
+												const std::vector<Transform> &transforms,
 												int time, const std::map<std::string, double> &line_properties,
 												const std::map<std::string, Transform::EffectTagValue> &prior_inline_tags = {},
 												int res_x = 0, int res_y = 0);

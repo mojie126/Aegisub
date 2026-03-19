@@ -144,10 +144,10 @@ void MotionLine::dont_touch_transforms() {
 	transforms_tokenized = false;
 }
 
-std::string MotionLine::interpolate_transforms_copy(int shift, int start, int res_x, int res_y) const {
+std::string MotionLine::interpolate_transforms_copy(int start, int res_x, int res_y) const {
 	if (!transforms_tokenized) return text;
 	auto prior_tags = collect_prior_inline_tags();
-	return transform_utils::interpolate_transforms_copy(text, transforms, shift, start - start_time, properties, prior_tags, res_x, res_y);
+	return transform_utils::interpolate_transforms_copy(text, transforms, start - start_time, properties, prior_tags, res_x, res_y);
 }
 
 std::map<std::string, Transform::EffectTagValue> MotionLine::collect_prior_inline_tags() const {
@@ -385,8 +385,10 @@ void MotionLine::deduplicate_tags() {
 	}
 
 	// 清理空标签块和无用内容
-	text = std::regex_replace(text, std::regex(R"(\{\})"), "");
-	text = std::regex_replace(text, std::regex(R"(\\clip\(\))"), "");
+	static const std::regex empty_clip_re(R"(\\i?clip\(\))");
+	static const std::regex empty_block_re(R"(\{\})");
+	text = std::regex_replace(text, empty_clip_re, "");
+	text = std::regex_replace(text, empty_block_re, "");
 }
 
 void MotionLine::get_properties_from_style(const std::map<std::string, double>& style_props) {

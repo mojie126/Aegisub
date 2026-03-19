@@ -501,8 +501,7 @@ namespace mocha {
 		/// 在指定时间点对所有 \t 占位符进行插值并输出结果，用于逐帧模式
 		/// @param text 包含占位符的文本
 		/// @param transforms 标记化时收集的 Transform 对象
-		/// @param time_shift 时间偏移量
-		/// @param time 当前帧的绝对时间（毫秒）
+		/// @param time 当前帧相对于原始行起始时间的偏移（毫秒）
 		/// @param line_properties 行的当前标签属性，作为插值起始值
 		/// @param prior_inline_tags 从行内联标签收集的先前状态值
 		/// @param res_x, res_y 脚本分辨率
@@ -511,7 +510,7 @@ namespace mocha {
 		/// 与 detokenize 的区别：detokenize 保留 \t 标签结构，
 		/// 而 interpolate 直接计算出该时间点的标签值
 		std::string interpolate_transforms_copy(const std::string &text,
-												const std::vector<Transform> &transforms, int time_shift,
+												const std::vector<Transform> &transforms,
 												const int time, const std::map<std::string, double> &line_properties,
 												const std::map<std::string, Transform::EffectTagValue> &prior_inline_tags,
 												const int res_x, const int res_y) {
@@ -519,9 +518,7 @@ namespace mocha {
 
 			// time 已经是相对于原始行起始时间的偏移量，
 			// 与 Transform 的 start_time/end_time 在同一坐标系中，
-			// 无需对 Transform 的时间窗口进行偏移。
-			// （time_shift 仅用于 detokenize_transforms 中生成新 \t 标签的时间参数，
-			//   此处保留参数签名以兼容现有接口）
+			// 无需对 Transform 的时间窗口进行偏移
 			for (const auto &t : transforms) {
 				result = t.interpolate(result, t.token, time, line_properties, prior_inline_tags, res_x, res_y);
 			}
