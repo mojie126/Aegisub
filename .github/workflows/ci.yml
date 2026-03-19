@@ -53,10 +53,11 @@ jobs:
             -   uses: actions/checkout@v6
                 with:
                     fetch-depth: '0'
+                    persist-credentials: false
 
             -   name: cache Aegisub build
                 id: Aegisub_cache
-                uses: actions/cache@v4
+                uses: actions/cache@v5
                 with:
                     path: |
                         D:\a\Aegisub\Aegisub\build
@@ -161,7 +162,7 @@ jobs:
                     path: build/aegisub-portable-64.zip
 
             -   name: create Release
-                uses: ncipollo/release-action@v1.20.0
+                uses: ncipollo/release-action@v1.21.0
                 with:
                     allowUpdates: true
                     artifacts: "build/aegisub-portable-64.zip,build/aegisub-install-64.exe"
