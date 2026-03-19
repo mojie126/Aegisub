@@ -35,6 +35,10 @@
 #include "version.h"
 #include "git_version.h"
 
+#include <cctype>
+#include <sstream>
+#include <vector>
+
 #ifdef _DEBUG
 	#define DEBUG_SUFFIX " [DEBUG VERSION]"
 #else
@@ -62,7 +66,6 @@ const char *GetAegisubBuildTime() {
 
 const char *GetAegisubBuildCredit() {
 	return BUILD_CREDIT;
-	return "";
 }
 #endif
 
@@ -84,4 +87,88 @@ int GetSVNRevision() {
 #else
 	return 0;
 #endif
+}
+
+/// @brief 判断后缀是否为补丁发布标记（高于同版本号的正式版）
+/// @details 提取后缀中的字母前缀部分进行匹配，支持 fix2、patch3 等带数字的复合后缀
+static bool IsPostReleaseSuffix(const std::string& suffix) {
+	std::string prefix;
+	for (char c : suffix) {
+		if (std::isalpha(static_cast<unsigned char>(c)))
+			prefix.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+		else
+			break;
+	}
+	return prefix == "fix" || prefix == "patch" || prefix == "hotfix" || prefix == "rev";
+}
+
+/// @brief 获取后缀的优先级权重
+/// @return 补丁发布 = 1，正式版（空后缀）= 0，预发布 = -1
+static int GetSuffixWeight(const std::string& suffix) {
+	if (suffix.empty()) return 0;
+	return IsPostReleaseSuffix(suffix) ? 1 : -1;
+}
+
+bool IsNewerVersion(const std::string& remote, const std::string& local) {
+	auto strip_v = [](const std::string& s) -> std::string {
+		if (!s.empty() && (s[0] == 'v' || s[0] == 'V'))
+			return s.substr(1);
+		return s;
+	};
+
+	auto split_pre = [](const std::string& s) -> std::pair<std::string, std::string> {
+		auto pos = s.find('-');
+		if (pos != std::string::npos)
+			return {s.substr(0, pos), s.substr(pos + 1)};
+		return {s, ""};
+	};
+
+	auto parse_ver = [](const std::string& v) -> std::vector<int> {
+		std::vector<int> parts;
+		std::istringstream iss(v);
+		std::string part;
+		while (std::getline(iss, part, '.')) {
+			try { parts.push_back(std::stoi(part)); }
+			catch (...) { parts.push_back(0); }
+		}
+		while (parts.size() < 3) parts.push_back(0);
+		return parts;
+	};
+
+	std::string r = strip_v(remote);
+	std::string l = strip_v(local);
+
+	auto [r_ver, r_pre] = split_pre(r);
+	auto [l_ver, l_pre] = split_pre(l);
+
+	auto rv = parse_ver(r_ver);
+	auto lv = parse_ver(l_ver);
+
+	for (size_t i = 0; i < 3; ++i) {
+		if (rv[i] > lv[i]) return true;
+		if (rv[i] < lv[i]) return false;
+	}
+
+	// 版本号相同时，按后缀权重比较：预发布(-1) < 正式版(0) < 补丁发布(1)
+	int rw = GetSuffixWeight(r_pre);
+	int lw = GetSuffixWeight(l_pre);
+	if (rw != lw) return rw > lw;
+
+	// 同类后缀：分离字母前缀和尾部数字，先按前缀字典序，再按数字升序
+	auto split_suffix = [](const std::string& s) -> std::pair<std::string, int> {
+		size_t num_start = s.size();
+		while (num_start > 0 && std::isdigit(static_cast<unsigned char>(s[num_start - 1])))
+			--num_start;
+		int num = 0;
+		if (num_start < s.size()) {
+			try { num = std::stoi(s.substr(num_start)); }
+			catch (...) {}
+		}
+		return {s.substr(0, num_start), num};
+	};
+
+	auto [r_alpha, r_num] = split_suffix(r_pre);
+	auto [l_alpha, l_num] = split_suffix(l_pre);
+	if (r_alpha != l_alpha) return r_alpha > l_alpha;
+	return r_num > l_num;
 }

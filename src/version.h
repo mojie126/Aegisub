@@ -32,6 +32,8 @@
 /// @ingroup main
 ///
 
+#include <string>
+
 /// Version string appended in title bar of main window (quick identification of all elements of a build)
 const char *GetAegisubLongVersionString();
 /// Version string used in About box, looks nicer
@@ -46,3 +48,6 @@ bool GetIsOfficialRelease();
 const char *GetVersionNumber();
 /// Get SVN revision
 int GetSVNRevision();
+
+/// 比较两个语义化版本号，判断远程版本是否更新
+bool IsNewerVersion(const std::string& remote, const std::string& local);

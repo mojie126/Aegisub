@@ -456,58 +456,6 @@ static wxString GetAegisubLanguage() {
 	return to_wx(OPT_GET("App/Language")->GetString());
 }
 
-/// @brief 比较两个语义化版本号，判断远程版本是否更新
-/// @param remote 远程版本号字符串 (如 "v3.4.3" 或 "3.4.3-RC1")
-/// @param local 本地版本号字符串 (如 "3.4.2-RC2")
-/// @return 远程版本大于本地版本时返回 true
-bool IsNewerVersion(const std::string& remote, const std::string& local) {
-	auto strip_v = [](const std::string& s) -> std::string {
-		if (!s.empty() && (s[0] == 'v' || s[0] == 'V'))
-			return s.substr(1);
-		return s;
-	};
-
-	auto split_pre = [](const std::string& s) -> std::pair<std::string, std::string> {
-		auto pos = s.find('-');
-		if (pos != std::string::npos)
-			return {s.substr(0, pos), s.substr(pos + 1)};
-		return {s, ""};
-	};
-
-	auto parse_ver = [](const std::string& v) -> std::vector<int> {
-		std::vector<int> parts;
-		std::istringstream iss(v);
-		std::string part;
-		while (std::getline(iss, part, '.')) {
-			try { parts.push_back(std::stoi(part)); }
-			catch (...) { parts.push_back(0); }
-		}
-		while (parts.size() < 3) parts.push_back(0);
-		return parts;
-	};
-
-	std::string r = strip_v(remote);
-	std::string l = strip_v(local);
-
-	auto [r_ver, r_pre] = split_pre(r);
-	auto [l_ver, l_pre] = split_pre(l);
-
-	auto rv = parse_ver(r_ver);
-	auto lv = parse_ver(l_ver);
-
-	for (size_t i = 0; i < 3; ++i) {
-		if (rv[i] > lv[i]) return true;
-		if (rv[i] < lv[i]) return false;
-	}
-
-	// 版本号相同时，正式版优先于预发布版 (无后缀 > 有后缀)
-	if (r_pre.empty() && !l_pre.empty()) return true;
-	if (!r_pre.empty() && l_pre.empty()) return false;
-
-	// 两者都有预发布后缀时，按字典序比较
-	return r_pre > l_pre;
-}
-
 size_t writeToStringCb(char *contents, size_t size, size_t nmemb, std::string *s) {
 	s->append(contents, size * nmemb);
 	return size * nmemb;

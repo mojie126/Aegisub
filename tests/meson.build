@@ -53,11 +53,17 @@ tests_src = [
     'tests/audit_fixes.cpp',
     'tests/style_rename.cpp',
     'tests/image_video.cpp',
+    'tests/version_check.cpp',
 ]
 
 # TextFileWriter 源文件（需要从主项目引入）
 text_file_writer_src = [
     '../src/text_file_writer.cpp',
+]
+
+# 版本信息源文件（版本比较函数）
+version_src = [
+    '../src/version.cpp',
 ]
 
 # 摩卡追踪模块源文件（排除依赖完整 UI 的 config/dialog）
@@ -87,8 +93,8 @@ endif
 
 runner = executable(
     'gtest-main',
-    tests_src + mocha_src + text_file_writer_src,
-    include_directories: [tests_inc, libaegisub_inc, mocha_inc, aegisub_src_inc, aegisub_src_dir_inc],
+    tests_src + mocha_src + text_file_writer_src + version_src, version_h,
+    include_directories: [tests_inc, libaegisub_inc, mocha_inc, aegisub_src_inc, aegisub_src_dir_inc, version_inc],
     dependencies: [tests_deps, deps],
     cpp_args: tests_args,
     link_with: libaegisub,
