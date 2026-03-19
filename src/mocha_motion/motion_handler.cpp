@@ -16,11 +16,15 @@ namespace mocha {
 	MotionHandler::MotionHandler(const MotionOptions &options,
 								DataHandler *main_data,
 								DataHandler *rect_clip_data,
-								DataHandler *vect_clip_data)
+								DataHandler *vect_clip_data,
+								int res_x,
+								int res_y)
 		: main_data_(main_data)
 		, rect_clip_data_(rect_clip_data)
 		, vect_clip_data_(vect_clip_data)
-		, options_(options) {
+		, options_(options)
+		, res_x_(res_x)
+		, res_y_(res_y) {
 		setup_callbacks();
 	}
 
@@ -184,8 +188,8 @@ namespace mocha {
 				// SRS 模式：直接替换为预生成的绘图字符串
 				callbacks_.push_back(
 					{
-						R"((\\i?clip)\(([^,]+)\))",
-						std::regex(R"((\\i?clip)\(([^,]+)\))"),
+						R"((\\i?clip)\(([^,]*)\))",
+						std::regex(R"((\\i?clip)\(([^,]*)\))"),
 						[this](const std::string &v, int f) { return cb_vect_clip_srs(v, f); }
 					}
 				);
@@ -193,8 +197,8 @@ namespace mocha {
 				// TSR 模式：逐坐标 positionMath 变换
 				callbacks_.push_back(
 					{
-						R"((\\i?clip)\(([^,]+)\))",
-						std::regex(R"((\\i?clip)\(([^,]+)\))"),
+						R"((\\i?clip)\(([^,]*)\))",
+						std::regex(R"((\\i?clip)\(([^,]*)\))"),
 						[this](const std::string &v, int f) { return cb_vect_clip(v, f); }
 					}
 				);
@@ -341,8 +345,8 @@ namespace mocha {
 			int new_line_duration = new_end_time - new_start_time;
 			if (options_.kill_trans) {
 				new_text = line.interpolate_transforms_copy(
-					time_delta, new_start_time,
-					0, 0 // res_x, res_y 仅在 clip 插值时使用
+					new_start_time,
+					res_x_, res_y_
 				);
 			} else {
 				// 传递新行持续时间，用于抑制超出行范围的 \t 标签
@@ -415,7 +419,7 @@ namespace mocha {
 
 								std::string alpha_tag = m[1].str();
 								int alpha_val = std::stoi(m[2].str(), nullptr, 16);
-								int new_alpha = math::round(255.0 - (opacity * (255.0 - alpha_val)));
+								int new_alpha = static_cast<int>(math::round(255.0 - (opacity * (255.0 - alpha_val))));
 								new_alpha = std::max(0, std::min(255, new_alpha));
 
 								char buf[32];

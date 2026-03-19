@@ -81,10 +81,6 @@ namespace mocha {
 	std::string MotionProcessor::get_missing_alphas(const std::string &block,
 													const std::map<std::string, double> &properties) const {
 		// 对应 MoonScript getMissingAlphas()
-		// 如果已有 \alpha 标签则不需要添加
-		if (std::regex_search(block, std::regex(R"(\\alpha&H[0-9A-Fa-f]{2}&)")))
-			return "";
-
 		auto get_prop = [&](const std::string &key) -> double {
 			auto it = properties.find(key);
 			return (it != properties.end()) ? it->second : 0;
@@ -466,8 +462,10 @@ namespace mocha {
 			// 移位卡拉 OK 标签
 			line.shift_karaoke();
 
-			// 清理空标签块
+			// 清理空标签块和无效的空 clip 占位符
 			static const std::regex empty_block_re(R"(\{\})");
+			static const std::regex empty_clip_re(R"(\\i?clip\(\))");
+			line.text = std::regex_replace(line.text, empty_clip_re, "");
 			line.text = std::regex_replace(line.text, empty_block_re, "");
 		}
 
@@ -635,7 +633,7 @@ namespace mocha {
 			}
 		}
 
-		MotionHandler handler(options_, &main_data, rect_data, vect_data);
+		MotionHandler handler(options_, &main_data, rect_data, vect_data, res_x_, res_y_);
 		auto result = handler.apply_motion(lines, start_frame, frame_from_ms_, ms_from_frame_);
 
 		// 4. 后处理

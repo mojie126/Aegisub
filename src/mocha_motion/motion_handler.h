@@ -33,10 +33,14 @@ public:
 	/// @param main_data 主追踪数据（位置/缩放/旋转）
 	/// @param rect_clip_data 矩形 clip 追踪数据（可选，为 nullptr 时使用 main_data）
 	/// @param vect_clip_data 矢量 clip 追踪数据（可选，为 nullptr 时使用 main_data）
+	/// @param res_x 脚本水平分辨率（用于 \t(\clip) 默认值插值）
+	/// @param res_y 脚本垂直分辨率（用于 \t(\clip) 默认值插值）
 	MotionHandler(const MotionOptions& options,
 	              DataHandler* main_data,
 	              DataHandler* rect_clip_data = nullptr,
-	              DataHandler* vect_clip_data = nullptr);
+	              DataHandler* vect_clip_data = nullptr,
+	              int res_x = 0,
+	              int res_y = 0);
 
 	/// 对行集合应用运动追踪数据
 	/// @param lines 待处理的字幕行集合
@@ -126,6 +130,8 @@ private:
 	DataHandler* rect_clip_data_;
 	DataHandler* vect_clip_data_;
 	MotionOptions options_;
+	int res_x_ = 0;
+	int res_y_ = 0;
 
 	// 绝对位置模式下的坐标偏移量
 	double x_delta_ = 0;

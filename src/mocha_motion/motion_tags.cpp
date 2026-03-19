@@ -532,40 +532,45 @@ namespace mocha {
 		}
 
 		std::string rect_clip_to_vect_clip(const std::string &clip) {
-			// 将矩形 clip 坐标转换为矢量 clip 的绘图命令
-			std::regex rect_re(R"(([\-\d.]+)\s*,\s*([\-\d.]+)\s*,\s*([\-\d.]+)\s*,\s*([\-\d.]+))");
+			// 将完整的 \clip/\iclip 矩形标签转换为矢量 clip，保留原始标签前缀。
+			static const std::regex rect_re(
+				R"((\\i?clip)\(\s*([\-\d.]+)\s*,\s*([\-\d.]+)\s*,\s*([\-\d.]+)\s*,\s*([\-\d.]+)\s*\))"
+			);
 			std::smatch match;
-			if (std::regex_search(clip, match, rect_re)) {
-				double l = std::stod(match[1]);
-				double t = std::stod(match[2]);
-				double r = std::stod(match[3]);
-				double b = std::stod(match[4]);
+			if (std::regex_match(clip, match, rect_re)) {
+				double l = std::stod(match[2]);
+				double t = std::stod(match[3]);
+				double r = std::stod(match[4]);
+				double b = std::stod(match[5]);
 
 				char buf[256];
-				std::snprintf(buf, sizeof(buf), "m %g %g l %g %g %g %g %g %g", l, t, r, t, r, b, l, b);
+				std::snprintf(
+					buf, sizeof(buf), "%s(m %g %g l %g %g %g %g %g %g)",
+					match[1].str().c_str(), l, t, r, t, r, b, l, b
+				);
 				return buf;
 			}
 			return clip;
 		}
 
 		std::string convert_clip_to_fp(const std::string &clip) {
-			// 将带缩放因子的矢量 clip 转换为浮点坐标
-			// 仅处理矢量 clip（不包含逗号分隔的矩形坐标）
-			std::regex rect_check(R"([\-\d.]+\s*,\s*[\-\d.]+)");
-			if (std::regex_search(clip, rect_check)) {
-				return clip; // 矩形 clip，不处理
+			// 将完整的 \clip/\iclip(缩放,绘图) 转换为无缩放的浮点坐标 clip，
+			// 保留标签前缀。矩形 clip 原样返回。
+			static const std::regex rect_check(
+				R"((\\i?clip)\(\s*[\-\d.]+\s*,\s*[\-\d.]+\s*,\s*[\-\d.]+\s*,\s*[\-\d.]+\s*\))"
+			);
+			if (std::regex_match(clip, rect_check)) {
+				return clip;
 			}
 
-			// 匹配 (\d,shape) 格式的缩放因子
-			std::regex scale_re(R"(\((\d+),([^)]+)\))");
+			static const std::regex scale_re(R"((\\i?clip)\((\d+),([^)]+)\))");
 			std::smatch match;
-			if (std::regex_search(clip, match, scale_re)) {
-				int scale_factor = std::stoi(match[1]);
-				std::string points = match[2];
+			if (std::regex_match(clip, match, scale_re)) {
+				int scale_factor = std::stoi(match[2]);
+				std::string points = match[3];
 				double divisor = std::pow(2.0, scale_factor - 1);
 
-				// 替换所有坐标
-				std::regex coord_re(R"(([.\d\-]+)\s+([.\d\-]+))");
+				static const std::regex coord_re(R"(([.\d\-]+)\s+([.\d\-]+))");
 				std::string result;
 				std::sregex_iterator it(points.begin(), points.end(), coord_re);
 				std::sregex_iterator end;
@@ -583,7 +588,7 @@ namespace mocha {
 					++it;
 				}
 				result += points.substr(last);
-				return "(" + result + ")";
+				return match[1].str() + "(" + result + ")";
 			}
 
 			return clip;
