@@ -432,6 +432,16 @@ TEST(MochaLine, DeduplicateTags) {
 	EXPECT_EQ(count, 1);
 }
 
+TEST(MochaLine, DeduplicateOneTimeTagsKeepsFirstInstance) {
+	MotionLine line;
+	line.text = R"({\pos(10,20)\pos(30,40)\move(1,2,3,4,0,100)}hello)";
+	line.deduplicate_tags();
+
+	EXPECT_NE(line.text.find(R"(\pos(10,20))"), std::string::npos);
+	EXPECT_EQ(line.text.find(R"(\pos(30,40))"), std::string::npos);
+	EXPECT_EQ(line.text.find(R"(\move(1,2,3,4,0,100))"), std::string::npos);
+}
+
 TEST(MochaLine, ExtractMetricsWithPos) {
 	MotionLine line;
 	line.text = R"({\pos(320,240)}hello)";

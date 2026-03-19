@@ -319,15 +319,27 @@ void MotionLine::deduplicate_tags() {
 		std::string result = tag_block;
 		for (const auto* tag_def : registry.one_time_tags()) {
 			const auto& re = tag_def->compiled_pattern;
-			std::smatch match;
-			std::string temp = result;
-			if (std::regex_search(temp, match, re)) {
-				if (seen_global.count(tag_def->name)) {
-					// 已出现过，移除此实例
-					result = std::regex_replace(result, re, "");
-				} else {
+			std::string filtered;
+			std::sregex_iterator it(result.begin(), result.end(), re);
+			std::sregex_iterator end;
+			size_t last = 0;
+			bool seen = seen_global.count(tag_def->name) != 0;
+
+			while (it != end) {
+				const auto& match = *it;
+				filtered += result.substr(last, match.position() - last);
+				if (!seen) {
+					filtered += match.str();
+					seen = true;
 					seen_global[tag_def->name] = true;
 				}
+				last = match.position() + match.length();
+				++it;
+			}
+
+			if (last != 0) {
+				filtered += result.substr(last);
+				result = std::move(filtered);
 			}
 		}
 		return result;
