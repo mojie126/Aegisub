@@ -1141,3 +1141,32 @@ TEST(MochaProcessor, PostprocessRemovesEmptyClipInLinear) {
 	ASSERT_EQ(lines.size(), 1u);
 	EXPECT_EQ(lines[0].text, "hello");
 }
+
+TEST(MochaProcessor, PrepareLinesHonorsIndependentClipOptions) {
+	MotionOptions opts;
+	opts.rect_clip = false;
+	opts.vect_clip = false;
+
+	MotionProcessor processor(opts, 640, 360);
+
+	MotionLine line;
+	line.text = R"({\clip(0,0,100,100)}hello)";
+	line.start_time = 0;
+	line.end_time = 1000;
+	line.duration = 1000;
+
+	std::vector<MotionLine> lines = {line};
+	ClipTrackOptions clip_opts;
+	clip_opts.rect_clip = true;
+	clip_opts.vect_clip = true;
+	clip_opts.rc_to_vc = true;
+
+	processor.prepare_lines(lines, &clip_opts);
+
+	ASSERT_EQ(lines.size(), 1u);
+	EXPECT_TRUE(lines[0].has_clip);
+	EXPECT_NE(lines[0].text.find(R"(\clip(m 0 0 l 100 0 100 100 0 100))"), std::string::npos)
+		<< "Expected clip preprocessing to honor independent clip options, got: " << lines[0].text;
+	EXPECT_EQ(lines[0].text.find(R"(\clip())"), std::string::npos)
+		<< "Independent clip options should prevent injecting an empty clip placeholder";
+}

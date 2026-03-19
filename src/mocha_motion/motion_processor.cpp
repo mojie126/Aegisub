@@ -228,8 +228,15 @@ namespace mocha {
 ///   步骤 11: 如果没有 clip，添加空 \clip() 占位符
 ///
 /// @param lines 待预处理的行集合（就地修改）
-	void MotionProcessor::prepare_lines(std::vector<MotionLine> &lines) {
+	void MotionProcessor::prepare_lines(std::vector<MotionLine> &lines,
+	                                   const ClipTrackOptions *clip_options) {
 		// 对应 MoonScript prepareLines()
+		const bool clip_tracking_enabled =
+			options_.rect_clip || options_.vect_clip ||
+			(clip_options && (clip_options->rect_clip || clip_options->vect_clip));
+		const bool rect_to_vect_enabled =
+			options_.rc_to_vc || (clip_options && clip_options->rc_to_vc);
+
 		for (auto &line : lines) {
 			// 获取样式属性
 			const AssStyle *style = nullptr;
@@ -406,9 +413,9 @@ namespace mocha {
 			);
 
 			// 10. 处理 clip 标签（转浮点坐标、rect→vect 转换）
-			if (options_.rect_clip || options_.vect_clip) {
+			if (clip_tracking_enabled) {
 				line.run_callback_on_overrides(
-					[this, &line](const std::string &block, int) {
+					[&line, rect_to_vect_enabled](const std::string &block, int) {
 						std::string result = block;
 						static const std::regex clip_re(R"((\\i?clip\([^)]+\)))");
 						std::smatch m;
@@ -420,7 +427,7 @@ namespace mocha {
 							clip = tag_utils::convert_clip_to_fp(clip);
 
 							// 矩形 clip 转矢量 clip
-							if (options_.rc_to_vc) {
+							if (rect_to_vect_enabled) {
 								clip = tag_utils::rect_clip_to_vect_clip(clip);
 							}
 
@@ -531,7 +538,7 @@ namespace mocha {
 		// 完整的运动应用流程
 
 		// 1. 预处理行
-		prepare_lines(lines);
+		prepare_lines(lines, clip_options);
 
 		// 2. 配置追踪数据的参考帧
 		// 对应 MoonScript prepareConfig 中的 startFrame 调整

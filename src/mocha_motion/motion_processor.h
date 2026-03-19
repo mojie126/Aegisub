@@ -40,7 +40,8 @@ public:
 
 	/// 预处理行集合（tokenize, deduplicate, add missing tags 等）
 	/// 对应 MoonScript prepareLines()
-	void prepare_lines(std::vector<MotionLine>& lines);
+	void prepare_lines(std::vector<MotionLine>& lines,
+	                   const ClipTrackOptions* clip_options = nullptr);
 
 	/// 后处理行集合（恢复 \t 占位符、去重、合并相同行等）
 	/// 对应 MoonScript postprocLines()
