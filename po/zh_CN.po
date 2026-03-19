@@ -7308,6 +7308,9 @@ msgstr "追踪数据与选定行数据不对称，需要 %d 帧"
 msgid "Paste from Clipboard"
 msgstr "从剪贴板粘贴数据"
 
+msgid "Paste tracking data from clipboard"
+msgstr "从剪贴板粘贴追踪数据"
+
 msgid "Reverse tracking:"
 msgstr "反向追踪"
 

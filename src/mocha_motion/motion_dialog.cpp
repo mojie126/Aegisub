@@ -974,10 +974,13 @@ namespace mocha {
 
 			// 按钮
 			auto *btn_row = new wxBoxSizer(wxHORIZONTAL);
+			auto *btn_paste = new wxButton(&clip_dlg, wxID_PASTE, _("Paste from Clipboard"));
+			btn_paste->SetToolTip(_("Paste tracking data from clipboard"));
 			auto *btn_clear = new wxButton(&clip_dlg, wxID_CLEAR, _("Clear Data"));
 			btn_clear->SetToolTip(_("Remove independent clip tracking data"));
 			auto *btn_ok = new wxButton(&clip_dlg, wxID_OK, _("OK"));
 			auto *btn_cancel = new wxButton(&clip_dlg, wxID_CANCEL, _("Cancel"));
+			btn_row->Add(btn_paste, 0, wxALL, inner_pad);
 			btn_row->Add(btn_clear, 0, wxALL, inner_pad);
 			btn_row->AddStretchSpacer();
 			btn_row->Add(btn_ok, 0, wxALL, inner_pad);
@@ -1106,16 +1109,26 @@ namespace mocha {
 			// 初始状态更新
 			update_clip_status();
 
+			// 从剪切板粘贴按钮（与主对话框 OnPaste 功能一致）
+			clip_dlg.Bind(
+				wxEVT_BUTTON, [&](wxCommandEvent &) {
+					if (wxTheClipboard->Open()) {
+						if (wxTheClipboard->IsSupported(wxDF_TEXT)) {
+							wxTextDataObject data;
+							wxTheClipboard->GetData(data);
+							clip_text->SetValue(data.GetText());
+						}
+						wxTheClipboard->Close();
+					}
+					update_clip_status();
+				}, wxID_PASTE
+			);
+
 			// 清除数据按钮
 			clip_dlg.Bind(
 				wxEVT_BUTTON, [&](wxCommandEvent &) {
 					clip_text->Clear();
-					has_clip_data_ = false;
-					clip_data_text_.clear();
-					lbl_clip_status->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
-					lbl_clip_status->SetLabel(_("No separate clip data"));
-					lbl_clip_status->Refresh();
-					clip_dlg.EndModal(wxID_CLEAR);
+					update_clip_status();
 				}, wxID_CLEAR
 			);
 

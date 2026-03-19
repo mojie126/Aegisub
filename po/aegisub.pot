@@ -7346,6 +7346,10 @@ msgid "Paste from Clipboard"
 msgstr ""
 
 #: ../src/mocha_motion/motion_dialog.cpp
+msgid "Paste tracking data from clipboard"
+msgstr ""
+
+#: ../src/mocha_motion/motion_dialog.cpp
 msgid "Failed to parse tracking data. Please check the data format or file path."
 msgstr ""
 
