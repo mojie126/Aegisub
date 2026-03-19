@@ -60,13 +60,14 @@ text_file_writer_src = [
     '../src/text_file_writer.cpp',
 ]
 
-# 摩卡追踪模块源文件（排除依赖 wxWidgets/src 的 processor/config/dialog）
+# 摩卡追踪模块源文件（排除依赖完整 UI 的 config/dialog）
 mocha_src = [
     '../src/mocha_motion/motion_tags.cpp',
     '../src/mocha_motion/motion_transform.cpp',
     '../src/mocha_motion/motion_line.cpp',
     '../src/mocha_motion/motion_data_handler.cpp',
     '../src/mocha_motion/motion_handler.cpp',
+    '../src/mocha_motion/motion_processor.cpp',
 ]
 
 mocha_inc = include_directories('../src/mocha_motion')

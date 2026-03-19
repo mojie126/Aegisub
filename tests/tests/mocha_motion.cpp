@@ -9,6 +9,7 @@
 #include "motion_line.h"
 #include "motion_data_handler.h"
 #include "motion_handler.h"
+#include "motion_processor.h"
 
 #include <cmath>
 #include <regex>
@@ -182,10 +183,48 @@ TEST(MochaTags, FormatColor) {
 }
 
 TEST(MochaTags, ConvertClipToFP) {
-	// 整数坐标应转为浮点字符串
-	std::string clip = R"(\clip(100,200,300,400))";
+	std::string clip = R"(\clip(2,m 100 200 l 300 400))";
 	auto result = tag_utils::convert_clip_to_fp(clip);
-	EXPECT_NE(result.find("100"), std::string::npos);
+	EXPECT_EQ(result, R"(\clip(m 50 100 l 150 200))");
+}
+
+TEST(MochaTags, ConvertClipToFPPreservesInverseClipTag) {
+	std::string clip = R"(\iclip(3,m 80 40 l 160 80))";
+	auto result = tag_utils::convert_clip_to_fp(clip);
+	EXPECT_EQ(result, R"(\iclip(m 20 10 l 40 20))");
+}
+
+TEST(MochaTags, RectClipToVectClipPreservesTagPrefix) {
+	std::string clip = R"(\clip(100,200,300,400))";
+	auto result = tag_utils::rect_clip_to_vect_clip(clip);
+	EXPECT_EQ(result, R"(\clip(m 100 200 l 300 200 300 400 100 400))");
+}
+
+TEST(MochaTags, RectIClipToVectClipPreservesTagPrefix) {
+	std::string clip = R"(\iclip(10,20,30,40))";
+	auto result = tag_utils::rect_clip_to_vect_clip(clip);
+	EXPECT_EQ(result, R"(\iclip(m 10 20 l 30 20 30 40 10 40))");
+}
+
+TEST(MochaTags, RectClipToVectClipNonRectInput) {
+	// 矢量 clip 输入不匹配矩形格式，应原样返回
+	std::string clip = R"(\clip(m 100 200 l 300 400))";
+	auto result = tag_utils::rect_clip_to_vect_clip(clip);
+	EXPECT_EQ(result, clip);
+}
+
+TEST(MochaTags, ConvertClipToFPRectClipPassthrough) {
+	// 矩形 clip 应原样返回而非转换
+	std::string clip = R"(\clip(10,20,30,40))";
+	auto result = tag_utils::convert_clip_to_fp(clip);
+	EXPECT_EQ(result, clip);
+}
+
+TEST(MochaTags, ConvertClipToFPNoScalePassthrough) {
+	// 无缩放因子的矢量 clip 应原样返回
+	std::string clip = R"(\clip(m 100 200 l 300 400))";
+	auto result = tag_utils::convert_clip_to_fp(clip);
+	EXPECT_EQ(result, clip);
 }
 
 // ============================================================================
@@ -920,6 +959,22 @@ TEST(MochaHandler, CbVectClipSRS) {
 	EXPECT_EQ(result.back(), ')');
 }
 
+TEST(MochaHandler, ApplyCallbacksVectorClipSRSEmptyPlaceholder) {
+	auto main_dh = make_test_data_handler();
+	DataHandler srs_dh;
+	ASSERT_TRUE(srs_dh.parse_srs(SRS_VALID_DATA, 1080));
+
+	MotionOptions opts;
+	opts.vect_clip = true;
+	MotionHandler handler(opts, &main_dh, nullptr, &srs_dh);
+
+	auto result = handler.apply_callbacks(R"({\clip()})", 1);
+	EXPECT_NE(result, R"({\clip()})");
+	EXPECT_EQ(result.find("\\clip()"), std::string::npos);
+	EXPECT_NE(result.find("\\clip("), std::string::npos);
+	EXPECT_NE(result.find("m "), std::string::npos);
+}
+
 TEST(MochaHandler, ApplyCallbacksDoesNotCrash) {
 	auto dh = make_test_data_handler();
 	dh.calculate_current_state(2);
@@ -979,7 +1034,7 @@ TEST(MochaTransform, InterpolateTransformsCopyNoShift) {
 
 	std::string text = t.token + "\\pos(0,0)";
 	auto result = transform_utils::interpolate_transforms_copy(
-		text, transforms, 1000, 500, line_props, prior_tags, 0, 0);
+		text, transforms, 500, line_props, prior_tags, 0, 0);
 
 	EXPECT_NE(result.find("\\fscx100"), std::string::npos)
 		<< "Expected start value before transform window, got: " << result;
@@ -1002,8 +1057,77 @@ TEST(MochaTransform, InterpolateTransformsCopyAtEnd) {
 
 	std::string text = t.token + "\\pos(0,0)";
 	auto result = transform_utils::interpolate_transforms_copy(
-		text, transforms, 0, 800, line_props, prior_tags, 0, 0);
+		text, transforms, 800, line_props, prior_tags, 0, 0);
 
 	EXPECT_NE(result.find("\\fscx200"), std::string::npos)
 		<< "Expected end value after transform window, got: " << result;
+}
+
+TEST(MochaTransform, InterpolateTransformsCopyMidFrame) {
+	// 中间帧插值：progress=0.5 时应得到起止值的中间值
+	auto t = Transform::from_string("(0,1000,\\fscx200)", 2000, 0);
+	t.gather_tags_in_effect();
+	t.token = "__T2__";
+
+	std::vector<Transform> transforms = {t};
+	std::map<std::string, double> line_props;
+	line_props["xscale"] = 100.0;
+
+	std::map<std::string, Transform::EffectTagValue> prior_tags;
+	Transform::EffectTagValue etv;
+	etv.type = Transform::EffectTagValue::NUM;
+	etv.number = 100.0;
+	prior_tags["xscale"] = etv;
+
+	std::string text = t.token + "\\pos(0,0)";
+	auto result = transform_utils::interpolate_transforms_copy(
+		text, transforms, 500, line_props, prior_tags, 0, 0);
+
+	// progress=0.5，从 100 到 200 的中间值应为 150
+	EXPECT_NE(result.find("\\fscx150"), std::string::npos)
+		<< "Expected mid-point value at progress=0.5, got: " << result;
+}
+
+TEST(MochaHandler, ApplyMotionClipTransformUsesScriptResolutionDefault) {
+	auto dh = make_test_data_handler();
+
+	MotionOptions opts;
+	opts.kill_trans = true;
+	MotionHandler handler(opts, &dh, nullptr, nullptr, 640, 360);
+
+	MotionLine line;
+	line.text = R"({\t(0,1000,\clip(10,20,110,120))}hello)";
+	line.start_time = 0;
+	line.end_time = 1000;
+	line.duration = 1000;
+	line.tokenize_transforms();
+
+	std::vector<MotionLine> lines = {line};
+	auto result = handler.apply_motion(
+		lines,
+		0,
+		[](int ms) { return ms / 1000; },
+		[](int frame) { return frame * 1000; }
+	);
+
+	ASSERT_EQ(result.size(), 1u);
+	EXPECT_NE(result[0].text.find(R"(\clip(0,0,640,360))"), std::string::npos)
+		<< "Expected script-resolution rect clip default, got: " << result[0].text;
+}
+
+class MochaProcessor : public libagi { };
+
+TEST(MochaProcessor, PostprocessRemovesEmptyClipInLinear) {
+	MotionOptions opts;
+	MotionProcessor processor(opts, 640, 360);
+
+	MotionLine line;
+	line.text = R"({\clip()}hello)";
+	line.was_linear = true;
+
+	std::vector<MotionLine> lines = {line};
+	processor.postprocess_lines(lines);
+
+	ASSERT_EQ(lines.size(), 1u);
+	EXPECT_EQ(lines[0].text, "hello");
 }
