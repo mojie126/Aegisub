@@ -105,14 +105,21 @@ jobs:
                     popd
 
             -   name: Configure
-                if: steps.Aegisub_cache.outputs.cache-hit != 'true'
                 run: |
                     $args = @("${{ matrix.config.args }}".Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries))
                     if ("${{ github.event.inputs.version }}" -ne "") {
                         $args += "-Dversion=${{ github.event.inputs.version }}"
                         Write-Host "Using version: ${{ github.event.inputs.version }}"
                     }
-                    meson setup build @args -Dbuildtype=${{ matrix.config.buildtype }}
+
+                    if (Test-Path "build\build.ninja") {
+                        Write-Host "Reconfiguring cached build directory"
+                        meson setup --reconfigure build @args -Dbuildtype=${{ matrix.config.buildtype }}
+                    } else {
+                        Write-Host "Configuring fresh build directory"
+                        meson setup build @args -Dbuildtype=${{ matrix.config.buildtype }}
+                    }
+
                     meson configure build
                 shell: pwsh
 
