@@ -52,6 +52,7 @@ tests_src = [
     'tests/text_file_writer.cpp',
     'tests/audit_fixes.cpp',
     'tests/style_rename.cpp',
+    'tests/font_chooser.cpp',
     'tests/image_video.cpp',
     'tests/version_check.cpp',
 ]
