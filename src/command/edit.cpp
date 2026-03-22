@@ -36,6 +36,7 @@
 #include "../ass_karaoke.h"
 #include "../ass_style.h"
 #include "../compat.h"
+#include "../dialog_font_chooser.h"
 #include "../dialog_search_replace.h"
 #include "../dialogs.h"
 #include "../format.h"
@@ -567,18 +568,24 @@ struct edit_font final : public Command {
 			if (!style)
 				style = &default_style;
 
-			return wxFont(
+			const int bold_val = line.get_value(blockn, style->bold, "\\b");
+			wxFont f(
 				line.get_value(blockn, (int)style->fontsize, "\\fs"),
 				wxFONTFAMILY_DEFAULT,
 				line.get_value(blockn, style->italic, "\\i") ? wxFONTSTYLE_ITALIC : wxFONTSTYLE_NORMAL,
-				line.get_value(blockn, style->bold, "\\b") ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL,
+				bold_val >= 100 ? (bold_val >= 700 ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL) : (bold_val ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL),
 				line.get_value(blockn, style->underline, "\\u"),
 				to_wx(line.get_value(blockn, style->font, "\\fn")));
+			// 设置数值字重（ASS \b 支持 100-900 数值）
+			if (bold_val >= 100)
+				f.SetNumericWeight(bold_val);
+			f.SetStrikethrough(line.get_value(blockn, style->strikeout, "\\s"));
+			return f;
 		};
 
 		const wxFont initial = font_for_line(active);
-		const wxFont font = wxGetFontFromUser(c->parent, initial);
-		if (!font.Ok() || font == initial) return;
+		const wxFont font = GetFontFromUser(c->parent, initial, GetPreferredFontFaceList());
+		if (!font.IsOk() || font == initial) return;
 
 		update_lines(c, _("set font"), [&](AssDialogue *line, int sel_start, int, int norm_sel_start, int) {
 			parsed_line parsed(line);
@@ -592,12 +599,14 @@ struct edit_font final : public Command {
 				do_set_tag("\\fn", from_wx(font.GetFaceName()));
 			if (font.GetPointSize() != startfont.GetPointSize())
 				do_set_tag("\\fs", std::to_string(font.GetPointSize()));
-			if (font.GetWeight() != startfont.GetWeight())
-				do_set_tag("\\b", std::to_string(font.GetWeight() == wxFONTWEIGHT_BOLD));
+			if (font.GetNumericWeight() != startfont.GetNumericWeight())
+				do_set_tag("\\b", std::to_string(font.GetNumericWeight()));
 			if (font.GetStyle() != startfont.GetStyle())
 				do_set_tag("\\i", std::to_string(font.GetStyle() == wxFONTSTYLE_ITALIC));
 			if (font.GetUnderlined() != startfont.GetUnderlined())
-				do_set_tag("\\i", std::to_string(font.GetUnderlined()));
+				do_set_tag("\\u", std::to_string(font.GetUnderlined()));
+			if (font.GetStrikethrough() != startfont.GetStrikethrough())
+				do_set_tag("\\s", std::to_string(font.GetStrikethrough()));
 
 			return shift;
 		});

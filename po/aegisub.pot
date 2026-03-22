@@ -7945,3 +7945,107 @@ msgstr ""
 #, c-format
 msgid "1img sequence: %s ~ %s | frames %d~%d (%d images) | %dx%d"
 msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Regular"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Italic"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Bold"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Bold Italic"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Semibold"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Black"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Font style: Light"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Condensed"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Ultra Condensed"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Extra Condensed"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Semi Condensed"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Semi Expanded"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Expanded"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Extra Expanded"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Ultra Expanded"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Thin"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Extra Light"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Extra Bold"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Oblique"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Font name(&F):"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Font st&yle:"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "&Size:"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Fa&vorites:"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Effects"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Stri&keout"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Sample"
+msgstr ""

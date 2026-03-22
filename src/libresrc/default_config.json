@@ -630,6 +630,9 @@
 			"Skip Comments" : false,
 			"Skip Uppercase" : false
 		},
+		"Font Chooser" : {
+			"Preview Text" : "AaBbYyZz"
+		},
 		"Style Editor" : {
 			"Last" : {
 				"Height" : -1,
