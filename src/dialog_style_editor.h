@@ -30,6 +30,8 @@
 #include <memory>
 #include <string>
 #include <wx/dialog.h>
+#include <wx/panel.h>
+#include <wx/popupwin.h>
 #include "ini.h"
 
 class AssStyle;
@@ -37,17 +39,79 @@ class AssStyleStorage;
 class PersistLocation;
 class SubtitlesPreview;
 class wxArrayString;
+class wxButton;
 class wxCheckBox;
 class wxChildFocusEvent;
-class wxComboBox;
 class wxCommandEvent;
+class wxFocusEvent;
+class wxKeyEvent;
 class wxRadioBox;
 class wxSpinCtrl;
 class wxTextCtrl;
 class wxThreadEvent;
 class wxWindow;
+class FontPreviewListBox;
 namespace agi { struct Context; struct Color; }
 template<typename T> class ValueEvent;
+
+class FontSelectionPopupWindow;
+
+/// @class FontSelectionControl
+/// @brief 样式编辑器使用的字体选择控件，支持输入过滤与弹出预览列表
+class FontSelectionControl final : public wxPanel {
+public:
+	FontSelectionControl(wxWindow *parent, wxWindowID id, const wxString &value,
+		const wxPoint &pos, const wxSize &size, long style = 0);
+	~FontSelectionControl();
+
+	/// @brief 设置可选字体列表
+	void SetFontList(const wxArrayString &fonts);
+	/// @brief 清空字体列表
+	void Clear();
+	void Freeze() {}
+	void Thaw() {}
+
+	/// @brief 获取当前输入的字体名称
+	wxString GetValue() const;
+	/// @brief 设置字体名称
+	void SetValue(const wxString &value);
+	long GetInsertionPoint() const;
+	void SetInsertionPoint(long pos);
+	/// @brief 弹出过滤后的字体列表
+	void Popup();
+	/// @brief 弹出全部字体列表
+	void PopupAll();
+	/// @brief 关闭弹出列表
+	void Dismiss();
+	/// @brief 弹出列表是否可见
+	bool HasPopup() const;
+	/// @brief 确认弹出列表中的当前选中项
+	void AcceptPopupSelection();
+	/// @brief 移动弹出列表选中项
+	void MovePopupSelection(int delta);
+	void SelectAllText();
+	wxTextCtrl *GetTextCtrl() const;
+	/// @brief 设置控件整体高度，使其与相邻控件对齐
+	void SetControlHeight(int height);
+
+private:
+	friend class FontSelectionPopupWindow;
+
+	wxTextCtrl *textCtrl_;
+	wxButton *dropButton_;
+	FontSelectionPopupWindow *popup_;
+	wxArrayString allFonts_;
+	wxArrayString filteredFonts_;
+	bool suppressTextEvent_ = false;
+
+	void UpdateFilteredFonts(bool show_popup);
+	void EmitEvent(wxEventType type, const wxString &value = wxString());
+	void OnText(wxCommandEvent &event);
+	void OnTextEnter(wxCommandEvent &event);
+	void OnButton(wxCommandEvent &event);
+	void OnKillFocus(wxFocusEvent &event);
+	void OnTextKeyDown(wxKeyEvent &event);
+};
 
 class DialogStyleEditor final : public wxDialog {
 	agi::Context *c;
@@ -71,7 +135,8 @@ class DialogStyleEditor final : public wxDialog {
 	AssStyleStorage *store;
 
 	wxTextCtrl *StyleName;
-	wxComboBox *FontName;
+	FontSelectionControl *FontName;
+	wxArrayString fontList_; ///< 完整字体列表，用于子串过滤
 	wxCheckBox *BoxBold;
 	wxCheckBox *BoxItalic;
 	wxCheckBox *BoxUnderline;
@@ -92,6 +157,7 @@ class DialogStyleEditor final : public wxDialog {
 
 	void OnChildFocus(wxChildFocusEvent &event);
 	void OnCommandPreviewUpdate(wxCommandEvent &event);
+	void OnFontNameText(wxCommandEvent &event);
 
 	void OnPreviewTextChange(wxCommandEvent &event);
 	void OnPreviewColourChange(ValueEvent<agi::Color> &event);
@@ -109,7 +175,3 @@ public:
 
 	std::string GetStyleName() const;
 };
-
-inline auto file = mINI::INIFile(std::string(wxGetHomeDir()) + "/favoriteFont.ini");
-inline mINI::INIStructure ini;
-inline int favorite_font_num;

@@ -33,6 +33,7 @@
 #include "ass_style_storage.h"
 #include "charset_detect.h"
 #include "compat.h"
+#include "dialog_font_chooser.h"
 #include "dialog_manager.h"
 #include "dialog_style_editor.h"
 #include "dialogs.h"
@@ -261,24 +262,7 @@ DialogStyleManager::DialogStyleManager(agi::Context *context)
 , commit_connection(c->ass->AddCommitListener(&DialogStyleManager::LoadCurrentStyles, this))
 , active_line_connection(c->selectionController->AddActiveLineListener(&DialogStyleManager::OnActiveLineChanged, this))
 , font_list(std::async(std::launch::async, []() -> wxArrayString {
-	favorite_font_num = OPT_GET("Subtitle/Favorite Font Number")->GetInt();
-	file.read(ini);
-	file.generate(ini);
-	wxArrayString font_list(wxFontEnumerator::GetFacenames()), temp_font_list;
-	font_list.Sort();
-	int i = 0;
-	for (const auto &[fst, snd] : ini) {
-		for (auto x = snd.rbegin(); x != snd.rend(); ++x) {
-			temp_font_list.push_back(to_wx(x->second));
-			++i;
-			if (i == favorite_font_num)
-				break;
-		}
-	}
-	for (auto x = temp_font_list.rbegin(); x != temp_font_list.rend(); ++x) {
-		font_list.Insert(to_wx(from_wx(x->c_str())), 0);
-	}
-	return font_list;
+	return GetPreferredFontFaceList();
 }))
 {
 	using std::bind;

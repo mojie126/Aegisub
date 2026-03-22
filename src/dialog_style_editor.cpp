@@ -40,6 +40,7 @@
 #include "ass_style_storage.h"
 #include "colour_button.h"
 #include "compat.h"
+#include "dialog_font_chooser.h"
 #include "help_button.h"
 #include "include/aegisub/context.h"
 #include "libresrc/libresrc.h"
@@ -55,13 +56,292 @@
 #include <freetype/freetype.h>
 
 #include <wx/bmpbuttn.h>
+#include <wx/button.h>
 #include <wx/checkbox.h>
 #include <wx/dir.h>
 #include <wx/msgdlg.h>
+#include <wx/popupwin.h>
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
 #include <wx/statbox.h>
 #include <wx/stattext.h>
+
+// ======================================================================
+// FontSelectionControl 实现
+// ======================================================================
+
+/// @class FontSelectionPopupWindow
+/// @brief 字体选择弹出窗口，以带字体预览的列表展示可选字体
+class FontSelectionPopupWindow final : public wxPopupWindow {
+	FontSelectionControl *owner_;
+	FontPreviewListBox *list_;
+	wxArrayString fonts_;
+
+public:
+	FontSelectionPopupWindow(FontSelectionControl *owner)
+	: wxPopupWindow(owner, wxBORDER_SIMPLE)
+	, owner_(owner)
+	{
+		auto *sizer = new wxBoxSizer(wxVERTICAL);
+		list_ = new FontPreviewListBox(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
+		sizer->Add(list_, 1, wxEXPAND, 0);
+		SetSizer(sizer);
+
+		list_->Bind(wxEVT_LEFT_UP, [this](wxMouseEvent &evt) {
+			if (list_->GetSelection() != wxNOT_FOUND)
+				owner_->AcceptPopupSelection();
+			evt.Skip();
+		});
+	}
+
+	void SetFonts(const wxArrayString &fonts) {
+		fonts_ = fonts;
+		list_->SetFonts(fonts_);
+	}
+
+	void ShowBelow(wxWindow *anchor) {
+		const wxSize anchor_size = anchor->GetSize();
+		const int row_count = static_cast<int>(std::min<size_t>(fonts_.size(), 10));
+		const int popup_height = row_count > 0 ? row_count * anchor->FromDIP(28) + anchor->FromDIP(6) : anchor->FromDIP(60);
+		SetSize(anchor->ClientToScreen(wxPoint(0, anchor_size.y)).x,
+			anchor->ClientToScreen(wxPoint(0, anchor_size.y)).y,
+			anchor_size.x,
+			popup_height);
+		Show();
+		Raise();
+	}
+
+	bool IsShownPopup() const { return IsShown(); }
+
+	void SelectBestMatch(const wxString &input) {
+		if (fonts_.empty()) return;
+		int idx = 0;
+		for (size_t i = 0; i < fonts_.size(); ++i) {
+			if (fonts_[i].CmpNoCase(input) == 0 || GetFontPreviewFaceName(fonts_[i]).CmpNoCase(input) == 0) {
+				idx = static_cast<int>(i);
+				break;
+			}
+		}
+		list_->SetSelection(idx);
+		list_->ScrollToRow(idx);
+	}
+
+	void MoveSelection(int delta) {
+		if (fonts_.empty()) return;
+		int sel = list_->GetSelection();
+		if (sel == wxNOT_FOUND) sel = 0;
+		sel = std::max(0, std::min(sel + delta, static_cast<int>(fonts_.size()) - 1));
+		list_->SetSelection(sel);
+		list_->ScrollToRow(sel);
+	}
+
+	wxString GetSelectedFont() const {
+		int sel = list_->GetSelection();
+		if (sel == wxNOT_FOUND || static_cast<size_t>(sel) >= fonts_.size())
+			return wxString();
+		return fonts_[sel];
+	}
+};
+
+FontSelectionControl::FontSelectionControl(wxWindow *parent, wxWindowID id, const wxString &value,
+	const wxPoint &pos, const wxSize &size, long style)
+	: wxPanel(parent, id, pos, size, style)
+	, popup_(nullptr)
+{
+	auto *sizer = new wxBoxSizer(wxHORIZONTAL);
+	textCtrl_ = new wxTextCtrl(this, wxID_ANY, value, wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
+	const int control_height = textCtrl_->GetBestSize().GetHeight();
+	dropButton_ = new wxButton(this, wxID_ANY, wxS("▼"), wxDefaultPosition, wxSize(FromDIP(26), control_height), wxBU_EXACTFIT);
+	dropButton_->SetMinSize(wxSize(FromDIP(26), control_height));
+	sizer->Add(textCtrl_, 1, wxEXPAND | wxALIGN_CENTER_VERTICAL, 0);
+	sizer->Add(dropButton_, 0, wxEXPAND | wxALIGN_CENTER_VERTICAL, 0);
+	SetSizer(sizer);
+	SetMinSize(size.GetWidth() > 0 ? wxSize(size.GetWidth(), control_height) : wxSize(-1, control_height));
+	popup_ = new FontSelectionPopupWindow(this);
+
+	textCtrl_->Bind(wxEVT_TEXT, &FontSelectionControl::OnText, this);
+	textCtrl_->Bind(wxEVT_TEXT_ENTER, &FontSelectionControl::OnTextEnter, this);
+	textCtrl_->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent &evt) {
+		textCtrl_->CallAfter([this]() { SelectAllText(); });
+		evt.Skip();
+	});
+	textCtrl_->Bind(wxEVT_KILL_FOCUS, &FontSelectionControl::OnKillFocus, this);
+	textCtrl_->Bind(wxEVT_KEY_DOWN, &FontSelectionControl::OnTextKeyDown, this);
+	dropButton_->Bind(wxEVT_BUTTON, &FontSelectionControl::OnButton, this);
+	dropButton_->Bind(wxEVT_KILL_FOCUS, &FontSelectionControl::OnKillFocus, this);
+}
+
+FontSelectionControl::~FontSelectionControl() {
+	if (popup_)
+		popup_->Destroy();
+}
+
+void FontSelectionControl::SetFontList(const wxArrayString &fonts) {
+	allFonts_ = fonts;
+	filteredFonts_ = allFonts_;
+}
+
+void FontSelectionControl::Clear() {
+	allFonts_.Clear();
+	filteredFonts_.Clear();
+	Dismiss();
+}
+
+wxString FontSelectionControl::GetValue() const {
+	return textCtrl_->GetValue();
+}
+
+void FontSelectionControl::SetValue(const wxString &value) {
+	suppressTextEvent_ = true;
+	textCtrl_->SetValue(value);
+	suppressTextEvent_ = false;
+}
+
+long FontSelectionControl::GetInsertionPoint() const {
+	return textCtrl_->GetInsertionPoint();
+}
+
+void FontSelectionControl::SetInsertionPoint(long pos) {
+	textCtrl_->SetInsertionPoint(pos);
+}
+
+void FontSelectionControl::Popup() {
+	UpdateFilteredFonts(true);
+}
+
+void FontSelectionControl::PopupAll() {
+	filteredFonts_ = allFonts_;
+	if (!popup_ || filteredFonts_.empty()) {
+		Dismiss();
+		return;
+	}
+	popup_->SetFonts(filteredFonts_);
+	popup_->SelectBestMatch(textCtrl_->GetValue());
+	popup_->ShowBelow(this);
+	textCtrl_->SetFocus();
+	textCtrl_->SetInsertionPointEnd();
+}
+
+void FontSelectionControl::Dismiss() {
+	if (popup_ && popup_->IsShown())
+		popup_->Hide();
+}
+
+bool FontSelectionControl::HasPopup() const {
+	return popup_ && popup_->IsShownPopup();
+}
+
+void FontSelectionControl::AcceptPopupSelection() {
+	if (!popup_) return;
+	const wxString selected = popup_->GetSelectedFont();
+	if (selected.empty()) return;
+	SetValue(selected);
+	Dismiss();
+	textCtrl_->SetFocus();
+	textCtrl_->SetInsertionPointEnd();
+	EmitEvent(wxEVT_COMBOBOX, selected);
+	EmitEvent(wxEVT_TEXT, selected);
+}
+
+void FontSelectionControl::MovePopupSelection(int delta) {
+	if (popup_ && popup_->IsShownPopup())
+		popup_->MoveSelection(delta);
+}
+
+void FontSelectionControl::SelectAllText() {
+	textCtrl_->SelectAll();
+}
+
+void FontSelectionControl::SetControlHeight(int height) {
+	textCtrl_->SetMinSize(wxSize(-1, height));
+	textCtrl_->SetMaxSize(wxSize(-1, height));
+	dropButton_->SetMinSize(wxSize(FromDIP(26), height));
+	dropButton_->SetMaxSize(wxSize(-1, height));
+	SetMinSize(wxSize(GetMinSize().GetWidth(), height));
+	SetMaxSize(wxSize(-1, height));
+	Layout();
+}
+
+wxTextCtrl *FontSelectionControl::GetTextCtrl() const {
+	return textCtrl_;
+}
+
+void FontSelectionControl::UpdateFilteredFonts(bool show_popup) {
+	const wxString input = textCtrl_->GetValue();
+	const wxString input_lower = input.Lower();
+	filteredFonts_.Clear();
+
+	if (input.empty()) {
+		filteredFonts_ = allFonts_;
+	}
+	else {
+		for (const auto &font : allFonts_) {
+			if (font.Lower().Contains(input_lower) || GetFontPreviewFaceName(font).Lower().Contains(input_lower))
+				filteredFonts_.Add(font);
+		}
+	}
+
+	if (!show_popup || filteredFonts_.empty()) {
+		Dismiss();
+		return;
+	}
+
+	popup_->SetFonts(filteredFonts_);
+	popup_->SelectBestMatch(input);
+	popup_->ShowBelow(this);
+}
+
+void FontSelectionControl::EmitEvent(wxEventType type, const wxString &value) {
+	wxCommandEvent evt(type, GetId());
+	evt.SetEventObject(this);
+	evt.SetString(value.empty() ? GetValue() : value);
+	GetEventHandler()->ProcessEvent(evt);
+}
+
+void FontSelectionControl::OnText(wxCommandEvent &event) {
+	if (!suppressTextEvent_)
+		UpdateFilteredFonts(true);
+	EmitEvent(wxEVT_TEXT, event.GetString());
+}
+
+void FontSelectionControl::OnTextEnter(wxCommandEvent &) {
+	if (HasPopup())
+		AcceptPopupSelection();
+	EmitEvent(wxEVT_TEXT_ENTER, GetValue());
+}
+
+void FontSelectionControl::OnButton(wxCommandEvent &) {
+	if (HasPopup()) Dismiss();
+	else PopupAll();
+	textCtrl_->SetFocus();
+}
+
+void FontSelectionControl::OnKillFocus(wxFocusEvent &event) {
+	CallAfter([this]() {
+		wxWindow *focus = wxWindow::FindFocus();
+		if (focus != textCtrl_ && focus != dropButton_ && focus != popup_ && !(focus && popup_ && popup_->IsDescendant(focus)))
+			Dismiss();
+	});
+	event.Skip();
+}
+
+void FontSelectionControl::OnTextKeyDown(wxKeyEvent &event) {
+	switch (event.GetKeyCode()) {
+	case WXK_DOWN:
+		if (!HasPopup()) PopupAll();
+		else MovePopupSelection(1);
+		break;
+	case WXK_UP:
+		if (HasPopup()) MovePopupSelection(-1);
+		break;
+	case WXK_ESCAPE:
+		Dismiss();
+		break;
+	default:
+		event.Skip();
+		return;
+	}
+}
 
 // 从指定文件夹获取字体信息，仅仅是方便找到字体，字体还是需要安装注册在系统上的
 wxArrayString LoadFontsFromDirectory(const wxString &directory) {
@@ -103,7 +383,7 @@ wxArrayString LoadFontsFromDirectory(const wxString &directory) {
 		cont = dir.GetNext(&filename);
 	}
 
-	fontNames.Sort();
+	SortFontFaceList(fontNames);
 	return fontNames;
 }
 
@@ -253,7 +533,6 @@ DialogStyleEditor::DialogStyleEditor(wxWindow *parent, AssStyle *style, agi::Con
 		sizer->Add(new wxStaticText(labelParent, -1, label), wxSizerFlags().Center().Border(wxLEFT | wxRIGHT));
 		sizer->Add(ctrl, wxSizerFlags(ctrl->GetBestSize().GetWidth()).Left().Expand());
 	};
-
 	auto num_text_ctrl = [&](wxWindow *parent, double *value, double min, double max, double step, int precision) -> wxSpinCtrlDouble * {
 		auto scd = new wxSpinCtrlDouble(parent, -1, "", wxDefaultPosition,
 			wxDefaultSize, wxSP_ARROW_KEYS, min, max, *value, step);
@@ -300,8 +579,9 @@ DialogStyleEditor::DialogStyleEditor(wxWindow *parent, AssStyle *style, agi::Con
 
 	// Create controls
 	StyleName = new wxTextCtrl(NameSizerBox, -1, to_wx(style->name));
-	FontName = new wxComboBox(FontSizerBox, -1, to_wx(style->font), wxDefaultPosition, this->FromDIP(wxSize(150, -1)), 0, nullptr, wxCB_DROPDOWN);
+	FontName = new FontSelectionControl(FontSizerBox, -1, to_wx(style->font), wxDefaultPosition, this->FromDIP(wxSize(220, -1)));
 	auto FontSize = num_text_ctrl(FontSizerBox, &work->fontsize, 0, 10000.0, 1.0, 0);
+	FontName->SetControlHeight(FontSize->GetBestSize().GetHeight());
 	BoxBold = new wxCheckBox(FontSizerBox, -1, _("&Bold"));
 	BoxItalic = new wxCheckBox(FontSizerBox, -1, _("&Italic"));
 	BoxUnderline = new wxCheckBox(FontSizerBox, -1, _("&Underline"));
@@ -358,8 +638,9 @@ DialogStyleEditor::DialogStyleEditor(wxWindow *parent, AssStyle *style, agi::Con
 	OutlineType->SetSelection(BorderStyleToControl(style->borderstyle));
 	Alignment->SetSelection(AlignToControl(style->alignment));
 	// Fill font face list box
+	fontList_ = font_list.empty() ? GetPreferredFontFaceList() : font_list;
 	FontName->Freeze();
-	FontName->Append(font_list);
+	FontName->SetFontList(fontList_);
 	FontName->SetValue(to_wx(style->font));
 	FontName->Thaw();
 
@@ -380,8 +661,8 @@ DialogStyleEditor::DialogStyleEditor(wxWindow *parent, AssStyle *style, agi::Con
 	// Font sizer
 	wxSizer *FontSizerTop = new wxBoxSizer(wxHORIZONTAL);
 	wxSizer *FontSizerBottom = new wxBoxSizer(wxHORIZONTAL);
-	FontSizerTop->Add(FontName, 1, 0, 0);
-	FontSizerTop->Add(FontSize, 0, wxLEFT, 5);
+	FontSizerTop->Add(FontName, 1, wxALIGN_CENTER_VERTICAL, 0);
+	FontSizerTop->Add(FontSize, 0, wxLEFT | wxALIGN_CENTER_VERTICAL, 5);
 	FontSizerBottom->AddStretchSpacer(1);
 	FontSizerBottom->Add(BoxBold, 0, 0, 0);
 	FontSizerBottom->Add(BoxItalic, 0, wxLEFT, 5);
@@ -500,6 +781,7 @@ DialogStyleEditor::DialogStyleEditor(wxWindow *parent, AssStyle *style, agi::Con
 	previewButton->Bind(EVT_COLOR, &DialogStyleEditor::OnPreviewColourChange, this);
 	FontName->Bind(wxEVT_TEXT_ENTER, &DialogStyleEditor::OnCommandPreviewUpdate, this);
 	FontName->Bind(wxEVT_COMBOBOX, &DialogStyleEditor::OnCommandPreviewUpdate, this);
+	FontName->Bind(wxEVT_TEXT, &DialogStyleEditor::OnFontNameText, this);
 	PreviewText->Bind(wxEVT_TEXT, &DialogStyleEditor::OnPreviewTextChange, this);
 
 	Bind(wxEVT_BUTTON, std::bind(&DialogStyleEditor::Apply, this, true, true), wxID_OK);
@@ -620,6 +902,13 @@ void DialogStyleEditor::OnChildFocus(wxChildFocusEvent &event) {
 	event.Skip();
 }
 
+void DialogStyleEditor::OnFontNameText(wxCommandEvent& event) {
+	if (updating) return;
+	UpdateWorkStyle();
+	SubsPreview->SetStyle(*work);
+	event.Skip();
+}
+
 void DialogStyleEditor::OnPreviewTextChange (wxCommandEvent &event) {
 	SubsPreview->SetText(from_wx(PreviewText->GetValue()));
 	event.Skip();
@@ -631,25 +920,8 @@ void DialogStyleEditor::OnPreviewColourChange(ValueEvent<agi::Color> &evt) {
 }
 
 void DialogStyleEditor::OnCommandPreviewUpdate(wxCommandEvent &event) {
-	if (favorite_font_num > 0 && event.GetEventType() == wxEVT_COMBOBOX) {
-		if (ini["favoriteFont"].size() < favorite_font_num) {
-			ini["favoriteFont"][from_wx(event.GetString())] = from_wx(event.GetString());
-		} else {
-			const int diff_num = static_cast<int>(ini["favoriteFont"].size()) - favorite_font_num;
-			int currint_index = 0;
-			std::vector<wxString> keys;
-			for (const auto &[key, value] : ini["favoriteFont"]) {
-				keys.emplace_back(to_wx(key));
-			}
-			for (const auto &x : keys) {
-				if (currint_index < diff_num)
-					ini["favoriteFont"].remove(from_wx(x));
-				++currint_index;
-			}
-			ini["favoriteFont"][from_wx(event.GetString())] = from_wx(event.GetString());
-		}
-		file.write(ini);
-	}
+	if (event.GetEventType() == wxEVT_COMBOBOX)
+		RecordFavoriteFontFace(event.GetString());
 
 	UpdateWorkStyle();
 	SubsPreview->SetStyle(*work);
