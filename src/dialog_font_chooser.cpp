@@ -365,7 +365,6 @@ wxArrayString GetFavoriteFontList() {
 	mINI::INIFile favorite_file(FavoriteFontIniPath());
 	mINI::INIStructure favorite_ini;
 	favorite_file.read(favorite_ini);
-	favorite_file.generate(favorite_ini);
 
 	wxArrayString favorites;
 	int count = 0;
@@ -414,7 +413,6 @@ void RecordFavoriteFontFace(const wxString &font_name) {
 	mINI::INIFile favorite_file(FavoriteFontIniPath());
 	mINI::INIStructure favorite_ini;
 	favorite_file.read(favorite_ini);
-	favorite_file.generate(favorite_ini);
 
 	auto &favorites = favorite_ini["favoriteFont"];
 	const std::string key = from_wx(font_name);
