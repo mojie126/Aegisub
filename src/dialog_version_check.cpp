@@ -281,6 +281,7 @@ VersionCheckerResultDialog::VersionCheckerResultDialog(bool has_update, wxString
 
 		auto *descbox = new HtmlWindowWithLinks(this, -1, wxDefaultPosition,
 			FromDIP(wxSize(controls_width, 240)), wxHW_SCROLLBAR_AUTO);
+		descbox->SetStandardFonts(descbox->GetFont().GetPointSize());
 		descbox->SetPage(to_wx(MarkdownToHtml(update.description)));
 		main_sizer->Add(descbox, 1, wxEXPAND|wxBOTTOM, FromDIP(8));
 	}
@@ -473,6 +474,9 @@ void DoCheck(bool interactive) {
 	std::string api_url = std::string(UPDATE_CHECKER_SERVER) + UPDATE_CHECKER_BASE_URL;
 	curl_easy_setopt(curl, CURLOPT_URL, api_url.c_str());
 	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);
+	curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
+	curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, 30L);
 	curl_easy_setopt(curl, CURLOPT_USERAGENT, agi::format("Aegisub %s", GetAegisubLongVersionString()).c_str());
 
 	// 设置 GitHub API 请求头
