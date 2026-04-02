@@ -600,7 +600,7 @@ struct edit_font final : public Command {
 			if (font.GetPointSize() != startfont.GetPointSize())
 				do_set_tag("\\fs", std::to_string(font.GetPointSize()));
 			if (font.GetNumericWeight() != startfont.GetNumericWeight())
-				do_set_tag("\\b", std::to_string(font.GetNumericWeight()));
+				do_set_tag("\\b", std::to_string(font.GetNumericWeight() >= 700 ? 1 : 0));
 			if (font.GetStyle() != startfont.GetStyle())
 				do_set_tag("\\i", std::to_string(font.GetStyle() == wxFONTSTYLE_ITALIC));
 			if (font.GetUnderlined() != startfont.GetUnderlined())
