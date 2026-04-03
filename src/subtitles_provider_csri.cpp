@@ -139,5 +139,15 @@ std::vector<std::string> List() {
 std::unique_ptr<SubtitlesProvider> Create(std::string const& name, agi::BackgroundRunner *) {
 	return std::make_unique<CSRISubtitlesProvider>(name);
 }
+
+std::string GetLongName(std::string const& name) {
+	for (csri_rend *cur = csri_renderer_default(); cur; cur = csri_renderer_next(cur)) {
+		if (name == csri_renderer_info(cur)->name) {
+			const char *ln = csri_renderer_info(cur)->longname;
+			return ln ? ln : "";
+		}
+	}
+	return "";
+}
 }
 #endif // WITH_CSRI

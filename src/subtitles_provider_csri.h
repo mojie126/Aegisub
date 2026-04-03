@@ -24,4 +24,6 @@ namespace agi { class BackgroundRunner; }
 namespace csri {
 	std::vector<std::string> List();
 	std::unique_ptr<SubtitlesProvider> Create(std::string const& subtype, agi::BackgroundRunner *br);
+	/// @brief 通过 CSRI 渲染器 name 查询其 longname
+	std::string GetLongName(std::string const& name);
 }
