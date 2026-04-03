@@ -286,6 +286,16 @@ std::vector<DialogFontChooser::FontStyleEntry> GetFontStyleEntriesForFace(const 
 		entries = GetDefaultStyleEntries();
 
 	SortStyleEntries(entries);
+
+	// 检测重复显示名称，追加字重值以区分
+	std::map<wxString, int> name_count;
+	for (const auto &e : entries)
+		name_count[e.name]++;
+	for (auto &e : entries) {
+		if (name_count[e.name] > 1)
+			e.name = wxString::Format("%s (%d)", e.name, e.lfWeight);
+	}
+
 	{
 		std::lock_guard<std::mutex> lock(cache_mutex);
 		cache[cache_key] = entries;
