@@ -47,6 +47,7 @@
 #include "../project.h"
 #include "../selection_controller.h"
 #include "../subs_controller.h"
+#include "../subtitles_provider_csri.h"
 #include "../text_selection_controller.h"
 #include "../utils.h"
 #include "../video_controller.h"
@@ -568,7 +569,7 @@ struct edit_font final : public Command {
 			if (!style)
 				style = &default_style;
 
-			const int bold_val = line.get_value(blockn, style->bold, "\\b");
+			const int bold_val = line.get_value(blockn, (int)style->bold, "\\b");
 			wxFont f(
 				line.get_value(blockn, (int)style->fontsize, "\\fs"),
 				wxFONTFAMILY_DEFAULT,
@@ -599,8 +600,23 @@ struct edit_font final : public Command {
 				do_set_tag("\\fn", from_wx(font.GetFaceName()));
 			if (font.GetPointSize() != startfont.GetPointSize())
 				do_set_tag("\\fs", std::to_string(font.GetPointSize()));
-			if (font.GetNumericWeight() != startfont.GetNumericWeight())
-				do_set_tag("\\b", std::to_string(font.GetNumericWeight() >= 700 ? 1 : 0));
+			if (font.GetNumericWeight() != startfont.GetNumericWeight()) {
+				const int w = font.GetNumericWeight();
+				// 仅 VSFilterMod/SGNB fork 支持数值字重
+				bool use_numeric_weight = false;
+#ifdef WITH_CSRI
+				auto provider = OPT_GET("Subtitle/Provider")->GetString();
+				const std::string csri_prefix = "CSRI/";
+				if (provider.compare(0, csri_prefix.size(), csri_prefix) == 0) {
+					auto longname = csri::GetLongName(provider.substr(csri_prefix.size()));
+					use_numeric_weight = longname == "VSFilterMod/SGNB";
+				}
+#endif
+				if (use_numeric_weight)
+					do_set_tag("\\b", std::to_string(w));
+				else
+					do_set_tag("\\b", std::to_string(w >= 700 ? 1 : 0));
+			}
 			if (font.GetStyle() != startfont.GetStyle())
 				do_set_tag("\\i", std::to_string(font.GetStyle() == wxFONTSTYLE_ITALIC));
 			if (font.GetUnderlined() != startfont.GetUnderlined())
