@@ -25,6 +25,7 @@
 #include "options.h"
 
 #include <algorithm>
+#include <cstring>
 #include <fstream>
 #include <libaegisub/dispatch.h>
 #include <libaegisub/fs.h>
@@ -181,6 +182,28 @@ std::shared_ptr<VideoFrame> AsyncVideoProvider::ProcFrame(int frame_number, doub
 	catch (agi::Exception const& err) { throw SubtitlesProviderErrorEvent(err.GetMessage(), provider_id); }
 
 	try {
+		// GPU 侧黑边需要在字幕渲染前嵌入像素数据，
+		// 使字幕渲染器看到完整的 padded 画布尺寸
+		const int pt = frame->padding_top;
+		const int pb = frame->padding_bottom;
+		if (pt > 0 || pb > 0) {
+			const int content_h = frame->height;
+			const int padded_h = content_h + pt + pb;
+			const size_t row_bytes = static_cast<size_t>(frame->pitch);
+			unsigned char *data = nullptr;
+
+			// 原地扩展：resize 不零初始化，仅 memmove 内容 + memset 黑边行
+			frame->data.resize(row_bytes * padded_h);
+			data = frame->data.data();
+			std::memmove(data + row_bytes * pt, data, row_bytes * content_h);
+			std::memset(data, 0, row_bytes * pt);
+			std::memset(data + row_bytes * (pt + content_h), 0, row_bytes * pb);
+
+			frame->height = padded_h;
+			frame->padding_top = 0;
+			frame->padding_bottom = 0;
+		}
+
 		subs_provider->DrawSubtitles(*frame, time / 1000.);
 	}
 	catch (agi::UserCancelException const&) { }
