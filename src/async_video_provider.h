@@ -105,6 +105,9 @@ class AsyncVideoProvider {
 
 	std::shared_ptr<VideoFrame> ProcFrame(int frame, double time, bool raw = false);
 
+	/// @brief 将帧存入L1合成帧缓存
+	void InsertL1(int frame_number, bool raw, std::shared_ptr<VideoFrame> frame);
+
 	/// Produce a frame if req_version is still the current version
 	void ProcAsync(uint_fast32_t req_version, bool check_updated);
 

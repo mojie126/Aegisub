@@ -79,6 +79,65 @@ static std::vector<std::string> ExtractImgPaths(const AssFile& subs) {
 	return paths;
 }
 
+/// @brief 将黑边 padding 原地嵌入帧像素数据
+static void EmbedPadding(VideoFrame& frame) {
+	const int pt = frame.padding_top;
+	const int pb = frame.padding_bottom;
+	if (pt <= 0 && pb <= 0) return;
+
+	const int content_h = frame.height;
+	const int padded_h = content_h + pt + pb;
+	const size_t row_bytes = static_cast<size_t>(frame.pitch);
+
+	frame.data.resize(row_bytes * padded_h);
+	auto data = frame.data.data();
+	std::memmove(data + row_bytes * pt, data, row_bytes * content_h);
+	std::memset(data, 0, row_bytes * pt);
+	std::memset(data + row_bytes * (pt + content_h), 0, row_bytes * pb);
+
+	frame.height = padded_h;
+	frame.padding_top = 0;
+	frame.padding_bottom = 0;
+}
+
+/// @brief 从源帧拷贝内容到目标帧，同时合并 padding 嵌入
+/// @detail 避免先整帧拷贝再 memmove 的双重内存操作
+static void CopyFrameWithPadding(VideoFrame& dst, const VideoFrame& src) {
+	const int pt = src.padding_top;
+	const int pb = src.padding_bottom;
+	const int content_h = src.height;
+	const int padded_h = content_h + pt + pb;
+	const size_t row_bytes = static_cast<size_t>(src.pitch);
+
+	dst.width = src.width;
+	dst.height = padded_h;
+	dst.pitch = src.pitch;
+	dst.flipped = src.flipped;
+	dst.hflipped = src.hflipped;
+	dst.rotation = src.rotation;
+	dst.padding_top = 0;
+	dst.padding_bottom = 0;
+	dst.data.resize(row_bytes * padded_h);
+	const auto data = dst.data.data();
+	std::memcpy(data + row_bytes * pt, src.data.data(), row_bytes * content_h);
+	std::memset(data, 0, row_bytes * pt);
+	std::memset(data + row_bytes * (pt + content_h), 0, row_bytes * pb);
+}
+
+void AsyncVideoProvider::InsertL1(int frame_number, bool raw, std::shared_ptr<VideoFrame> frame) {
+	FrameCacheEntry entry;
+	entry.frame_number = frame_number;
+	entry.subs_ver = subs_version;
+	entry.raw = raw;
+	entry.composited = std::move(frame);
+	if (frame_cache.size() < L1_CACHE_CAPACITY)
+		frame_cache.push_back(std::move(entry));
+	else {
+		frame_cache[cache_next] = std::move(entry);
+		cache_next = (cache_next + 1) % L1_CACHE_CAPACITY;
+	}
+}
+
 std::shared_ptr<VideoFrame> AsyncVideoProvider::ProcFrame(int frame_number, double time, bool raw) {
 	// L1缓存查找：合成帧 (frame_number + subs_version + raw) 完全命中则直接返回
 	for (auto& entry : frame_cache) {
@@ -99,17 +158,7 @@ std::shared_ptr<VideoFrame> AsyncVideoProvider::ProcFrame(int frame_number, doub
 	// 原始帧/无字幕路径 + L2命中：零拷贝直接返回缓存引用
 	if (l2_hit && (raw || !subs_provider || !subs)) {
 		auto& cached = l2_it->second.frame;
-		FrameCacheEntry entry;
-		entry.frame_number = frame_number;
-		entry.subs_ver = subs_version;
-		entry.raw = raw;
-		entry.composited = cached;
-		if (frame_cache.size() < L1_CACHE_CAPACITY)
-			frame_cache.push_back(std::move(entry));
-		else {
-			frame_cache[cache_next] = std::move(entry);
-			cache_next = (cache_next + 1) % L1_CACHE_CAPACITY;
-		}
+		InsertL1(frame_number, raw, cached);
 		return cached;
 	}
 
@@ -124,8 +173,12 @@ std::shared_ptr<VideoFrame> AsyncVideoProvider::ProcFrame(int frame_number, doub
 	}
 
 	if (l2_hit) {
-		// L2命中但需字幕合成：拷贝原始帧到工作缓冲区
-		*frame = *(l2_it->second.frame);
+		const auto &cached = l2_it->second.frame;
+		// L2命中且有padding：合并拷贝与padding为单次操作，避免先整帧拷贝再memmove
+		if (cached->padding_top > 0 || cached->padding_bottom > 0)
+			CopyFrameWithPadding(*frame, *cached);
+		else
+			*frame = *cached;
 	} else {
 		try {
 			source_provider->GetFrame(frame_number, *frame);
@@ -145,18 +198,7 @@ std::shared_ptr<VideoFrame> AsyncVideoProvider::ProcFrame(int frame_number, doub
 	}
 
 	if (raw || !subs_provider || !subs) {
-		// 存入L1缓存
-		FrameCacheEntry entry;
-		entry.frame_number = frame_number;
-		entry.subs_ver = subs_version;
-		entry.raw = raw;
-		entry.composited = frame;
-		if (frame_cache.size() < L1_CACHE_CAPACITY)
-			frame_cache.push_back(std::move(entry));
-		else {
-			frame_cache[cache_next] = std::move(entry);
-			cache_next = (cache_next + 1) % L1_CACHE_CAPACITY;
-		}
+		InsertL1(frame_number, raw, frame);
 		return frame;
 	}
 
@@ -182,45 +224,13 @@ std::shared_ptr<VideoFrame> AsyncVideoProvider::ProcFrame(int frame_number, doub
 	catch (agi::Exception const& err) { throw SubtitlesProviderErrorEvent(err.GetMessage(), provider_id); }
 
 	try {
-		// GPU 侧黑边需要在字幕渲染前嵌入像素数据，
-		// 使字幕渲染器看到完整的 padded 画布尺寸
-		const int pt = frame->padding_top;
-		const int pb = frame->padding_bottom;
-		if (pt > 0 || pb > 0) {
-			const int content_h = frame->height;
-			const int padded_h = content_h + pt + pb;
-			const size_t row_bytes = static_cast<size_t>(frame->pitch);
-			unsigned char *data = nullptr;
-
-			// 原地扩展：resize 不零初始化，仅 memmove 内容 + memset 黑边行
-			frame->data.resize(row_bytes * padded_h);
-			data = frame->data.data();
-			std::memmove(data + row_bytes * pt, data, row_bytes * content_h);
-			std::memset(data, 0, row_bytes * pt);
-			std::memset(data + row_bytes * (pt + content_h), 0, row_bytes * pb);
-
-			frame->height = padded_h;
-			frame->padding_top = 0;
-			frame->padding_bottom = 0;
-		}
-
+		// padding嵌入（L2命中路径已在CopyFrameWithPadding中处理，此处仅影响L2未命中的解码路径）
+		EmbedPadding(*frame);
 		subs_provider->DrawSubtitles(*frame, time / 1000.);
 	}
 	catch (agi::UserCancelException const&) { }
 
-	// 存入L1缓存
-	FrameCacheEntry entry;
-	entry.frame_number = frame_number;
-	entry.subs_ver = subs_version;
-	entry.raw = false;
-	entry.composited = frame;
-	if (frame_cache.size() < L1_CACHE_CAPACITY)
-		frame_cache.push_back(std::move(entry));
-	else {
-		frame_cache[cache_next] = std::move(entry);
-		cache_next = (cache_next + 1) % L1_CACHE_CAPACITY;
-	}
-
+	InsertL1(frame_number, false, frame);
 	return frame;
 }
 
@@ -424,7 +434,7 @@ void AsyncVideoProvider::ProcAsync(uint_fast32_t req_version, bool check_updated
 
 	last_lines.clear();
 	last_lines.reserve(visible_lines.size());
-	for (auto line : visible_lines)
+	for (const auto line : visible_lines)
 		last_lines.push_back(*line);
 	last_rendered = frame_number;
 
