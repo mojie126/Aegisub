@@ -69,6 +69,8 @@ void VisualToolBase::SetResolutions() {
 void VisualToolBase::OnCommit(int type) {
 	holding = false;
 	dragging = false;
+	// 外部提交可能增删对话行，清除追踪集合以防止野指针
+	modified_lines.clear();
 
 	if (type == AssFile::COMMIT_NEW || type & AssFile::COMMIT_SCRIPTINFO) {
 		SetResolutions();
@@ -126,7 +128,11 @@ void VisualToolBase::Commit(wxString message) {
 	if (message.empty())
 		message = _("visual typesetting");
 
-	commit_id = c->ass->Commit(message, AssFile::COMMIT_DIAG_TEXT, commit_id);
+	// 仅修改单行时传递 single_line，使异步渲染走 UpdateSubtitles 快速路径
+	AssDialogue *single_line = modified_lines.size() == 1 ? *modified_lines.begin() : nullptr;
+	modified_lines.clear();
+
+	commit_id = c->ass->Commit(message, AssFile::COMMIT_DIAG_TEXT, commit_id, single_line);
 	file_changed_connection.Unblock();
 }
 
@@ -663,6 +669,7 @@ void VisualToolBase::SetSelectedOverride(std::string const& tag, std::string con
 
 void VisualToolBase::RemoveOverride(AssDialogue *line, std::string const& tag) {
 	if (!line) return;
+	modified_lines.insert(line);
 	auto blocks = line->ParseTags();
 	for (auto ovr : blocks | agi::of_type<AssDialogueBlockOverride>()) {
 		for (size_t i = 0; i < ovr->Tags.size(); i++) {
@@ -677,6 +684,7 @@ void VisualToolBase::RemoveOverride(AssDialogue *line, std::string const& tag) {
 
 void VisualToolBase::SetOverride(AssDialogue* line, std::string const& tag, std::string const& value) {
 	if (!line) return;
+	modified_lines.insert(line);
 
 	std::string removeTag;
 	std::string removeTag2;

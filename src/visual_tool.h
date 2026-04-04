@@ -113,6 +113,9 @@ protected:
 	agi::signal::Connection file_changed_connection;
 	int commit_id = -1; ///< Last used commit id for coalescing
 
+	/// 当前提交周期内被 SetOverride/RemoveOverride 修改过的对话行集合
+	std::set<AssDialogue*> modified_lines;
+
 	/// @brief Commit the current file state
 	/// @param message Description of changes for undo
 	virtual void Commit(wxString message = wxString());
