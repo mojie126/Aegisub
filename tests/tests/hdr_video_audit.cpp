@@ -11,6 +11,7 @@
 #include <cmath>
 #include <limits>
 #include <string>
+#include <wx/image.h>
 
 // ============================================================================
 // 辅助函数：从video_out_gl.cpp提取的纯逻辑函数的等价实现
@@ -65,6 +66,32 @@ static int FixColorRange(int reported_cr) {
 }
 
 } // namespace hdr_test
+
+namespace frame_padding_test {
+
+static VideoFrame MakeFrame(bool flipped, int padding_top, int padding_bottom) {
+	VideoFrame frame;
+	frame.width = 1;
+	frame.height = 2;
+	frame.pitch = 4;
+	frame.flipped = flipped;
+	frame.padding_top = padding_top;
+	frame.padding_bottom = padding_bottom;
+	frame.data = flipped
+		? std::vector<unsigned char>{20, 20, 20, 255, 10, 10, 10, 255}
+		: std::vector<unsigned char>{10, 10, 10, 255, 20, 20, 20, 255};
+	return frame;
+}
+
+static std::vector<int> RowMarkers(const wxImage &img) {
+	std::vector<int> markers;
+	const unsigned char *data = img.GetData();
+	for (int row = 0; row < img.GetHeight(); ++row)
+		markers.push_back(data[row * img.GetWidth() * 3]);
+	return markers;
+}
+
+} // namespace frame_padding_test
 
 // ============================================================================
 // M2: CalculatePaddingPixels 非对称黑边测试
@@ -302,6 +329,40 @@ TEST(HDRTypeEnumTest, IntRoundTrip) {
 		HDRType t = static_cast<HDRType>(i);
 		EXPECT_EQ(static_cast<int>(t), i);
 	}
+}
+
+// ============================================================================
+// 帧内嵌黑边测试
+// ============================================================================
+
+class EmbeddedPaddingTest : public libagi { };
+
+TEST(EmbeddedPaddingTest, FlippedFrameSwapsLeadingAndTrailingPaddingRows) {
+	auto frame = frame_padding_test::MakeFrame(true, 1, 2);
+	const auto rows = GetEmbeddedPaddingRows(frame);
+	EXPECT_EQ(rows.leading, 2);
+	EXPECT_EQ(rows.trailing, 1);
+}
+
+TEST(EmbeddedPaddingTest, NonFlippedFrameKeepsLogicalPaddingOrder) {
+	auto frame = frame_padding_test::MakeFrame(false, 1, 2);
+	EmbedVideoFramePadding(frame);
+
+	EXPECT_EQ(frame.height, 5);
+	EXPECT_EQ(frame.padding_top, 0);
+	EXPECT_EQ(frame.padding_bottom, 0);
+	EXPECT_EQ(frame_padding_test::RowMarkers(GetImage(frame)), (std::vector<int>{0, 10, 20, 0, 0}));
+}
+
+TEST(EmbeddedPaddingTest, FlippedFrameKeepsLogicalPaddingOrder) {
+	auto frame = frame_padding_test::MakeFrame(true, 1, 2);
+	EmbedVideoFramePadding(frame);
+
+	EXPECT_TRUE(frame.flipped);
+	EXPECT_EQ(frame.height, 5);
+	EXPECT_EQ(frame.padding_top, 0);
+	EXPECT_EQ(frame.padding_bottom, 0);
+	EXPECT_EQ(frame_padding_test::RowMarkers(GetImage(frame)), (std::vector<int>{0, 10, 20, 0, 0}));
 }
 
 // ============================================================================

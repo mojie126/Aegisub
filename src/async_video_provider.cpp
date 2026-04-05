@@ -79,34 +79,12 @@ static std::vector<std::string> ExtractImgPaths(const AssFile& subs) {
 	return paths;
 }
 
-/// @brief 将黑边 padding 原地嵌入帧像素数据
-static void EmbedPadding(VideoFrame& frame) {
-	const int pt = frame.padding_top;
-	const int pb = frame.padding_bottom;
-	if (pt <= 0 && pb <= 0) return;
-
-	const int content_h = frame.height;
-	const int padded_h = content_h + pt + pb;
-	const size_t row_bytes = static_cast<size_t>(frame.pitch);
-
-	frame.data.resize(row_bytes * padded_h);
-	auto data = frame.data.data();
-	std::memmove(data + row_bytes * pt, data, row_bytes * content_h);
-	std::memset(data, 0, row_bytes * pt);
-	std::memset(data + row_bytes * (pt + content_h), 0, row_bytes * pb);
-
-	frame.height = padded_h;
-	frame.padding_top = 0;
-	frame.padding_bottom = 0;
-}
-
 /// @brief 从源帧拷贝内容到目标帧，同时合并 padding 嵌入
 /// @detail 避免先整帧拷贝再 memmove 的双重内存操作
 static void CopyFrameWithPadding(VideoFrame& dst, const VideoFrame& src) {
-	const int pt = src.padding_top;
-	const int pb = src.padding_bottom;
+	const auto padding = GetEmbeddedPaddingRows(src);
 	const int content_h = src.height;
-	const int padded_h = content_h + pt + pb;
+	const int padded_h = content_h + padding.leading + padding.trailing;
 	const size_t row_bytes = static_cast<size_t>(src.pitch);
 
 	dst.width = src.width;
@@ -118,10 +96,12 @@ static void CopyFrameWithPadding(VideoFrame& dst, const VideoFrame& src) {
 	dst.padding_top = 0;
 	dst.padding_bottom = 0;
 	dst.data.resize(row_bytes * padded_h);
-	const auto data = dst.data.data();
-	std::memcpy(data + row_bytes * pt, src.data.data(), row_bytes * content_h);
-	std::memset(data, 0, row_bytes * pt);
-	std::memset(data + row_bytes * (pt + content_h), 0, row_bytes * pb);
+	auto *data = dst.data.data();
+	std::memcpy(data + row_bytes * padding.leading, src.data.data(), row_bytes * content_h);
+	if (padding.leading > 0)
+		std::memset(data, 0, row_bytes * padding.leading);
+	if (padding.trailing > 0)
+		std::memset(data + row_bytes * (padding.leading + content_h), 0, row_bytes * padding.trailing);
 }
 
 void AsyncVideoProvider::InsertL1(int frame_number, bool raw, std::shared_ptr<VideoFrame> frame) {
@@ -225,7 +205,7 @@ std::shared_ptr<VideoFrame> AsyncVideoProvider::ProcFrame(int frame_number, doub
 
 	try {
 		// padding嵌入（L2命中路径已在CopyFrameWithPadding中处理，此处仅影响L2未命中的解码路径）
-		EmbedPadding(*frame);
+		EmbedVideoFramePadding(*frame);
 		subs_provider->DrawSubtitles(*frame, time / 1000.);
 	}
 	catch (agi::UserCancelException const&) { }

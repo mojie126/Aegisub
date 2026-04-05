@@ -85,6 +85,21 @@ struct VideoFrame {
 	int padding_bottom = 0;  ///< GPU底部黑边行数，由视频提供者设置，GPU侧渲染处理
 };
 
+/// @brief 帧内嵌黑边时在内存中的前后补零行数
+struct EmbeddedPaddingRows {
+	int leading = 0;   ///< 需要放在内存起始处的补零行数
+	int trailing = 0;  ///< 需要放在内存末尾处的补零行数
+};
+
+/// @brief 根据帧的翻转方向计算内嵌黑边时的内存布局
+/// @param frame 待处理帧
+/// @return 内存起始与末尾应补零的行数
+EmbeddedPaddingRows GetEmbeddedPaddingRows(VideoFrame const& frame);
+
+/// @brief 将 GPU 侧黑边按帧朝向嵌入像素数据，供 CPU 侧字幕渲染使用
+/// @param frame 待处理帧；处理后高度会扩展，padding 元数据会被清零
+void EmbedVideoFramePadding(VideoFrame &frame);
+
 wxImage GetImage(VideoFrame const& frame);
 wxImage GetImageWithAlpha(VideoFrame const& frame);
 

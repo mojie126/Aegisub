@@ -17,6 +17,7 @@
 #include "video_frame.h"
 
 #include <boost/gil.hpp>
+#include <cstring>
 #include <wx/image.h>
 
 namespace {
@@ -31,6 +32,37 @@ namespace {
 				get_color(src, blue_t()));
 		}
 	};
+}
+
+EmbeddedPaddingRows GetEmbeddedPaddingRows(VideoFrame const& frame) {
+	const int top = std::max(0, frame.padding_top);
+	const int bottom = std::max(0, frame.padding_bottom);
+	if (frame.flipped)
+		return {bottom, top};
+	return {top, bottom};
+}
+
+void EmbedVideoFramePadding(VideoFrame &frame) {
+	const auto padding = GetEmbeddedPaddingRows(frame);
+	if (padding.leading == 0 && padding.trailing == 0)
+		return;
+
+	const int content_h = frame.height;
+	const int padded_h = content_h + padding.leading + padding.trailing;
+	const size_t row_bytes = static_cast<size_t>(frame.pitch);
+
+	frame.data.resize(row_bytes * padded_h);
+	auto *data = frame.data.data();
+	if (padding.leading > 0)
+		std::memmove(data + row_bytes * padding.leading, data, row_bytes * content_h);
+	if (padding.leading > 0)
+		std::memset(data, 0, row_bytes * padding.leading);
+	if (padding.trailing > 0)
+		std::memset(data + row_bytes * (padding.leading + content_h), 0, row_bytes * padding.trailing);
+
+	frame.height = padded_h;
+	frame.padding_top = 0;
+	frame.padding_bottom = 0;
 }
 
 wxImage GetImage(VideoFrame const& frame) {

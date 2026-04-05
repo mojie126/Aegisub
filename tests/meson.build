@@ -62,6 +62,10 @@ text_file_writer_src = [
     '../src/text_file_writer.cpp',
 ]
 
+video_frame_src = [
+    '../src/video_frame.cpp',
+]
+
 # 版本信息源文件（版本比较函数）
 version_src = [
     '../src/version.cpp',
@@ -94,7 +98,7 @@ endif
 
 runner = executable(
     'gtest-main',
-    tests_src + mocha_src + text_file_writer_src + version_src, version_h,
+    tests_src + mocha_src + text_file_writer_src + video_frame_src + version_src, version_h,
     include_directories: [tests_inc, libaegisub_inc, mocha_inc, aegisub_src_inc, aegisub_src_dir_inc, version_inc],
     dependencies: [tests_deps, deps],
     cpp_args: tests_args,
