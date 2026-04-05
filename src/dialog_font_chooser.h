@@ -89,7 +89,9 @@ public:
 
 private:
 	wxArrayString fonts_;
-	int itemHeight_ = 0; ///< 缓存的行高（DPI 感知）
+	int itemHeight_ = 0;  ///< 缓存的行高（DPI 感知）
+	int previewFontSize_ = 0; ///< 缓存的预览字号
+	mutable std::map<wxString, wxFont> fontCache_; ///< 缓存已创建的预览字体，减少滚动时重复创建开销
 
 	void OnDrawItem(wxDC &dc, const wxRect &rect, size_t n) const override;
 	wxCoord OnMeasureItem(size_t n) const override;

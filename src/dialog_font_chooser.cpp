@@ -35,6 +35,7 @@
 #include "ini.h"
 #include "options.h"
 
+#include <algorithm>
 #include <map>
 #include <mutex>
 #include <set>
@@ -472,8 +473,8 @@ FontPreviewListBox::FontPreviewListBox(wxWindow *parent, wxWindowID id,
 	// 预览字体大小基于系统 DPI，行高为字体高度的 2.2 倍以保证可读性
 	wxClientDC dc(this);
 	wxFont sysFont = GetFont();
-	int fontSize = sysFont.GetPointSize() + 6;
-	dc.SetFont(wxFont(fontSize, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
+	previewFontSize_ = sysFont.GetPointSize() + 6;
+	dc.SetFont(wxFont(previewFontSize_, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
 	itemHeight_ = static_cast<int>(dc.GetCharHeight() * 2.2);
 }
 
@@ -503,13 +504,15 @@ void FontPreviewListBox::OnDrawItem(wxDC &dc, const wxRect &rect, size_t n) cons
 	const wxString &name = fonts_[n];
 	const wxString preview_face = GetFontPreviewFaceName(name);
 
-	// 使用该字体自身的字样渲染名称
-	int fontSize = GetFont().GetPointSize() + 6;
-	wxFont itemFont(fontSize, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL, false, preview_face);
-	if (!itemFont.IsOk())
-		itemFont = GetFont();
-
-	dc.SetFont(itemFont);
+	// 使用缓存的字体对象，避免滚动时反复创建 wxFont 导致卡顿
+	auto it = fontCache_.find(preview_face);
+	if (it == fontCache_.end()) {
+		wxFont newFont(previewFontSize_, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL, false, preview_face);
+		if (!newFont.IsOk())
+			newFont = GetFont();
+		it = fontCache_.emplace(preview_face, std::move(newFont)).first;
+	}
+	dc.SetFont(it->second);
 
 	// 选中项使用系统高亮色
 	if (IsSelected(n)) {
@@ -521,9 +524,10 @@ void FontPreviewListBox::OnDrawItem(wxDC &dc, const wxRect &rect, size_t n) cons
 		dc.SetTextForeground(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
 	}
 
-	// 垂直居中绘制文字
+	// 垂直居中绘制；字体高度超出行高时从顶部开始，避免上下对称裁切导致显示一半
 	const wxString display_name = MakeDisplayFontName(name);
-	int textY = rect.y + (rect.height - dc.GetCharHeight()) / 2;
+	const int charH = dc.GetCharHeight();
+	const int textY = rect.y + std::max(0, rect.height - charH) / 2;
 	dc.DrawText(display_name, rect.x + 4, textY);
 }
 
