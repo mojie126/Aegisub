@@ -817,7 +817,7 @@ wxFont DialogFontChooser::BuildFontFromControls() const {
 	wxString faceName = GetEffectiveFaceName();
 	if (faceName.empty())
 		faceName = "Arial";
-	faceName = GetFontPreviewFaceName(faceName);
+	// 最终返回给调用方的字体名必须保留原始面名，避免 @ 竖排字体被静默剥离。
 
 	long size = 12;
 	fontSizeInput_->GetValue().ToLong(&size);
