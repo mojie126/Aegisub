@@ -74,6 +74,7 @@ public:
 	HDRType GetHDRType() const override            { return master->GetHDRType(); }
 	int GetDVProfile() const override              { return master->GetDVProfile(); }
 	bool IsHWDecoding() const override             { return master->IsHWDecoding(); }
+	HWDecodeState GetHWDecodeState() const override { return master->GetHWDecodeState(); }
 };
 
 void VideoProviderCache::GetFrame(int n, VideoFrame &out) {

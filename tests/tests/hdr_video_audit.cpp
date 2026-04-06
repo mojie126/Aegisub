@@ -403,3 +403,15 @@ TEST(VideoProviderBaseTest, DefaultIsNotHWDecoding) {
 	MockVideoProvider provider;
 	EXPECT_FALSE(provider.IsHWDecoding());
 }
+
+TEST(VideoProviderBaseTest, DefaultHWDecodeStateIsSoftware) {
+	MockVideoProvider provider;
+	EXPECT_EQ(provider.GetHWDecodeState(), HWDecodeState::Software);
+}
+
+/// @brief 验证 HWDecodeState 枚举值与 VS 脚本约定一致（-1/0/1）
+TEST(VideoProviderBaseTest, HWDecodeStateIntValues) {
+	EXPECT_EQ(static_cast<int>(HWDecodeState::Unknown), -1);
+	EXPECT_EQ(static_cast<int>(HWDecodeState::Software), 0);
+	EXPECT_EQ(static_cast<int>(HWDecodeState::Hardware), 1);
+}

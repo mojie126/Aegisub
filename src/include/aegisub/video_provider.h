@@ -41,6 +41,13 @@
 
 struct VideoFrame;
 
+/// 硬件解码状态的三态枚举
+enum class HWDecodeState : int {
+	Unknown  = -1,  ///< 无法确定（例如 lsmas AkarinVS 分支静默回退）
+	Software =  0,  ///< 确认使用软件解码
+	Hardware =  1   ///< 确认使用硬件解码
+};
+
 /// HDR内容类型枚举
 enum class HDRType : int {
 	SDR = 0,            ///< SDR内容（无HDR元数据）
@@ -124,6 +131,12 @@ public:
 
 	/// 是否正在使用硬件解码（由各provider根据自身情况报告）
 	virtual bool IsHWDecoding() const { return false; }
+
+	/// 硬件解码状态的三态查询（Hardware/Software/Unknown）
+	/// 默认实现根据 IsHWDecoding() 推导，VS provider 可能返回 Unknown
+	virtual HWDecodeState GetHWDecodeState() const {
+		return IsHWDecoding() ? HWDecodeState::Hardware : HWDecodeState::Software;
+	}
 
 	/// @brief Use this to set any post-loading warnings, such as "being loaded with unreliable seeking"
 	virtual std::string GetWarning() const { return ""; }

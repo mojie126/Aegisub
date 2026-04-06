@@ -175,6 +175,7 @@ public:
 	HDRType GetHDRType() const            { return source_provider->GetHDRType(); }
 	int GetDVProfile() const              { return source_provider->GetDVProfile(); }
 	bool IsHWDecoding() const             { return source_provider->IsHWDecoding(); }
+	HWDecodeState GetHWDecodeState() const { return source_provider->GetHWDecodeState(); }
 	std::string GetWarning() const        { return source_provider->GetWarning(); }
 	std::string GetDecoderName() const    { return source_provider->GetDecoderName(); }
 	bool ShouldSetVideoProperties() const { return source_provider->ShouldSetVideoProperties(); }
