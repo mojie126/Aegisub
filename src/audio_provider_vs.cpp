@@ -103,7 +103,7 @@ VapourSynthAudioProvider::VapourSynthAudioProvider(agi::fs::path const& filename
 	num_samples = vi->numSamples;
 }
 catch (VapourSynthError const& err) {
-	throw agi::AudioProviderError(err.GetMessage());
+	throw agi::AudioProviderError(TranslateVapourSynthErrorMessage(err.GetMessage()));
 }
 
 VapourSynthAudioProvider::~VapourSynthAudioProvider() {
@@ -132,20 +132,20 @@ void VapourSynthAudioProvider::FillBufferWithFrame(void *buf, int n, int64_t sta
 	char errorMsg[1024];
 	agi::scoped_holder frame(vs.GetAPI()->getFrame(n, node, errorMsg, sizeof(errorMsg)), vs.GetAPI()->freeFrame);
 	if (frame == nullptr) {
-		throw VapourSynthError(agi::format("Error getting frame: %s", errorMsg));
+		throw VapourSynthError(TranslateVapourSynthErrorMessage(agi::format("Error getting frame: %s", errorMsg)));
 	}
 	if (vs.GetAPI()->getFrameLength(frame) < count) {
-		throw VapourSynthError("Audio frame too short");
+		throw VapourSynthError(TranslateVapourSynthErrorMessage("Audio frame too short"));
 	}
 	if (vs.GetAPI()->getAudioFrameFormat(frame)->numChannels != channels || vs.GetAPI()->getAudioFrameFormat(frame)->bytesPerSample != bytes_per_sample) {
-		throw VapourSynthError("Audio format is not constant");
+		throw VapourSynthError(TranslateVapourSynthErrorMessage("Audio format is not constant"));
 	}
 
 	std::vector<const uint8_t *> planes(channels);
 	for (int c = 0; c < channels; c++) {
 		planes[c] = vs.GetAPI()->getReadPtr(frame, c) + bytes_per_sample * start;
 		if (planes[c] == nullptr) {
-			throw VapourSynthError("Failed to read audio channel");
+			throw VapourSynthError(TranslateVapourSynthErrorMessage("Failed to read audio channel"));
 		}
 	}
 

@@ -343,7 +343,7 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 	SetColorSpace(colormatrix);
 }
 catch (VapourSynthError const& err) {
-	throw VideoOpenError(err.GetMessage());
+	throw VideoOpenError(TranslateVapourSynthErrorMessage(err.GetMessage()));
 }
 
 VapourSynthVideoProvider::~VapourSynthVideoProvider() {
@@ -384,12 +384,12 @@ void VapourSynthVideoProvider::SetColorSpace(std::string const& matrix) {
 			agi::scoped_holder<VSMap *> result(vs.GetAPI()->invoke(std, "SetFrameProps", args), vs.GetAPI()->freeMap);
 			const char *error = vs.GetAPI()->mapGetError(result);
 			if (error) {
-				throw VideoOpenError(agi::format("Failed set color space frame props: %s", error));
+				throw VideoOpenError(from_wx(_("Failed to set color space frame props: ")) + std::string(error));
 			}
 			int err;
 			intermediary = vs.GetAPI()->mapGetNode(result, "clip", 0, &err);
 			if (err) {
-				throw VideoOpenError("Failed to get SetFrameProps output node");
+				throw VideoOpenError(from_wx(_("Failed to get SetFrameProps output node")));
 			}
 		}
 
@@ -415,12 +415,12 @@ void VapourSynthVideoProvider::SetColorSpace(std::string const& matrix) {
 		agi::scoped_holder<VSMap *> result(vs.GetAPI()->invoke(resize, "Bicubic", args), vs.GetAPI()->freeMap);
 		const char *error = vs.GetAPI()->mapGetError(result);
 		if (error) {
-			throw VideoOpenError(agi::format("Failed to convert to RGB24: %s", error));
+			throw VideoOpenError(from_wx(_("Failed to convert to RGB24: ")) + std::string(error));
 		}
 		int err;
 		prepared_node = vs.GetAPI()->mapGetNode(result, "clip", 0, &err);
 		if (err) {
-			throw VideoOpenError("Failed to get resize output node");
+			throw VideoOpenError(from_wx(_("Failed to get resize output node")));
 		}
 
 		// Finally, try to get the first frame again, so if the filter does crash, it happens before loading finishes
@@ -435,7 +435,7 @@ agi::scoped_holder<const VSFrame *, void (*)(const VSFrame *) noexcept> VapourSy
 	char errorMsg[1024];
 	const VSFrame *frame = vs.GetAPI()->getFrame(n, node, errorMsg, sizeof(errorMsg));
 	if (frame == nullptr) {
-		throw VapourSynthError(agi::format("Error getting frame: %s", errorMsg));
+		throw VapourSynthError(TranslateVapourSynthErrorMessage(agi::format("Error getting frame: %s", errorMsg)));
 	}
 	return agi::scoped_holder(frame, vs.GetAPI()->freeFrame);
 }
@@ -447,7 +447,7 @@ void VapourSynthVideoProvider::GetFrame(int n, VideoFrame &out) {
 
 	const VSVideoFormat *format = vs.GetAPI()->getVideoFrameFormat(frame);
 	if (format->colorFamily != cfRGB || format->numPlanes != 3 || format->bitsPerSample != 8 || format->subSamplingH != 0 || format->subSamplingW != 0) {
-		throw VapourSynthError("Frame not in RGB24 format");
+		throw VapourSynthError(TranslateVapourSynthErrorMessage("Frame not in RGB24 format"));
 	}
 
 	out.width = vs.GetAPI()->getFrameWidth(frame, 0);
