@@ -6768,6 +6768,202 @@ msgstr ""
 msgid "Failed to execute script! Press \"Close\" to continue."
 msgstr ""
 
+#: ../src/vapoursynth_common.cpp
+msgid "Loading video file"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Getting timecodes and keyframes from the index file"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Generating keyframes"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Asking whether to generate keyframes"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Looking for keyframes"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Checking if the file has an audio track"
+msgstr ""
+
+#: ../automation/vapoursynth/aegisub_vs.py
+msgid "Invalid lwindex format"
+msgstr ""
+
+#: ../automation/vapoursynth/aegisub_vs.py
+msgid "Invalid lwindex format: Invalid ActiveVideoStreamIndex line"
+msgstr ""
+
+#: ../automation/vapoursynth/aegisub_vs.py
+msgid "To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin for VapourSynth must be installed"
+msgstr ""
+
+#: ../automation/vapoursynth/aegisub_vs.py
+msgid "To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin must support the `cachedir` option for LWLibavSource."
+msgstr ""
+
+#: ../automation/vapoursynth/aegisub_vs.py
+msgid "To use the keyframe generation, the scxvid plugin for VapourSynth must be installed"
+msgstr ""
+
+#: ../automation/vapoursynth/aegisub_vs.py
+msgid "To use the keyframe generation, the wwxdplugin for VapourSynth must be installed"
+msgstr ""
+
+#: ../automation/vapoursynth/aegisub_vs.py
+msgid "Generate Keyframes"
+msgstr ""
+
+#: ../automation/vapoursynth/aegisub_vs.py
+msgid "No keyframes file was found for this video file.\nShould Aegisub detect keyframes from the video?\nThis will take a while."
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Error creating core"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Error creating script API"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to set VSMap entry"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to create VSMap for script info"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to set script info variables"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "No output node set"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Output node isn't an audio node"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Output node isn't a video node"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Couldn't create map"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Couldn't get video info"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Couldn't get frame properties"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Couldn't find std plugin"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Couldn't find resize plugin"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Video doesn't have constant format"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Error getting keyframes from returned VSMap"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Error getting size of keyframes path"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Error getting timecodes from returned map"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Number of returned timecodes does not match number of frames"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to create argument map"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Audio frame too short"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Audio format is not constant"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to read audio channel"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Frame not in RGB24 format"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to get VapourSynth ScriptAPI. Make sure VapourSynth is installed correctly."
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to get VapourSynth API"
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Error executing VapourSynth script: "
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to get first frame: "
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Error getting frame: "
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to open timecodes file specified by script: "
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Could not load %s. Make sure VapourSynth is installed correctly."
+msgstr ""
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to get address of getVSScriptAPI from %s"
+msgstr ""
+
+#: ../src/video_provider_vs.cpp
+msgid "Failed to set color space frame props: "
+msgstr ""
+
+#: ../src/video_provider_vs.cpp
+msgid "Failed to get SetFrameProps output node"
+msgstr ""
+
+#: ../src/video_provider_vs.cpp
+msgid "Failed to convert to RGB24: "
+msgstr ""
+
+#: ../src/video_provider_vs.cpp
+msgid "Failed to get resize output node"
+msgstr ""
+
 #: ../src/visual_tool.cpp:129
 msgid "visual typesetting"
 msgstr ""

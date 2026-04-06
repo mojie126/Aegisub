@@ -6915,6 +6915,202 @@ msgstr "执行 VapourSynth 脚本"
 msgid "Failed to execute script! Press \"Close\" to continue."
 msgstr "执行脚本失败！点击“关闭”按钮继续。"
 
+#: ../src/vapoursynth_common.cpp
+msgid "Loading video file"
+msgstr "正在加载视频文件"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Getting timecodes and keyframes from the index file"
+msgstr "正在从索引文件获取时间码和关键帧"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Generating keyframes"
+msgstr "正在生成关键帧"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Asking whether to generate keyframes"
+msgstr "正在询问是否生成关键帧"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Looking for keyframes"
+msgstr "正在查找关键帧"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Checking if the file has an audio track"
+msgstr "正在检查文件是否包含音频轨道"
+
+#: ../automation/vapoursynth/aegisub_vs.py
+msgid "Invalid lwindex format"
+msgstr "无效的 lwindex 格式"
+
+#: ../automation/vapoursynth/aegisub_vs.py
+msgid "Invalid lwindex format: Invalid ActiveVideoStreamIndex line"
+msgstr "无效的 lwindex 格式：ActiveVideoStreamIndex 行无效"
+
+#: ../automation/vapoursynth/aegisub_vs.py
+msgid "To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin for VapourSynth must be installed"
+msgstr "要使用 Aegisub 的 LWLibavSource 封装，必须安装适用于 VapourSynth 的 `lsmas` 插件。"
+
+#: ../automation/vapoursynth/aegisub_vs.py
+msgid "To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin must support the `cachedir` option for LWLibavSource."
+msgstr "要使用 Aegisub 的 LWLibavSource 封装，`lsmas` 插件必须支持 LWLibavSource 的 `cachedir` 选项。"
+
+#: ../automation/vapoursynth/aegisub_vs.py
+msgid "To use the keyframe generation, the scxvid plugin for VapourSynth must be installed"
+msgstr "要使用关键帧生成功能，必须安装适用于 VapourSynth 的 `scxvid` 插件。"
+
+#: ../automation/vapoursynth/aegisub_vs.py
+msgid "To use the keyframe generation, the wwxdplugin for VapourSynth must be installed"
+msgstr "要使用关键帧生成功能，必须安装适用于 VapourSynth 的 `wwxdplugin` 插件。"
+
+#: ../automation/vapoursynth/aegisub_vs.py
+msgid "Generate Keyframes"
+msgstr "生成关键帧"
+
+#: ../automation/vapoursynth/aegisub_vs.py
+msgid "No keyframes file was found for this video file.\nShould Aegisub detect keyframes from the video?\nThis will take a while."
+msgstr "未找到此视频文件的关键帧文件。\n是否让 Aegisub 从视频中检测关键帧？\n这可能需要一些时间。"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Error creating core"
+msgstr "创建核心失败"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Error creating script API"
+msgstr "创建脚本 API 失败"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to set VSMap entry"
+msgstr "设置 VSMap 条目失败"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to create VSMap for script info"
+msgstr "为脚本信息创建 VSMap 失败"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to set script info variables"
+msgstr "设置脚本信息变量失败"
+
+#: ../src/vapoursynth_common.cpp
+msgid "No output node set"
+msgstr "未设置输出节点"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Output node isn't an audio node"
+msgstr "输出节点不是音频节点"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Output node isn't a video node"
+msgstr "输出节点不是视频节点"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Couldn't create map"
+msgstr "无法创建映射"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Couldn't get video info"
+msgstr "无法获取视频信息"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Couldn't get frame properties"
+msgstr "无法获取帧属性"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Couldn't find std plugin"
+msgstr "无法找到 std 插件"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Couldn't find resize plugin"
+msgstr "无法找到 resize 插件"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Video doesn't have constant format"
+msgstr "视频格式不是恒定格式"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Error getting keyframes from returned VSMap"
+msgstr "从返回的 VSMap 获取关键帧失败"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Error getting size of keyframes path"
+msgstr "获取关键帧路径长度失败"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Error getting timecodes from returned map"
+msgstr "从返回的映射获取时间码失败"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Number of returned timecodes does not match number of frames"
+msgstr "返回的时间码数量与帧数不匹配"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to create argument map"
+msgstr "创建参数映射失败"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Audio frame too short"
+msgstr "音频帧过短"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Audio format is not constant"
+msgstr "音频格式不是恒定格式"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to read audio channel"
+msgstr "读取音频声道失败"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Frame not in RGB24 format"
+msgstr "帧不是 RGB24 格式"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to get VapourSynth ScriptAPI. Make sure VapourSynth is installed correctly."
+msgstr "获取 VapourSynth ScriptAPI 失败，请确认 VapourSynth 已正确安装。"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to get VapourSynth API"
+msgstr "获取 VapourSynth API 失败"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Error executing VapourSynth script: "
+msgstr "执行 VapourSynth 脚本时出错："
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to get first frame: "
+msgstr "获取首帧失败："
+
+#: ../src/vapoursynth_common.cpp
+msgid "Error getting frame: "
+msgstr "获取帧时出错："
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to open timecodes file specified by script: "
+msgstr "打开脚本指定的时间码文件失败："
+
+#: ../src/vapoursynth_common.cpp
+msgid "Could not load %s. Make sure VapourSynth is installed correctly."
+msgstr "无法加载 %s，请确认 VapourSynth 已正确安装。"
+
+#: ../src/vapoursynth_common.cpp
+msgid "Failed to get address of getVSScriptAPI from %s"
+msgstr "从 %s 获取 getVSScriptAPI 地址失败"
+
+#: ../src/video_provider_vs.cpp
+msgid "Failed to set color space frame props: "
+msgstr "设置色彩空间帧属性失败："
+
+#: ../src/video_provider_vs.cpp
+msgid "Failed to get SetFrameProps output node"
+msgstr "获取 SetFrameProps 输出节点失败"
+
+#: ../src/video_provider_vs.cpp
+msgid "Failed to convert to RGB24: "
+msgstr "转换到 RGB24 失败："
+
+#: ../src/video_provider_vs.cpp
+msgid "Failed to get resize output node"
+msgstr "获取 resize 输出节点失败"
+
 #: ../src/visual_tool.cpp:129
 msgid "visual typesetting"
 msgstr "可视化编辑"

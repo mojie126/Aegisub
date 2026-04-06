@@ -22,5 +22,6 @@
 int OpenScriptOrVideo(const VSAPI *api, const VSSCRIPTAPI *sapi, VSScript *script, agi::fs::path const& filename, std::string default_script);
 void VSCleanCache();
 void VSLogToProgressSink(int msgType, const char *msg, void *userData);
+std::string TranslateVapourSynthErrorMessage(std::string const& message);
 
 #endif // WITH_VAPOURSYNTH

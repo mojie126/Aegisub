@@ -8,6 +8,7 @@ script set in Aegisub's configuration, with the following string variables set:
 - filename: The path to the file that's being opened.
 - __aegi_data, __aegi_dictionary, __aegi_local, __aegi_script, __aegi_temp, __aegi_user:
   The values of ?data, ?dictionary, etc. respectively.
+- __aegi_locale: The current Aegisub interface language code.
 - __aegi_vscache: The path to a directory where the VapourSynth script can
   store cache files. This directory is cleaned by Aegisub when it gets too
   large (as defined by Aegisub's configuration).
@@ -31,6 +32,7 @@ other data.
 import os
 import os.path
 import re
+import gettext
 from enum import Enum
 from collections import deque
 from typing import Any, Dict, List, Tuple, Callable
@@ -40,8 +42,35 @@ core = vs.core
 
 aegi_vscache: str = ""
 aegi_vsplugins: str = ""
+_translate: Callable[[str], str] = lambda message: message
 
 plugin_extension = ".dll" if os.name == "nt" else ".so"
+
+
+def _(message: str) -> str:
+    return _translate(message)
+
+
+def _init_translation(vars: dict):
+    global _translate
+
+    language = vars.get("__aegi_locale", "")
+    data_dir = vars.get("__aegi_data", "")
+    languages: List[str] = []
+    if language:
+        languages.append(language)
+        if "_" in language:
+            languages.append(language.split("_", 1)[0])
+
+    for localedir in (os.path.join(data_dir, "locale"), os.path.join(data_dir, "po")):
+        try:
+            translation = gettext.translation("aegisub", localedir=localedir, languages=languages or None)
+            _translate = translation.gettext
+            return
+        except OSError:
+            continue
+
+    _translate = lambda message: message
 
 def progress_set_message(message: str):
     """
@@ -69,10 +98,11 @@ def set_paths(vars: dict):
     """
     Initialize the wrapper library with the given configuration directories.
     Should usually be called at the start of the default script as
-        set_paths(globals())
+        set_paths(locals())
     """
     global aegi_vscache
     global aegi_vsplugins
+    _init_translation(vars)
     aegi_vscache = vars["__aegi_vscache"]
     aegi_vsplugins = vars["__aegi_vsplugins"]
 
@@ -135,7 +165,7 @@ class LWIndexFrame:
         match1 = lwindex_re1.match(raw[0])
         match2 = lwindex_re2.match(raw[1])
         if not match1 or not match2:
-            raise ValueError("Invalid lwindex format")
+            raise ValueError(_("Invalid lwindex format"))
         self.index = int(match1.group("Index"))
         self.pts = int(match1.group("PTS"))
         self.key = int(match2.group("Key"))
@@ -157,7 +187,7 @@ def info_from_lwindex(indexfile: str) -> Dict[str, List[int]]:
     videoindex_str = next(l for l in index if l.startswith("<ActiveVideoStreamIndex>"))
     videoindex_match = videoindex_re.match(videoindex_str)
     if not videoindex_match:
-        raise ValueError("Invalid lwindex format: Invalid ActiveVideoStreamIndex line")
+        raise ValueError(_("Invalid lwindex format: Invalid ActiveVideoStreamIndex line"))
     videoindex = int(videoindex_match.group("VideoStreamIndex"))
 
     # The picture list starts after the last </StreamInfo> tag
@@ -168,7 +198,7 @@ def info_from_lwindex(indexfile: str) -> Dict[str, List[int]]:
 
     streaminfo = streaminfo_re.match(index[index.index(f"<StreamInfo={videoindex},0>") + 1]) # info of first stream
     if not streaminfo:
-        raise ValueError("Invalid lwindex format")
+        raise ValueError(_("Invalid lwindex format"))
 
     timebase_num, timebase_den = [int(i) for i in streaminfo.group("TimeBase").split("/")]
 
@@ -232,14 +262,14 @@ def wrap_lwlibavsource(filename: str, padding: str, cachedir: str | None = None,
     os.makedirs(cachedir, exist_ok=True)
     cachefile = os.path.join(cachedir, make_lwi_cache_filename(filename))
 
-    progress_set_message("Loading video file")
+    progress_set_message(_("Loading video file"))
     progress_set_indeterminate()
 
-    ensure_plugin("lsmas", "LSMASHSource", "To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin for VapourSynth must be installed")
+    ensure_plugin("lsmas", "LSMASHSource", _("To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin for VapourSynth must be installed"))
 
     import inspect
     if "cachedir" not in inspect.getfullargspec(vs.core.lsmas.LWLibavSource).args:
-        raise vs.Error("To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin must support the `cachedir` option for LWLibavSource.")
+        raise vs.Error(_("To use Aegisub's LWLibavSource wrapper, the `lsmas` plugin must support the `cachedir` option for LWLibavSource."))
 
     lw_kwargs = dict(kwargs)
     lw_kwargs.setdefault("prefer_hw", 3)
@@ -250,7 +280,7 @@ def wrap_lwlibavsource(filename: str, padding: str, cachedir: str | None = None,
     if padding_top > 0 or padding_bottom > 0:
         clip = core.std.AddBorders(clip, left=0, right=0, top=padding_top, bottom=padding_bottom)
 
-    progress_set_message("Getting timecodes and keyframes from the index file")
+    progress_set_message(_("Getting timecodes and keyframes from the index file"))
     result = info_from_lwindex(cachefile)
 
     # 向 Aegisub 报告硬件解码状态：
@@ -309,16 +339,16 @@ def make_keyframes(clip: vs.VideoNode, use_scxvid: bool = False,
     The remaining keyword arguments are passed on to the respective filter.
     """
 
-    progress_set_message("Generating keyframes")
+    progress_set_message(_("Generating keyframes"))
     progress_set_progress(1)
 
     clip = core.resize.Bilinear(clip, width=resize_h * clip.width // clip.height, height=resize_h, format=resize_format)
 
     if use_scxvid:
-        ensure_plugin("scxvid", "libscxvid", "To use the keyframe generation, the scxvid plugin for VapourSynth must be installed")
+        ensure_plugin("scxvid", "libscxvid", _("To use the keyframe generation, the scxvid plugin for VapourSynth must be installed"))
         clip = core.scxvid.Scxvid(clip, **kwargs)
     else:
-        ensure_plugin("wwxd", "libwwxd64", "To use the keyframe generation, the wwxdplugin for VapourSynth must be installed")
+        ensure_plugin("wwxd", "libwwxd64", _("To use the keyframe generation, the wwxdplugin for VapourSynth must be installed"))
         clip = core.wwxd.WWXD(clip, **kwargs)
 
     keyframes = {}
@@ -355,9 +385,9 @@ class GenKeyframesMode(Enum):
 
 def ask_gen_keyframes(_: str) -> bool:
     from tkinter.messagebox import askyesno
-    progress_set_message("Asking whether to generate keyframes")
+    progress_set_message(_("Asking whether to generate keyframes"))
     progress_set_indeterminate()
-    result = askyesno("Generate Keyframes", "No keyframes file was found for this video file.\nShould Aegisub detect keyframes from the video?\nThis will take a while.", default="no")
+    result = askyesno(_("Generate Keyframes"), _("No keyframes file was found for this video file.\nShould Aegisub detect keyframes from the video?\nThis will take a while."), default="no")
     progress_set_message("")
     return result
 
@@ -378,7 +408,7 @@ def get_keyframes(filename: str, clip: vs.VideoNode, fallback: str | List[int],
       generated or not
     Additional keyword arguments are passed on to make_keyframes.
     """
-    progress_set_message("Looking for keyframes")
+    progress_set_message(_("Looking for keyframes"))
     progress_set_indeterminate()
 
     kffilename = make_keyframes_filename(filename)
@@ -406,7 +436,7 @@ def check_audio(filename: str, **kwargs: Any) -> bool:
     任一方式成功即返回 True。全部失败或插件不可用时返回 False。
     kwargs 仅传递给 BestSource。
     """
-    progress_set_message("Checking if the file has an audio track")
+    progress_set_message(_("Checking if the file has an audio track"))
     progress_set_indeterminate()
 
     # 方式 1：BestSource
