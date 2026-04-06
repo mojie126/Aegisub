@@ -175,14 +175,14 @@ void VideoBox::UpdateHDRToggleState() {
 	hw_hdr_available_ = false;
 
 	HDRType detected_hdr_type = HDRType::SDR;
-	bool hw_decode = false;
+	HWDecodeState hw_state = HWDecodeState::Software;
 
 	if (provider) {
 		// 获取视频源HDR类型
 		detected_hdr_type = provider->GetHDRType();
 
-		// 由各provider自行报告硬件解码状态
-		hw_decode = provider->IsHWDecoding();
+		// 由各provider自行报告硬件解码状态（三态：硬解/软解/未知）
+		hw_state = provider->GetHWDecodeState();
 
 		// HDR视频源即可启用色调映射（LUT方案不依赖硬件解码）
 		const bool is_hdr_source = (detected_hdr_type != HDRType::SDR);
@@ -231,11 +231,15 @@ void VideoBox::UpdateHDRToggleState() {
 			tooltip_text += _("Note: Dolby Vision tone mapping may be less stable.");
 		}
 
-		// 软解时追加性能警告
-		if (!hw_decode) {
+		// 根据三态硬解状态追加不同提示
+		if (hw_state == HWDecodeState::Software) {
 			tooltip_text += "\n\n";
 			tooltip_text += _("Warning: Software decoding is active.\n"
 			                  "Hardware decoding is recommended for smooth HDR tone mapping playback.");
+		} else if (hw_state == HWDecodeState::Unknown) {
+			tooltip_text += "\n\n";
+			tooltip_text += _("Note: Hardware decoding status could not be confirmed.\n"
+			                  "The video source plugin does not report decode mode.");
 		}
 
 		hdrToggle->SetToolTip(tooltip_text);

@@ -7144,6 +7144,12 @@ msgid ""
 msgstr ""
 
 #: ../src/video_box.cpp
+msgid ""
+"Note: Hardware decoding status could not be confirmed.\n"
+"The video source plugin does not report decode mode."
+msgstr ""
+
+#: ../src/video_box.cpp
 msgid "Note: Dolby Vision tone mapping may be less stable."
 msgstr ""
 

@@ -7879,6 +7879,14 @@ msgstr ""
 "警告：当前使用软件解码。\n"
 "建议启用硬件解码以获得流畅的 HDR 色调映射播放体验。"
 
+#. video_box.cpp - 硬解状态无法确认时的提示
+msgid ""
+"Note: Hardware decoding status could not be confirmed.\n"
+"The video source plugin does not report decode mode."
+msgstr ""
+"提示：无法确认硬件解码状态。\n"
+"视频源插件未报告解码方式。"
+
 #. video_box.cpp - Dolby Vision 内容加载时的简要标注
 msgid "Note: Dolby Vision tone mapping may be less stable."
 msgstr "注意：杜比视界的色调映射不够稳定。"
