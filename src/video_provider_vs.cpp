@@ -63,7 +63,7 @@ class VapourSynthVideoProvider: public VideoProvider {
 	bool has_audio = false;
 
 	HDRType detected_hdr_type_ = HDRType::SDR;  // 检测到的HDR类型
-	bool hw_decode_ = false;  // VS脚本上报的硬件解码是否实际激活
+	HWDecodeState hw_decode_state_ = HWDecodeState::Software;  // VS脚本上报的硬件解码三态
 	int dv_profile_ = 0;     // Dolby Vision Profile编号（0=无DV/未知）
 
 	agi::scoped_holder<const VSFrame *, void (*)(const VSFrame *) noexcept> GetVSFrame(VSNode *node, int n);
@@ -96,7 +96,8 @@ public:
 	std::string GetDecoderName() const override    { return "VapourSynth"; }
 	HDRType GetHDRType() const override             { return detected_hdr_type_; }
 	int GetDVProfile() const override               { return dv_profile_; }
-	bool IsHWDecoding() const override              { return hw_decode_; }
+	bool IsHWDecoding() const override              { return hw_decode_state_ == HWDecodeState::Hardware; }
+	HWDecodeState GetHWDecodeState() const override { return hw_decode_state_; }
 	bool ShouldSetVideoProperties() const override { return colorspace != "Unknown"; }
 };
 
@@ -176,21 +177,26 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 	if (!err1)
 		has_audio = bool(audio);
 
-	// 优先读取实际激活状态，兼容旧脚本的 __aegi_hw_decode。
-	// 若只拿到“请求硬解”但无激活确认，则按非硬解处理，避免误报。
+	// 优先读取实际激活状态（三态：-1=未知, 0=软解, 1=硬解），兼容旧脚本的 __aegi_hw_decode。
+	// 若只拿到"请求硬解"但无激活确认，则按非硬解处理，避免误报。
 	int64_t hw_active_val = vs.GetAPI()->mapGetInt(clipinfo, hw_decode_active_key, 0, &err1);
 	if (!err1) {
-		hw_decode_ = bool(hw_active_val);
+		if (hw_active_val > 0)
+			hw_decode_state_ = HWDecodeState::Hardware;
+		else if (hw_active_val < 0)
+			hw_decode_state_ = HWDecodeState::Unknown;
+		else
+			hw_decode_state_ = HWDecodeState::Software;
 	} else {
 		int req_err = 0;
 		int64_t hw_requested_val = vs.GetAPI()->mapGetInt(clipinfo, hw_decode_requested_key, 0, &req_err);
 		if (!req_err) {
 			(void)hw_requested_val;
-			hw_decode_ = false;
+			hw_decode_state_ = HWDecodeState::Software;
 		} else {
 			int legacy_err = 0;
 			int64_t hw_legacy_val = vs.GetAPI()->mapGetInt(clipinfo, hw_decode_legacy_key, 0, &legacy_err);
-			hw_decode_ = !legacy_err && bool(hw_legacy_val);
+			hw_decode_state_ = (!legacy_err && hw_legacy_val) ? HWDecodeState::Hardware : HWDecodeState::Software;
 		}
 	}
 

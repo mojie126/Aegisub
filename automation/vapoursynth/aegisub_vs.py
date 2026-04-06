@@ -218,6 +218,7 @@ def _calculate_adaptive_padding(frame_height: int, user_padding: int) -> tuple:
 
     return (user_padding, user_padding)
 
+
 def wrap_lwlibavsource(filename: str, padding: str, cachedir: str | None = None, **kwargs: Any) -> Tuple[vs.VideoNode, Dict[str, List[int]]]:
     """
     Given a path to a video file and a directory to store index files in
@@ -254,28 +255,42 @@ def wrap_lwlibavsource(filename: str, padding: str, cachedir: str | None = None,
 
     # 向 Aegisub 报告硬件解码状态：
     # 1) hw_decode_requested: 是否请求了硬解（来自 prefer_hw）
-    # 2) hw_decode_active: 是否检测到实际激活
-    #    prefer_hw=3 为自动探测（CUVID→QSV→DXVA2→D3D11VA→D3D12VA→VULKAN），
-    #    可能全部失败回退到软解。lsmas 当前版本不设置硬解帧属性，
-    #    因此 VS 路径无法准确判定硬解是否真正激活。
-    #    保守策略：帧属性不可用时 hw_active=0（视为软解），避免误判。
+    # 2) hw_decode_active: 实际激活状态
+    #      1  = 硬解已激活
+    #      0  = 确认使用软解
+    #     -1  = 无法确定
+    #
+    # 检测策略：
+    #   - 优先检查帧属性 _HWDecode / _HWAccel / _HardwareDecode（未来 lsmas 可能支持）
+    #   - 若帧属性不可用，则统一报告 Unknown
+    #
+    # 原因：当前已知的 lsmas 分支都不会可靠上报“实际是否正在硬解”。
+    # 即使是支持更多 prefer_hw 模式的分支，在上游文档中也允许回退到软解，
+    # 因此不能仅凭“脚本成功执行”反推硬解一定已激活。
     hw_requested = int(lw_kwargs.get("prefer_hw", 0))
     result["hw_decode_requested"] = 1 if hw_requested > 0 else 0
 
     hw_active = 0
     if result["hw_decode_requested"]:
+        # 优先尝试帧属性（最可靠，但当前 lsmas 两个分支均不设置）
+        found_prop = False
         try:
             props = clip.get_frame(0).props
             for prop_name in ("_HWDecode", "_HWAccel", "_HardwareDecode"):
                 if hasattr(props, prop_name):
                     hw_active = 1 if int(getattr(props, prop_name)) else 0
+                    found_prop = True
                     break
         except Exception:
             pass
 
+        if not found_prop:
+            # 帧属性不可用时无法可靠判断实际解码路径，保守报告 Unknown
+            hw_active = -1
+
     result["hw_decode_active"] = hw_active
     # 兼容旧脚本键名
-    result["hw_decode"] = hw_active
+    result["hw_decode"] = max(hw_active, 0)
 
     return clip, result
 
