@@ -158,13 +158,14 @@ public:
 	/// @param enable Whether to apply PQ EOTF inverse for HDR content
 	void EnableHDRToneMapping(bool enable);
 
-	/// @brief 对wxImage应用CPU侧HDR LUT色彩映射（用于截图/导出路径）
-	/// @param img 输入输出图像，原地修改RGB像素
-	/// @param type HDR类型，决定使用哪个LUT文件（PQ2SDR或DV2SDR）
-	/// @return 是否成功应用了LUT色彩映射
-	/// @details 使用三线性插值从3D LUT查表，将PQ编码的HDR像素映射到SDR色彩空间。
-	///          如果LUT未加载或不可用，返回false且图像不变。
-	static bool ApplyHDRLutToImage(wxImage& img, HDRType type);
+	/// @brief 对 wxImage 应用 CPU 侧 HDR LUT 色彩映射，供截图和导出路径复用
+	/// @param img 输入输出图像，原地修改 RGB 像素
+	/// @param type HDR 类型
+	/// @param dvProfile Dolby Vision Profile 编号，仅在 type 为 HDRType::DolbyVision 时生效
+	/// @return 是否成功应用了 LUT 色彩映射
+	/// @details CPU 路径需要与 GPU 路径保持一致；Dolby Vision 场景下若忽略 Profile，
+	///          可能会错误复用另一种 LUT。
+	static bool ApplyHDRLutToImage(wxImage& img, HDRType type, int dvProfile = 0);
 
 	/// @brief 根据HDR类型返回LUT文件名
 	/// @param type HDR类型
@@ -181,7 +182,8 @@ public:
 	/// @param type HDR类型，决定预加载哪个LUT文件
 	/// @param dvProfile Dolby Vision Profile编号
 	/// @details 在后台线程解析.cube文件并缓存解析结果。
-	///          LoadHDRLUT()调用时优先使用预解析数据，仅需GPU上传。
+	///          LoadHDRLUT() 优先消费已完成的预解析结果；若尚未完成，则直接跳过当前帧。
+	/// @note 不在渲染线程同步等待 future 完成，避免快速切换 HDR 配置时卡住 UI。
 	static void PreloadCubeLutAsync(HDRType type, int dvProfile = 0);
 
 	/// @brief Set whether current input appears to be HDR source and its type

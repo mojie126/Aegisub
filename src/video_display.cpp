@@ -618,6 +618,12 @@ void VideoDisplay::SetHDRMapping(bool enable) {
 	hdrToneMappingEnabled = enable;
 	if (!videoOut)
 		videoOut = std::make_unique<VideoOutGL>();
+	if (enable && con->project->VideoProvider()) {
+		// 在 Render() 之前先触发一次后台预加载，减少用户快速开启 HDR 映射时的首帧等待。
+		const HDRType hdr_type = con->project->VideoProvider()->GetHDRType();
+		if (hdr_type != HDRType::SDR)
+			VideoOutGL::PreloadCubeLutAsync(hdr_type, con->project->VideoProvider()->GetDVProfile());
+	}
 	videoOut->EnableHDRToneMapping(hdrToneMappingEnabled);
 	Render();
 }

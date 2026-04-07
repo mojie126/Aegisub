@@ -271,6 +271,11 @@ TEST(LutFilenameTest, DVProfile8ReturnsPQ2SDR) {
 	EXPECT_EQ(hdr_test::GetLutFilename(HDRType::DolbyVision, 8), "PQ2SDR.cube");
 }
 
+TEST(LutFilenameTest, DifferentDVProfilesCanMapToDifferentLuts) {
+	EXPECT_NE(hdr_test::GetLutFilename(HDRType::DolbyVision, 5),
+		hdr_test::GetLutFilename(HDRType::DolbyVision, 7));
+}
+
 TEST(LutFilenameTest, DVProfile10ReturnsDV2SDR) {
 	// 未来Profile使用安全默认值
 	EXPECT_EQ(hdr_test::GetLutFilename(HDRType::DolbyVision, 10), "DV2SDR.cube");

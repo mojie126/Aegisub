@@ -332,17 +332,20 @@ namespace {
 	};
 
 	wxImage get_image(agi::Context *c, bool raw, bool subsonly = false) {
+		auto *provider = c->project->VideoProvider();
 		auto frame = c->videoController->GetFrameN();
 		wxImage img;
 		if (subsonly) {
-			img = GetImageWithAlpha(c->project->VideoProvider()->GetSubtitles(c->project->Timecodes().TimeAtFrame(frame)));
+			img = GetImageWithAlpha(provider->GetSubtitles(c->project->Timecodes().TimeAtFrame(frame)));
 		} else {
-			img = GetImage(*c->project->VideoProvider()->GetFrame(frame, c->project->Timecodes().TimeAtFrame(frame), raw));
+			img = GetImage(*provider->GetFrame(frame, c->project->Timecodes().TimeAtFrame(frame), raw));
 		}
 		// 如果HDR色彩映射已启用，对导出图像应用CPU侧LUT色彩映射
+		// CPU导出路径同样需要带上DV Profile，避免不同Profile误用同一份LUT。
 		if (OPT_GET("Video/HDR/Tone Mapping")->GetBool() && !subsonly) {
-			const HDRType hdr_type = c->project->VideoProvider()->GetHDRType();
-			VideoOutGL::ApplyHDRLutToImage(img, hdr_type);
+			const HDRType hdr_type = provider->GetHDRType();
+			const int hdr_dv_profile = provider->GetDVProfile();
+			VideoOutGL::ApplyHDRLutToImage(img, hdr_type, hdr_dv_profile);
 		}
 		return img;
 	}
@@ -376,8 +379,9 @@ namespace {
 		// 如果HDR色彩映射已启用，对GIF导出帧应用CPU侧LUT色彩映射
 		const bool gif_hdr_enabled = OPT_GET("Video/HDR/Tone Mapping")->GetBool();
 		const HDRType gif_hdr_type = c->project->VideoProvider()->GetHDRType();
+		const int gif_hdr_dv_profile = c->project->VideoProvider()->GetDVProfile();
 		if (gif_hdr_enabled)
-			VideoOutGL::ApplyHDRLutToImage(first_img, gif_hdr_type);
+			VideoOutGL::ApplyHDRLutToImage(first_img, gif_hdr_type, gif_hdr_dv_profile);
 
 		// ABB 黑边填充（使用帧自身的自适应padding值）
 		const int gif_padding_top = first_vf->padding_top;
@@ -469,7 +473,7 @@ namespace {
 				decoded_img = GetImage(*c->project->VideoProvider()->GetFrame(i, c->project->Timecodes().TimeAtFrame(i), false));
 				// 如果HDR色彩映射已启用，对后续帧也应用LUT
 				if (gif_hdr_enabled)
-					VideoOutGL::ApplyHDRLutToImage(decoded_img, gif_hdr_type);
+					VideoOutGL::ApplyHDRLutToImage(decoded_img, gif_hdr_type, gif_hdr_dv_profile);
 				// 为后续帧添加与首帧相同的黑边填充
 				if (gif_padding_top > 0 || gif_padding_bottom > 0)
 					decoded_img = AddPaddingToImage(decoded_img, gif_padding_top, gif_padding_bottom);
@@ -666,6 +670,7 @@ namespace {
 		// 如果HDR色彩映射已启用，对图片序列导出帧应用CPU侧LUT色彩映射
 		const bool seq_hdr_enabled = OPT_GET("Video/HDR/Tone Mapping")->GetBool();
 		const HDRType seq_hdr_type = seq_hdr_enabled ? c->project->VideoProvider()->GetHDRType() : HDRType::SDR;
+		const int seq_hdr_dv_profile = seq_hdr_enabled ? c->project->VideoProvider()->GetDVProfile() : 0;
 		// ABB 黑边填充值（首帧获取后确定）
 		int seq_padding_top = 0, seq_padding_bottom = 0;
 		if (subtitle_only) {
@@ -694,7 +699,7 @@ namespace {
 				auto seq_vf = c->project->VideoProvider()->GetFrame(i, time, true);
 				wxImage img = GetImage(*seq_vf);
 				if (seq_hdr_enabled)
-					VideoOutGL::ApplyHDRLutToImage(img, seq_hdr_type);
+					VideoOutGL::ApplyHDRLutToImage(img, seq_hdr_type, seq_hdr_dv_profile);
 				// 首帧时获取padding值，后续帧复用
 				if (i == start_frame) {
 					seq_padding_top = seq_vf->padding_top;

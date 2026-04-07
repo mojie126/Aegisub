@@ -87,6 +87,21 @@ bool seqOnOK = false;
 bool seqSubtitleOnly = false;
 
 namespace {
+	struct CropPreviewResetState {
+		bool has_preview = false;
+		bool has_selection = false;
+		bool is_dragging = false;
+		int video_w = 0;
+		int video_h = 0;
+	};
+
+	/// @brief 生成视频源切换后的预览基础状态
+	/// @details 无论 provider 是失效还是切换到新源，都先清空旧预览和旧选区，
+	///          再由后续流程决定是否重新抓取一帧预览。
+	CropPreviewResetState MakeCropPreviewStateAfterProviderChange(bool has_provider, int provider_width, int provider_height) {
+		return {false, false, false, has_provider ? provider_width : 0, has_provider ? provider_height : 0};
+	}
+
 	struct DialogJumpTo {
 		wxDialog d;
 		agi::Context *c; ///< Project context
@@ -204,11 +219,17 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 					// 启用HDR时对预览帧应用色调映射
 					if (OPT_GET("Video/HDR/Tone Mapping")->GetBool()) {
 						const HDRType preview_hdr_type = ctx_->project->VideoProvider()->GetHDRType();
-						VideoOutGL::ApplyHDRLutToImage(preview_, preview_hdr_type);
+						const int preview_dv_profile = ctx_->project->VideoProvider()->GetDVProfile();
+						VideoOutGL::ApplyHDRLutToImage(preview_, preview_hdr_type, preview_dv_profile);
 					}
 					has_preview_ = true;
 				}
 			}
+
+			// 监听视频源切换，避免快速关闭或切换视频后继续访问旧 provider。
+			video_provider_sub_ = ctx_->project->AddVideoProviderListener([this](AsyncVideoProvider *provider) {
+				OnVideoProviderChanged(provider);
+			});
 
 			Bind(wxEVT_PAINT, &CropSelectionPanel::OnPaint, this);
 			Bind(wxEVT_LEFT_DOWN, &CropSelectionPanel::OnMouseDown, this);
@@ -291,8 +312,9 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 	private:
 		/// 将面板坐标转换为视频像素坐标
 		[[nodiscard]] wxPoint PanelToVideo(const wxPoint &pt) const {
-			if (video_w_ == 0 || video_h_ == 0) return pt;
 			wxSize panel_size = GetClientSize();
+			// 早期布局或快速缩放时可能短暂出现 0 尺寸，直接返回原始点位以避免除零。
+			if (video_w_ == 0 || video_h_ == 0 || panel_size.GetWidth() <= 0 || panel_size.GetHeight() <= 0) return pt;
 			double scale_x = static_cast<double>(video_w_) / panel_size.GetWidth();
 			double scale_y = static_cast<double>(video_h_) / panel_size.GetHeight();
 			double scale = std::max(scale_x, scale_y);
@@ -309,8 +331,9 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 
 		/// 将视频像素坐标转换为面板坐标
 		[[nodiscard]] wxPoint VideoToPanel(const wxPoint &pt) const {
-			if (video_w_ == 0 || video_h_ == 0) return pt;
 			wxSize panel_size = GetClientSize();
+			// 早期布局或快速缩放时可能短暂出现 0 尺寸，直接返回原始点位以避免除零。
+			if (video_w_ == 0 || video_h_ == 0 || panel_size.GetWidth() <= 0 || panel_size.GetHeight() <= 0) return pt;
 			double scale_x = static_cast<double>(video_w_) / panel_size.GetWidth();
 			double scale_y = static_cast<double>(video_h_) / panel_size.GetHeight();
 			double scale = std::max(scale_x, scale_y);
@@ -328,14 +351,18 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 			wxSize size = GetClientSize();
 			dc.SetBackground(*wxBLACK_BRUSH);
 			dc.Clear();
+			if (size.GetWidth() <= 0 || size.GetHeight() <= 0)
+				return;
 
-			if (has_preview_ && preview_.IsOk()) {
+			if (has_preview_ && preview_.IsOk() && video_w_ > 0 && video_h_ > 0) {
 				// 按比例缩放预览图
 				double scale_x = static_cast<double>(video_w_) / size.GetWidth();
 				double scale_y = static_cast<double>(video_h_) / size.GetHeight();
 				double scale = std::max(scale_x, scale_y);
 				int display_w = static_cast<int>(video_w_ / scale);
 				int display_h = static_cast<int>(video_h_ / scale);
+				if (display_w <= 0 || display_h <= 0)
+					return;
 				int offset_x = (size.GetWidth() - display_w) / 2;
 				int offset_y = (size.GetHeight() - display_h) / 2;
 
@@ -477,7 +504,10 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 			const bool hdr_enabled = OPT_GET("Video/HDR/Tone Mapping")->GetBool();
 			for (size_t i = 0; i < total_frames_ && !cancel_decode_.load(); ++i) {
 				long frame = start_frame_ + static_cast<long>(i);
-				auto vf = ctx_->project->VideoProvider()->GetFrame(
+				auto *provider = ctx_->project->VideoProvider();
+				if (!provider)
+					break;
+				auto vf = provider->GetFrame(
 					frame,
 					ctx_->project->Timecodes().TimeAtFrame(frame), false
 				);
@@ -488,8 +518,9 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 						img = AddPaddingToImage(img, vf->padding_top, vf->padding_bottom);
 					// 启用HDR时对解码帧应用色调映射
 					if (hdr_enabled) {
-						const HDRType decode_hdr_type = ctx_->project->VideoProvider()->GetHDRType();
-						VideoOutGL::ApplyHDRLutToImage(img, decode_hdr_type);
+						const HDRType decode_hdr_type = provider->GetHDRType();
+						const int decode_dv_profile = provider->GetDVProfile();
+						VideoOutGL::ApplyHDRLutToImage(img, decode_hdr_type, decode_dv_profile);
 					}
 					std::lock_guard<std::mutex> lock(cache_mutex_);
 					frame_cache_.push_back(std::move(img));
@@ -530,20 +561,114 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		std::mutex cache_mutex_;
 		std::atomic<size_t> decoded_count_{0};
 		size_t total_frames_ = 0;
+		agi::signal::Connection video_provider_sub_;
 
 		/// HDR选项监听
 		wxImage raw_preview_;            ///< 未应用HDR的原始预览帧
 		agi::signal::Connection hdr_sub_; ///< HDR选项变化订阅
 
-		/// HDR选项变化回调：重新派生预览帧并刷新播放缓存
+		void ClearPreviewCache() {
+			has_preview_ = false;
+			raw_preview_ = wxImage();
+			preview_ = wxImage();
+			current_frame_ = 0;
+			decoded_count_.store(0);
+			std::lock_guard<std::mutex> lock(cache_mutex_);
+			frame_cache_.clear();
+		}
+
+		void ClearSelectionState() {
+			if (HasCapture()) ReleaseMouse();
+			is_dragging_ = false;
+			has_selection_ = false;
+			crop_rect_ = wxRect();
+			drag_start_panel_ = wxPoint();
+			drag_current_panel_ = wxPoint();
+		}
+
+		/// @brief 从当前视频源重新抓取一帧静态预览
+		/// @details 视频源切换后使用新的 provider 重新构建 raw/preview，避免沿用旧视频帧。
+		void RefreshPreviewFromCurrentProvider() {
+			auto *provider = ctx_->project->VideoProvider();
+			if (!provider) {
+				Refresh();
+				return;
+			}
+
+			video_w_ = provider->GetWidth();
+			video_h_ = provider->GetHeight();
+			const int frame_count = provider->GetFrameCount();
+			if (frame_count <= 0) {
+				Refresh();
+				return;
+			}
+
+			long frame = ctx_->videoController->GetFrameN();
+			frame = std::max<long>(0, std::min<long>(frame, frame_count - 1));
+			auto vf = provider->GetFrame(frame, ctx_->project->Timecodes().TimeAtFrame(frame), false);
+			if (vf) {
+				preview_ = GetImage(*vf);
+				if (vf->padding_top > 0 || vf->padding_bottom > 0)
+					preview_ = AddPaddingToImage(preview_, vf->padding_top, vf->padding_bottom);
+				raw_preview_ = preview_.Copy();
+				if (OPT_GET("Video/HDR/Tone Mapping")->GetBool()) {
+					const HDRType preview_hdr_type = provider->GetHDRType();
+					const int preview_dv_profile = provider->GetDVProfile();
+					VideoOutGL::ApplyHDRLutToImage(preview_, preview_hdr_type, preview_dv_profile);
+				}
+				has_preview_ = true;
+			}
+
+			Refresh();
+		}
+
+		/// @brief 视频源切换回调
+		/// @details 快速关闭或切换视频时，先停止播放并清理预览状态，避免后台线程或
+		///          HDR 回调继续访问旧 provider。
+		void OnVideoProviderChanged(AsyncVideoProvider *provider) {
+			if (playing_)
+				StopPlayback();
+			else
+				CancelDecode();
+
+			const auto reset_state = MakeCropPreviewStateAfterProviderChange(
+				provider != nullptr,
+				provider ? provider->GetWidth() : 0,
+				provider ? provider->GetHeight() : 0);
+			has_preview_ = reset_state.has_preview;
+			has_selection_ = reset_state.has_selection;
+			is_dragging_ = reset_state.is_dragging;
+			video_w_ = reset_state.video_w;
+			video_h_ = reset_state.video_h;
+			ClearPreviewCache();
+			ClearSelectionState();
+
+			if (!provider) {
+				Refresh();
+				return;
+			}
+
+			// 等 Project 完成 timecodes/videoController 更新后再抓取预览，避免切换瞬间使用旧状态。
+			CallAfter([this]() {
+				RefreshPreviewFromCurrentProvider();
+			});
+		}
+
 		void OnHDROptionChanged(agi::OptionValue const& opt) {
 			const bool hdr_on = opt.GetBool();
+			auto *provider = ctx_->project->VideoProvider();
+			if (!provider) {
+				if (playing_)
+					StopPlayback();
+				return;
+			}
 			// 非播放状态时：从原始帧重新派生预览
 			if (!playing_ && has_preview_ && raw_preview_.IsOk()) {
 				preview_ = raw_preview_.Copy();
 				if (hdr_on) {
-					const HDRType refresh_hdr_type = ctx_->project->VideoProvider()->GetHDRType();
-					VideoOutGL::ApplyHDRLutToImage(preview_, refresh_hdr_type);
+					const HDRType refresh_hdr_type = provider->GetHDRType();
+					const int refresh_dv_profile = provider->GetDVProfile();
+					VideoOutGL::ApplyHDRLutToImage(preview_, refresh_hdr_type, refresh_dv_profile);
 				}
 				Refresh();
 			}
