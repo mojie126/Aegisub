@@ -96,7 +96,16 @@ public:
 		int new_progress = std::clamp<int>(static_cast<int>(double(cur) / max * 300), 0, 300);
 		if (new_progress != progress) {
 			progress = new_progress;
-			Main().Async([=, this]{ dialog->SetProgress(new_progress); });
+			if (dialog->immediate_progress_update_) {
+				auto update_progress = [=, this]{ dialog->SetProgress(new_progress); };
+				if (new_progress >= 300)
+					Main().Sync(std::move(update_progress));
+				else
+					Main().Async(std::move(update_progress));
+			}
+			else {
+				Main().Async([=, this]{ dialog->SetProgress(new_progress); });
+			}
 		}
 	}
 
@@ -158,12 +167,10 @@ DialogProgress::DialogProgress(wxWindow *parent, wxString const& title_text, wxS
 	Bind(wxEVT_TIMER, [this](wxTimerEvent&) { gauge->Pulse(); });
 }
 
-void DialogProgress::Run(std::function<void(agi::ProgressSink*)> task) {
-	DialogProgressSink ps(this);
-	this->ps = &ps;
-
+void DialogProgress::StartTask() {
 	auto current_title = from_wx(title->GetLabelText());
-	agi::dispatch::Background().Async([=, this]{
+	auto task = std::move(pending_task);
+	agi::dispatch::Background().Async([task = std::move(task), current_title, this] {
 		agi::osx::AppNapDisabler app_nap_disabler(current_title);
 		try {
 			task(this->ps);
@@ -172,7 +179,7 @@ void DialogProgress::Run(std::function<void(agi::ProgressSink*)> task) {
 			this->ps->Log(e.GetMessage());
 		}
 
-		Main().Async([this]{
+		Main().Async([this] {
 			pulse_timer.Stop();
 			Unbind(wxEVT_IDLE, &DialogProgress::OnIdle, this);
 
@@ -197,6 +204,17 @@ void DialogProgress::Run(std::function<void(agi::ProgressSink*)> task) {
 			set_taskbar_progress(0);
 		});
 	});
+}
+
+void DialogProgress::Run(std::function<void(agi::ProgressSink*)> task) {
+	DialogProgressSink ps(this);
+	this->ps = &ps;
+	pending_task = std::move(task);
+	task_started = false;
+	if (!start_task_after_shown_) {
+		task_started = true;
+		StartTask();
+	}
 
 	if (!ShowModal())
 		throw agi::UserCancelException("Cancelled by user");
@@ -218,6 +236,11 @@ void DialogProgress::OnShow(wxShowEvent& evt) {
 		Layout();
 		sizer->Fit(this);
 		log_output->Clear();
+	}
+
+	if (start_task_after_shown_ && !task_started && pending_task) {
+		task_started = true;
+		CallAfter([this] { StartTask(); });
 	}
 }
 
@@ -264,6 +287,15 @@ void DialogProgress::SetProgress(int target) {
 	pulse_timer.Stop();
 
 	if (target == progress_target) return;
+	if (immediate_progress_update_) {
+		progress_target = target;
+		progress_current = target;
+		gauge->SetValue(progress_current);
+		set_taskbar_progress(progress_current / 3);
+		Update();
+		return;
+	}
+
 	using namespace std::chrono;
 
 	progress_anim_start_value = progress_current;

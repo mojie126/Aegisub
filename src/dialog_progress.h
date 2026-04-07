@@ -49,11 +49,16 @@ class DialogProgress final : public wxDialog, public agi::BackgroundRunner {
 	int progress_target = 0;
 	std::chrono::steady_clock::time_point progress_anim_start_time;
 	int progress_anim_duration = 0;
+	std::function<void(agi::ProgressSink *)> pending_task;
+	bool task_started = false;
+	bool start_task_after_shown_ = false;
+	bool immediate_progress_update_ = false;
 
 	void OnShow(wxShowEvent&);
 	void OnCancel(wxCommandEvent &);
 	void OnIdle(wxIdleEvent&);
 
+	void StartTask();
 	void SetProgress(int target);
 
 public:
@@ -62,6 +67,14 @@ public:
 	/// @param title Initial title of the dialog
 	/// @param message Initial message of the dialog
 	DialogProgress(wxWindow *parent, wxString const& title="", wxString const& message="");
+
+	/// @brief 是否在窗口显示后再启动后台任务
+	/// @param value 为 true 时等待窗口显示完成后再启动任务
+	void SetStartTaskAfterShown(bool value = true) { start_task_after_shown_ = value; }
+
+	/// @brief 是否在收到进度更新时立即刷新进度条
+	/// @param value 为 true 时跳过 idle 动画，直接刷新 gauge
+	void SetImmediateProgressUpdate(bool value = true) { immediate_progress_update_ = value; }
 
 	/// BackgroundWorker implementation
 	void Run(std::function<void(agi::ProgressSink *)> task) override;
