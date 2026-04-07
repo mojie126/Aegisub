@@ -631,7 +631,8 @@
 			"Skip Uppercase" : false
 		},
 		"Font Chooser" : {
-			"Preview Text" : "AaBbYyZz"
+			"Preview Text" : "AaBbYyZz",
+			"Quick Preview" : false
 		},
 		"Style Editor" : {
 			"Last" : {

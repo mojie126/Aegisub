@@ -8643,6 +8643,26 @@ msgid "Use the sample text followed by the font name for each entry in the font 
 msgstr "在字体列表中对每一项使用示例文案，并在其后附加字体名称。"
 
 #: ../src/dialog_font_chooser.cpp
+msgid "Preparing font dialog"
+msgstr "准备字体对话框"
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Loading system font list..."
+msgstr "正在加载系统字体列表..."
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Preparing font preview list..."
+msgstr "正在准备字体预览列表..."
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Preparing favorite font preview..."
+msgstr "正在准备常用字体预览..."
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Font dialog is ready."
+msgstr "字体对话框已就绪。"
+
+#: ../src/dialog_font_chooser.cpp
 msgid "Font st&yle:"
 msgstr "字形(&Y):"
 

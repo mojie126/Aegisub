@@ -32,6 +32,7 @@
 #include "dialog_font_chooser.h"
 
 #include "compat.h"
+#include "dialog_progress.h"
 #include "font_list_load_mode.h"
 #include "ini.h"
 #include "options.h"
@@ -370,6 +371,11 @@ bool ShouldRefreshPreviewLayout(bool previousUsePreviewText, const wxString &pre
 	return previousPreviewText != currentPreviewText;
 }
 
+/// @brief 判断当前预览配置下是否仍需为字体列表预热度量缓存
+bool NeedsPreviewMetricPreparation(size_t missingMainMetrics, size_t missingFavoriteMetrics) {
+	return missingMainMetrics != 0 || missingFavoriteMetrics != 0;
+}
+
 /// @brief 构建字体列表条目的显示文本
 /// @param font_name 当前条目的字体名称
 /// @param previewText 示例文本
@@ -380,6 +386,28 @@ wxString MakeFontListItemText(const wxString &font_name, const wxString &preview
 		return MakeDisplayFontName(font_name);
 
 	return wxString::Format("%s (%s)", NormalizePreviewText(previewText), MakeDisplayFontName(font_name));
+}
+
+/// @brief 构建字体列表条目的测量文本
+/// @param font_name 当前条目的字体名称
+/// @param previewText 示例文本
+/// @param usePreviewText 是否启用便捷预览
+/// @return 用于计算列表行高的文本；便捷预览时仅测量示例文本，避免把字体名后缀带入首开热点路径
+wxString MakeFontListItemMeasureText(const wxString &font_name, const wxString &previewText, bool usePreviewText) {
+	if (!usePreviewText)
+		return MakeDisplayFontName(font_name);
+
+	return NormalizePreviewText(previewText);
+}
+
+/// @brief 构建字体列表条目测量缓存键
+/// @param font_name 当前条目的字体名称
+/// @param previewText 示例文本
+/// @param usePreviewText 是否启用便捷预览
+/// @return 用于缓存条目高度测量结果的键
+wxString MakeFontListItemMeasureCacheKey(const wxString &font_name, const wxString &previewText, bool usePreviewText) {
+	return GetFontPreviewFaceName(font_name) + wxS("\x1f")
+		+ MakeFontListItemMeasureText(font_name, previewText, usePreviewText);
 }
 
 /// @brief 计算字体列表条目的推荐高度
@@ -406,12 +434,60 @@ int CalculatePreviewTextY(int rectY, int rectHeight, int textBoxHeight, int topP
 constexpr size_t kInitialMetricWarmupCount = 24;
 constexpr size_t kMetricWarmupBatchSize = 48;
 constexpr size_t kMetricWarmupPriorityRadius = 64;
+constexpr size_t kProgressWarmupChunkSize = 16;
+
+struct SharedPreviewItemMetrics {
+	int itemHeight = 0;
+	int textBoxHeight = 0;
+};
+
+std::mutex &GetSharedPreviewMetricsCacheMutex() {
+	static std::mutex mutex;
+	return mutex;
+}
+
+std::map<wxString, SharedPreviewItemMetrics> &GetSharedPreviewMetricsCache() {
+	static std::map<wxString, SharedPreviewItemMetrics> cache;
+	return cache;
+}
+
+wxString MakeFontListItemSharedMetricsCacheKey(const wxString &font_name, const wxString &previewText,
+	bool usePreviewText, int previewFontSize, int itemHeight) {
+	return wxString::Format(wxS("%d\x1f%d\x1f"), previewFontSize, itemHeight)
+		+ MakeFontListItemMeasureCacheKey(font_name, previewText, usePreviewText);
+}
+
+template<typename Func>
+void InvokeOnMainThreadAndWait(Func &&func) {
+	auto completion = std::make_shared<std::promise<std::exception_ptr>>();
+	auto future = completion->get_future();
+	agi::dispatch::Main().Async([completion, fn = std::forward<Func>(func)]() mutable {
+		try {
+			fn();
+			completion->set_value(nullptr);
+		}
+		catch (...) {
+			completion->set_value(std::current_exception());
+		}
+	});
+	if (auto error = future.get())
+		std::rethrow_exception(error);
+}
 
 void AppendMetricWarmupIndex(std::vector<size_t> &order, std::vector<unsigned char> &seen, size_t index) {
 	if (index >= seen.size() || seen[index])
 		return;
 	seen[index] = 1;
 	order.push_back(index);
+}
+
+void RefreshAndUpdateChildren(wxWindow *window) {
+	if (!window)
+		return;
+	window->Refresh();
+	window->Update();
+	for (wxWindow *child : window->GetChildren())
+		RefreshAndUpdateChildren(child);
 }
 
 /// @brief 构建字体度量预热顺序
@@ -582,14 +658,46 @@ FontPreviewListBox::FontPreviewListBox(wxWindow *parent, wxWindowID id,
 }
 
 void FontPreviewListBox::SetFonts(const wxArrayString &fonts) {
+	SetFonts(fonts, true);
+}
+
+void FontPreviewListBox::SetFonts(const wxArrayString &fonts, bool prepareForSmoothScroll) {
 	fonts_ = fonts;
 	ResetPreviewMetricsCache();
+	if (prepareForSmoothScroll)
+		PrepareForSmoothScroll(0);
 	SetItemCount(fonts_.size());
-	PrepareForSmoothScroll(0);
 	Refresh();
 }
 
-void FontPreviewListBox::ConfigurePreviewText(bool usePreviewText, const wxString &previewText) {
+void FontPreviewListBox::WarmAllMetrics(const std::function<void(size_t, size_t)> &progress) {
+	if (metricWarmupTimer_.IsRunning())
+		metricWarmupTimer_.Stop();
+
+	const size_t total = fonts_.size();
+	for (size_t i = 0; i < total; ++i) {
+		GetPreviewMetrics(fonts_[i]);
+		if (progress)
+			progress(i + 1, total);
+	}
+
+	metricWarmupOrder_.clear();
+	metricWarmupCursor_ = 0;
+	SetItemCount(fonts_.size());
+	Refresh();
+}
+
+void FontPreviewListBox::WarmMetricsRange(size_t begin, size_t end) {
+	if (metricWarmupTimer_.IsRunning())
+		metricWarmupTimer_.Stop();
+
+	begin = std::min(begin, fonts_.size());
+	end = std::min(end, fonts_.size());
+	for (size_t i = begin; i < end; ++i)
+		GetPreviewMetrics(fonts_[i]);
+}
+
+void FontPreviewListBox::ConfigurePreviewText(bool usePreviewText, const wxString &previewText, bool prepareForSmoothScroll) {
 	const wxString normalizedPreviewText = NormalizePreviewText(previewText);
 	const bool needsRefresh = ShouldRefreshPreviewLayout(
 		usePreviewText_, previewText_, usePreviewText, normalizedPreviewText);
@@ -600,8 +708,9 @@ void FontPreviewListBox::ConfigurePreviewText(bool usePreviewText, const wxStrin
 	if (!needsRefresh)
 		return;
 	ResetPreviewMetricsCache();
+	if (prepareForSmoothScroll)
+		PrepareForSmoothScroll(GetSelection());
 	SetItemCount(fonts_.size());
-	PrepareForSmoothScroll(GetSelection());
 	Refresh();
 }
 
@@ -630,12 +739,50 @@ const wxFont &FontPreviewListBox::GetPreviewFont(const wxString &previewFace) co
 	return it->second;
 }
 
+bool FontPreviewListBox::HasPreviewMetricsCached(const wxString &fontName, bool usePreviewText, const wxString &previewText) const {
+	const wxString normalizedPreviewText = NormalizePreviewText(previewText);
+	const wxString cacheKey = MakeFontListItemMeasureCacheKey(fontName, normalizedPreviewText, usePreviewText);
+	if (itemMetricsCache_.find(cacheKey) != itemMetricsCache_.end())
+		return true;
+
+	const wxString sharedCacheKey = MakeFontListItemSharedMetricsCacheKey(
+		fontName, normalizedPreviewText, usePreviewText, previewFontSize_, itemHeight_);
+	std::lock_guard<std::mutex> lock(GetSharedPreviewMetricsCacheMutex());
+	return GetSharedPreviewMetricsCache().find(sharedCacheKey) != GetSharedPreviewMetricsCache().end();
+}
+
+size_t FontPreviewListBox::CountMissingPreviewMetrics() const {
+	return CountMissingPreviewMetrics(usePreviewText_, previewText_);
+}
+
+size_t FontPreviewListBox::CountMissingPreviewMetrics(bool usePreviewText, const wxString &previewText) const {
+	size_t missing = 0;
+	for (const auto &fontName : fonts_) {
+		if (!HasPreviewMetricsCached(fontName, usePreviewText, previewText))
+			++missing;
+	}
+	return missing;
+}
+
 const FontPreviewListBox::PreviewItemMetrics &FontPreviewListBox::GetPreviewMetrics(const wxString &fontName) const {
-	const wxString displayText = GetDisplayText(fontName);
-	const wxString cacheKey = GetFontPreviewFaceName(fontName) + wxS("\x1f") + displayText;
+	const wxString measureText = MakeFontListItemMeasureText(fontName, previewText_, usePreviewText_);
+	const wxString cacheKey = MakeFontListItemMeasureCacheKey(fontName, previewText_, usePreviewText_);
 	auto it = itemMetricsCache_.find(cacheKey);
 	if (it != itemMetricsCache_.end())
 		return it->second;
+
+	const wxString sharedCacheKey = MakeFontListItemSharedMetricsCacheKey(
+		fontName, previewText_, usePreviewText_, previewFontSize_, itemHeight_);
+	{
+		std::lock_guard<std::mutex> lock(GetSharedPreviewMetricsCacheMutex());
+		auto sharedIt = GetSharedPreviewMetricsCache().find(sharedCacheKey);
+		if (sharedIt != GetSharedPreviewMetricsCache().end()) {
+			PreviewItemMetrics metrics;
+			metrics.itemHeight = sharedIt->second.itemHeight;
+			metrics.textBoxHeight = sharedIt->second.textBoxHeight;
+			return itemMetricsCache_.emplace(cacheKey, metrics).first->second;
+		}
+	}
 
 	wxClientDC dc(const_cast<FontPreviewListBox *>(this));
 	dc.SetFont(GetPreviewFont(GetFontPreviewFaceName(fontName)));
@@ -643,16 +790,20 @@ const FontPreviewListBox::PreviewItemMetrics &FontPreviewListBox::GetPreviewMetr
 	wxCoord textHeight = 0;
 	wxCoord descent = 0;
 	wxCoord externalLeading = 0;
-	dc.GetTextExtent(displayText, &textWidth, &textHeight, &descent, &externalLeading);
+	dc.GetTextExtent(measureText, &textWidth, &textHeight, &descent, &externalLeading);
 
 	if (textWidth <= 0 || textHeight <= 0) {
 		dc.SetFont(GetFont());
-		dc.GetTextExtent(displayText, &textWidth, &textHeight, &descent, &externalLeading);
+		dc.GetTextExtent(measureText, &textWidth, &textHeight, &descent, &externalLeading);
 	}
 
 	PreviewItemMetrics metrics;
 	metrics.textBoxHeight = static_cast<int>(textHeight + externalLeading);
 	metrics.itemHeight = CalculatePreviewItemHeight(itemHeight_, metrics.textBoxHeight, FromDIP(6));
+	{
+		std::lock_guard<std::mutex> lock(GetSharedPreviewMetricsCacheMutex());
+		GetSharedPreviewMetricsCache()[sharedCacheKey] = { metrics.itemHeight, metrics.textBoxHeight };
+	}
 	return itemMetricsCache_.emplace(cacheKey, metrics).first->second;
 }
 
@@ -757,6 +908,9 @@ DialogFontChooser::DialogFontChooser(wxWindow *parent, const wxFont &initial, co
 , fontListTimer_(this)
 , selectedFont_(initial)
 {
+	const bool initial_quick_preview = OPT_GET("Tool/Font Chooser/Quick Preview")->GetBool();
+	const wxString initial_preview_text = to_wx(OPT_GET("Tool/Font Chooser/Preview Text")->GetString());
+
 	// 构建字体名称列表
 	const auto font_list_mode = ResolveFontChooserFontListLoadMode(!fontList.empty(), deferredFontList_.valid());
 	switch (font_list_mode) {
@@ -786,11 +940,12 @@ DialogFontChooser::DialogFontChooser(wxWindow *parent, const wxFont &initial, co
 	fontNameInput_ = new wxTextCtrl(this, wxID_ANY);
 	fontNameInputSizer->Add(fontNameInput_, 1, wxEXPAND | wxRIGHT, 8);
 	quickPreviewCheck_ = new wxCheckBox(this, wxID_ANY, _("Convenient preview"));
-	quickPreviewCheck_->SetValue(false);
+	quickPreviewCheck_->SetValue(initial_quick_preview);
 	quickPreviewCheck_->SetToolTip(_("Use the sample text followed by the font name for each entry in the font list."));
 	fontNameInputSizer->Add(quickPreviewCheck_, 0, wxALIGN_CENTER_VERTICAL);
 	fontNameSizer->Add(fontNameInputSizer, 0, wxEXPAND | wxBOTTOM, 4);
 	fontNameList_ = new FontPreviewListBox(this, wxID_ANY, wxDefaultPosition, FromDIP(wxSize(500, 280)));
+	fontNameList_->ConfigurePreviewText(initial_quick_preview, initial_preview_text);
 	fontNameList_->SetFonts(filteredFonts_);
 	fontNameSizer->Add(fontNameList_, 1, wxEXPAND);
 	topSizer->Add(fontNameSizer, 10, wxEXPAND | wxRIGHT, 10);
@@ -819,6 +974,7 @@ DialogFontChooser::DialogFontChooser(wxWindow *parent, const wxFont &initial, co
 	const int fontNameInputRowHeight = std::max(fontNameInput_->GetBestSize().GetHeight(), quickPreviewCheck_->GetBestSize().GetHeight());
 	favoriteSizer->AddSpacer(fontNameInputRowHeight + 4);
 	favoriteFontList_ = new FontPreviewListBox(this, wxID_ANY, wxDefaultPosition, FromDIP(wxSize(260, 280)));
+	favoriteFontList_->ConfigurePreviewText(initial_quick_preview, initial_preview_text);
 	RefreshFavoriteFontList();
 	favoriteSizer->Add(favoriteFontList_, 1, wxEXPAND);
 	topSizer->Add(favoriteSizer, 4, wxEXPAND);
@@ -838,10 +994,13 @@ DialogFontChooser::DialogFontChooser(wxWindow *parent, const wxFont &initial, co
 
 	// 预览区
 	auto *previewBox = new wxStaticBoxSizer(wxVERTICAL, this, _("Sample"));
-	const std::string preview_text = OPT_GET("Tool/Font Chooser/Preview Text")->GetString();
+	auto *previewInputSizer = new wxBoxSizer(wxHORIZONTAL);
 	previewInput_ = new wxTextCtrl(previewBox->GetStaticBox(), wxID_ANY,
-		to_wx(preview_text));
-	previewBox->Add(previewInput_, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
+		initial_preview_text, wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
+	previewInputSizer->Add(previewInput_, 1, wxEXPAND | wxRIGHT, 8);
+	previewApplyButton_ = new wxButton(previewBox->GetStaticBox(), wxID_ANY, _("Apply"));
+	previewInputSizer->Add(previewApplyButton_, 0, wxALIGN_CENTER_VERTICAL);
+	previewBox->Add(previewInputSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
 	previewPanel_ = new wxPanel(previewBox->GetStaticBox(), wxID_ANY, wxDefaultPosition, FromDIP(wxSize(-1, 100)));
 	previewPanel_->SetBackgroundColour(*wxWHITE);
 	previewText_ = new wxStaticText(previewPanel_, wxID_ANY, "AaBbYyZz",
@@ -925,18 +1084,54 @@ DialogFontChooser::DialogFontChooser(wxWindow *parent, const wxFont &initial, co
 	underlineCheck_->Bind(wxEVT_CHECKBOX, &DialogFontChooser::OnEffectChanged, this);
 	quickPreviewCheck_->Bind(wxEVT_CHECKBOX, &DialogFontChooser::OnEffectChanged, this);
 	previewInput_->Bind(wxEVT_TEXT, &DialogFontChooser::OnEffectChanged, this);
+	previewInput_->Bind(wxEVT_TEXT_ENTER, [this](wxCommandEvent &) {
+		SchedulePendingPreviewListRefresh();
+	});
+	previewInput_->Bind(wxEVT_KILL_FOCUS, [this](wxFocusEvent &evt) {
+		SchedulePendingPreviewListRefresh();
+		evt.Skip();
+	});
+	previewApplyButton_->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
+		SchedulePendingPreviewListRefresh();
+	});
 	favoriteFontList_->Bind(wxEVT_LISTBOX, &DialogFontChooser::OnFavoriteFontSelected, this);
-
-	Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
+	auto persist_preview_settings = [this]() {
 		OPT_SET("Tool/Font Chooser/Preview Text")->SetString(from_wx(previewInput_->GetValue()));
+		OPT_SET("Tool/Font Chooser/Quick Preview")->SetBool(quickPreviewCheck_->GetValue());
+	};
+	auto clear_pending_preview_refresh = [this]() {
+		pendingPreviewListText_.clear();
+		previewListRefreshPending_ = false;
+	};
+
+	Bind(wxEVT_BUTTON, [this, persist_preview_settings, clear_pending_preview_refresh](wxCommandEvent &) {
+		clear_pending_preview_refresh();
+		persist_preview_settings();
 		selectedFont_ = BuildFontFromControls();
 		EndModal(wxID_OK);
 	}, wxID_OK);
 
-	Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
-		OPT_SET("Tool/Font Chooser/Preview Text")->SetString(from_wx(previewInput_->GetValue()));
+	Bind(wxEVT_BUTTON, [this, persist_preview_settings, clear_pending_preview_refresh](wxCommandEvent &) {
+		clear_pending_preview_refresh();
+		persist_preview_settings();
 		EndModal(wxID_CANCEL);
 	}, wxID_CANCEL);
+
+	Bind(wxEVT_SHOW, [this](wxShowEvent &evt) {
+		evt.Skip();
+		if (!evt.IsShown() || displayPreparationScheduled_ || !ShouldShowInitialPreparationProgress())
+			return;
+		displayPreparationScheduled_ = true;
+		CallAfter([this] {
+			CallAfter([this] {
+				if (IsShown()) {
+					Layout();
+					RefreshAndUpdateChildren(this);
+					PrepareForDisplay(this);
+				}
+			});
+		});
+	});
 
 	if (font_list_mode == FontChooserFontListLoadMode::WaitForAsyncList)
 		StartDeferredFontListLoad();
@@ -951,17 +1146,54 @@ wxFont DialogFontChooser::GetSelectedFont() const {
 	return selectedFont_;
 }
 
-void DialogFontChooser::StartDeferredFontListLoad() {
-	if (!deferredFontList_.valid())
-		return;
+bool DialogFontChooser::ShouldShowInitialPreparationProgress() const {
+	const bool waiting_deferred_font_list = deferredFontList_.valid() && allFonts_.empty();
+	if (!(quickPreviewCheck_ && quickPreviewCheck_->GetValue()))
+		return waiting_deferred_font_list;
 
-	if (deferredFontList_.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
-		if (!fontListTimer_.IsRunning())
-			fontListTimer_.Start(100);
+	return waiting_deferred_font_list || NeedsPreviewMetricPreparation(
+		fontNameList_->CountMissingPreviewMetrics(),
+		favoriteFontList_->CountMissingPreviewMetrics());
+}
+
+void DialogFontChooser::ApplyPendingPreviewListRefresh() {
+	if (!quickPreviewCheck_->GetValue()) {
+		pendingPreviewListText_.clear();
+		previewListRefreshPending_ = false;
 		return;
 	}
+	if (!previewListRefreshPending_ || previewListRefreshInProgress_)
+		return;
 
-	allFonts_ = deferredFontList_.get();
+	const wxString text = pendingPreviewListText_.empty()
+		? NormalizePreviewText(previewInput_->GetValue())
+		: pendingPreviewListText_;
+	pendingPreviewListText_.clear();
+	previewListRefreshPending_ = false;
+	previewListRefreshInProgress_ = true;
+	try {
+		PrepareCurrentFontListPreview(text);
+	}
+	catch (...) {
+		previewListRefreshInProgress_ = false;
+		throw;
+	}
+	previewListRefreshInProgress_ = false;
+}
+
+void DialogFontChooser::SchedulePendingPreviewListRefresh() {
+	if (!quickPreviewCheck_->GetValue() || !previewListRefreshPending_
+		|| previewListRefreshScheduled_ || previewListRefreshInProgress_)
+		return;
+	previewListRefreshScheduled_ = true;
+	CallAfter([this] {
+		previewListRefreshScheduled_ = false;
+		ApplyPendingPreviewListRefresh();
+	});
+}
+
+void DialogFontChooser::ApplyLoadedFontList(const wxArrayString &fonts) {
+	allFonts_ = fonts;
 	filteredFonts_ = allFonts_;
 	RebuildFontSearchCache();
 
@@ -969,7 +1201,7 @@ void DialogFontChooser::StartDeferredFontListLoad() {
 		FilterFontList();
 	}
 	else {
-		fontNameList_->SetFonts(filteredFonts_);
+		fontNameList_->SetFonts(filteredFonts_, false);
 		int best_idx = fontNameList_->FindString(fontNameInput_->GetValue());
 		if (best_idx == wxNOT_FOUND)
 			best_idx = FindBestFilteredFontMatchIndex(fontNameInput_->GetValue());
@@ -983,6 +1215,172 @@ void DialogFontChooser::StartDeferredFontListLoad() {
 	PopulateStyleList(GetEffectiveFaceName());
 	SelectMatchingStyle(BuildFontFromControls());
 	UpdatePreview();
+}
+
+void DialogFontChooser::PrepareForDisplay(wxWindow *progressParent) {
+	if (fontListTimer_.IsRunning())
+		fontListTimer_.Stop();
+
+	wxWindow *owner = progressParent ? progressParent : this;
+	// 复用项目现有进度对话框，在字体对话框已可见后明确展示“加载/渲染中”。
+	DialogProgress progress(owner, _("Preparing font dialog"), _("Loading system font list..."));
+	progress.SetStartTaskAfterShown();
+	progress.SetImmediateProgressUpdate();
+	try {
+		progress.Run([this](agi::ProgressSink *ps) {
+			ps->SetStayOpen(false);
+			ps->SetTitle(from_wx(_("Preparing font dialog")));
+
+			if (deferredFontList_.valid() && allFonts_.empty()) {
+				ps->SetMessage(from_wx(_("Loading system font list...")));
+				while (deferredFontList_.wait_for(std::chrono::milliseconds(20)) != std::future_status::ready) {
+					if (ps->IsCancelled())
+						return;
+				}
+
+				wxArrayString loaded_fonts;
+				try {
+					loaded_fonts = deferredFontList_.get();
+				}
+				catch (...) {
+					loaded_fonts = GetPreferredFontFaceList();
+				}
+
+				InvokeOnMainThreadAndWait([&] {
+					ApplyLoadedFontList(loaded_fonts);
+				});
+			}
+
+			size_t font_count = 0;
+			size_t favorite_count = 0;
+			InvokeOnMainThreadAndWait([&] {
+				font_count = fontNameList_->GetFontCount();
+				favorite_count = favoriteFontList_->GetFontCount();
+			});
+
+			const int64_t total_steps = std::max<int64_t>(1, static_cast<int64_t>(font_count + favorite_count + 1));
+			ps->SetMessage(from_wx(_("Preparing font preview list...")));
+			ps->SetProgress(0, total_steps);
+
+			for (size_t begin = 0; begin < font_count; begin += kProgressWarmupChunkSize) {
+				if (ps->IsCancelled())
+					return;
+				const size_t end = std::min(font_count, begin + kProgressWarmupChunkSize);
+				// wxFont/wxDC 相关访问保持在主线程，进度更新由后台任务驱动。
+				InvokeOnMainThreadAndWait([&] {
+					fontNameList_->WarmMetricsRange(begin, end);
+				});
+				ps->SetProgress(static_cast<int64_t>(end), total_steps);
+			}
+
+			ps->SetMessage(from_wx(_("Preparing favorite font preview...")));
+			for (size_t begin = 0; begin < favorite_count; begin += kProgressWarmupChunkSize) {
+				if (ps->IsCancelled())
+					return;
+				const size_t end = std::min(favorite_count, begin + kProgressWarmupChunkSize);
+				InvokeOnMainThreadAndWait([&] {
+					favoriteFontList_->WarmMetricsRange(begin, end);
+				});
+				ps->SetProgress(static_cast<int64_t>(font_count + end), total_steps);
+			}
+
+			InvokeOnMainThreadAndWait([&] {
+				fontNameList_->SetItemCount(fontNameList_->GetFontCount());
+				fontNameList_->Refresh();
+				favoriteFontList_->SetItemCount(favoriteFontList_->GetFontCount());
+				favoriteFontList_->Refresh();
+			});
+
+			ps->SetMessage(from_wx(_("Font dialog is ready.")));
+			ps->SetProgress(total_steps, total_steps);
+		});
+	}
+	catch (agi::UserCancelException const&) {
+		EndModal(wxID_CANCEL);
+	}
+}
+
+void DialogFontChooser::PrepareCurrentFontListPreview(const wxString &text) {
+	const size_t missing_main_metrics = fontNameList_->CountMissingPreviewMetrics(quickPreviewCheck_->GetValue(), text);
+	const size_t missing_favorite_metrics = favoriteFontList_->CountMissingPreviewMetrics(quickPreviewCheck_->GetValue(), text);
+	if (!NeedsPreviewMetricPreparation(missing_main_metrics, missing_favorite_metrics)) {
+		fontNameList_->ConfigurePreviewText(quickPreviewCheck_->GetValue(), text, false);
+		favoriteFontList_->ConfigurePreviewText(quickPreviewCheck_->GetValue(), text, false);
+		fontNameList_->Refresh();
+		favoriteFontList_->Refresh();
+		return;
+	}
+
+	DialogProgress progress(this, _("Preparing font dialog"), _("Preparing font preview list..."));
+	progress.SetStartTaskAfterShown();
+	progress.SetImmediateProgressUpdate();
+	try {
+		progress.Run([this, text](agi::ProgressSink *ps) {
+			ps->SetStayOpen(false);
+			ps->SetTitle(from_wx(_("Preparing font dialog")));
+			InvokeOnMainThreadAndWait([&] {
+				fontNameList_->ConfigurePreviewText(quickPreviewCheck_->GetValue(), text, false);
+				favoriteFontList_->ConfigurePreviewText(quickPreviewCheck_->GetValue(), text, false);
+			});
+
+			size_t font_count = 0;
+			size_t favorite_count = 0;
+			InvokeOnMainThreadAndWait([&] {
+				font_count = fontNameList_->GetFontCount();
+				favorite_count = favoriteFontList_->GetFontCount();
+			});
+
+			const int64_t total_steps = std::max<int64_t>(1, static_cast<int64_t>(font_count + favorite_count));
+			ps->SetMessage(from_wx(_("Preparing font preview list...")));
+			ps->SetProgress(0, total_steps);
+
+			for (size_t begin = 0; begin < font_count; begin += kProgressWarmupChunkSize) {
+				if (ps->IsCancelled())
+					return;
+				const size_t end = std::min(font_count, begin + kProgressWarmupChunkSize);
+				InvokeOnMainThreadAndWait([&] {
+					fontNameList_->WarmMetricsRange(begin, end);
+				});
+				ps->SetProgress(static_cast<int64_t>(end), total_steps);
+			}
+
+			ps->SetMessage(from_wx(_("Preparing favorite font preview...")));
+			for (size_t begin = 0; begin < favorite_count; begin += kProgressWarmupChunkSize) {
+				if (ps->IsCancelled())
+					return;
+				const size_t end = std::min(favorite_count, begin + kProgressWarmupChunkSize);
+				InvokeOnMainThreadAndWait([&] {
+					favoriteFontList_->WarmMetricsRange(begin, end);
+				});
+				ps->SetProgress(static_cast<int64_t>(font_count + end), total_steps);
+			}
+
+			InvokeOnMainThreadAndWait([&] {
+				fontNameList_->SetItemCount(fontNameList_->GetFontCount());
+				fontNameList_->Refresh();
+				favoriteFontList_->SetItemCount(favoriteFontList_->GetFontCount());
+				favoriteFontList_->Refresh();
+			});
+
+			ps->SetMessage(from_wx(_("Font dialog is ready.")));
+			ps->SetProgress(total_steps, total_steps);
+		});
+	}
+	catch (agi::UserCancelException const&) {
+	}
+}
+
+void DialogFontChooser::StartDeferredFontListLoad() {
+	if (!deferredFontList_.valid())
+		return;
+
+	if (deferredFontList_.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+		if (!fontListTimer_.IsRunning())
+			fontListTimer_.Start(100);
+		return;
+	}
+
+	ApplyLoadedFontList(deferredFontList_.get());
 }
 
 void DialogFontChooser::PopulateStyleList(const wxString &faceName) {
@@ -1103,7 +1501,7 @@ void DialogFontChooser::FilterFontList() {
 		}
 	}
 
-	fontNameList_->SetFonts(filteredFonts_);
+	fontNameList_->SetFonts(filteredFonts_, false);
 
 	// 优先选中非 @ 的最佳匹配项，其次再退回到 @ 字体
 	if (!filteredFonts_.empty()) {
@@ -1119,21 +1517,32 @@ void DialogFontChooser::FilterFontList() {
 
 void DialogFontChooser::RefreshFavoriteFontList(const wxString &selectedFont) {
 	const wxArrayString favorites = GetFavoriteFontList();
-	favoriteFontList_->SetFonts(favorites);
+	favoriteFontList_->SetFonts(favorites, false);
 
 	if (selectedFont.empty())
+	{
+		favoriteFontList_->PrepareForSmoothScroll(0);
 		return;
+	}
 
 	const int index = favoriteFontList_->FindString(selectedFont);
 	if (index != wxNOT_FOUND) {
 		favoriteFontList_->SetSelection(index);
 		favoriteFontList_->ScrollToRow(index);
+		favoriteFontList_->PrepareForSmoothScroll(index);
+	}
+	else {
+		favoriteFontList_->PrepareForSmoothScroll(0);
 	}
 }
 
-void DialogFontChooser::UpdatePreview() {
+void DialogFontChooser::UpdatePreview(bool updateFontList) {
 	const wxString text = NormalizePreviewText(previewInput_->GetValue());
-	fontNameList_->ConfigurePreviewText(quickPreviewCheck_->GetValue(), text);
+	if (updateFontList) {
+		fontNameList_->ConfigurePreviewText(quickPreviewCheck_->GetValue(), text);
+		favoriteFontList_->ConfigurePreviewText(quickPreviewCheck_->GetValue(), text);
+	}
+	previewApplyButton_->Enable(quickPreviewCheck_->GetValue());
 
 	wxFont font = BuildFontFromControls();
 	if (font.IsOk()) {
@@ -1239,7 +1648,21 @@ void DialogFontChooser::OnDeferredFontListTimer(wxTimerEvent &) {
 	StartDeferredFontListLoad();
 }
 
-void DialogFontChooser::OnEffectChanged(wxCommandEvent &) {
+void DialogFontChooser::OnEffectChanged(wxCommandEvent &event) {
+	const wxString text = NormalizePreviewText(previewInput_->GetValue());
+	if (event.GetEventObject() == quickPreviewCheck_) {
+		pendingPreviewListText_.clear();
+		previewListRefreshPending_ = false;
+		PrepareCurrentFontListPreview(text);
+		UpdatePreview(false);
+		return;
+	}
+	if (event.GetEventObject() == previewInput_ && quickPreviewCheck_->GetValue()) {
+		pendingPreviewListText_ = text;
+		previewListRefreshPending_ = true;
+		UpdatePreview(false);
+		return;
+	}
 	UpdatePreview();
 }
 

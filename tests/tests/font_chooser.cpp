@@ -150,6 +150,60 @@ std::string MakeFontListItemText(const std::string &font_name, const std::string
 	return NormalizePreviewText(preview_text) + " (" + font_name + ")";
 }
 
+std::string MakeFontListItemMeasureText(const std::string &font_name, const std::string &preview_text, bool use_preview_text) {
+	if (!use_preview_text)
+		return font_name;
+
+	return NormalizePreviewText(preview_text);
+}
+
+std::string MakeFontListItemSharedMetricsCacheKey(const std::string &font_name, const std::string &preview_text,
+	bool use_preview_text, int preview_font_size, int item_height) {
+	return std::to_string(preview_font_size) + '\x1f' + std::to_string(item_height) + '\x1f'
+		+ GetFontPreviewFaceName(font_name) + '\x1f' + MakeFontListItemMeasureText(font_name, preview_text, use_preview_text);
+}
+
+bool ShouldShowInitialPreparationProgress(bool quick_preview_enabled, size_t missing_main_metrics,
+	size_t missing_favorite_metrics, bool has_deferred_font_list, bool all_fonts_empty) {
+	const bool waiting_deferred_font_list = has_deferred_font_list && all_fonts_empty;
+	if (!quick_preview_enabled)
+		return waiting_deferred_font_list;
+	return waiting_deferred_font_list || missing_main_metrics > 0 || missing_favorite_metrics > 0;
+}
+
+bool NeedsPreviewMetricPreparation(size_t missing_main_metrics, size_t missing_favorite_metrics) {
+	return missing_main_metrics != 0 || missing_favorite_metrics != 0;
+}
+
+bool ShouldSchedulePendingPreviewListRefresh(bool quick_preview_enabled, bool refresh_pending,
+	bool refresh_scheduled, bool refresh_in_progress) {
+	return quick_preview_enabled && refresh_pending && !refresh_scheduled && !refresh_in_progress;
+}
+
+struct PendingPreviewRefreshApplyResult {
+	bool should_apply = false;
+	bool refresh_pending = false;
+	bool refresh_in_progress = false;
+	std::string pending_text;
+	std::string applied_text;
+};
+
+PendingPreviewRefreshApplyResult ApplyPendingPreviewListRefresh(bool quick_preview_enabled,
+	bool refresh_pending, bool refresh_in_progress, std::string pending_text, const std::string &current_text) {
+	if (!quick_preview_enabled)
+		return { false, false, refresh_in_progress, "", "" };
+	if (!refresh_pending || refresh_in_progress)
+		return { false, refresh_pending, refresh_in_progress, pending_text, "" };
+
+	PendingPreviewRefreshApplyResult result;
+	result.should_apply = true;
+	result.refresh_pending = false;
+	result.refresh_in_progress = true;
+	result.pending_text.clear();
+	result.applied_text = pending_text.empty() ? NormalizePreviewText(current_text) : pending_text;
+	return result;
+}
+
 int CalculatePreviewItemHeight(int minimum_height, int text_box_height, int vertical_padding) {
 	return std::max(minimum_height, text_box_height + vertical_padding);
 }
@@ -416,6 +470,69 @@ TEST(FontChooserTest, QuickPreviewAppendsFontName) {
 
 TEST(FontChooserTest, QuickPreviewPreservesAtFontDistinction) {
 	EXPECT_EQ(MakeFontListItemText("@Microsoft YaHei", "", true), "AaBbYyZz (@Microsoft YaHei)");
+}
+
+TEST(FontChooserTest, QuickPreviewMeasureTextIgnoresFontNameSuffix) {
+	EXPECT_EQ(MakeFontListItemMeasureText("@Microsoft YaHei", "示例文本", true), "示例文本");
+	EXPECT_EQ(MakeFontListItemMeasureText("Arial", "", true), "AaBbYyZz");
+}
+
+TEST(FontChooserTest, NonQuickPreviewMeasureTextKeepsFontName) {
+	EXPECT_EQ(MakeFontListItemMeasureText("Arial", "示例文本", false), "Arial");
+}
+
+TEST(FontChooserTest, SharedMetricsCacheKeySeparatesPreviewSize) {
+	EXPECT_NE(
+		MakeFontListItemSharedMetricsCacheKey("Arial", "示例文本", true, 16, 40),
+		MakeFontListItemSharedMetricsCacheKey("Arial", "示例文本", true, 18, 40));
+	EXPECT_NE(
+		MakeFontListItemSharedMetricsCacheKey("Arial", "示例文本", true, 16, 40),
+		MakeFontListItemSharedMetricsCacheKey("Arial", "示例文本", true, 16, 44));
+}
+
+TEST(FontChooserTest, SharedMetricsHitSkipsInitialProgress) {
+	EXPECT_FALSE(ShouldShowInitialPreparationProgress(true, 0, 0, false, false));
+	EXPECT_TRUE(ShouldShowInitialPreparationProgress(true, 1, 0, false, false));
+	EXPECT_TRUE(ShouldShowInitialPreparationProgress(true, 0, 1, false, false));
+	EXPECT_TRUE(ShouldShowInitialPreparationProgress(false, 0, 0, true, true));
+	EXPECT_TRUE(ShouldShowInitialPreparationProgress(true, 0, 0, true, true));
+}
+
+TEST(FontChooserTest, PreviewPreparationTracksFavoriteListCacheMisses) {
+	EXPECT_FALSE(NeedsPreviewMetricPreparation(0, 0));
+	EXPECT_TRUE(NeedsPreviewMetricPreparation(1, 0));
+	EXPECT_TRUE(NeedsPreviewMetricPreparation(0, 1));
+}
+
+TEST(FontChooserTest, PendingPreviewRefreshRequiresDirtyStateToSchedule) {
+	EXPECT_FALSE(ShouldSchedulePendingPreviewListRefresh(true, false, false, false));
+	EXPECT_FALSE(ShouldSchedulePendingPreviewListRefresh(true, true, true, false));
+	EXPECT_FALSE(ShouldSchedulePendingPreviewListRefresh(true, true, false, true));
+	EXPECT_FALSE(ShouldSchedulePendingPreviewListRefresh(false, true, false, false));
+	EXPECT_TRUE(ShouldSchedulePendingPreviewListRefresh(true, true, false, false));
+}
+
+TEST(FontChooserTest, PendingPreviewRefreshConsumesPendingStateBeforeWork) {
+	auto result = ApplyPendingPreviewListRefresh(true, true, false, "示例文本", "AaBbYyZz");
+	EXPECT_TRUE(result.should_apply);
+	EXPECT_FALSE(result.refresh_pending);
+	EXPECT_TRUE(result.refresh_in_progress);
+	EXPECT_TRUE(result.pending_text.empty());
+	EXPECT_EQ(result.applied_text, "示例文本");
+}
+
+TEST(FontChooserTest, PendingPreviewRefreshFallsBackToCurrentTextWhenPendingTextMissing) {
+	auto result = ApplyPendingPreviewListRefresh(true, true, false, "", "");
+	EXPECT_TRUE(result.should_apply);
+	EXPECT_EQ(result.applied_text, "AaBbYyZz");
+}
+
+TEST(FontChooserTest, PendingPreviewRefreshDoesNotReenterWhileApplying) {
+	auto result = ApplyPendingPreviewListRefresh(true, true, true, "示例文本", "AaBbYyZz");
+	EXPECT_FALSE(result.should_apply);
+	EXPECT_TRUE(result.refresh_pending);
+	EXPECT_TRUE(result.refresh_in_progress);
+	EXPECT_EQ(result.pending_text, "示例文本");
 }
 
 TEST(FontChooserTest, TallPreviewItemExpandsHeight) {

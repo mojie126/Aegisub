@@ -98,7 +98,7 @@ public:
 
 	void SetFonts(const wxArrayString &fonts) {
 		fonts_ = fonts;
-		list_->SetFonts(fonts_);
+		list_->SetFonts(fonts_, false);
 	}
 
 	void ShowBelow(wxWindow *anchor) {
@@ -126,6 +126,7 @@ public:
 		}
 		list_->SetSelection(idx);
 		list_->ScrollToRow(idx);
+		list_->PrepareForSmoothScroll(idx);
 	}
 
 	void MoveSelection(int delta) {

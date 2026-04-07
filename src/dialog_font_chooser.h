@@ -31,6 +31,7 @@
 
 #pragma once
 
+#include <functional>
 #include <future>
 #include <map>
 #include <vector>
@@ -70,6 +71,7 @@ wxArrayString GetFavoriteFontList();
 
 class wxTextCtrl;
 class wxListBox;
+class wxButton;
 class wxCheckBox;
 class wxStaticText;
 class wxPanel;
@@ -83,14 +85,30 @@ public:
 		const wxSize &size = wxDefaultSize);
 
 	/// @brief 设置字体列表内容
+	/// @param fonts 字体列表
 	void SetFonts(const wxArrayString &fonts);
+
+	/// @brief 设置字体列表内容
+	/// @param fonts 字体列表
+	/// @param prepareForSmoothScroll 是否立即启动首屏缓存预热
+	void SetFonts(const wxArrayString &fonts, bool prepareForSmoothScroll);
+
+	/// @brief 同步预热当前字体列表的全部预览缓存
+	/// @param progress 进度回调，参数依次为已完成数量与总数量
+	void WarmAllMetrics(const std::function<void(size_t, size_t)> &progress);
+
+	/// @brief 同步预热指定范围内的预览缓存
+	/// @param begin 起始索引（包含）
+	/// @param end 结束索引（不包含）
+	void WarmMetricsRange(size_t begin, size_t end);
 
 	/// @brief 配置列表预览文本
 	/// @param usePreviewText 是否使用示例文本作为列表预览内容
 	/// @param previewText 示例文本内容
+	/// @param prepareForSmoothScroll 是否立即预热首屏缓存
 	/// @details 仅在预览文本真正影响条目布局时才清空行高缓存，避免关闭便捷预览时
 	///          因输入框文本变化而重测整张字体列表。
-	void ConfigurePreviewText(bool usePreviewText, const wxString &previewText);
+	void ConfigurePreviewText(bool usePreviewText, const wxString &previewText, bool prepareForSmoothScroll = true);
 
 	/// @brief 预热当前选择附近的字体度量缓存，降低首次滚动卡顿
 	/// @param anchorRow 优先预热的锚点行，传 wxNOT_FOUND 时从列表起始处开始
@@ -101,6 +119,14 @@ public:
 
 	/// @brief 获取当前列表中的字体数量
 	size_t GetFontCount() const { return fonts_.size(); }
+
+	/// @brief 统计当前预览设置下仍缺失的条目度量缓存数量
+	size_t CountMissingPreviewMetrics() const;
+
+	/// @brief 统计指定预览设置下仍缺失的条目度量缓存数量
+	/// @param usePreviewText 是否启用便捷预览
+	/// @param previewText 示例文本
+	size_t CountMissingPreviewMetrics(bool usePreviewText, const wxString &previewText) const;
 
 	/// @brief 查找字体名称的索引
 	/// @return 找到返回索引，否则返回 wxNOT_FOUND
@@ -124,6 +150,7 @@ private:
 	size_t metricWarmupCursor_ = 0;   ///< 当前预热进度
 
 	wxString GetDisplayText(const wxString &fontName) const;
+	bool HasPreviewMetricsCached(const wxString &fontName, bool usePreviewText, const wxString &previewText) const;
 	const wxFont &GetPreviewFont(const wxString &previewFace) const;
 	const PreviewItemMetrics &GetPreviewMetrics(const wxString &fontName) const;
 	int MeasureItemHeight(const wxString &fontName) const;
@@ -163,6 +190,10 @@ public:
 	/// @return 用户最终选择的字体对象
 	wxFont GetSelectedFont() const;
 
+	/// @brief 在字体对话框打开后显示项目进度框并准备字体列表与预览缓存
+	/// @param progressParent 进度框的父窗口
+	void PrepareForDisplay(wxWindow *progressParent);
+
 private:
 	wxArrayString allFonts_;          ///< 完整字体名称列表
 	wxArrayString allFontLowerNames_; ///< 完整字体名称列表的小写缓存
@@ -180,6 +211,7 @@ private:
 	wxCheckBox *strikeoutCheck_;      ///< 删除线复选框
 	wxCheckBox *underlineCheck_;      ///< 下划线复选框
 	wxTextCtrl *previewInput_;        ///< 预览文本输入框
+	wxButton *previewApplyButton_;    ///< 将示例文案应用到字体列表的确认按钮
 	wxPanel *previewPanel_;           ///< 预览面板
 	wxStaticText *previewText_;       ///< 预览文字
 	FontPreviewListBox *favoriteFontList_; ///< 收藏字体列表
@@ -188,6 +220,11 @@ private:
 	bool fontNameFilterDirty_ = false;  ///< 延迟字体列表到达前用户是否已主动修改过滤条件
 	std::shared_future<wxArrayString> deferredFontList_; ///< 异步枚举中的字体列表
 	wxTimer fontListTimer_;              ///< 轮询异步字体枚举结果，避免首次打开时阻塞 UI
+	bool displayPreparationScheduled_ = false; ///< 是否已在首次显示后安排准备进度流程
+	wxString pendingPreviewListText_;    ///< 等待应用到字体列表的示例文案
+	bool previewListRefreshPending_ = false; ///< 示例文案变更后是否仍待重建字体列表
+	bool previewListRefreshScheduled_ = false; ///< 是否已安排一次延后的示例文案列表重建
+	bool previewListRefreshInProgress_ = false; ///< 是否正在执行示例文案列表重建
 
 	wxFont selectedFont_;             ///< 当前选中的字体
 
@@ -200,6 +237,10 @@ private:
 
 	/// @brief 重建字体搜索缓存
 	void RebuildFontSearchCache();
+	void ApplyLoadedFontList(const wxArrayString &fonts);
+	void ApplyPendingPreviewListRefresh();
+	void SchedulePendingPreviewListRefresh();
+	bool ShouldShowInitialPreparationProgress() const;
 	void StartDeferredFontListLoad();
 
 	/// @brief 在当前过滤结果中查找最佳匹配字体
@@ -219,7 +260,12 @@ private:
 	void RefreshFavoriteFontList(const wxString &selectedFont = wxString());
 
 	/// @brief 根据当前控件状态更新预览
-	void UpdatePreview();
+	/// @param updateFontList 是否同步更新字体列表的预览布局与缓存状态
+	void UpdatePreview(bool updateFontList = true);
+
+	/// @brief 为当前字体列表预览设置显示项目进度并完成整表预热
+	/// @param text 当前示例文本
+	void PrepareCurrentFontListPreview(const wxString &text);
 
 	/// @brief 从控件状态构建字体对象
 	/// @return 根据当前控件选择构建的字体

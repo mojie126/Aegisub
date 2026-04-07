@@ -8233,6 +8233,26 @@ msgid "Use the sample text followed by the font name for each entry in the font 
 msgstr ""
 
 #: ../src/dialog_font_chooser.cpp
+msgid "Preparing font dialog"
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Loading system font list..."
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Preparing font preview list..."
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Preparing favorite font preview..."
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
+msgid "Font dialog is ready."
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
 msgid "Font st&yle:"
 msgstr ""
 
