@@ -53,6 +53,7 @@ tests_src = [
     'tests/audit_fixes.cpp',
     'tests/style_rename.cpp',
     'tests/font_chooser.cpp',
+    'tests/ui_regression_audit.cpp',
     'tests/image_video.cpp',
     'tests/version_check.cpp',
 ]

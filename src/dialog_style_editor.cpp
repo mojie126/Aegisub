@@ -41,6 +41,7 @@
 #include "colour_button.h"
 #include "compat.h"
 #include "dialog_font_chooser.h"
+#include "font_list_load_mode.h"
 #include "help_button.h"
 #include "include/aegisub/context.h"
 #include "libresrc/libresrc.h"
@@ -53,6 +54,7 @@
 #include "validators.h"
 
 #include <algorithm>
+#include <chrono>
 #include <freetype/freetype.h>
 
 #include <wx/bmpbuttn.h>
@@ -509,11 +511,15 @@ public:
 	}
 };
 
-DialogStyleEditor::DialogStyleEditor(wxWindow *parent, AssStyle *style, agi::Context *c, AssStyleStorage *store, std::string const& new_name, wxArrayString const& font_list)
+DialogStyleEditor::DialogStyleEditor(wxWindow *parent, AssStyle *style, agi::Context *c, AssStyleStorage *store,
+	std::string const& new_name, wxArrayString const& font_list,
+	std::shared_future<wxArrayString> deferred_font_list)
 : wxDialog (parent, -1, _("Style Editor"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 , c(c)
 , style(style)
 , store(store)
+, deferredFontList_(std::move(deferred_font_list))
+, fontListTimer_(this)
 {
 	if (new_name.size()) {
 		is_new = true;
@@ -638,7 +644,19 @@ DialogStyleEditor::DialogStyleEditor(wxWindow *parent, AssStyle *style, agi::Con
 	OutlineType->SetSelection(BorderStyleToControl(style->borderstyle));
 	Alignment->SetSelection(AlignToControl(style->alignment));
 	// Fill font face list box
-	fontList_ = font_list.empty() ? GetPreferredFontFaceList() : font_list;
+	const auto font_list_mode = ResolveStyleEditorFontListLoadMode(!font_list.empty(), deferredFontList_.valid());
+	switch (font_list_mode) {
+		case StyleEditorFontListLoadMode::UseProvidedList:
+			fontList_ = font_list;
+			break;
+		case StyleEditorFontListLoadMode::WaitForAsyncList:
+			fontList_.Clear();
+			break;
+		case StyleEditorFontListLoadMode::EnumerateSynchronously:
+		default:
+			fontList_ = GetPreferredFontFaceList();
+			break;
+	}
 	FontName->Freeze();
 	FontName->SetFontList(fontList_);
 	FontName->SetValue(to_wx(style->font));
@@ -788,14 +806,49 @@ DialogStyleEditor::DialogStyleEditor(wxWindow *parent, AssStyle *style, agi::Con
 	Bind(wxEVT_BUTTON, std::bind(&DialogStyleEditor::Apply, this, true, false), wxID_APPLY);
 	Bind(wxEVT_BUTTON, std::bind(&DialogStyleEditor::Apply, this, false, true), wxID_CANCEL);
 	Bind(wxEVT_BUTTON, std::bind(&HelpButton::OpenPage, "Style Editor"), wxID_HELP);
+	Bind(wxEVT_TIMER, &DialogStyleEditor::OnDeferredFontListTimer, this, fontListTimer_.GetId());
+	if (font_list_mode == StyleEditorFontListLoadMode::WaitForAsyncList)
+		StartDeferredFontListLoad();
 
 	for (auto const& elem : colorButton)
 		elem->Bind(EVT_COLOR, &DialogStyleEditor::OnSetColor, this);
 }
 
 DialogStyleEditor::~DialogStyleEditor() {
+	if (fontListTimer_.IsRunning())
+		fontListTimer_.Stop();
 	if (is_new)
 		delete style;
+}
+
+void DialogStyleEditor::StartDeferredFontListLoad() {
+	if (!deferredFontList_.valid())
+		return;
+
+	if (deferredFontList_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+		fontList_ = deferredFontList_.get();
+		FontName->SetFontList(fontList_);
+		return;
+	}
+
+	if (!fontListTimer_.IsRunning())
+		fontListTimer_.Start(100);
+}
+
+void DialogStyleEditor::OnDeferredFontListTimer(wxTimerEvent &) {
+	if (!deferredFontList_.valid()) {
+		fontListTimer_.Stop();
+		return;
+	}
+
+	if (deferredFontList_.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+		return;
+
+	fontListTimer_.Stop();
+	fontList_ = deferredFontList_.get();
+	FontName->Freeze();
+	FontName->SetFontList(fontList_);
+	FontName->Thaw();
 }
 
 std::string DialogStyleEditor::GetStyleName() const {

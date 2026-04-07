@@ -8639,6 +8639,10 @@ msgid "Font name(&F):"
 msgstr "字体名称(&F):"
 
 #: ../src/dialog_font_chooser.cpp
+msgid "Use the sample text followed by the font name for each entry in the font list."
+msgstr "在字体列表中对每一项使用示例文案，并在其后附加字体名称。"
+
+#: ../src/dialog_font_chooser.cpp
 msgid "Font st&yle:"
 msgstr "字形(&Y):"
 

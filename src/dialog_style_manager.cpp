@@ -53,6 +53,7 @@
 #include <libaegisub/vfr.h>
 
 #include <algorithm>
+#include <chrono>
 #include <functional>
 #include <future>
 #include <memory>
@@ -126,6 +127,9 @@ class DialogStyleManager final : public wxDialog {
 	void LoadCurrentStyles(int commit_type);
 	/// Enable/disable all of the buttons as appropriate
 	void UpdateButtons();
+	/// @brief 非阻塞地获取已完成枚举的字体列表
+	/// @details 字体枚举仍在后台进行时返回空列表，避免样式编辑器在UI线程等待 shared_future。
+	wxArrayString GetAvailableFontList();
 	/// Move styles up or down
 	/// @param storage Storage or current file styles
 	/// @param type 0: up; 1: top; 2: down; 3: bottom; 4: sort
@@ -261,9 +265,7 @@ DialogStyleManager::DialogStyleManager(agi::Context *context)
 , c(context)
 , commit_connection(c->ass->AddCommitListener(&DialogStyleManager::LoadCurrentStyles, this))
 , active_line_connection(c->selectionController->AddActiveLineListener(&DialogStyleManager::OnActiveLineChanged, this))
-, font_list(std::async(std::launch::async, []() -> wxArrayString {
-	return GetPreferredFontFaceList();
-}))
+, font_list(GetPreferredFontFaceListAsync())
 {
 	using std::bind;
 	SetIcon(GETICON(style_toolbutton_16));
@@ -589,8 +591,15 @@ void DialogStyleManager::PasteToStorage() {
 	UpdateButtons();
 }
 
+wxArrayString DialogStyleManager::GetAvailableFontList() {
+	// 用户快速打开样式编辑器时不阻塞UI，等字体枚举完成后下次再提供完整列表。
+	if (font_list.valid() && font_list.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+		return font_list.get();
+	return {};
+}
+
 void DialogStyleManager::ShowStorageEditor(AssStyle *style, std::string const& new_name) {
-	DialogStyleEditor editor(this, style, c, &Store, new_name, font_list.get());
+	DialogStyleEditor editor(this, style, c, &Store, new_name, GetAvailableFontList(), font_list);
 	if (editor.ShowModal()) {
 		UpdateStorage();
 		StorageList->SetStringSelection(to_wx(editor.GetStyleName()));
@@ -628,7 +637,7 @@ void DialogStyleManager::OnStorageDelete() {
 }
 
 void DialogStyleManager::ShowCurrentEditor(AssStyle *style, std::string const& new_name) {
-	DialogStyleEditor editor(this, style, c, nullptr, new_name, font_list.get());
+	DialogStyleEditor editor(this, style, c, nullptr, new_name, GetAvailableFontList(), font_list);
 	if (editor.ShowModal()) {
 		CurrentList->DeselectAll();
 		CurrentList->SetStringSelection(to_wx(editor.GetStyleName()));

@@ -27,11 +27,13 @@
 //
 // Aegisub Project http://www.aegisub.org/
 
+#include <future>
 #include <memory>
 #include <string>
 #include <wx/dialog.h>
 #include <wx/panel.h>
 #include <wx/popupwin.h>
+#include <wx/timer.h>
 #include "ini.h"
 
 class AssStyle;
@@ -137,6 +139,8 @@ class DialogStyleEditor final : public wxDialog {
 	wxTextCtrl *StyleName;
 	FontSelectionControl *FontName;
 	wxArrayString fontList_; ///< 完整字体列表，用于子串过滤
+	std::shared_future<wxArrayString> deferredFontList_; ///< 样式管理器异步枚举中的字体列表
+	wxTimer fontListTimer_; ///< 轮询异步字体枚举结果，避免模态对话框内同步阻塞
 	wxCheckBox *BoxBold;
 	wxCheckBox *BoxItalic;
 	wxCheckBox *BoxUnderline;
@@ -153,10 +157,12 @@ class DialogStyleEditor final : public wxDialog {
 	int ControlToAlign(int n);
 	int BorderStyleToControl(int n);
 	int ControlToBorderStyle(int n);
+	void StartDeferredFontListLoad();
 	void UpdateWorkStyle();
 
 	void OnChildFocus(wxChildFocusEvent &event);
 	void OnCommandPreviewUpdate(wxCommandEvent &event);
+	void OnDeferredFontListTimer(wxTimerEvent &event);
 	void OnFontNameText(wxCommandEvent &event);
 
 	void OnPreviewTextChange(wxCommandEvent &event);
@@ -170,7 +176,9 @@ class DialogStyleEditor final : public wxDialog {
 	void OnSetColor(ValueEvent<agi::Color>& evt);
 
 public:
-	DialogStyleEditor(wxWindow *parent, AssStyle *style, agi::Context *c, AssStyleStorage *store, std::string const& new_name, wxArrayString const& font_list);
+	DialogStyleEditor(wxWindow *parent, AssStyle *style, agi::Context *c, AssStyleStorage *store,
+		std::string const& new_name, wxArrayString const& font_list,
+		std::shared_future<wxArrayString> deferred_font_list = {});
 	~DialogStyleEditor();
 
 	std::string GetStyleName() const;

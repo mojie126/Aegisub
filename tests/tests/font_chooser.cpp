@@ -7,6 +7,10 @@
 
 #include <main.h>
 
+#include <chrono>
+#include <future>
+#include <thread>
+
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -49,35 +53,62 @@ void SortFontFaceList(std::vector<std::string> &font_list) {
 	});
 }
 
-int FindBestFontMatchIndex(const std::vector<std::string> &fonts, const std::string &input) {
-	if (fonts.empty())
-		return -1;
+struct FilteredFontSearchCache {
+	std::vector<std::string> all_font_lower_names;
+	std::vector<std::string> all_preview_lower_names;
+	std::vector<size_t> filtered_font_indices;
+};
 
+FilteredFontSearchCache RebuildFontSearchCache(const std::vector<std::string> &fonts) {
 	auto lower = [](std::string value) {
 		std::transform(value.begin(), value.end(), value.begin(),
 			[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 		return value;
 	};
 
-	const std::string input_lower = lower(input);
+	FilteredFontSearchCache cache;
+	cache.all_font_lower_names.reserve(fonts.size());
+	cache.all_preview_lower_names.reserve(fonts.size());
+	cache.filtered_font_indices.reserve(fonts.size());
 
 	for (size_t i = 0; i < fonts.size(); ++i) {
-		if (lower(fonts[i]) == input_lower)
+		cache.all_font_lower_names.push_back(lower(fonts[i]));
+		cache.all_preview_lower_names.push_back(lower(GetFontPreviewFaceName(fonts[i])));
+		cache.filtered_font_indices.push_back(i);
+	}
+
+	return cache;
+}
+
+int FindBestFilteredFontMatchIndex(const FilteredFontSearchCache &cache, const std::string &input) {
+	if (cache.filtered_font_indices.empty())
+		return -1;
+
+	std::string input_lower = input;
+	std::transform(input_lower.begin(), input_lower.end(), input_lower.begin(),
+		[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+	for (size_t i = 0; i < cache.filtered_font_indices.size(); ++i) {
+		const size_t original_index = cache.filtered_font_indices[i];
+		if (cache.all_font_lower_names[original_index] == input_lower)
 			return static_cast<int>(i);
 	}
 
-	for (size_t i = 0; i < fonts.size(); ++i) {
-		if (lower(GetFontPreviewFaceName(fonts[i])) == input_lower)
+	for (size_t i = 0; i < cache.filtered_font_indices.size(); ++i) {
+		const size_t original_index = cache.filtered_font_indices[i];
+		if (cache.all_preview_lower_names[original_index] == input_lower)
 			return static_cast<int>(i);
 	}
 
-	for (size_t i = 0; i < fonts.size(); ++i) {
-		if (lower(fonts[i]).rfind(input_lower, 0) == 0)
+	for (size_t i = 0; i < cache.filtered_font_indices.size(); ++i) {
+		const size_t original_index = cache.filtered_font_indices[i];
+		if (cache.all_font_lower_names[original_index].rfind(input_lower, 0) == 0)
 			return static_cast<int>(i);
 	}
 
-	for (size_t i = 0; i < fonts.size(); ++i) {
-		if (lower(GetFontPreviewFaceName(fonts[i])).rfind(input_lower, 0) == 0)
+	for (size_t i = 0; i < cache.filtered_font_indices.size(); ++i) {
+		const size_t original_index = cache.filtered_font_indices[i];
+		if (cache.all_preview_lower_names[original_index].rfind(input_lower, 0) == 0)
 			return static_cast<int>(i);
 	}
 
@@ -97,6 +128,92 @@ std::vector<std::string> RecordFavoriteFontList(std::vector<std::string> favorit
 
 	favorites.push_back(font_name);
 	return favorites;
+}
+
+std::string NormalizePreviewText(const std::string &preview_text) {
+	return preview_text.empty() ? "AaBbYyZz" : preview_text;
+}
+
+bool ShouldRefreshPreviewLayout(bool previous_use_preview_text, const std::string &previous_preview_text,
+                                bool current_use_preview_text, const std::string &current_preview_text) {
+	if (previous_use_preview_text != current_use_preview_text)
+		return true;
+	if (!current_use_preview_text)
+		return false;
+	return previous_preview_text != current_preview_text;
+}
+
+std::string MakeFontListItemText(const std::string &font_name, const std::string &preview_text, bool use_preview_text) {
+	if (!use_preview_text)
+		return font_name;
+
+	return NormalizePreviewText(preview_text) + " (" + font_name + ")";
+}
+
+int CalculatePreviewItemHeight(int minimum_height, int text_box_height, int vertical_padding) {
+	return std::max(minimum_height, text_box_height + vertical_padding);
+}
+
+int CalculatePreviewTextY(int rect_y, int rect_height, int text_box_height, int top_padding) {
+	if (text_box_height >= rect_height)
+		return rect_y + top_padding;
+	return rect_y + (rect_height - text_box_height) / 2;
+}
+
+void AppendMetricWarmupIndex(std::vector<size_t> &order, std::vector<unsigned char> &seen, size_t index) {
+	if (index >= seen.size() || seen[index])
+		return;
+	seen[index] = 1;
+	order.push_back(index);
+}
+
+
+std::vector<size_t> BuildFontMetricWarmupOrder(size_t item_count, size_t anchor_index, size_t priority_radius) {
+	std::vector<size_t> order;
+	order.reserve(item_count);
+	if (item_count == 0)
+		return order;
+
+	anchor_index = std::min(anchor_index, item_count - 1);
+	std::vector<unsigned char> seen(item_count, 0);
+	AppendMetricWarmupIndex(order, seen, anchor_index);
+
+	for (size_t delta = 1; delta <= priority_radius; ++delta) {
+		if (anchor_index + delta < item_count)
+			AppendMetricWarmupIndex(order, seen, anchor_index + delta);
+		if (anchor_index >= delta)
+			AppendMetricWarmupIndex(order, seen, anchor_index - delta);
+	}
+
+	for (size_t i = 0; i < item_count; ++i)
+		AppendMetricWarmupIndex(order, seen, i);
+
+	return order;
+}
+
+std::vector<std::string> ResolveDeferredLoadedFonts(const std::vector<std::string> &all_fonts,
+                                                    const std::string &input,
+                                                    bool filter_dirty) {
+	if (!filter_dirty)
+		return all_fonts;
+
+	std::vector<std::string> result;
+	std::string input_lower = input;
+	std::transform(input_lower.begin(), input_lower.end(), input_lower.begin(),
+		[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+	for (const auto &font : all_fonts) {
+		std::string font_lower = font;
+		std::transform(font_lower.begin(), font_lower.end(), font_lower.begin(),
+			[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		std::string preview_lower = GetFontPreviewFaceName(font);
+		std::transform(preview_lower.begin(), preview_lower.end(), preview_lower.begin(),
+			[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		if (font_lower.find(input_lower) != std::string::npos || preview_lower.find(input_lower) != std::string::npos)
+			result.push_back(font);
+	}
+
+	return result;
 }
 
 } // namespace
@@ -272,6 +389,101 @@ TEST(FontChooserTest, PreviewFaceStripsAtPrefix) {
 	EXPECT_EQ(GetFontPreviewFaceName("Consolas"), "Consolas");
 }
 
+TEST(FontChooserTest, EmptyPreviewTextFallsBackToDefaultSample) {
+	EXPECT_EQ(NormalizePreviewText(""), "AaBbYyZz");
+}
+
+TEST(FontChooserTest, NonEmptyPreviewTextIsPreserved) {
+	EXPECT_EQ(NormalizePreviewText("Sample Text"), "Sample Text");
+}
+
+TEST(FontChooserTest, DisabledQuickPreviewIgnoresPreviewTextChangesForLayout) {
+	EXPECT_FALSE(ShouldRefreshPreviewLayout(false, "AaBbYyZz", false, "Sample Text"));
+}
+
+TEST(FontChooserTest, EnabledQuickPreviewRefreshesWhenPreviewTextChanges) {
+	EXPECT_TRUE(ShouldRefreshPreviewLayout(true, "AaBbYyZz", true, "Sample Text"));
+}
+
+TEST(FontChooserTest, TogglingQuickPreviewRefreshesLayout) {
+	EXPECT_TRUE(ShouldRefreshPreviewLayout(false, "AaBbYyZz", true, "AaBbYyZz"));
+	EXPECT_TRUE(ShouldRefreshPreviewLayout(true, "AaBbYyZz", false, "AaBbYyZz"));
+}
+
+TEST(FontChooserTest, QuickPreviewAppendsFontName) {
+	EXPECT_EQ(MakeFontListItemText("Arial", "Sample Text", true), "Sample Text (Arial)");
+}
+
+TEST(FontChooserTest, QuickPreviewPreservesAtFontDistinction) {
+	EXPECT_EQ(MakeFontListItemText("@Microsoft YaHei", "", true), "AaBbYyZz (@Microsoft YaHei)");
+}
+
+TEST(FontChooserTest, TallPreviewItemExpandsHeight) {
+	EXPECT_EQ(CalculatePreviewItemHeight(40, 52, 6), 58);
+	EXPECT_EQ(CalculatePreviewItemHeight(40, 20, 6), 40);
+}
+
+TEST(FontChooserTest, OverflowingPreviewUsesTopPadding) {
+	EXPECT_EQ(CalculatePreviewTextY(10, 40, 50, 3), 13);
+	EXPECT_EQ(CalculatePreviewTextY(10, 40, 20, 3), 20);
+}
+
+TEST(FontChooserTest, MetricWarmupPrioritizesAnchorNeighbors) {
+	auto order = BuildFontMetricWarmupOrder(8, 4, 2);
+	ASSERT_GE(order.size(), 5u);
+	EXPECT_EQ(order[0], 4u);
+	EXPECT_EQ(order[1], 5u);
+	EXPECT_EQ(order[2], 3u);
+	EXPECT_EQ(order[3], 6u);
+	EXPECT_EQ(order[4], 2u);
+}
+
+TEST(FontChooserTest, DeferredLoadKeepsFullListBeforeUserFiltering) {
+	auto result = ResolveDeferredLoadedFonts(kTestFonts, "Arial", false);
+	EXPECT_EQ(result.size(), kTestFonts.size());
+}
+
+TEST(FontChooserTest, DeferredLoadAppliesFilterAfterUserInput) {
+	auto result = ResolveDeferredLoadedFonts(kTestFonts, "Arial", true);
+	ASSERT_EQ(result.size(), 3u);
+	EXPECT_EQ(result[0], "Arial");
+	EXPECT_EQ(result[1], "@Arial");
+	EXPECT_EQ(result[2], "Arial Black");
+}
+
+TEST(FontChooserTest, AsyncSharedFutureLastOwnerCanWaitForTask) {
+	using namespace std::chrono_literals;
+	std::promise<void> gate_promise;
+	auto gate = gate_promise.get_future().share();
+	auto future = std::async(std::launch::async, [gate]() {
+		gate.wait();
+		return 1;
+	}).share();
+	std::thread release_thread([&gate_promise]() {
+		std::this_thread::sleep_for(30ms);
+		gate_promise.set_value();
+	});
+
+	auto start = std::chrono::steady_clock::now();
+	future = std::shared_future<int>();
+	auto elapsed = std::chrono::steady_clock::now() - start;
+
+	EXPECT_GE(elapsed, 20ms);
+	release_thread.join();
+}
+
+TEST(FontChooserTest, PromiseSharedFutureDoesNotWaitOnDestroy) {
+	using namespace std::chrono_literals;
+	std::promise<int> promise;
+	auto future = promise.get_future().share();
+	auto start = std::chrono::steady_clock::now();
+	future = std::shared_future<int>();
+	auto elapsed = std::chrono::steady_clock::now() - start;
+
+	EXPECT_LT(elapsed, 20ms);
+	promise.set_value(1);
+}
+
 TEST(FontChooserTest, SortPlacesNonAtFontsFirst) {
 	std::vector<std::string> fonts = {
 		"@Arial",
@@ -293,7 +505,20 @@ TEST(FontChooserTest, BestMatchPrefersNonAtFont) {
 		"@Arial",
 		"Arial Black"
 	};
-	EXPECT_EQ(FindBestFontMatchIndex(fonts, "Arial"), 0);
+	auto cache = RebuildFontSearchCache(fonts);
+	EXPECT_EQ(FindBestFilteredFontMatchIndex(cache, "Arial"), 0);
+}
+
+TEST(FontChooserTest, FilteredBestMatchUsesFilteredIndices) {
+	std::vector<std::string> fonts = {
+		"Consolas",
+		"Arial",
+		"@Arial",
+		"Arial Black"
+	};
+	auto cache = RebuildFontSearchCache(fonts);
+	cache.filtered_font_indices = {1, 2, 3};
+	EXPECT_EQ(FindBestFilteredFontMatchIndex(cache, "Arial"), 0);
 }
 
 TEST(FontChooserTest, ExistingFavoriteMovesToMostRecent) {

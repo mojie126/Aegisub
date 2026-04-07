@@ -8229,6 +8229,10 @@ msgid "Font name(&F):"
 msgstr ""
 
 #: ../src/dialog_font_chooser.cpp
+msgid "Use the sample text followed by the font name for each entry in the font list."
+msgstr ""
+
+#: ../src/dialog_font_chooser.cpp
 msgid "Font st&yle:"
 msgstr ""
 
