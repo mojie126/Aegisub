@@ -1099,7 +1099,8 @@ VideoOutGL::~VideoOutGL() {
 }
 
 void VideoOutGL::LoadHDRLUT() {
-	// 根据hdrInputType选择LUT文件：HLG用HLG2SDR.cube，PQ用PQ2SDR.cube，DV用DV2SDR.cube
+	// 根据 hdrInputType 与 DV Profile 选择 LUT 文件：
+	// HLG 用 HLG2SDR.cube，PQ 用 PQ2SDR.cube，Dolby Vision 由 GetLutFilename() 按 Profile 分流。
 	// 使用octoon库解析.cube格式，上传为GPU 3D纹理供shader采样
 
 	if (hdrLutLoaded) return;

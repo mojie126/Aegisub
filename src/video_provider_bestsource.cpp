@@ -248,6 +248,7 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 		// 帧级检测未发现HDR时，使用后台线程中预先探测的流级数据作为后备
 		// 硬件解码时帧级传输特性和DV RPU可能缺失（UNSPECIFIED/空）
 #ifdef WITH_FFMPEG
+		dv_profile_ = MergeDolbyVisionProfileFromProbe(detected_hdr_type_ == HDRType::DolbyVision, dv_profile_, dovi_probe);
 		if (detected_hdr_type_ == HDRType::SDR) {
 			if (dovi_probe.has_dovi) {
 				detected_hdr_type_ = HDRType::DolbyVision;

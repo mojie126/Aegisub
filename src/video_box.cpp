@@ -222,7 +222,7 @@ void VideoBox::UpdateHDRToggleState() {
 			  "Click to toggle tone mapping on/off."),
 			type_name);
 
-		// Dolby Vision 内容使用静态 LUT (DV2SDR) 色调映射，在 tooltip 中简要标注。
+		// Dolby Vision 内容使用静态 LUT 色调映射，具体文件由 GetLutFilename() 按 profile 决定。
 		// 详细限制说明见 video_out_gl.cpp GetLutFilename() 中 DolbyVision 分支的注释：
 		// DV P5 每帧 RPU 包含不同 reshaping 曲线，静态 LUT 无法补偿场景级动态映射，
 		// 且当前 FFmpeg 不支持 apply_dovi，因此不同场景间色彩可能存在差异。

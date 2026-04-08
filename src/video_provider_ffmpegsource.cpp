@@ -135,7 +135,7 @@ public:
 	HDRType GetHDRType() const override {
 		// 帧级RPU存在 → 返回DolbyVision（可使用DV专用LUT）
 		if (hasFrameLevelRPU) return HDRType::DolbyVision;
-		// 流级DOVI_CONF存在但无帧级RPU → 仍视为DolbyVision，使用DV2SDR.cube
+		// 流级DOVI_CONF存在但无帧级RPU → 仍视为DolbyVision，实际LUT由下游按dvProfile选择
 		if (hasDolbyVision) return HDRType::DolbyVision;
 		// 检测传输特性：PQ (SMPTE ST 2084) = 16, HLG (ARIB STD-B67) = 18
 		if (VideoTransfer == 16) return HDRType::PQ;

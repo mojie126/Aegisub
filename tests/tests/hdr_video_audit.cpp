@@ -4,6 +4,7 @@
 #include <main.h>
 
 #include <aegisub/video_provider.h>
+#include "dovi_probe.h"
 #include "video_frame.h"
 
 #include <algorithm>
@@ -285,6 +286,30 @@ TEST(LutFilenameTest, DVProfileIgnoredForNonDV) {
 	// 非DV类型忽略dvProfile参数
 	EXPECT_EQ(hdr_test::GetLutFilename(HDRType::PQ, 8), "PQ2SDR.cube");
 	EXPECT_EQ(hdr_test::GetLutFilename(HDRType::HLG, 7), "HLG2SDR.cube");
+}
+
+TEST(LutFilenameTest, StreamProbeProfileBackfillsFrameLevelDolbyVisionDetection) {
+	DoviProbeResult probe;
+	probe.has_dovi = true;
+	probe.dv_profile = 7;
+
+	EXPECT_EQ(MergeDolbyVisionProfileFromProbe(true, 0, probe), 7);
+}
+
+TEST(LutFilenameTest, ExistingDolbyVisionProfileIsNotOverwrittenByProbe) {
+	DoviProbeResult probe;
+	probe.has_dovi = true;
+	probe.dv_profile = 8;
+
+	EXPECT_EQ(MergeDolbyVisionProfileFromProbe(true, 5, probe), 5);
+}
+
+TEST(LutFilenameTest, NonDolbyVisionPathIgnoresProbeProfile) {
+	DoviProbeResult probe;
+	probe.has_dovi = true;
+	probe.dv_profile = 7;
+
+	EXPECT_EQ(MergeDolbyVisionProfileFromProbe(false, 0, probe), 0);
 }
 
 // ============================================================================

@@ -323,6 +323,7 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 		// 帧属性检测未找到DV/HDR时，使用后台线程中预先探测的流级数据作为后备
 		// LWLibavSource 等源滤镜可能不暴露 _DolbyVisionRPU 或正确的 _Transfer
 #ifdef WITH_FFMPEG
+		dv_profile_ = MergeDolbyVisionProfileFromProbe(detected_hdr_type_ == HDRType::DolbyVision, dv_profile_, dovi_probe);
 		if (detected_hdr_type_ == HDRType::SDR && !agi::fs::HasExtension(filename, "py") && !agi::fs::HasExtension(filename, "vpy")) {
 			if (dovi_probe.has_dovi) {
 				detected_hdr_type_ = HDRType::DolbyVision;
