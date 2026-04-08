@@ -61,6 +61,12 @@ wxArrayString GetPreferredFontFaceList();
 ///          以便收藏字体顺序变化能即时反映到新打开的对话框中。
 std::shared_future<wxArrayString> GetPreferredFontFaceListAsync();
 
+/// @brief 在 UI 线程安全解析已就绪的异步字体列表 future
+/// @param deferredFontList 已就绪或可能为空的共享 future
+/// @return future 成功时返回其结果；若 future 无效或已兑现异常，则回退到同步偏好字体列表
+/// @details 调用方应先确保 future 已就绪，避免在 UI 线程阻塞等待。
+wxArrayString ResolveReadyPreferredFontFaceList(const std::shared_future<wxArrayString> &deferredFontList);
+
 /// @brief 记录一个收藏字体
 /// @param font_name 字体名称
 void RecordFavoriteFontFace(const wxString &font_name);

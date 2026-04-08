@@ -490,6 +490,26 @@ void RefreshAndUpdateChildren(wxWindow *window) {
 		RefreshAndUpdateChildren(child);
 }
 
+void SetFontListPromiseException(const std::shared_ptr<std::promise<wxArrayString>> &promise) {
+	try {
+		promise->set_exception(std::current_exception());
+	}
+	catch (...) {
+	}
+}
+
+wxArrayString ApplyFavoriteFontFaceOrdering(wxArrayString font_list, const wxArrayString &favorites) {
+	for (int i = static_cast<int>(favorites.size()) - 1; i >= 0; --i) {
+		const wxString &favorite = favorites[static_cast<size_t>(i)];
+		int idx = font_list.Index(favorite, false);
+		if (idx != wxNOT_FOUND)
+			font_list.RemoveAt(static_cast<size_t>(idx));
+		font_list.Insert(favorite, 0);
+	}
+
+	return font_list;
+}
+
 /// @brief 构建字体度量预热顺序
 /// @details 先预热当前选择附近的条目，再补齐剩余条目，降低首次拖动滚动条时的集中测量成本。
 std::vector<size_t> BuildFontMetricWarmupOrder(size_t itemCount, size_t anchorIndex, size_t priorityRadius) {
@@ -553,19 +573,7 @@ wxArrayString GetFavoriteFontList() {
 }
 
 wxArrayString GetPreferredFontFaceList() {
-	wxArrayString font_list = GetSortedSystemFontFaceList();
-
-	wxArrayString favorites = GetFavoriteFontList();
-
-	for (int i = static_cast<int>(favorites.size()) - 1; i >= 0; --i) {
-		const wxString &favorite = favorites[static_cast<size_t>(i)];
-		int idx = font_list.Index(favorite, false);
-		if (idx != wxNOT_FOUND)
-			font_list.RemoveAt(static_cast<size_t>(idx));
-		font_list.Insert(favorite, 0);
-	}
-
-	return font_list;
+	return ApplyFavoriteFontFaceOrdering(GetSortedSystemFontFaceList(), GetFavoriteFontList());
 }
 
 std::shared_future<wxArrayString> GetPreferredFontFaceListAsync() {
@@ -573,19 +581,35 @@ std::shared_future<wxArrayString> GetPreferredFontFaceListAsync() {
 	// “收藏字体优先排序”这一步，避免收藏发生变化后继续复用过期结果。
 	auto promise = std::make_shared<std::promise<wxArrayString>>();
 	auto future = promise->get_future().share();
-	agi::dispatch::Background().Async([promise]() {
+	agi::dispatch::Main().Async([promise]() {
 		try {
-			promise->set_value(GetPreferredFontFaceList());
+			wxArrayString system_fonts = GetSortedSystemFontFaceList();
+			agi::dispatch::Background().Async([promise, system_fonts = std::move(system_fonts)]() mutable {
+				try {
+					promise->set_value(ApplyFavoriteFontFaceOrdering(std::move(system_fonts), GetFavoriteFontList()));
+				}
+				catch (...) {
+					SetFontListPromiseException(promise);
+				}
+			});
 		}
 		catch (...) {
-			try {
-				promise->set_exception(std::current_exception());
-			}
-			catch (...) {
-			}
+			SetFontListPromiseException(promise);
 		}
 	});
 	return future;
+}
+
+wxArrayString ResolveReadyPreferredFontFaceList(const std::shared_future<wxArrayString> &deferredFontList) {
+	if (!deferredFontList.valid())
+		return GetPreferredFontFaceList();
+
+	try {
+		return deferredFontList.get();
+	}
+	catch (...) {
+		return GetPreferredFontFaceList();
+	}
 }
 
 void RecordFavoriteFontFace(const wxString &font_name) {
@@ -1239,12 +1263,9 @@ void DialogFontChooser::PrepareForDisplay(wxWindow *progressParent) {
 				}
 
 				wxArrayString loaded_fonts;
-				try {
-					loaded_fonts = deferredFontList_.get();
-				}
-				catch (...) {
-					loaded_fonts = GetPreferredFontFaceList();
-				}
+				InvokeOnMainThreadAndWait([&] {
+					loaded_fonts = ResolveReadyPreferredFontFaceList(deferredFontList_);
+				});
 
 				InvokeOnMainThreadAndWait([&] {
 					ApplyLoadedFontList(loaded_fonts);
@@ -1380,7 +1401,7 @@ void DialogFontChooser::StartDeferredFontListLoad() {
 		return;
 	}
 
-	ApplyLoadedFontList(deferredFontList_.get());
+	ApplyLoadedFontList(ResolveReadyPreferredFontFaceList(deferredFontList_));
 }
 
 void DialogFontChooser::PopulateStyleList(const wxString &faceName) {

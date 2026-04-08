@@ -827,7 +827,7 @@ void DialogStyleEditor::StartDeferredFontListLoad() {
 		return;
 
 	if (deferredFontList_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-		fontList_ = deferredFontList_.get();
+		fontList_ = ResolveReadyPreferredFontFaceList(deferredFontList_);
 		FontName->SetFontList(fontList_);
 		return;
 	}
@@ -846,7 +846,7 @@ void DialogStyleEditor::OnDeferredFontListTimer(wxTimerEvent &) {
 		return;
 
 	fontListTimer_.Stop();
-	fontList_ = deferredFontList_.get();
+	fontList_ = ResolveReadyPreferredFontFaceList(deferredFontList_);
 	FontName->Freeze();
 	FontName->SetFontList(fontList_);
 	FontName->Thaw();

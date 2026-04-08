@@ -594,7 +594,7 @@ void DialogStyleManager::PasteToStorage() {
 wxArrayString DialogStyleManager::GetAvailableFontList() {
 	// 用户快速打开样式编辑器时不阻塞UI，等字体枚举完成后下次再提供完整列表。
 	if (font_list.valid() && font_list.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
-		return font_list.get();
+		return ResolveReadyPreferredFontFaceList(font_list);
 	return {};
 }
 

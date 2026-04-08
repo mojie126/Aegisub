@@ -130,6 +130,18 @@ std::vector<std::string> RecordFavoriteFontList(std::vector<std::string> favorit
 	return favorites;
 }
 
+std::vector<std::string> ApplyFavoriteFontFaceOrdering(std::vector<std::string> font_list,
+                                                       const std::vector<std::string> &favorites) {
+	for (auto it = favorites.rbegin(); it != favorites.rend(); ++it) {
+		auto existing = std::find(font_list.begin(), font_list.end(), *it);
+		if (existing != font_list.end())
+			font_list.erase(existing);
+		font_list.insert(font_list.begin(), *it);
+	}
+
+	return font_list;
+}
+
 std::string NormalizePreviewText(const std::string &preview_text) {
 	return preview_text.empty() ? "AaBbYyZz" : preview_text;
 }
@@ -268,6 +280,20 @@ std::vector<std::string> ResolveDeferredLoadedFonts(const std::vector<std::strin
 	}
 
 	return result;
+}
+
+std::vector<std::string> ResolveReadyPreferredFontFaceList(
+	const std::shared_future<std::vector<std::string>> &deferred_font_list,
+	const std::vector<std::string> &fallback_fonts) {
+	if (!deferred_font_list.valid())
+		return fallback_fonts;
+
+	try {
+		return deferred_font_list.get();
+	}
+	catch (...) {
+		return fallback_fonts;
+	}
 }
 
 } // namespace
@@ -568,6 +594,34 @@ TEST(FontChooserTest, DeferredLoadAppliesFilterAfterUserInput) {
 	EXPECT_EQ(result[2], "Arial Black");
 }
 
+TEST(FontChooserTest, ReadyAsyncFontListUsesResolvedValue) {
+	std::promise<std::vector<std::string>> promise;
+	auto future = promise.get_future().share();
+	const std::vector<std::string> async_fonts = {"SimHei", "SimSun"};
+	promise.set_value(async_fonts);
+
+	const std::vector<std::string> fallback = {"Arial", "Consolas"};
+	auto result = ResolveReadyPreferredFontFaceList(future, fallback);
+	EXPECT_EQ(result, async_fonts);
+}
+
+TEST(FontChooserTest, ExceptionalAsyncFontListFallsBackToSynchronousList) {
+	std::promise<std::vector<std::string>> promise;
+	auto future = promise.get_future().share();
+	promise.set_exception(std::make_exception_ptr(std::runtime_error("font list failed")));
+
+	const std::vector<std::string> fallback = {"Arial", "Consolas"};
+	auto result = ResolveReadyPreferredFontFaceList(future, fallback);
+	EXPECT_EQ(result, fallback);
+}
+
+TEST(FontChooserTest, InvalidAsyncFontListFallsBackToSynchronousList) {
+	std::shared_future<std::vector<std::string>> future;
+	const std::vector<std::string> fallback = {"Arial", "Consolas"};
+	auto result = ResolveReadyPreferredFontFaceList(future, fallback);
+	EXPECT_EQ(result, fallback);
+}
+
 TEST(FontChooserTest, AsyncSharedFutureLastOwnerCanWaitForTask) {
 	using namespace std::chrono_literals;
 	std::promise<void> gate_promise;
@@ -664,4 +718,39 @@ TEST(FontChooserTest, NewFavoriteEvictsOldest) {
 	EXPECT_EQ(result[0], "Consolas");
 	EXPECT_EQ(result[1], "Tahoma");
 	EXPECT_EQ(result[2], "Verdana");
+}
+
+TEST(FontChooserTest, PreferredFontListPromotesFavoritesWithoutDuplicatingEntries) {
+	std::vector<std::string> fonts = {
+		"Arial",
+		"Consolas",
+		"Tahoma"
+	};
+	std::vector<std::string> favorites = {
+		"Tahoma",
+		"Arial"
+	};
+
+	auto result = ApplyFavoriteFontFaceOrdering(fonts, favorites);
+	ASSERT_EQ(result.size(), 3u);
+	EXPECT_EQ(result[0], "Tahoma");
+	EXPECT_EQ(result[1], "Arial");
+	EXPECT_EQ(result[2], "Consolas");
+}
+
+TEST(FontChooserTest, PreferredFontListRetainsMissingFavoriteAtFront) {
+	std::vector<std::string> fonts = {
+		"Arial",
+		"Consolas"
+	};
+	std::vector<std::string> favorites = {
+		"Missing Font",
+		"Consolas"
+	};
+
+	auto result = ApplyFavoriteFontFaceOrdering(fonts, favorites);
+	ASSERT_EQ(result.size(), 3u);
+	EXPECT_EQ(result[0], "Missing Font");
+	EXPECT_EQ(result[1], "Consolas");
+	EXPECT_EQ(result[2], "Arial");
 }
