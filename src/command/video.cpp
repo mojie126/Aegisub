@@ -539,11 +539,12 @@ namespace {
 
 		auto videoname = c->project->VideoName();
 		bool is_dummy = videoname.string().starts_with("?dummy");
+		bool is_image = videoname.string().starts_with("?image:");
 
 		// Is it a path specifier and not an actual fixed path?
 		if (option[0] == '?') {
-			// If dummy video is loaded, we can't save to the video location
-			if (option.starts_with("?video") && is_dummy) {
+			// If dummy/image video is loaded, we can't save to the video location
+			if (option.starts_with("?video") && (is_dummy || is_image)) {
 				// So try the script location instead
 				option = "?script";
 			}
@@ -559,7 +560,7 @@ namespace {
 		else
 			basepath = c->path->MakeAbsolute(option, "?user/");
 
-		basepath /= is_dummy ? "dummy" : videoname.stem();
+		basepath /= is_dummy ? "dummy" : (is_image ? "image" : videoname.stem());
 
 		// Get full path
 		// 确定输出目录（使用 agi::fs::path 避免编码转换问题）
@@ -724,11 +725,12 @@ namespace {
 
 		auto videoname = c->project->VideoName();
 		bool is_dummy = videoname.string().starts_with("?dummy");
+		bool is_image = videoname.string().starts_with("?image:");
 
 		// Is it a path specifier and not an actual fixed path?
 		if (option[0] == '?') {
-			// If dummy video is loaded, we can't save to the video location
-			if (option.starts_with("?video") && is_dummy) {
+			// If dummy/image video is loaded, we can't save to the video location
+			if (option.starts_with("?video") && (is_dummy || is_image)) {
 				// So try the script location instead
 				option = "?script";
 			}
@@ -744,7 +746,7 @@ namespace {
 		else
 			basepath = c->path->MakeAbsolute(option, "?user/");
 
-		basepath /= is_dummy ? "dummy" : videoname.stem();
+		basepath /= is_dummy ? "dummy" : (is_image ? "image" : videoname.stem());
 
 		// 设置帧范围（使用帧序列专用对话框，无裁剪面板）
 		c->videoController->Stop();
@@ -1043,11 +1045,12 @@ namespace {
 
 		auto videoname = c->project->VideoName();
 		bool is_dummy = videoname.string().starts_with("?dummy");
+		bool is_image = videoname.string().starts_with("?image:");
 
 		// Is it a path specifier and not an actual fixed path?
 		if (option[0] == '?') {
-			// If dummy video is loaded, we can't save to the video location
-			if (option.starts_with("?video") && is_dummy) {
+			// If dummy/image video is loaded, we can't save to the video location
+			if (option.starts_with("?video") && (is_dummy || is_image)) {
 				// So try the script location instead
 				option = "?script";
 			}
@@ -1063,7 +1066,7 @@ namespace {
 		else
 			basepath = c->path->MakeAbsolute(option, "?user/");
 
-		basepath /= is_dummy ? "dummy" : videoname.stem();
+		basepath /= is_dummy ? "dummy" : (is_image ? "image" : videoname.stem());
 
 		// Get full path
 		int session_shot_count = 1;

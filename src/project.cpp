@@ -297,8 +297,17 @@ void Project::LoadUnloadFiles(ProjectProperties properties) {
 
 		if (audio != audio_file)
 			append_file(audio, _("Unload audio"), _("Load audio file: %s"));
-		if (video != video_file)
-			append_file(video, _("Unload video"), _("Load video file: %s"));
+		if (video != video_file) {
+			// 图片视频 URI 提取实际图片路径，避免显示原始 URI
+			auto video_display = video;
+			auto vs = video.string();
+			if (vs.starts_with("?image:")) {
+				auto pos = vs.find(':', 7);
+				if (pos != std::string::npos)
+					video_display = agi::fs::path(vs.substr(pos + 1));
+			}
+			append_file(video_display, _("Unload video"), _("Load video file: %s"));
+		}
 		if (timecodes != timecodes_file)
 			append_file(timecodes, _("Unload timecodes"), _("Load timecodes file: %s"));
 		if (keyframes != keyframes_file)

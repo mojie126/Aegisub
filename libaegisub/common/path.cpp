@@ -81,7 +81,7 @@ fs::path Path::MakeRelative(fs::path const& path, fs::path const& base) const {
 	if (path.empty() || base.empty()) return path;
 
 	const auto str = path.string();
-	if (str.starts_with("?dummy") || str.starts_with("dummy-audio:"))
+	if (str.starts_with("?dummy") || str.starts_with("?image:") || str.starts_with("dummy-audio:"))
 		return path;
 
 	// Paths on different volumes can't be made relative to each other
@@ -105,10 +105,10 @@ fs::path Path::MakeAbsolute(fs::path path, std::string_view token) const {
 	if (path.empty()) return path;
 	int idx = checked_find_token(token);
 
-	path.make_preferred();
 	const auto str = path.string();
-	if (str.starts_with("?dummy") || str.starts_with("dummy-audio:"))
+	if (str.starts_with("?dummy") || str.starts_with("?image:") || str.starts_with("dummy-audio:"))
 		return path;
+	path.make_preferred();
 	return (paths[idx].empty() || path.is_absolute()) ? path : paths[idx]/path;
 }
 
