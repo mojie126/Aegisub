@@ -2882,6 +2882,16 @@ msgstr "单张图片: %s"
 
 #: ../src/dialog_image_video.cpp
 #, c-format
+msgid "%d images: %s[%s~%s]%s"
+msgstr "%d 张图片: %s[%s~%s]%s"
+
+#: ../src/dialog_image_video.cpp
+#, c-format
+msgid "%d images: %s ~ %s"
+msgstr "%d 张图片: %s ~ %s"
+
+#: ../src/dialog_image_video.cpp
+#, c-format
 msgid "%d images: %s ... %s"
 msgstr "%d 张图片: %s ... %s"
 

@@ -7,7 +7,6 @@
 #include <main.h>
 
 #include <libaegisub/format.h>
-#include <libaegisub/fs.h>
 #include <libaegisub/vfr.h>
 #include <libaegisub/ass/time.h>
 
@@ -21,7 +20,7 @@
 namespace {
 
 // 与 video_provider_image.cpp 中的 ScanImageSequence 使用相同的正则表达式
-const std::regex digit_regex("^(.*\\D)?(\\d+)(\\.[^.]+)$");
+const std::regex digit_regex(R"(^(.*\D)?(\d+)(\.[^.]+)$)");
 
 /// @brief 序列扫描测试用的纯逻辑函数（不依赖 FFmpeg）
 /// 复现 ImageVideoProvider::ScanImageSequence 的核心逻辑
@@ -113,7 +112,7 @@ public:
 		std::error_code ec;
 		std::filesystem::remove_all(dir, ec);
 	}
-	std::filesystem::path path() const { return dir; }
+	[[nodiscard]] std::filesystem::path path() const { return dir; }
 	void touch(const std::string& filename) {
 		std::ofstream(dir / filename).close();
 	}
@@ -356,13 +355,74 @@ TEST(lagi_image_video, scan_nonexistent_file) {
 }
 
 // ============================================================================
+// 序列信息紧凑格式测试
+// ============================================================================
+
+namespace {
+/// @brief 生成紧凑的序列范围描述
+/// 与 dialog_image_video.cpp 中 UpdateInfo 的逻辑一致
+std::string CompactSequenceLabel(std::vector<std::filesystem::path> const& files) {
+	int count = static_cast<int>(files.size());
+	if (count == 1)
+		return "Single image: " + files[0].filename().string();
+
+	std::string first_name = files.front().filename().string();
+	std::string last_name = files.back().filename().string();
+	std::smatch first_match, last_match;
+
+	if (std::regex_match(first_name, first_match, digit_regex) &&
+	    std::regex_match(last_name, last_match, digit_regex) &&
+	    first_match[1].str() == last_match[1].str() &&
+	    first_match[3].str() == last_match[3].str()) {
+		return std::to_string(count) + " images: " +
+		       first_match[1].str() + "[" +
+		       first_match[2].str() + "~" +
+		       last_match[2].str() + "]" +
+		       first_match[3].str();
+	}
+	return std::to_string(count) + " images: " + first_name + " ~ " + last_name;
+}
+}
+
+TEST(lagi_image_video, compact_label_single) {
+	std::vector<std::filesystem::path> files = {"D:/img/photo.png"};
+	EXPECT_EQ("Single image: photo.png", CompactSequenceLabel(files));
+}
+
+TEST(lagi_image_video, compact_label_same_prefix_suffix) {
+	TempDir tmp("compact1");
+	tmp.touch("frame_001.png");
+	tmp.touch("frame_002.png");
+	tmp.touch("frame_100.png");
+	auto files = ScanImageSequenceLogic(tmp.path() / "frame_001.png");
+	EXPECT_EQ("3 images: frame_[001~100].png", CompactSequenceLabel(files));
+}
+
+TEST(lagi_image_video, compact_label_long_name) {
+	TempDir tmp("compact2");
+	tmp.touch("project_scene01_shot03_frame00001.png");
+	tmp.touch("project_scene01_shot03_frame05000.png");
+	auto files = ScanImageSequenceLogic(tmp.path() / "project_scene01_shot03_frame00001.png");
+	EXPECT_EQ("2 images: project_scene01_shot03_frame[00001~05000].png", CompactSequenceLabel(files));
+}
+
+TEST(lagi_image_video, compact_label_pure_number) {
+	TempDir tmp("compact3");
+	tmp.touch("0001.png");
+	tmp.touch("0002.png");
+	tmp.touch("0003.png");
+	auto files = ScanImageSequenceLogic(tmp.path() / "0001.png");
+	EXPECT_EQ("3 images: [0001~0003].png", CompactSequenceLabel(files));
+}
+
+// ============================================================================
 // 导入图片序列 —— 图片行 ASS 标签格式测试
 // ============================================================================
 
 TEST(lagi_image_video, import_tag_format_basic) {
 	std::string path = "D:/images/frame001.png";
 	int w = 1920, h = 1080;
-	auto text = agi::format("{\\an7\\pos(0,0)\\bord0\\shad0\\fscx100\\fscy100\\1img(%s)\\p1}m 0 0 l %d 0 l %d %d l 0 %d",
+	auto text = agi::format(R"({\an7\pos(0,0)\bord0\shad0\fscx100\fscy100\1img(%s)\p1}m 0 0 l %d 0 l %d %d l 0 %d)",
 		path, w, w, h, h);
 	EXPECT_EQ("{\\an7\\pos(0,0)\\bord0\\shad0\\fscx100\\fscy100\\1img(D:/images/frame001.png)\\p1}m 0 0 l 1920 0 l 1920 1080 l 0 1080", text);
 }
@@ -370,7 +430,7 @@ TEST(lagi_image_video, import_tag_format_basic) {
 TEST(lagi_image_video, import_tag_format_small_image) {
 	std::string path = "img.png";
 	int w = 100, h = 50;
-	auto text = agi::format("{\\an7\\pos(0,0)\\bord0\\shad0\\fscx100\\fscy100\\1img(%s)\\p1}m 0 0 l %d 0 l %d %d l 0 %d",
+	auto text = agi::format(R"({\an7\pos(0,0)\bord0\shad0\fscx100\fscy100\1img(%s)\p1}m 0 0 l %d 0 l %d %d l 0 %d)",
 		path, w, w, h, h);
 	EXPECT_EQ("{\\an7\\pos(0,0)\\bord0\\shad0\\fscx100\\fscy100\\1img(img.png)\\p1}m 0 0 l 100 0 l 100 50 l 0 50", text);
 }
@@ -378,7 +438,7 @@ TEST(lagi_image_video, import_tag_format_small_image) {
 TEST(lagi_image_video, import_tag_path_with_backslash) {
 	std::string path = "D:\\images\\frame001.png";
 	int w = 640, h = 480;
-	auto text = agi::format("{\\an7\\pos(0,0)\\bord0\\shad0\\fscx100\\fscy100\\1img(%s)\\p1}m 0 0 l %d 0 l %d %d l 0 %d",
+	auto text = agi::format(R"({\an7\pos(0,0)\bord0\shad0\fscx100\fscy100\1img(%s)\p1}m 0 0 l %d 0 l %d %d l 0 %d)",
 		path, w, w, h, h);
 	EXPECT_EQ("{\\an7\\pos(0,0)\\bord0\\shad0\\fscx100\\fscy100\\1img(D:\\images\\frame001.png)\\p1}m 0 0 l 640 0 l 640 480 l 0 480", text);
 }

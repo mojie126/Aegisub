@@ -2761,6 +2761,16 @@ msgstr ""
 
 #: ../src/dialog_image_video.cpp
 #, c-format
+msgid "%d images: %s[%s~%s]%s"
+msgstr ""
+
+#: ../src/dialog_image_video.cpp
+#, c-format
+msgid "%d images: %s ~ %s"
+msgstr ""
+
+#: ../src/dialog_image_video.cpp
+#, c-format
 msgid "%d images: %s ... %s"
 msgstr ""
 

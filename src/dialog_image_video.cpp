@@ -7,7 +7,6 @@
 #include "compat.h"
 #include "dialogs.h"
 #include "format.h"
-#include "help_button.h"
 #include "libresrc/libresrc.h"
 #include "options.h"
 #include "validators.h"
@@ -16,7 +15,7 @@
 
 #include <libaegisub/ass/time.h>
 #include <libaegisub/fs.h>
-#include <libaegisub/log.h>
+#include <regex>
 
 #include <wx/button.h>
 #include <wx/dialog.h>
@@ -26,7 +25,6 @@
 #include <wx/stattext.h>
 #include <wx/string.h>
 #include <wx/textctrl.h>
-#include <wx/valgen.h>
 #include <wx/valtext.h>
 
 namespace {
@@ -98,7 +96,7 @@ DialogImageVideo::DialogImageVideo(wxWindow *parent)
 	});
 }
 
-static void add_label(wxWindow *parent, wxSizer *sizer, wxString const& label) {
+void add_label(wxWindow *parent, wxSizer *sizer, wxString const& label) {
 	if (!label)
 		sizer->AddStretchSpacer();
 	else
@@ -146,10 +144,26 @@ void DialogImageVideo::UpdateInfo() {
 	if (detected_count == 1) {
 		sequence_info->SetLabel(fmt_tl("Single image: %s", path.filename().string()));
 	} else {
-		sequence_info->SetLabel(fmt_tl("%d images: %s ... %s",
-			detected_count,
-			files.front().filename().string(),
-			files.back().filename().string()));
+		// 尝试以紧凑的范围格式显示：prefix[first~last].ext
+		std::string first_name = files.front().filename().string();
+		std::string last_name = files.back().filename().string();
+		std::regex digit_regex(R"(^(.*\D)?(\d+)(\.[^.]+)$)");
+		std::smatch first_match, last_match;
+
+		if (std::regex_match(first_name, first_match, digit_regex) &&
+		    std::regex_match(last_name, last_match, digit_regex) &&
+		    first_match[1].str() == last_match[1].str() &&
+		    first_match[3].str() == last_match[3].str()) {
+			sequence_info->SetLabel(fmt_tl("%d images: %s[%s~%s]%s",
+				detected_count,
+				first_match[1].str(),
+				first_match[2].str(),
+				last_match[2].str(),
+				first_match[3].str()));
+		} else {
+			sequence_info->SetLabel(fmt_tl("%d images: %s ~ %s",
+				detected_count, first_name, last_name));
+		}
 	}
 
 	// 计算时长
