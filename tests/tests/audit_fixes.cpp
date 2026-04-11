@@ -9,6 +9,7 @@
 #include <main.h>
 
 #include <algorithm>
+#include <array>
 #include <string>
 #include <vector>
 
@@ -225,6 +226,140 @@ TEST(AuditFixesTest, EndOfStreamDist_H264_ThreadDominant) {
 TEST(AuditFixesTest, EndOfStreamDist_H264_HWDecode) {
 	// has_b_frames=4, reorder=6(4+2), thread=0 -> base=7, h264=(4+1)*2=10 -> max=10
 	EXPECT_EQ(10, ComputeEndOfStreamDist(6, 0, true, 4));
+}
+
+// ============================================================
+// #F6: FindPacket 唯一匹配与回退序列
+// 对照: subprojects/ffms2/src/core/track.cpp :: FindPacket()
+// ============================================================
+
+namespace {
+
+enum SimPacketFlags {
+	SimPktNone = 0,
+	SimPktDiscard = 1 << 0,
+	SimPktKey = 1 << 1,
+};
+
+struct SimPacket {
+	int64_t pts;
+	int64_t dts;
+	int64_t pos;
+	int flags;
+};
+
+struct SimFrameInfo {
+	int64_t pts;
+	int64_t file_pos;
+	bool marked_hidden;
+	bool key_frame;
+};
+
+enum class SimPacketProp {
+	TS,
+	Pos,
+	Hidden,
+	Key,
+};
+
+/// @brief 镜像 FFMS_Track::FindPacket() 的匹配顺序。
+/// MIRROR-OF: subprojects/ffms2/src/core/track.cpp :: FFMS_Track::FindPacket()
+/// @param frames 已索引帧信息列表
+/// @param packet 待匹配的包信息
+/// @param use_dts 是否使用 DTS 作为时间戳键
+/// @return 唯一匹配的帧索引，找不到或存在歧义时返回 -1
+static int SimulateFindPacket(const std::vector<SimFrameInfo>& frames, const SimPacket& packet, bool use_dts = false) {
+	const int64_t ts = use_dts ? packet.dts : packet.pts;
+	const std::array<std::vector<SimPacketProp>, 5> check_sequence = {{
+		{SimPacketProp::TS, SimPacketProp::Pos, SimPacketProp::Hidden, SimPacketProp::Key},
+		{SimPacketProp::TS, SimPacketProp::Pos, SimPacketProp::Hidden},
+		{SimPacketProp::TS, SimPacketProp::Pos},
+		{SimPacketProp::TS},
+		{SimPacketProp::Pos},
+	}};
+
+	for (const auto& checks : check_sequence) {
+		int found = 0;
+		int result = -1;
+
+		for (size_t i = 0; i < frames.size(); ++i) {
+			const auto& frame = frames[i];
+			const bool match = std::all_of(checks.begin(), checks.end(), [&](SimPacketProp prop) {
+				switch (prop) {
+					case SimPacketProp::TS:
+						return frame.pts == ts;
+					case SimPacketProp::Pos:
+						return frame.file_pos == packet.pos;
+					case SimPacketProp::Hidden:
+						return frame.marked_hidden == !!(packet.flags & SimPktDiscard);
+					case SimPacketProp::Key:
+						return frame.key_frame == !!(packet.flags & SimPktKey);
+				}
+				return false;
+			});
+
+			if (match) {
+				++found;
+				result = static_cast<int>(i);
+			}
+		}
+
+		if (found == 1)
+			return result;
+	}
+
+	return -1;
+}
+
+} // namespace
+
+/// 完整键（TS+Pos+Hidden+Key）唯一匹配时应直接返回对应帧
+TEST(AuditFixesTest, FindPacket_PrefersFullMatch) {
+	std::vector<SimFrameInfo> frames = {
+		{100, 10, false, true},
+		{100, 20, true, false},
+	};
+	SimPacket packet{100, 100, 20, SimPktDiscard};
+	EXPECT_EQ(1, SimulateFindPacket(frames, packet));
+}
+
+/// Key 标志不一致时，应回退到不含 Key 的匹配序列
+TEST(AuditFixesTest, FindPacket_FallsBackWithoutKey) {
+	std::vector<SimFrameInfo> frames = {
+		{100, 10, false, true},
+	};
+	SimPacket packet{100, 100, 10, SimPktNone};
+	EXPECT_EQ(0, SimulateFindPacket(frames, packet));
+}
+
+/// 位置不可用时，应继续回退到仅按时间戳匹配
+TEST(AuditFixesTest, FindPacket_FallsBackToTimestampOnly) {
+	std::vector<SimFrameInfo> frames = {
+		{200, 5, false, false},
+		{300, 6, false, false},
+	};
+	SimPacket packet{200, 200, 999, SimPktNone};
+	EXPECT_EQ(0, SimulateFindPacket(frames, packet));
+}
+
+/// 时间戳不可用时，应最终回退到仅按文件位置匹配
+TEST(AuditFixesTest, FindPacket_FallsBackToPositionOnly) {
+	std::vector<SimFrameInfo> frames = {
+		{100, 55, false, false},
+		{200, 77, false, false},
+	};
+	SimPacket packet{-1, -1, 77, SimPktNone};
+	EXPECT_EQ(1, SimulateFindPacket(frames, packet));
+}
+
+/// 若所有回退序列仍无法得到唯一结果，则必须返回 -1
+TEST(AuditFixesTest, FindPacket_AmbiguousReturnsMinusOne) {
+	std::vector<SimFrameInfo> frames = {
+		{100, 10, false, false},
+		{100, 10, false, false},
+	};
+	SimPacket packet{100, 100, 10, SimPktNone};
+	EXPECT_EQ(-1, SimulateFindPacket(frames, packet));
 }
 
 // ============================================================
