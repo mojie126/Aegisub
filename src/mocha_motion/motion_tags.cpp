@@ -453,7 +453,7 @@ namespace mocha {
 			std::string result = text;
 
 			// 先尝试完整 \fade(a1,a2,a3,t1,t2,t3,t4)
-			const std::regex fade7_regex(
+			static const std::regex fade7_regex(
 				R"(\\fade\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d\-]+)\s*,\s*([\d\-]+)\s*,\s*([\d\-]+)\s*,\s*([\d\-]+)\s*\))"
 			);
 			std::smatch match;
@@ -467,7 +467,7 @@ namespace mocha {
 			}
 
 			// 尝试简单 \fad(in,out) 或 \fade(in,out)
-			const std::regex fad_regex(R"(\\fad(?:e)?\(\s*(\d+)\s*,\s*(\d+)\s*\))");
+			static const std::regex fad_regex(R"(\\fad(?:e)?\(\s*(\d+)\s*,\s*(\d+)\s*\))");
 			if (std::regex_search(text, match, fad_regex)) {
 				fade_data = FadeData{std::stoi(match[1]), std::stoi(match[2])};
 				result = std::regex_replace(result, fad_regex, "");
