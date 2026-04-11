@@ -1,4 +1,4 @@
-project('ffms2', 'cpp', version : '5.1.1')
+project('ffms2', 'cpp', version : '5.1.2')
 
 deps = []
 
