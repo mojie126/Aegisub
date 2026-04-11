@@ -67,7 +67,9 @@ namespace mocha {
 		[[nodiscard]] std::string interpolate(const std::string &text, const std::string &placeholder,
 											int time, const std::map<std::string, double> &line_properties,
 											const std::map<std::string, EffectTagValue> &prior_inline_tags = {},
-											int res_x = 0, int res_y = 0) const;
+											int res_x = 0, int res_y = 0,
+											std::optional<int> alpha_shifted_time = std::nullopt,
+											std::optional<int> alpha_original_time = std::nullopt) const;
 
 		// 公开属性
 		int start_time = 0; // 变换开始时间
@@ -126,6 +128,8 @@ namespace mocha {
 												const std::vector<Transform> &transforms,
 												int time, const std::map<std::string, double> &line_properties,
 												const std::map<std::string, Transform::EffectTagValue> &prior_inline_tags = {},
-												int res_x = 0, int res_y = 0);
+												int res_x = 0, int res_y = 0,
+												std::optional<int> alpha_shifted_time = std::nullopt,
+												std::optional<int> alpha_original_time = std::nullopt);
 	} // namespace transform_utils
 } // namespace mocha

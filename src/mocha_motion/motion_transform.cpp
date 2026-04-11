@@ -202,11 +202,31 @@ namespace mocha {
 	std::string Transform::interpolate(const std::string &text, const std::string &placeholder,
 										int time, const std::map<std::string, double> &line_properties,
 										const std::map<std::string, EffectTagValue> &prior_inline_tags,
-										int res_x, int res_y) const {
+										int res_x, int res_y,
+										std::optional<int> alpha_shifted_time,
+										std::optional<int> alpha_original_time) const {
 		double linear_progress = (end_time > start_time)
 									? static_cast<double>(time - start_time) / (end_time - start_time)
 									: 0.0;
 		double progress = std::pow(linear_progress, accel);
+		double alpha_shifted_linear_progress = linear_progress;
+		double alpha_shifted_progress = progress;
+		double alpha_original_linear_progress = linear_progress;
+		double alpha_original_progress = progress;
+
+		if (alpha_shifted_time.has_value()) {
+			alpha_shifted_linear_progress = (end_time > start_time)
+				? static_cast<double>(*alpha_shifted_time - start_time) / (end_time - start_time)
+				: 0.0;
+			alpha_shifted_progress = std::pow(alpha_shifted_linear_progress, accel);
+		}
+
+		if (alpha_original_time.has_value()) {
+			alpha_original_linear_progress = (end_time > start_time)
+				? static_cast<double>(*alpha_original_time - start_time) / (end_time - start_time)
+				: 0.0;
+			alpha_original_progress = std::pow(alpha_original_linear_progress, accel);
+		}
 
 		std::string result = text;
 		auto pos = result.find(placeholder);
@@ -260,6 +280,9 @@ namespace mocha {
 				}
 				case EffectTagValue::ALP: {
 					// 透明度插值（链式遍历所有结束值）
+					// 方向感知的双时间基准：
+					//   - 变得更不透明（fade-in）时使用 shifted 时间，避免首帧仍停在完全透明端点；
+					//   - 变得更透明（fade-out）时使用 original 时间，避免尾段被前移采样过冲。
 					int value = 0;
 					const EffectTagValue *prior = find_prior(tag_name);
 					if (prior && prior->type == EffectTagValue::ALP) {
@@ -271,17 +294,29 @@ namespace mocha {
 						}
 					}
 
-					if (linear_progress <= 0) {
-						replacement += tag_def->format_alpha(value);
-					} else if (linear_progress >= 1) {
-						replacement += tag_def->format_alpha(end_values.back().alpha);
-					} else {
-						for (const auto &end_val : end_values) {
-							if (end_val.type == EffectTagValue::ALP)
-								value = static_cast<int>(interpolate_number(value, end_val.alpha, progress));
+					for (const auto &end_val : end_values) {
+						if (end_val.type != EffectTagValue::ALP)
+							continue;
+
+						const bool becoming_more_transparent = end_val.alpha > value;
+						double selected_linear_progress = becoming_more_transparent
+							? alpha_original_linear_progress
+							: alpha_shifted_linear_progress;
+						double selected_progress = becoming_more_transparent
+							? alpha_original_progress
+							: alpha_shifted_progress;
+
+						if (selected_linear_progress <= 0) {
+							continue;
 						}
-						replacement += tag_def->format_alpha(value);
+						if (selected_linear_progress >= 1) {
+							value = end_val.alpha;
+							continue;
+						}
+
+						value = static_cast<int>(interpolate_number(value, end_val.alpha, selected_progress));
 					}
+					replacement += tag_def->format_alpha(value);
 					break;
 				}
 				case EffectTagValue::MULTI: {
@@ -513,14 +548,19 @@ namespace mocha {
 												const std::vector<Transform> &transforms,
 												const int time, const std::map<std::string, double> &line_properties,
 												const std::map<std::string, Transform::EffectTagValue> &prior_inline_tags,
-												const int res_x, const int res_y) {
+												const int res_x, const int res_y,
+												std::optional<int> alpha_shifted_time,
+												std::optional<int> alpha_original_time) {
 			std::string result = text;
 
 			// time 已经是相对于原始行起始时间的偏移量，
 			// 与 Transform 的 start_time/end_time 在同一坐标系中，
 			// 无需对 Transform 的时间窗口进行偏移
 			for (const auto &t : transforms) {
-				result = t.interpolate(result, t.token, time, line_properties, prior_inline_tags, res_x, res_y);
+				result = t.interpolate(
+					result, t.token, time, line_properties, prior_inline_tags,
+					res_x, res_y, alpha_shifted_time, alpha_original_time
+				);
 			}
 
 			return result;

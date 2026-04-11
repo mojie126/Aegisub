@@ -328,6 +328,8 @@ namespace mocha {
 
 		result.reserve(result.size() + (rel_end - rel_start + 1));
 
+		FadeSampler fade_sampler = FadeSampler::create(collection_start_frame, rel_start, ms_from_frame);
+
 		for (int frame = rel_end; frame >= rel_start; --frame) {
 			// 计算新行的起止时间（10ms 对齐）
 			int raw_start_ms = ms_from_frame(collection_start_frame + frame - 1);
@@ -340,13 +342,21 @@ namespace mocha {
 			int first_frame_ms = ms_from_frame(collection_start_frame + rel_start - 1);
 			int time_delta = new_start_time - static_cast<int>(std::floor(std::max(0, first_frame_ms) / 10.0)) * 10;
 
+			// 双时间基准 fade 采样
+			int fade_td_original, fade_td_shifted;
+			fade_sampler.compute(new_start_time, new_end_time,
+				line.start_time, line.end_time,
+				fade_td_original, fade_td_shifted);
+
 			// 生成新文本（处理变换标签）
 			std::string new_text;
 			int new_line_duration = new_end_time - new_start_time;
 			if (options_.kill_trans) {
+				std::optional<int> alpha_shifted_time = fade_td_shifted;
+				std::optional<int> alpha_original_time = fade_td_original;
 				new_text = line.interpolate_transforms_copy(
 					new_start_time,
-					res_x_, res_y_
+					res_x_, res_y_, alpha_shifted_time, alpha_original_time
 				);
 			} else {
 				// 传递新行持续时间，用于抑制超出行范围的 \t 标签
@@ -355,53 +365,32 @@ namespace mocha {
 
 			// 处理 \fade 标签
 			if (options_.kill_trans) {
-				// 提取并移除 \fade，转换为 \alpha
-				static const std::regex fade_re(R"(\\fade\(([^)]+)\))");
-				std::smatch fade_match;
 				std::optional<FullFadeData> fade;
 
-				// 遍历所有标签块，提取并移除 \fade
 				new_text = tag_utils::run_callback_on_overrides(
 					new_text, [&](const std::string &block, int) {
-						std::string result_block = block;
-						std::smatch m;
-						if (std::regex_search(result_block, m, fade_re)) {
-							// 解析 \fade(a1,a2,a3,t1,t2,t3,t4)
-							std::string vals = m[1].str();
-							std::istringstream iss(vals);
-							std::string token;
-							std::vector<int> parts;
-							while (std::getline(iss, token, ',')) {
-								try { parts.push_back(std::stoi(token)); } catch (...) { break; }
-							}
-							if (parts.size() == 7) {
-								fade = FullFadeData{
-									parts[0], parts[1], parts[2],
-									parts[3], parts[4], parts[5], parts[6]
-								};
-							}
-							result_block = std::regex_replace(result_block, fade_re, "");
+						std::optional<FadeData> fade_data;
+						std::optional<FullFadeData> full_fade_data;
+						std::string stripped = tag_utils::extract_fade(block, fade_data, full_fade_data);
+
+						if (full_fade_data.has_value()) {
+							fade = full_fade_data;
+						} else if (fade_data.has_value()) {
+							fade = FullFadeData{
+								255, 0, 255,
+								0,
+								fade_data->fade_in,
+								line.duration - fade_data->fade_out,
+								line.duration
+							};
 						}
-						return result_block;
+						return stripped;
 					}
 				);
 
 				if (fade.has_value()) {
-					// 计算当前帧的淡入淡出因子
-					// 对应 MoonScript 分段函数
-					const auto &f = fade.value();
-					double fade_factor;
-					if (time_delta < f.t1)
-						fade_factor = static_cast<double>(f.a1);
-					else if (time_delta < f.t2)
-						fade_factor = f.a1 + (f.a2 - f.a1) * static_cast<double>(time_delta - f.t1) / (f.t2 - f.t1);
-					else if (time_delta < f.t3)
-						fade_factor = static_cast<double>(f.a2);
-					else if (time_delta < f.t4)
-						fade_factor = f.a2 + (f.a3 - f.a2) * static_cast<double>(time_delta - f.t3) / (f.t4 - f.t3);
-					else
-						fade_factor = static_cast<double>(f.a3);
-
+					// 使用双时间基准计算淡入淡出因子
+					double fade_factor = FadeSampler::evaluate_fade(fade.value(), fade_td_shifted, fade_td_original);
 					// 不透明度因子 (0-1)
 					double opacity = (255.0 - fade_factor) / 255.0;
 
@@ -436,34 +425,45 @@ namespace mocha {
 				}
 			} else {
 				// 不插值变换时，仅调整 \fade 标签的时间参数
-				static const std::regex fade_re2(R"(\\fade\(([^)]+)\))");
 				new_text = tag_utils::run_callback_on_overrides(
 					new_text, [&](const std::string &block, int) {
-						std::string result_block = block;
-						std::smatch m;
-						if (std::regex_search(result_block, m, fade_re2)) {
-							std::string vals = m[1].str();
-							std::istringstream iss(vals);
-							std::string token;
-							std::vector<int> parts;
-							while (std::getline(iss, token, ',')) {
-								try { parts.push_back(std::stoi(token)); } catch (...) { break; }
-							}
-							if (parts.size() == 7) {
-								// 偏移 t1-t4 参数
-								for (int i = 3; i < 7; ++i) {
-									parts[i] -= time_delta;
-								}
-								char buf[128];
-								std::snprintf(
-									buf, sizeof(buf), "\\fade(%d,%d,%d,%d,%d,%d,%d)",
-									parts[0], parts[1], parts[2],
-									parts[3], parts[4], parts[5], parts[6]
-								);
-								result_block = std::regex_replace(result_block, fade_re2, buf);
-							}
+						std::optional<FadeData> fade_data;
+						std::optional<FullFadeData> full_fade_data;
+						std::string stripped = tag_utils::extract_fade(block, fade_data, full_fade_data);
+
+						if (fade_data.has_value()) {
+							full_fade_data = FullFadeData{
+								255, 0, 255,
+								0,
+								fade_data->fade_in,
+								line.duration - fade_data->fade_out,
+								line.duration
+							};
 						}
-						return result_block;
+
+						if (!full_fade_data.has_value()) {
+							return block;
+						}
+
+						FullFadeData adjusted = full_fade_data.value();
+						adjusted.t1 -= time_delta;
+						adjusted.t2 -= time_delta;
+						adjusted.t3 -= time_delta;
+						adjusted.t4 -= time_delta;
+
+						char buf[128];
+						std::snprintf(
+							buf, sizeof(buf), "\\fade(%d,%d,%d,%d,%d,%d,%d)",
+							adjusted.a1, adjusted.a2, adjusted.a3,
+							adjusted.t1, adjusted.t2, adjusted.t3, adjusted.t4
+						);
+
+						size_t close_brace = stripped.rfind('}');
+						if (close_brace != std::string::npos)
+							stripped.insert(close_brace, buf);
+						else
+							stripped += buf;
+						return stripped;
 					}
 				);
 			}

@@ -110,8 +110,12 @@ struct MotionLine {
 	/// @param start 当前帧的起始时间（毫秒）
 	/// @param res_x 脚本水平分辨率
 	/// @param res_y 脚本垂直分辨率
+	/// @param alpha_shifted_time alpha 类标签的前移采样时间（相对于行起始时间）
+	/// @param alpha_original_time alpha 类标签的原始中点采样时间（相对于行起始时间）
 	/// @return 插值后的文本
-	std::string interpolate_transforms_copy(int start, int res_x = 0, int res_y = 0) const;
+	std::string interpolate_transforms_copy(int start, int res_x = 0, int res_y = 0,
+		std::optional<int> alpha_shifted_time = std::nullopt,
+		std::optional<int> alpha_original_time = std::nullopt) const;
 
 	/// 从行内联标签中收集先前状态值
 	/// 对应 MoonScript Transform.moon: collectPriorState
@@ -135,9 +139,6 @@ struct MotionLine {
 
 	/// 对第一个标签块执行回调
 	void run_callback_on_first_override(std::function<std::string(const std::string&)> callback);
-
-	/// 将 \fad(in,out) 转换为 \fade(255,0,255,0,in,duration-out,duration)
-	void convert_fad_to_fade();
 
 	/// 移位卡拉OK计时标签
 	void shift_karaoke();

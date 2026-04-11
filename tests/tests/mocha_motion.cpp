@@ -11,6 +11,7 @@
 #include "motion_handler.h"
 #include "motion_processor.h"
 
+#include <algorithm>
 #include <cmath>
 #include <regex>
 
@@ -225,6 +226,43 @@ TEST(MochaTags, ConvertClipToFPNoScalePassthrough) {
 	std::string clip = R"(\clip(m 100 200 l 300 400))";
 	auto result = tag_utils::convert_clip_to_fp(clip);
 	EXPECT_EQ(result, clip);
+}
+
+TEST(MochaTags, ExtractFadeFullTag) {
+	std::optional<FadeData> fade_data;
+	std::optional<FullFadeData> full_fade_data;
+	auto stripped = tag_utils::extract_fade(
+		R"({\fade(255,0,255,0,200,800,1000)\alpha&H00&})",
+		fade_data,
+		full_fade_data
+	);
+
+	EXPECT_FALSE(fade_data.has_value());
+	ASSERT_TRUE(full_fade_data.has_value());
+	EXPECT_EQ(full_fade_data->a1, 255);
+	EXPECT_EQ(full_fade_data->a2, 0);
+	EXPECT_EQ(full_fade_data->a3, 255);
+	EXPECT_EQ(full_fade_data->t1, 0);
+	EXPECT_EQ(full_fade_data->t2, 200);
+	EXPECT_EQ(full_fade_data->t3, 800);
+	EXPECT_EQ(full_fade_data->t4, 1000);
+	EXPECT_EQ(stripped, R"({\alpha&H00&})");
+}
+
+TEST(MochaTags, ExtractFadeShortTag) {
+	std::optional<FadeData> fade_data;
+	std::optional<FullFadeData> full_fade_data;
+	auto stripped = tag_utils::extract_fade(
+		R"({\fad(200,300)\alpha&H00&})",
+		fade_data,
+		full_fade_data
+	);
+
+	ASSERT_TRUE(fade_data.has_value());
+	EXPECT_EQ(fade_data->fade_in, 200);
+	EXPECT_EQ(fade_data->fade_out, 300);
+	EXPECT_FALSE(full_fade_data.has_value());
+	EXPECT_EQ(stripped, R"({\alpha&H00&})");
 }
 
 // ============================================================================
@@ -678,6 +716,17 @@ static DataHandler make_test_data_handler() {
 	return dh;
 }
 
+static int extract_alpha_value(const std::string &text) {
+	static const std::regex alpha_re(R"(\\(alpha|[1234]a)&H([0-9A-Fa-f]{2})&)");
+	int alpha = -1;
+	auto begin = std::sregex_iterator(text.begin(), text.end(), alpha_re);
+	auto end = std::sregex_iterator();
+	for (auto it = begin; it != end; ++it) {
+		alpha = std::stoi((*it)[2].str(), nullptr, 16);
+	}
+	return alpha;
+}
+
 TEST(MochaHandler, PositionMath) {
 	auto dh = make_test_data_handler();
 	dh.calculate_current_state(2);
@@ -1125,6 +1174,350 @@ TEST(MochaHandler, ApplyMotionClipTransformUsesScriptResolutionDefault) {
 		<< "Expected script-resolution rect clip default, got: " << result[0].text;
 }
 
+TEST(MochaHandler, ApplyMotionFadeKillTransFirstVisibleFrameShouldNotBeFullyTransparent) {
+	auto dh = make_test_data_handler();
+
+	MotionOptions opts;
+	opts.kill_trans = true;
+	MotionHandler handler(opts, &dh, nullptr, nullptr);
+
+	MotionLine line;
+	line.text = R"({\fade(255,0,255,0,100,200,300)\alpha&H00&}hello)";
+	line.start_time = 150;
+	line.end_time = 450;
+	line.duration = line.end_time - line.start_time;
+
+	std::vector<MotionLine> lines = {line};
+	auto result = handler.apply_motion(
+		lines,
+		1,
+		[](int ms) { return ms / 100; },
+		[](int frame) { return frame * 100; }
+	);
+
+	std::sort(result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+		return a.start_time < b.start_time;
+	});
+
+	ASSERT_EQ(result.size(), 3u);
+	EXPECT_EQ(result[0].start_time, 100);
+	int first_alpha = extract_alpha_value(result[0].text);
+	ASSERT_GE(first_alpha, 0);
+	// 首帧不应全透明（采样原点已前移到前一帧，fade-in 有可见进度）
+	EXPECT_LT(first_alpha, 255);
+}
+
+TEST(MochaHandler, ApplyMotionFadeKillTransLastVisibleFrameShouldNotBeFullyTransparent) {
+	auto dh = make_test_data_handler();
+
+	MotionOptions opts;
+	opts.kill_trans = true;
+	MotionHandler handler(opts, &dh, nullptr, nullptr);
+
+	MotionLine line;
+	line.text = R"({\fade(255,0,255,0,100,200,300)\alpha&H00&}hello)";
+	line.start_time = 150;
+	line.end_time = 450;
+	line.duration = line.end_time - line.start_time;
+
+	std::vector<MotionLine> lines = {line};
+	auto result = handler.apply_motion(
+		lines,
+		1,
+		[](int ms) { return ms / 100; },
+		[](int frame) { return frame * 100; }
+	);
+
+	std::sort(result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+		return a.start_time < b.start_time;
+	});
+
+	ASSERT_EQ(result.size(), 3u);
+	EXPECT_EQ(result.back().start_time, 300);
+	int last_alpha = extract_alpha_value(result.back().text);
+	ASSERT_GE(last_alpha, 0);
+	EXPECT_LT(last_alpha, 255);
+}
+
+TEST(MochaHandler, ApplyMotionFadeWithoutKillTransKeepsFadeInsideOverrideBlock) {
+	auto dh = make_test_data_handler();
+
+	MotionOptions opts;
+	opts.kill_trans = false;
+	MotionHandler handler(opts, &dh, nullptr, nullptr);
+
+	MotionLine line;
+	line.text = R"({\fade(255,0,255,0,200,400,600)\alpha&H00&}hello)";
+	line.start_time = 150;
+	line.end_time = 349;
+	line.duration = line.end_time - line.start_time;
+
+	std::vector<MotionLine> lines = {line};
+	auto result = handler.apply_motion(
+		lines,
+		1,
+		[](int ms) { return ms / 100; },
+		[](int frame) { return frame * 100; }
+	);
+
+	std::sort(result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+		return a.start_time < b.start_time;
+	});
+
+	ASSERT_FALSE(result.empty());
+	EXPECT_TRUE(std::regex_search(result[0].text, std::regex(R"(\{[^}]*\\fade\()")));
+	EXPECT_EQ(result[0].text.find("}\\fade("), std::string::npos);
+}
+
+TEST(MochaHandler, ApplyMotionTransformAlphaKillTransFirstVisibleFrameShouldNotBeFullyTransparent) {
+	auto dh = make_test_data_handler();
+
+	MotionOptions opts;
+	opts.kill_trans = true;
+	MotionHandler handler(opts, &dh, nullptr, nullptr);
+
+	MotionLine line;
+	line.text = R"({\alpha&HFF&\t(0,200,\alpha&H00&)}hello)";
+	line.start_time = 150;
+	line.end_time = 349;
+	line.duration = line.end_time - line.start_time;
+	line.tokenize_transforms();
+
+	std::vector<MotionLine> lines = {line};
+	auto result = handler.apply_motion(
+		lines,
+		1,
+		[](int ms) { return ms / 100; },
+		[](int frame) { return frame * 100; }
+	);
+
+	std::sort(result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+		return a.start_time < b.start_time;
+	});
+
+	ASSERT_EQ(result.size(), 2u);
+	int alpha = extract_alpha_value(result[0].text);
+	ASSERT_GE(alpha, 0);
+	EXPECT_LT(alpha, 255);
+}
+
+TEST(MochaHandler, ApplyMotionTransformPrimaryAlphaKillTransFirstVisibleFrameShouldNotBeFullyTransparent) {
+	auto dh = make_test_data_handler();
+
+	MotionOptions opts;
+	opts.kill_trans = true;
+	MotionHandler handler(opts, &dh, nullptr, nullptr);
+
+	MotionLine line;
+	line.text = R"({\1a&HFF&\t(0,200,\1a&H00&)}hello)";
+	line.start_time = 150;
+	line.end_time = 349;
+	line.duration = line.end_time - line.start_time;
+	line.tokenize_transforms();
+
+	std::vector<MotionLine> lines = {line};
+	auto result = handler.apply_motion(
+		lines,
+		1,
+		[](int ms) { return ms / 100; },
+		[](int frame) { return frame * 100; }
+	);
+
+	std::sort(result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+		return a.start_time < b.start_time;
+	});
+
+	ASSERT_EQ(result.size(), 2u);
+	int alpha = extract_alpha_value(result[0].text);
+	ASSERT_GE(alpha, 0);
+	EXPECT_LT(alpha, 255);
+}
+
+TEST(MochaHandler, ApplyMotionTransformAlphaKillTransAtFrameZeroShouldNotShift) {
+	auto dh = make_test_data_handler();
+
+	MotionOptions opts;
+	opts.kill_trans = true;
+	MotionHandler handler(opts, &dh, nullptr, nullptr);
+
+	MotionLine line;
+	line.text = R"({\alpha&HFF&\t(0,200,\alpha&H00&)}hello)";
+	line.start_time = 0;
+	line.end_time = 149;
+	line.duration = line.end_time - line.start_time;
+	line.tokenize_transforms();
+
+	std::vector<MotionLine> lines = {line};
+	auto result = handler.apply_motion(
+		lines,
+		0,
+		[](int ms) { return ms / 100; },
+		[](int frame) { return frame * 100; }
+	);
+
+	ASSERT_EQ(result.size(), 1u);
+	int alpha = extract_alpha_value(result[0].text);
+	ASSERT_GE(alpha, 0);
+	EXPECT_LT(alpha, 255);
+}
+
+// ============================================================================
+// FadeSampler 单元测试
+// ============================================================================
+
+TEST(FadeSampler, CreateShiftsOriginBackOneFrame) {
+	auto sampler = FadeSampler::create(1, 1,
+		std::function<int(int)>([](int f) { return f * 100; }));
+	// first_vis_frame_abs = 1+1-1 = 1, origin_frame = 0, ms(0)=0
+	EXPECT_EQ(sampler.fade_origin, 0);
+}
+
+TEST(FadeSampler, CreateClampsAtFrameZero) {
+	auto sampler = FadeSampler::create(0, 1,
+		std::function<int(int)>([](int f) { return f * 100; }));
+	// first_vis_frame_abs = 0, origin_frame = max(0,-1) = 0
+	EXPECT_EQ(sampler.fade_origin, 0);
+}
+
+TEST(FadeSampler, ComputeShiftedGreaterThanOriginal) {
+	auto sampler = FadeSampler::create(1, 1,
+		std::function<int(int)>([](int f) { return f * 100; }));
+
+	int td_orig, td_shift;
+	sampler.compute(100, 200, 150, 450, td_orig, td_shift);
+	EXPECT_GT(td_shift, td_orig);
+}
+
+TEST(FadeSampler, ComputeNoShiftAtFrameZero) {
+	auto sampler = FadeSampler::create(0, 1,
+		std::function<int(int)>([](int f) { return f * 100; }));
+
+	int td_orig, td_shift;
+	sampler.compute(0, 100, 0, 300, td_orig, td_shift);
+	// fade_origin = 0, line.start_time = 0, shift = 0-0 = 0
+	EXPECT_EQ(td_shift, td_orig);
+}
+
+TEST(FadeSampler, EvaluateFadeInUsesShifted) {
+	// \fade(255,0,255,0,100,200,300)
+	FullFadeData f{255, 0, 255, 0, 100, 200, 300};
+	// td_shifted 已过 fade-in 端点，td_original 仍在 fade-in 窗口内
+	// evaluate 应返回 a2（完全不透明），因为 shifted >= t2
+	double factor = FadeSampler::evaluate_fade(f, 175, 25);
+	EXPECT_DOUBLE_EQ(factor, 0.0);  // a2 = 0
+}
+
+TEST(FadeSampler, EvaluateFadeOutUsesOriginal) {
+	FullFadeData f{255, 0, 255, 0, 100, 200, 300};
+	// 尾帧：shifted 已越界 >= t4，但 original 仍在 [t3,t4) 内
+	double factor = FadeSampler::evaluate_fade(f, 350, 200);
+	// td_original=200 在 [t3=200, t4=300) 内，起始端: a2 + (a3-a2)*(200-200)/100 = 0
+	EXPECT_DOUBLE_EQ(factor, 0.0);
+}
+
+TEST(FadeSampler, EvaluateFadeOutLastFrameNotFullyTransparent) {
+	FullFadeData f{255, 0, 255, 0, 100, 200, 300};
+	// td_original=250 应在 fade-out 中间
+	double factor = FadeSampler::evaluate_fade(f, 400, 250);
+	// a2 + (a3-a2)*(250-200)/100 = 0 + 255*50/100 = 127.5
+	EXPECT_GT(factor, 0.0);
+	EXPECT_LT(factor, 255.0);
+}
+
+TEST(FadeSampler, EvaluateFadeZeroLengthFadeInSkipsDivision) {
+	// t1==t2 时分支 2 不可达：td_shifted>=t1 意味着 td_shifted>=t2，跳过除法
+	FullFadeData f{255, 0, 255, 100, 100, 200, 300};
+	// td_shifted=50 < t1=100 → 返回 a1
+	EXPECT_DOUBLE_EQ(FadeSampler::evaluate_fade(f, 50, 50), 255.0);
+	// td_shifted=100 >= t1=t2=100 → 跳过 branch1 和 branch2，进入 a2 段
+	EXPECT_DOUBLE_EQ(FadeSampler::evaluate_fade(f, 100, 100), 0.0);
+}
+
+TEST(FadeSampler, EvaluateFadeZeroLengthFadeOutSkipsDivision) {
+	// t3==t4 时分支 4 不可达：td_original>=t3 意味着 td_original>=t4，跳过除法
+	FullFadeData f{255, 0, 255, 0, 100, 200, 200};
+	// td_original=150 < t3=200 → 返回 a2
+	EXPECT_DOUBLE_EQ(FadeSampler::evaluate_fade(f, 250, 150), 0.0);
+	// td_original=200 >= t3=t4=200 → 跳过 branch3 和 branch4，返回 a3
+	EXPECT_DOUBLE_EQ(FadeSampler::evaluate_fade(f, 250, 200), 255.0);
+}
+
+// ============================================================================
+// alpha 尾段回归测试
+// ============================================================================
+
+TEST(MochaHandler, ApplyMotionFadeOutLastFrameShouldNotBeFullyTransparentWithShift) {
+	// 验证 fade-out 尾帧在前移采样下仍不越界为全透明
+	auto dh = make_test_data_handler();
+
+	MotionOptions opts;
+	opts.kill_trans = true;
+	MotionHandler handler(opts, &dh, nullptr, nullptr);
+
+	// fade-out 窗口 [600, 800] 覆盖到行末尾，确保尾帧仍在 fade-out 区间内
+	MotionLine line;
+	line.text = R"({\fade(255,0,255,0,100,600,800)\alpha&H00&}hello)";
+	line.start_time = 150;
+	line.end_time = 950;
+	line.duration = line.end_time - line.start_time;
+
+	std::vector<MotionLine> lines = {line};
+	auto result = handler.apply_motion(
+		lines,
+		1,
+		[](int ms) { return ms / 100; },
+		[](int frame) { return frame * 100; }
+	);
+
+	std::sort(result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+		return a.start_time < b.start_time;
+	});
+
+	ASSERT_GE(result.size(), 2u);
+	int last_alpha = extract_alpha_value(result.back().text);
+	ASSERT_GE(last_alpha, 0);
+	// 尾帧应在 fade-out 区间但不应越界为完全透明
+	EXPECT_LT(last_alpha, 255);
+}
+
+TEST(MochaHandler, ApplyMotionTransformAlphaFadeOutTailShouldNotOvershoot) {
+	// 验证 \t(alpha) opaque→transparent 时，晚期帧不应因统一使用 shifted 时间而提前到达完全透明
+	auto dh = make_test_data_handler();
+
+	MotionOptions opts;
+	opts.kill_trans = true;
+	MotionHandler handler(opts, &dh, nullptr, nullptr);
+
+	// \t(0,600,\alpha&HFF&) — 从不透明到完全透明，持续600ms
+	MotionLine line;
+	line.text = R"({\alpha&H00&\t(0,600,\alpha&HFF&)}hello)";
+	line.start_time = 150;
+	line.end_time = 950;
+	line.duration = line.end_time - line.start_time;
+	line.tokenize_transforms();
+
+	std::vector<MotionLine> lines = {line};
+	auto result = handler.apply_motion(
+		lines,
+		1,
+		[](int ms) { return ms / 100; },
+		[](int frame) { return frame * 100; }
+	);
+
+	std::sort(result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+		return a.start_time < b.start_time;
+	});
+
+	ASSERT_GE(result.size(), 6u);
+	auto late_it = std::find_if(result.begin(), result.end(), [](const MotionLine &line) {
+		return line.start_time == 600;
+	});
+	ASSERT_NE(late_it, result.end());
+	int late_alpha = extract_alpha_value(late_it->text);
+	ASSERT_GE(late_alpha, 0);
+	EXPECT_LT(late_alpha, 255);
+}
+
 class MochaProcessor : public libagi { };
 
 TEST(MochaProcessor, PostprocessRemovesEmptyClipInLinear) {
@@ -1169,4 +1562,45 @@ TEST(MochaProcessor, PrepareLinesHonorsIndependentClipOptions) {
 		<< "Expected clip preprocessing to honor independent clip options, got: " << lines[0].text;
 	EXPECT_EQ(lines[0].text.find(R"(\clip())"), std::string::npos)
 		<< "Independent clip options should prevent injecting an empty clip placeholder";
+}
+
+TEST(MochaProcessor, PrepareLinesConvertsFadToFullFade) {
+	MotionOptions opts;
+	MotionProcessor processor(opts, 640, 360);
+
+	MotionLine line;
+	line.text = R"({\fad(100,200)}hello)";
+	line.start_time = 0;
+	line.end_time = 1000;
+	line.duration = 1000;
+
+	std::vector<MotionLine> lines = {line};
+	processor.prepare_lines(lines, nullptr);
+
+	ASSERT_EQ(lines.size(), 1u);
+	EXPECT_NE(lines[0].text.find(R"(\fade(255,0,255,0,100,800,1000))"), std::string::npos)
+		<< "Expected short fad to be normalized, got: " << lines[0].text;
+	EXPECT_EQ(lines[0].text.find(R"(\fad(100,200))"), std::string::npos);
+}
+
+TEST(MochaProcessor, PrepareLinesShortFadBeforeFullFadeKeepsNormalizedFirstFade) {
+	MotionOptions opts;
+	MotionProcessor processor(opts, 640, 360);
+
+	MotionLine line;
+	line.text = R"({\fad(100,200)\fade(255,0,255,0,300,400,500)}hello)";
+	line.start_time = 0;
+	line.end_time = 1000;
+	line.duration = 1000;
+
+	std::vector<MotionLine> lines = {line};
+	processor.prepare_lines(lines, nullptr);
+
+	ASSERT_EQ(lines.size(), 1u);
+	EXPECT_NE(lines[0].text.find(R"(\fade(255,0,255,0,100,800,1000))"), std::string::npos)
+		<< "Expected first short fad to be normalized into the surviving full fade, got: " << lines[0].text;
+	EXPECT_EQ(lines[0].text.find(R"(\fad(100,200))"), std::string::npos)
+		<< "Short fad should not survive preprocessing once normalized";
+	EXPECT_EQ(lines[0].text.find(R"(\fade(255,0,255,0,300,400,500))"), std::string::npos)
+		<< "Later conflicting full fade should be removed after normalization, got: " << lines[0].text;
 }

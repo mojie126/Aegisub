@@ -12,10 +12,12 @@
 
 #pragma once
 
+#include <cmath>
+#include <functional>
+#include <map>
+#include <optional>
 #include <string>
 #include <vector>
-#include <optional>
-#include <map>
 
 namespace mocha {
 
@@ -165,6 +167,67 @@ enum class ClipType {
 	VECTOR,      // 矢量 clip
 	RECT_I,      // 反向矩形 clip
 	VECTOR_I     // 反向矢量 clip
+};
+
+/// 双时间基准 fade 采样器
+///
+/// 逐帧静态化 `\fade` / alpha 类 `\t(...)` 时，使用两个采样偏移量：
+///   - `\fade` 的 fade-in 段，以及 alpha 变得更不透明时，使用前移原点（首个有字幕帧的前一帧），确保首帧不在完全透明端点采样
+///   - `\fade` 的 fade-out 段，以及 alpha 变得更透明时，使用可见区间中点，避免尾帧因前移越界而被提前采到完全透明端点
+struct FadeSampler {
+	int fade_origin = 0;  ///< 前一帧起点（10ms 对齐）
+
+	/// 从行与追踪帧时序信息构造
+	/// @param collection_start_frame 追踪集合起始帧号
+	/// @param rel_start 行的 relative_start（从 1 开始）
+	/// @param ms_from_frame 帧号→毫秒转换函数
+	static FadeSampler create(int collection_start_frame, int rel_start,
+							  const std::function<int(int)> &ms_from_frame) {
+		int first_vis_frame_abs = collection_start_frame + rel_start - 1;
+		int origin_frame = std::max(0, first_vis_frame_abs - 1);
+		int origin_ms = ms_from_frame(origin_frame);
+		int origin = static_cast<int>(std::floor(std::max(0, origin_ms) / 10.0)) * 10;
+		return {origin};
+	}
+
+	/// 计算当前帧的双时间基准偏移量
+	/// @param new_start_time 帧起始时间（10ms 对齐）
+	/// @param new_end_time 帧结束时间（10ms 对齐）
+	/// @param line_start_time 原始字幕行起始时间
+	/// @param line_end_time 原始字幕行结束时间
+	/// @param[out] td_original 原始采样偏移（fade-out 段 / alpha 变得更透明时使用）
+	/// @param[out] td_shifted 前移采样偏移（fade-in 段 / alpha 变得更不透明时使用）
+	void compute(int new_start_time, int new_end_time,
+				 int line_start_time, int line_end_time,
+				 int &td_original, int &td_shifted) const {
+		int visible_start = std::max(new_start_time, line_start_time);
+		int visible_end = std::min(new_end_time, line_end_time);
+		if (visible_end > visible_start) {
+			td_original = static_cast<int>(
+				std::floor(0.5 * (visible_start + visible_end))
+			) - line_start_time;
+		} else {
+			td_original = new_start_time - line_start_time;
+		}
+		td_shifted = td_original + (line_start_time - fade_origin);
+	}
+
+	/// 使用双时间基准计算 `\fade` 分段因子
+	/// @param f fade 完整参数
+	/// @param td_shifted 前移采样偏移（fade-in 段）
+	/// @param td_original 原始采样偏移（fade-out 段）
+	/// @return fade 因子（0 = 完全不透明, 255 = 完全透明）
+	static double evaluate_fade(const FullFadeData &f, int td_shifted, int td_original) {
+		if (td_shifted < f.t1)
+			return static_cast<double>(f.a1);
+		if (td_shifted < f.t2)
+			return f.a1 + (f.a2 - f.a1) * static_cast<double>(td_shifted - f.t1) / (f.t2 - f.t1);
+		if (td_original < f.t3)
+			return static_cast<double>(f.a2);
+		if (td_original < f.t4)
+			return f.a2 + (f.a3 - f.a2) * static_cast<double>(td_original - f.t3) / (f.t4 - f.t3);
+		return static_cast<double>(f.a3);
+	}
 };
 
 } // namespace mocha

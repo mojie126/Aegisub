@@ -144,10 +144,15 @@ void MotionLine::dont_touch_transforms() {
 	transforms_tokenized = false;
 }
 
-std::string MotionLine::interpolate_transforms_copy(int start, int res_x, int res_y) const {
+std::string MotionLine::interpolate_transforms_copy(int start, int res_x, int res_y,
+	std::optional<int> alpha_shifted_time,
+	std::optional<int> alpha_original_time) const {
 	if (!transforms_tokenized) return text;
 	auto prior_tags = collect_prior_inline_tags();
-	return transform_utils::interpolate_transforms_copy(text, transforms, start - start_time, properties, prior_tags, res_x, res_y);
+	return transform_utils::interpolate_transforms_copy(
+		text, transforms, start - start_time, properties, prior_tags,
+		res_x, res_y, alpha_shifted_time, alpha_original_time
+	);
 }
 
 std::map<std::string, Transform::EffectTagValue> MotionLine::collect_prior_inline_tags() const {
@@ -419,25 +424,6 @@ void MotionLine::run_callback_on_overrides(std::function<std::string(const std::
 
 void MotionLine::run_callback_on_first_override(std::function<std::string(const std::string&)> callback) {
 	text = tag_utils::run_callback_on_first_override(text, callback);
-}
-
-void MotionLine::convert_fad_to_fade() {
-	// 将 \fad(in,out) 转换为 \fade(255,0,255,0,in,duration-out,duration)
-	// 对应 MoonScript: \\fade?%((%d+),(%d+)%) -> \\fade(255,0,255,0,%d,%d,%d)
-	std::regex fad_re(R"(\\fade?\((\d+),(\d+)\))");
-	std::smatch match;
-	std::string search_text = text;
-
-	if (std::regex_search(search_text, match, fad_re)) {
-		int fade_in = std::stoi(match[1].str());
-		int fade_out = std::stoi(match[2].str());
-
-		char buf[128];
-		std::snprintf(buf, sizeof(buf), "\\fade(255,0,255,0,%d,%d,%d)",
-			fade_in, duration - fade_out, duration);
-
-		text = std::regex_replace(text, fad_re, buf);
-	}
 }
 
 void MotionLine::shift_karaoke() {

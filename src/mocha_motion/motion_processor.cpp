@@ -272,20 +272,25 @@ namespace mocha {
 			// 2. 在 override 块中将 \fad(in,out) 转为 \fade(255,0,255,0,in,dur-out,dur)
 			line.run_callback_on_overrides(
 				[&line](const std::string &block, int) {
-					std::string result = block;
-					static const std::regex fad_re(R"(\\fade?\((\d+),(\d+)\))");
+					// 这里不能直接复用 extract_fade()：
+					// 当块中同时存在短版 \fad 和完整版 \fade 时，extract_fade()
+					// 会优先命中完整版，导致位于前面的短版 \fad 无法被规范化，
+					// 后续去重又会保留先出现的冲突标签，从而让短版 \fad 误留到主链路。
+					static const std::regex short_fade_re(R"(\\fad(?:e)?\(\s*(\d+)\s*,\s*(\d+)\s*\))");
 					std::smatch m;
-					if (std::regex_search(result, m, fad_re)) {
-						int fade_in = std::stoi(m[1].str());
-						int fade_out = std::stoi(m[2].str());
-						char buf[128];
-						std::snprintf(
-							buf, sizeof(buf), "\\fade(255,0,255,0,%d,%d,%d)",
-							fade_in, line.duration - fade_out, line.duration
-						);
-						result = std::regex_replace(result, fad_re, buf);
+					if (!std::regex_search(block, m, short_fade_re)) {
+						return block;
 					}
-					return result;
+
+					char buf[128];
+					std::snprintf(
+						buf, sizeof(buf), "\\fade(255,0,255,0,%d,%d,%d)",
+						std::stoi(m[1].str()),
+						line.duration - std::stoi(m[2].str()),
+						line.duration
+					);
+
+					return m.prefix().str() + buf + m.suffix().str();
 				}
 			);
 
