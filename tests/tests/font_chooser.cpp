@@ -187,6 +187,10 @@ bool NeedsPreviewMetricPreparation(size_t missing_main_metrics, size_t missing_f
 	return missing_main_metrics != 0 || missing_favorite_metrics != 0;
 }
 
+bool ShouldUsePreviewFontForListDisplay(bool use_preview_text) {
+	return use_preview_text;
+}
+
 bool ShouldSchedulePendingPreviewListRefresh(bool quick_preview_enabled, bool refresh_pending,
 	bool refresh_scheduled, bool refresh_in_progress) {
 	return quick_preview_enabled && refresh_pending && !refresh_scheduled && !refresh_in_progress;
@@ -528,6 +532,14 @@ TEST(FontChooserTest, PreviewPreparationTracksFavoriteListCacheMisses) {
 	EXPECT_FALSE(NeedsPreviewMetricPreparation(0, 0));
 	EXPECT_TRUE(NeedsPreviewMetricPreparation(1, 0));
 	EXPECT_TRUE(NeedsPreviewMetricPreparation(0, 1));
+}
+
+TEST(FontChooserTest, NonQuickPreviewUsesSystemFontForListDisplay) {
+	EXPECT_FALSE(ShouldUsePreviewFontForListDisplay(false));
+}
+
+TEST(FontChooserTest, QuickPreviewUsesPreviewFontForListDisplay) {
+	EXPECT_TRUE(ShouldUsePreviewFontForListDisplay(true));
 }
 
 TEST(FontChooserTest, PendingPreviewRefreshRequiresDirtyStateToSchedule) {

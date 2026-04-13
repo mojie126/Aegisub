@@ -376,6 +376,12 @@ bool NeedsPreviewMetricPreparation(size_t missingMainMetrics, size_t missingFavo
 	return missingMainMetrics != 0 || missingFavoriteMetrics != 0;
 }
 
+/// @brief 判断字体列表当前是否应使用目标字体进行绘制
+/// @details 非便捷预览模式下，优先使用系统默认字体显示字体名称，避免名称可读性受字体自身影响。
+bool ShouldUsePreviewFontForListDisplay(bool usePreviewText) {
+	return usePreviewText;
+}
+
 /// @brief 构建字体列表条目的显示文本
 /// @param font_name 当前条目的字体名称
 /// @param previewText 示例文本
@@ -752,6 +758,20 @@ wxString FontPreviewListBox::GetDisplayText(const wxString &fontName) const {
 	return MakeFontListItemText(fontName, previewText_, usePreviewText_);
 }
 
+const wxFont &FontPreviewListBox::GetDefaultPreviewFont() const {
+	static const wxString kDefaultPreviewFontCacheKey = wxString(1, wxChar(0x1f)) + wxS("default-preview-font");
+	auto it = fontCache_.find(kDefaultPreviewFontCacheKey);
+	if (it == fontCache_.end()) {
+		wxFont newFont = GetFont();
+		if (newFont.IsOk())
+			newFont.SetPointSize(previewFontSize_);
+		if (!newFont.IsOk())
+			newFont = wxFont(previewFontSize_, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
+		it = fontCache_.emplace(kDefaultPreviewFontCacheKey, std::move(newFont)).first;
+	}
+	return it->second;
+}
+
 const wxFont &FontPreviewListBox::GetPreviewFont(const wxString &previewFace) const {
 	auto it = fontCache_.find(previewFace);
 	if (it == fontCache_.end()) {
@@ -809,7 +829,9 @@ const FontPreviewListBox::PreviewItemMetrics &FontPreviewListBox::GetPreviewMetr
 	}
 
 	wxClientDC dc(const_cast<FontPreviewListBox *>(this));
-	dc.SetFont(GetPreviewFont(GetFontPreviewFaceName(fontName)));
+	dc.SetFont(ShouldUsePreviewFontForListDisplay(usePreviewText_)
+		? GetPreviewFont(GetFontPreviewFaceName(fontName))
+		: GetDefaultPreviewFont());
 	wxCoord textWidth = 0;
 	wxCoord textHeight = 0;
 	wxCoord descent = 0;
@@ -897,8 +919,10 @@ void FontPreviewListBox::OnDrawItem(wxDC &dc, const wxRect &rect, size_t n) cons
 	const wxString display_name = GetDisplayText(name);
 	const PreviewItemMetrics &metrics = GetPreviewMetrics(name);
 
-	// 使用缓存的字体对象，避免滚动时反复创建 wxFont 导致卡顿
-	dc.SetFont(GetPreviewFont(preview_face));
+	// 非便捷预览模式优先保证字体名称可读性，便捷预览模式继续使用目标字体显示效果。
+	dc.SetFont(ShouldUsePreviewFontForListDisplay(usePreviewText_)
+		? GetPreviewFont(preview_face)
+		: GetDefaultPreviewFont());
 
 	// 选中项使用系统高亮色
 	if (IsSelected(n)) {
@@ -1132,6 +1156,8 @@ DialogFontChooser::DialogFontChooser(wxWindow *parent, const wxFont &initial, co
 		clear_pending_preview_refresh();
 		persist_preview_settings();
 		selectedFont_ = BuildFontFromControls();
+		RecordFavoriteFontFace(selectedFont_.GetFaceName());
+		RefreshFavoriteFontList(selectedFont_.GetFaceName());
 		EndModal(wxID_OK);
 	}, wxID_OK);
 
@@ -1621,8 +1647,6 @@ void DialogFontChooser::OnFontNameSelected(wxCommandEvent &) {
 		fontNameInput_->Unbind(wxEVT_TEXT, &DialogFontChooser::OnFontNameInput, this);
 		fontNameInput_->SetValue(fontNameList_->GetFontName(sel));
 		fontNameInput_->Bind(wxEVT_TEXT, &DialogFontChooser::OnFontNameInput, this);
-		RecordFavoriteFontFace(fontNameList_->GetFontName(sel));
-		RefreshFavoriteFontList(fontNameList_->GetFontName(sel));
 		PopulateStyleList(fontNameList_->GetFontName(sel));
 		SelectMatchingStyle(BuildFontFromControls());
 	}
@@ -1691,8 +1715,6 @@ void DialogFontChooser::OnFavoriteFontSelected(wxCommandEvent &) {
 	int sel = favoriteFontList_->GetSelection();
 	if (sel == wxNOT_FOUND) return;
 	wxString fontName = favoriteFontList_->GetFontName(sel);
-	RecordFavoriteFontFace(fontName);
-	RefreshFavoriteFontList(fontName);
 	fontNameFilterDirty_ = true;
 	fontNameInput_->ChangeValue(fontName);
 	FilterFontList();

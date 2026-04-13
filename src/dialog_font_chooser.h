@@ -156,6 +156,7 @@ private:
 	size_t metricWarmupCursor_ = 0;   ///< 当前预热进度
 
 	wxString GetDisplayText(const wxString &fontName) const;
+	const wxFont &GetDefaultPreviewFont() const;
 	bool HasPreviewMetricsCached(const wxString &fontName, bool usePreviewText, const wxString &previewText) const;
 	const wxFont &GetPreviewFont(const wxString &previewFace) const;
 	const PreviewItemMetrics &GetPreviewMetrics(const wxString &fontName) const;
