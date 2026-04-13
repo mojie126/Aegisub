@@ -895,6 +895,7 @@ void DialogStyleEditor::Apply(bool apply, bool close) {
 		}
 
 		UpdateWorkStyle();
+		RecordFavoriteFontFace(to_wx(work->font));
 
 		*style = *work;
 		style->UpdateData();
@@ -974,9 +975,6 @@ void DialogStyleEditor::OnPreviewColourChange(ValueEvent<agi::Color> &evt) {
 }
 
 void DialogStyleEditor::OnCommandPreviewUpdate(wxCommandEvent &event) {
-	if (event.GetEventType() == wxEVT_COMBOBOX)
-		RecordFavoriteFontFace(event.GetString());
-
 	UpdateWorkStyle();
 	SubsPreview->SetStyle(*work);
 	event.Skip();
