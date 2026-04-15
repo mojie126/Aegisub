@@ -12,7 +12,9 @@
 
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <regex>
+#include <sstream>
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -551,6 +553,44 @@ static std::string MakeExportFilename(const std::string& img_path, long start_fr
 	return agi::format("%s_[%ld-%ld]_%05d%s", img_path, start_frame, end_frame, current_frame, ext);
 }
 
+/// @brief 模拟默认的帧序列导出目录生成逻辑
+static std::filesystem::path MakeDefaultClipExportDirectory(const std::filesystem::path &output_base, long start_frame, long end_frame) {
+	std::wostringstream dir_name;
+	dir_name << output_base.filename().wstring() << L" [" << start_frame << L"-" << end_frame << L"]";
+	return output_base.parent_path() / std::filesystem::path(dir_name.str());
+}
+
+/// @brief 模拟单帧序列图片导出的路径生成逻辑
+static std::filesystem::path MakeExportFramePath(const std::filesystem::path &output_dir, const std::wstring &image_name,
+	long start_frame, long end_frame, int current_frame, bool subtitle_only) {
+	std::wostringstream filename;
+	filename << image_name << L"_[" << start_frame << L"-" << end_frame << L"]_"
+		<< std::setw(5) << std::setfill(L'0') << current_frame
+		<< (subtitle_only ? L".png" : L".jpg");
+	return output_dir / std::filesystem::path(filename.str());
+}
+
+/// @brief 模拟截图文件路径生成逻辑
+static std::filesystem::path MakeSnapshotExportPath(const std::filesystem::path &basepath, int shot_count, int frame,
+	const std::wstring &image_suffix) {
+	std::wostringstream filename;
+	filename << basepath.filename().wstring() << L"_"
+		<< std::setw(3) << std::setfill(L'0') << shot_count
+		<< L"_" << frame << L"." << image_suffix;
+	return basepath.parent_path() / std::filesystem::path(filename.str());
+}
+
+/// @brief 模拟 GIF 导出文件路径生成逻辑
+static std::filesystem::path MakeGifExportPath(const std::filesystem::path &output_dir, const std::wstring &image_name,
+	long start_frame, long end_frame, int speed_rate) {
+	std::wostringstream filename;
+	filename << image_name << L"_[" << start_frame << L"-" << end_frame << L"]";
+	if (speed_rate > 1)
+		filename << L"_s" << speed_rate;
+	filename << L".gif";
+	return output_dir / std::filesystem::path(filename.str());
+}
+
 TEST(lagi_image_video, export_filename_jpeg_mode) {
 	auto name = MakeExportFilename("video_clip", 100, 200, 1, false);
 	EXPECT_EQ("video_clip_[100-200]_00001.jpg", name);
@@ -575,6 +615,34 @@ TEST(lagi_image_video, export_filename_frame_counter) {
 TEST(lagi_image_video, export_filename_large_frame_range) {
 	auto name = MakeExportFilename("test", 10000, 20000, 42, true);
 	EXPECT_EQ("test_[10000-20000]_00042.png", name);
+}
+
+TEST(lagi_image_video, export_directory_preserves_unicode_base_name) {
+	const std::filesystem::path base = std::filesystem::path(std::wstring(L"\u5BFC\u51FA")) / std::filesystem::path(std::wstring(L"\u955C\u5934"));
+	auto dir = MakeDefaultClipExportDirectory(base, 100, 200);
+	const auto expected = base.parent_path() / std::filesystem::path(std::wstring(L"\u955C\u5934 [100-200]"));
+	EXPECT_EQ(expected.wstring(), dir.wstring());
+}
+
+TEST(lagi_image_video, export_frame_path_preserves_unicode_components) {
+	const std::filesystem::path output_dir = std::filesystem::path(std::wstring(L"\u5BFC\u51FA")) / std::filesystem::path(std::wstring(L"\u955C\u5934 [100-200]"));
+	auto path = MakeExportFramePath(output_dir, std::wstring(L"\u7247\u6BB5 \u540D\u79F0"), 100, 200, 7, false);
+	const auto expected = output_dir / std::filesystem::path(std::wstring(L"\u7247\u6BB5 \u540D\u79F0_[100-200]_00007.jpg"));
+	EXPECT_EQ(expected.wstring(), path.wstring());
+}
+
+TEST(lagi_image_video, snapshot_path_preserves_unicode_prefix) {
+	const std::filesystem::path base = std::filesystem::path(std::wstring(L"\u622A\u56FE")) / std::filesystem::path(std::wstring(L"\u573A\u666F01"));
+	auto path = MakeSnapshotExportPath(base, 7, 42, L"png");
+	const auto expected = base.parent_path() / std::filesystem::path(std::wstring(L"\u573A\u666F01_007_42.png"));
+	EXPECT_EQ(expected.wstring(), path.wstring());
+}
+
+TEST(lagi_image_video, gif_path_preserves_unicode_prefix_and_speed_suffix) {
+	const std::filesystem::path output_dir = std::filesystem::path(std::wstring(L"\u5BFC\u51FA")) / std::filesystem::path(std::wstring(L"\u52A8\u753B"));
+	auto path = MakeGifExportPath(output_dir, std::wstring(L"\u573A\u666F01"), 100, 200, 3);
+	const auto expected = output_dir / std::filesystem::path(std::wstring(L"\u573A\u666F01_[100-200]_s3.gif"));
+	EXPECT_EQ(expected.wstring(), path.wstring());
 }
 
 TEST(lagi_image_video, export_duration_frame_count) {

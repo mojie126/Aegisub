@@ -88,6 +88,110 @@ namespace {
 		return result;
 	}
 
+	/// @brief 解析视频导出的默认基路径
+	/// @param c 当前上下文
+	/// @param option 路径配置项
+	/// @return 以视频名为前缀的导出基路径
+	agi::fs::path ResolveVideoExportBasePath(const agi::Context *c, std::string option) {
+		agi::fs::path basepath;
+		const auto videoname = c->project->VideoName();
+		const bool is_dummy = videoname.string().starts_with("?dummy");
+		const bool is_image = videoname.string().starts_with("?image:");
+
+		if (option.empty())
+			option = "?video";
+
+		if (option[0] == '?') {
+			if (option.starts_with("?video") && (is_dummy || is_image))
+				option = "?script";
+
+			basepath = c->path->Decode(option);
+			if ((basepath == "\\") || (basepath == "/"))
+				basepath = agi::fs::path(wxGetHomeDir().ToStdWstring());
+		}
+		else {
+			basepath = c->path->MakeAbsolute(option, "?user/");
+		}
+
+		return basepath / (is_dummy ? "dummy" : (is_image ? "image" : videoname.stem()));
+	}
+
+	/// @brief 解析可选的导出目录覆盖项
+	/// @param configured_path 配置中的输出目录
+	/// @param default_dir 默认输出目录
+	/// @return 最终导出目录
+	agi::fs::path ResolveConfiguredExportDirectory(const std::string &configured_path, const agi::fs::path &default_dir) {
+		if (configured_path.empty())
+			return default_dir;
+		return agi::fs::path(to_wx(configured_path).ToStdWstring());
+	}
+
+	/// @brief 构造默认的帧序列导出目录
+	/// @param output_base 默认输出基路径（包含文件名前缀）
+	/// @param start_frame 起始帧
+	/// @param end_frame 结束帧
+	/// @return 追加帧范围后的目录路径
+	agi::fs::path MakeDefaultClipExportDirectory(const agi::fs::path &output_base, long start_frame, long end_frame) {
+		wxString dir_name = wxString::Format(wxT("%s [%ld-%ld]"),
+			wxString(output_base.filename().wstring()), start_frame, end_frame);
+		return output_base.parent_path() / agi::fs::path(dir_name.ToStdWstring());
+	}
+
+	/// @brief 构造帧序列导出的单帧文件路径
+	/// @param output_dir 目标目录
+	/// @param image_name 导出文件名前缀
+	/// @param start_frame 起始帧
+	/// @param end_frame 结束帧
+	/// @param current_frame 当前导出序号（从 1 开始）
+	/// @param subtitle_only 是否仅导出字幕层
+	/// @return 生成的完整文件路径
+	agi::fs::path MakeClipExportFramePath(const agi::fs::path &output_dir, const wxString &image_name,
+		long start_frame, long end_frame, int current_frame, bool subtitle_only) {
+		const wxString filename = wxString::Format(wxT("%s_[%ld-%ld]_%05d.%s"),
+			image_name, start_frame, end_frame, current_frame, subtitle_only ? wxT("png") : wxT("jpg"));
+		return output_dir / agi::fs::path(filename.ToStdWstring());
+	}
+
+	/// @brief 构造截图导出的文件路径
+	/// @param basepath 截图基路径（包含文件名前缀）
+	/// @param shot_count 当前截图序号
+	/// @param frame 当前帧号
+	/// @param image_suffix 图片后缀
+	/// @return 完整截图文件路径
+	agi::fs::path MakeSnapshotPath(const agi::fs::path &basepath, int shot_count, int frame, const wxString &image_suffix) {
+		const wxString filename = wxString::Format(wxT("%s_%03d_%d.%s"),
+			wxString(basepath.filename().wstring()), shot_count, frame, image_suffix);
+		return basepath.parent_path() / agi::fs::path(filename.ToStdWstring());
+	}
+
+	/// @brief 构造 GIF 导出的文件路径
+	/// @param output_dir 目标目录
+	/// @param image_name 导出文件名前缀
+	/// @param start_frame 起始帧
+	/// @param end_frame 结束帧
+	/// @param speed_rate 倍速
+	/// @return 完整 GIF 文件路径
+	agi::fs::path MakeGifExportPath(const agi::fs::path &output_dir, const wxString &image_name,
+		long start_frame, long end_frame, int speed_rate) {
+		wxString gif_name;
+		if (speed_rate > 1)
+			gif_name = wxString::Format(wxT("%s_[%ld-%ld]_s%d.gif"),
+				image_name, start_frame, end_frame, speed_rate);
+		else
+			gif_name = wxString::Format(wxT("%s_[%ld-%ld].gif"),
+				image_name, start_frame, end_frame);
+		return output_dir / agi::fs::path(gif_name.ToStdWstring());
+	}
+
+	/// @brief 清理导出目录中的已有文件
+	/// @param output_dir 目标目录
+	void ClearExportDirectoryFiles(const agi::fs::path &output_dir) {
+		for (const auto &entry : std::filesystem::directory_iterator(output_dir)) {
+			if (entry.is_regular_file())
+				std::filesystem::remove(entry.path());
+		}
+	}
+
 	struct validator_video_loaded : public Command {
 		CMD_TYPE(COMMAND_VALIDATE)
 
@@ -534,45 +638,11 @@ namespace {
 	}
 
 	void export_gif(agi::Context *c) {
-		auto option = OPT_GET("Path/Screenshot")->GetString();
-		agi::fs::path basepath;
+		const auto videoname = c->project->VideoName();
+		const auto basepath = ResolveVideoExportBasePath(c, OPT_GET("Path/Screenshot")->GetString());
 
-		auto videoname = c->project->VideoName();
-		bool is_dummy = videoname.string().starts_with("?dummy");
-		bool is_image = videoname.string().starts_with("?image:");
-
-		// Is it a path specifier and not an actual fixed path?
-		if (option[0] == '?') {
-			// If dummy/image video is loaded, we can't save to the video location
-			if (option.starts_with("?video") && (is_dummy || is_image)) {
-				// So try the script location instead
-				option = "?script";
-			}
-			// Find out where the ?specifier points to
-			basepath = c->path->Decode(option);
-			// If where ever that is isn't defined, we can't save there
-			if ((basepath == "\\") || (basepath == "/")) {
-				// So save to the current user's home dir instead
-				basepath = std::string(wxGetHomeDir());
-			}
-		}
-		// Actual fixed (possibly relative) path, decode it
-		else
-			basepath = c->path->MakeAbsolute(option, "?user/");
-
-		basepath /= is_dummy ? "dummy" : (is_image ? "image" : videoname.stem());
-
-		// Get full path
-		// 确定输出目录（使用 agi::fs::path 避免编码转换问题）
-		agi::fs::path output_dir;
 		auto gif_export_path = OPT_GET("Path/GifExport")->GetString();
-		if (!gif_export_path.empty()) {
-			// 配置文件中存储的是 UTF-8，通过 wxString 正确转换为宽字符路径
-			output_dir = agi::fs::path(wxString(gif_export_path.c_str(), wxConvUTF8).ToStdWstring());
-		} else {
-			output_dir = basepath;
-		}
-		// 确保输出目录存在（带异常保护）
+		const auto output_dir = ResolveConfiguredExportDirectory(gif_export_path, basepath);
 		try {
 			std::filesystem::create_directories(output_dir);
 		} catch (const std::filesystem::filesystem_error& e) {
@@ -591,17 +661,8 @@ namespace {
 			DialogProgress progress(nullptr, _("Export gif image"), wxEmptyString);
 			const double delay = static_cast<double>(getEndTime() - getStartTime()) / (getEndFrame() - getStartFrame() + 1);
 			const int speed_rate = getGifSpeedRate();
-			// 使用 agi::fs::path 构建 GIF 文件路径，确保编码正确
-			// 对文件名进行非法字符清理（dummy 视频名包含冒号等 Windows 非法字符）
-			wxString safe_name = SanitizeFileName(fName.GetName());
-			wxString gif_name;
-			if (speed_rate > 1)
-				gif_name = wxString::Format(wxT("%s_[%ld-%ld]_s%d.gif"),
-					safe_name, getStartFrame(), getEndFrame(), speed_rate);
-			else
-				gif_name = wxString::Format(wxT("%s_[%ld-%ld].gif"),
-					safe_name, getStartFrame(), getEndFrame());
-			agi::fs::path gif_path = output_dir / agi::fs::path(gif_name.ToStdWstring());
+			const auto gif_path = MakeGifExportPath(output_dir, SanitizeFileName(fName.GetName()),
+				getStartFrame(), getEndFrame(), speed_rate);
 			try {
 				progress.Run(
 					[&](agi::ProgressSink *ps) {
@@ -633,35 +694,20 @@ namespace {
 	};
 
 	/// 导出视频帧图像序列（JPEG），或仅导出字幕（PNG）
-	bool export_clip_image_sequences(const agi::Context *c, agi::ProgressSink *ps, const char *output_filename, long start_frame, long end_frame, const char *img_path, bool subtitle_only) {
+	bool export_clip_image_sequences(const agi::Context *c, agi::ProgressSink *ps, const agi::fs::path &output_base,
+		long start_frame, long end_frame, const wxString &image_name, bool subtitle_only) {
 		int current_frame = 1, duration_frame = end_frame - start_frame + 1;
-		std::string output_path;
 		auto clip_export_path = OPT_GET("Path/ClipExport")->GetString();
-		clip_export_path = wxString(clip_export_path.c_str(), wxConvUTF8).ToStdString();
-		if (clip_export_path.empty()) {
-			output_path = agi::wxformat("%s [%ld-%ld]", output_filename, start_frame, end_frame);
-			try {
-				std::filesystem::create_directories(from_wx(output_path));
-			} catch (const std::filesystem::filesystem_error& e) {
-				wxLogError("Failed to create output directory: %s", e.what());
-				return false;
-			}
-		} else {
-			output_path = clip_export_path;
-			try {
-				std::filesystem::create_directories(from_wx(output_path));
-			} catch (const std::filesystem::filesystem_error& e) {
-				wxLogError("Failed to create output directory: %s", e.what());
-				return false;
-			}
-			wxString filename;
-			const wxDir dir(output_path);
-			bool cont = dir.GetFirst(&filename, wxEmptyString, wxDIR_FILES);
-			while (cont) {
-				const std::string _tmp_file{(wxString(output_path) + wxFileName::GetPathSeparator() + filename).ToStdString()};
-				wxRemoveFile(_tmp_file);
-				cont = dir.GetNext(&filename);
-			}
+		const auto output_dir = ResolveConfiguredExportDirectory(clip_export_path,
+			MakeDefaultClipExportDirectory(output_base, start_frame, end_frame));
+
+		try {
+			std::filesystem::create_directories(output_dir);
+			if (!clip_export_path.empty())
+				ClearExportDirectoryFiles(output_dir);
+		} catch (const std::filesystem::filesystem_error& e) {
+			wxLogError("Failed to prepare output directory: %s", e.what());
+			return false;
 		}
 
 		if (!subtitle_only && !wxImage::FindHandler(wxBITMAP_TYPE_JPEG))
@@ -685,18 +731,18 @@ namespace {
 		for (int i = start_frame; i <= end_frame; ++i) {
 			const double time = c->project->Timecodes().TimeAtFrame(i);
 			if (subtitle_only) {
-				std::string image_filename{(wxString(output_path) + wxFileName::GetPathSeparator() + agi::wxformat(std::string(img_path) + "_[%ld-%ld]_%05d.png", start_frame, end_frame, current_frame)).ToStdString()};
+				const auto image_filename = MakeClipExportFramePath(output_dir, image_name, start_frame, end_frame, current_frame, true);
 				auto sub_vf = c->project->VideoProvider()->GetSubtitles(time);
 				wxImage img = GetImageWithAlpha(sub_vf);
 				// 字幕透明图已经是渲染后的 SDR 叠加层，不应再套视频 HDR LUT。
 				if (seq_padding_top > 0 || seq_padding_bottom > 0)
 					img = AddPaddingToImage(img, seq_padding_top, seq_padding_bottom);
-				const bool res = img.SaveFile(image_filename, wxBITMAP_TYPE_PNG);
+				const bool res = img.SaveFile(wxString(image_filename.wstring()), wxBITMAP_TYPE_PNG);
 				ps->SetProgress(current_frame, duration_frame);
 				if (ps->IsCancelled()) break;
 				if (!res) return res;
 			} else {
-				std::string image_filename{(wxString(output_path) + wxFileName::GetPathSeparator() + agi::wxformat(std::string(img_path) + "_[%ld-%ld]_%05d.jpg", start_frame, end_frame, current_frame)).ToStdString()};
+				const auto image_filename = MakeClipExportFramePath(output_dir, image_name, start_frame, end_frame, current_frame, false);
 				auto seq_vf = c->project->VideoProvider()->GetFrame(i, time, true);
 				wxImage img = GetImage(*seq_vf);
 				if (seq_hdr_enabled)
@@ -708,7 +754,7 @@ namespace {
 				}
 				if (seq_padding_top > 0 || seq_padding_bottom > 0)
 					img = AddPaddingToImage(img, seq_padding_top, seq_padding_bottom);
-				const bool res = img.SaveFile(image_filename, wxBITMAP_TYPE_JPEG);
+				const bool res = img.SaveFile(wxString(image_filename.wstring()), wxBITMAP_TYPE_JPEG);
 				ps->SetProgress(current_frame, duration_frame);
 				if (ps->IsCancelled()) break;
 				if (!res) return res;
@@ -720,33 +766,8 @@ namespace {
 
 	/// 导出视频帧序列的入口函数
 	void export_clip(agi::Context *c) {
-		auto option = OPT_GET("Path/Screenshot")->GetString();
-		agi::fs::path basepath;
-
-		auto videoname = c->project->VideoName();
-		bool is_dummy = videoname.string().starts_with("?dummy");
-		bool is_image = videoname.string().starts_with("?image:");
-
-		// Is it a path specifier and not an actual fixed path?
-		if (option[0] == '?') {
-			// If dummy/image video is loaded, we can't save to the video location
-			if (option.starts_with("?video") && (is_dummy || is_image)) {
-				// So try the script location instead
-				option = "?script";
-			}
-			// Find out where the ?specifier points to
-			basepath = c->path->Decode(option);
-			// If where ever that is isn't defined, we can't save there
-			if ((basepath == "\\") || (basepath == "/")) {
-				// So save to the current user's home dir instead
-				basepath = std::string(wxGetHomeDir());
-			}
-		}
-		// Actual fixed (possibly relative) path, decode it
-		else
-			basepath = c->path->MakeAbsolute(option, "?user/");
-
-		basepath /= is_dummy ? "dummy" : (is_image ? "image" : videoname.stem());
+		const auto videoname = c->project->VideoName();
+		const auto basepath = ResolveVideoExportBasePath(c, OPT_GET("Path/Screenshot")->GetString());
 
 		// 设置帧范围（使用帧序列专用对话框，无裁剪面板）
 		c->videoController->Stop();
@@ -755,22 +776,15 @@ namespace {
 
 		// 导出帧图像序列
 		if (getSeqOnOK()) {
-			auto clip_export_path = OPT_GET("Path/ClipExport")->GetString();
-			clip_export_path = wxString(clip_export_path.c_str(), wxConvUTF8).ToStdString();
-			std::string path;
-			if (clip_export_path.empty())
-				path = agi::format("%s", basepath.string());
-			else
-				path = agi::format("%s", clip_export_path);
 			const wxFileName fName(videoname.c_str());
 			// 对文件名进行非法字符清理
-			std::string img_path = SanitizeFileName(fName.GetName()).ToStdString();
+			wxString image_name = SanitizeFileName(fName.GetName());
 
 			DialogProgress progress(nullptr, _("Export image sequence"), wxEmptyString);
 			try {
 				progress.Run(
 					[&](agi::ProgressSink *ps) {
-						export_clip_image_sequences(c, ps, path.c_str(), getSeqStartFrame(), getSeqEndFrame(), img_path.c_str(), getSeqSubtitleOnly());
+						export_clip_image_sequences(c, ps, basepath, getSeqStartFrame(), getSeqEndFrame(), image_name, getSeqSubtitleOnly());
 					}
 				);
 			} catch (agi::Exception &err) {
@@ -1040,40 +1054,14 @@ namespace {
 	};
 
 	static void save_snapshot(agi::Context *c, bool raw, bool subsonly = false) {
-		auto option = OPT_GET("Path/Screenshot")->GetString();
-		agi::fs::path basepath;
-
-		auto videoname = c->project->VideoName();
-		bool is_dummy = videoname.string().starts_with("?dummy");
-		bool is_image = videoname.string().starts_with("?image:");
-
-		// Is it a path specifier and not an actual fixed path?
-		if (option[0] == '?') {
-			// If dummy/image video is loaded, we can't save to the video location
-			if (option.starts_with("?video") && (is_dummy || is_image)) {
-				// So try the script location instead
-				option = "?script";
-			}
-			// Find out where the ?specifier points to
-			basepath = c->path->Decode(option);
-			// If where ever that is isn't defined, we can't save there
-			if ((basepath == "\\") || (basepath == "/")) {
-				// So save to the current user's home dir instead
-				basepath = std::string(wxGetHomeDir());
-			}
-		}
-		// Actual fixed (possibly relative) path, decode it
-		else
-			basepath = c->path->MakeAbsolute(option, "?user/");
-
-		basepath /= is_dummy ? "dummy" : (is_image ? "image" : videoname.stem());
+		const auto basepath = ResolveVideoExportBasePath(c, OPT_GET("Path/Screenshot")->GetString());
 
 		// Get full path
 		int session_shot_count = 1;
 		wxString image_suffix = subsonly ? "png" : OPT_GET("Path/ImageSuffix")->GetString();
-		std::string path;
+		agi::fs::path path;
 		do {
-			path = agi::format("%s_%03d_%d.%s", basepath.string(), session_shot_count++, c->videoController->GetFrameN(), image_suffix);
+			path = MakeSnapshotPath(basepath, session_shot_count++, c->videoController->GetFrameN(), image_suffix);
 		} while (agi::fs::FileExists(path));
 
 		wxBitmapType image_type = wxBITMAP_TYPE_PNG;
@@ -1084,7 +1072,7 @@ namespace {
 			img.SetOption(wxIMAGE_OPTION_QUALITY, 100);
 			image_type = wxBITMAP_TYPE_JPEG;
 		}
-		img.SaveFile(to_wx(path), image_type);
+		img.SaveFile(wxString(path.wstring()), image_type);
 	}
 
 	struct video_frame_save final : public validator_video_loaded {
