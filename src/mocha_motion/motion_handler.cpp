@@ -10,15 +10,85 @@
 #include <algorithm>
 #include <cmath>
 #include <regex>
-#include <sstream>
 
 namespace mocha {
+	namespace {
+		/// @brief 判断变换效果中是否包含 clip/\iclip 标签。
+		bool HasClipEffect(const Transform &transform) {
+			return transform.typed_effect_tags.contains("rectClip")
+					|| transform.typed_effect_tags.contains("rectiClip")
+					|| transform.typed_effect_tags.contains("vectClip")
+					|| transform.typed_effect_tags.contains("vectiClip");
+		}
+
+		/// @brief 收集每个 override 块当前实际生效的 clip/\iclip 标签。
+		std::vector<std::string> CollectEffectiveClipTags(const std::string &text) {
+			static const std::regex clip_re(R"(\\i?clip\([^)]*\))");
+			std::vector<std::string> clip_tags;
+
+			tag_utils::run_callback_on_overrides(
+				text, [&](const std::string &block, int) {
+					std::string effective_clip;
+					std::sregex_iterator it(block.begin(), block.end(), clip_re);
+					const std::sregex_iterator end;
+					while (it != end) {
+						std::string clip = (*it)[0].str();
+						if (clip != "\\clip()" && clip != "\\iclip()") {
+							effective_clip = std::move(clip);
+						}
+						++it;
+					}
+					clip_tags.push_back(std::move(effective_clip));
+					return block;
+				}
+			);
+
+			return clip_tags;
+		}
+
+		/// @brief 将子行首个 clip/\iclip 重基准到当前时刻的生效值。
+		std::string RebaseLeadingClipTags(const std::string &text, const std::vector<std::string> &clip_tags) {
+			static const std::regex clip_re(R"(\\i?clip\([^)]*\))");
+			return tag_utils::run_callback_on_overrides(
+				text, [&](const std::string &block, const int index) {
+					if (index <= 0) return block;
+					const auto clip_index = static_cast<size_t>(index - 1);
+					if (clip_index >= clip_tags.size()) return block;
+					if (clip_tags[clip_index].empty()) return block;
+					if (!std::regex_search(block, clip_re)) return block;
+					return std::regex_replace(
+						block, clip_re, clip_tags[clip_index],
+						std::regex_constants::format_first_only
+					);
+				}
+			);
+		}
+
+		/// @brief 将部分已生效的 clip/\iclip 变换窗口钳制到子行起点。
+		std::string ClampActiveClipTransformStarts(const std::string &text, const int line_duration) {
+			std::vector<Transform> transforms;
+			const std::string tokenized = transform_utils::tokenize_transforms(text, transforms, line_duration);
+			bool changed = false;
+
+			for (auto &transform : transforms) {
+				if (!HasClipEffect(transform)) continue;
+				if (transform.start_time < 0 && transform.end_time > 0) {
+					transform.start_time = 0;
+					changed = true;
+				}
+			}
+
+			if (!changed) return text;
+			return transform_utils::detokenize_transforms_copy(tokenized, transforms, 0, line_duration);
+		}
+	} // namespace
+
 	MotionHandler::MotionHandler(const MotionOptions &options,
 								DataHandler *main_data,
 								DataHandler *rect_clip_data,
 								DataHandler *vect_clip_data,
-								int res_x,
-								int res_y)
+								const int res_x,
+								const int res_y)
 		: main_data_(main_data)
 		, rect_clip_data_(rect_clip_data)
 		, vect_clip_data_(vect_clip_data)
@@ -28,157 +98,108 @@ namespace mocha {
 		setup_callbacks();
 	}
 
-/// @brief 根据用户选项配置标签回调列表
-///
-/// 回调架构说明：
-///   - callbacks_ 是一个 {正则模式, 回调函数} 的有序列表
-///   - 在 apply_callbacks() 中，对文本逐个匹配正则并调用回调函数替换值
-///   - 回调函数接收标签的当前值和帧号，返回计算后的新值
-///   - 顺序重要：位置回调必须在 clip 回调之前，因为绝对位置模式下
-///     位置回调会计算 x_delta_/y_delta_，clip 回调会使用这些偏移量
-///
-/// 回调配置根据 MotionOptions 决定启用哪些：
-///   - clip_only=false 时才启用位置/缩放/旋转回调
-///   - 位置：abs_pos 决定使用绝对位置回调还是相对位置回调
-///   - 缩放：启用 x_scale 后还可附带 border/shadow/blur
-///   - clip：取决于 rect_clip_data_/vect_clip_data_ 是否提供
 	void MotionHandler::setup_callbacks() {
 		callbacks_.clear();
+		auto add_callback = [this](const char *pattern, TagCallback callback) {
+			callbacks_.push_back({std::regex(pattern), std::move(callback)});
+		};
 
 		// 对应 MoonScript: unless 'SRS' == mainData.type or @options.main.clipOnly
 		// SRS 类型仅包含矢量绘图数据，不含位置/缩放/旋转信息
 		if (!options_.clip_only && !main_data_->is_srs()) {
-			const bool need_pos = options_.x_position || options_.y_position || options_.x_scale || options_.z_rotation;
-
-			if (need_pos) {
+			if (options_.x_position || options_.y_position || options_.x_scale || options_.z_rotation) {
 				if (options_.abs_pos) {
 					// 绝对位置模式
-					callbacks_.push_back(
-						{
-							R"((\\pos)\(([-.0-9]+,[-.0-9]+)\))",
-							std::regex(R"((\\pos)\(([-.0-9]+,[-.0-9]+)\))"),
-							[this](const std::string &v, int f) { return cb_absolute_position(v, f); }
-						}
+					add_callback(
+						R"((\\pos)\(([-.0-9]+,[-.0-9]+)\))",
+						[this](const std::string &v, const int f) { return cb_absolute_position(v, f); }
 					);
 				} else {
 					// 相对位置模式
-					callbacks_.push_back(
-						{
-							R"((\\pos)\(([-.0-9]+,[-.0-9]+)\))",
-							std::regex(R"((\\pos)\(([-.0-9]+,[-.0-9]+)\))"),
-							[this](const std::string &v, int f) { return cb_position(v, f); }
-						}
+					add_callback(
+						R"((\\pos)\(([-.0-9]+,[-.0-9]+)\))",
+						[this](const std::string &v, const int f) { return cb_position(v, f); }
 					);
 				}
 			}
 
 			if (options_.origin) {
-				callbacks_.push_back(
-					{
-						R"((\\org)\(([-.0-9]+,[-.0-9]+)\))",
-						std::regex(R"((\\org)\(([-.0-9]+,[-.0-9]+)\))"),
-						[this](const std::string &v, int f) { return cb_origin(v, f); }
-					}
+				add_callback(
+					R"((\\org)\(([-.0-9]+,[-.0-9]+)\))",
+					[this](const std::string &v, const int f) { return cb_origin(v, f); }
 				);
 			}
 
 			if (options_.x_scale) {
 				// \fscx, \fscy
-				callbacks_.push_back(
-					{
-						R"((\\fsc[xy])([.0-9]+))",
-						std::regex(R"((\\fsc[xy])([.0-9]+))"),
-						[this](const std::string &v, int f) { return cb_scale(v, f); }
-					}
+				add_callback(
+					R"((\\fsc[xy])([.0-9]+))",
+					[this](const std::string &v, const int f) { return cb_scale(v, f); }
 				);
 
 				if (options_.border) {
 					// \bord, \xbord, \ybord
-					callbacks_.push_back(
-						{
-							R"((\\[xy]?bord)([.0-9]+))",
-							std::regex(R"((\\[xy]?bord)([.0-9]+))"),
-							[this](const std::string &v, int f) { return cb_scale(v, f); }
-						}
+					add_callback(
+						R"((\\[xy]?bord)([.0-9]+))",
+						[this](const std::string &v, const int f) { return cb_scale(v, f); }
 					);
 				}
 
 				if (options_.shadow) {
 					// \shad, \xshad, \yshad
-					callbacks_.push_back(
-						{
-							R"((\\[xy]?shad)([-.0-9]+))",
-							std::regex(R"((\\[xy]?shad)([-.0-9]+))"),
-							[this](const std::string &v, int f) { return cb_scale(v, f); }
-						}
+					add_callback(
+						R"((\\[xy]?shad)([-.0-9]+))",
+						[this](const std::string &v, const int f) { return cb_scale(v, f); }
 					);
 				}
 
 				if (options_.blur) {
 					// \blur
-					callbacks_.push_back(
-						{
-							R"((\\blur)([.0-9]+))",
-							std::regex(R"((\\blur)([.0-9]+))"),
-							[this](const std::string &v, int f) { return cb_blur(v, f); }
-						}
+					add_callback(
+						R"((\\blur)([.0-9]+))",
+						[this](const std::string &v, const int f) { return cb_blur(v, f); }
 					);
 				}
 			}
 
 			if (options_.x_rotation) {
 				// \frx
-				callbacks_.push_back(
-					{
-						R"((\\frx)([-.0-9]+))",
-						std::regex(R"((\\frx)([-.0-9]+))"),
-						[this](const std::string &v, int f) { return cb_rotate_x(v, f); }
-					}
+				add_callback(
+					R"((\\frx)([-.0-9]+))",
+					[this](const std::string &v, const int f) { return cb_rotate_x(v, f); }
 				);
 			}
 
 			if (options_.y_rotation) {
 				// \fry
-				callbacks_.push_back(
-					{
-						R"((\\fry)([-.0-9]+))",
-						std::regex(R"((\\fry)([-.0-9]+))"),
-						[this](const std::string &v, int f) { return cb_rotate_y(v, f); }
-					}
+				add_callback(
+					R"((\\fry)([-.0-9]+))",
+					[this](const std::string &v, const int f) { return cb_rotate_y(v, f); }
 				);
 			}
 
 			if (options_.z_rotation) {
 				// \frz 或 \fr
-				callbacks_.push_back(
-					{
-						R"((\\frz|\\fr)([-.0-9]+))",
-						std::regex(R"((\\frz|\\fr)([-.0-9]+))"),
-						[this](const std::string &v, int f) { return cb_rotate_z(v, f); }
-					}
+				add_callback(
+					R"((\\frz|\\fr)([-.0-9]+))",
+					[this](const std::string &v, const int f) { return cb_rotate_z(v, f); }
 				);
 			}
 
 			if (options_.z_position) {
 				// \z 深度
-				callbacks_.push_back(
-					{
-						R"((\\z)([-.0-9]+))",
-						std::regex(R"((\\z)([-.0-9]+))"),
-						[this](const std::string &v, int f) { return cb_z_position(v, f); }
-					}
+				add_callback(
+					R"((\\z)([-.0-9]+))",
+					[this](const std::string &v, const int f) { return cb_z_position(v, f); }
 				);
 			}
 		}
 
 		// 矩形 clip 回调：SRS 数据不支持矩形 clip
 		if (rect_clip_data_ && !rect_clip_data_->is_srs()) {
-			callbacks_.push_back(
-				{
-					R"((\\i?clip)\(([-.0-9]+,[-.0-9]+,[-.0-9]+,[-.0-9]+)\))",
-					std::regex(R"((\\i?clip)\(([-.0-9]+,[-.0-9]+,[-.0-9]+,[-.0-9]+)\))"),
-					[this](const std::string &v, int f) { return cb_rect_clip(v, f); }
-				}
+			add_callback(
+				R"((\\i?clip)\(([-.0-9]+,[-.0-9]+,[-.0-9]+,[-.0-9]+)\))",
+				[this](const std::string &v, const int f) { return cb_rect_clip(v, f); }
 			);
 		}
 
@@ -186,21 +207,15 @@ namespace mocha {
 		if (vect_clip_data_) {
 			if (vect_clip_data_->is_srs()) {
 				// SRS 模式：直接替换为预生成的绘图字符串
-				callbacks_.push_back(
-					{
-						R"((\\i?clip)\(([^,]*)\))",
-						std::regex(R"((\\i?clip)\(([^,]*)\))"),
-						[this](const std::string &v, int f) { return cb_vect_clip_srs(v, f); }
-					}
+				add_callback(
+					R"((\\i?clip)\(([^,]*)\))",
+					[this](const std::string &v, const int f) { return cb_vect_clip_srs(v, f); }
 				);
 			} else {
 				// TSR 模式：逐坐标 positionMath 变换
-				callbacks_.push_back(
-					{
-						R"((\\i?clip)\(([^,]*)\))",
-						std::regex(R"((\\i?clip)\(([^,]*)\))"),
-						[this](const std::string &v, int f) { return cb_vect_clip(v, f); }
-					}
+				add_callback(
+					R"((\\i?clip)\(([^,]*)\))",
+					[this](const std::string &v, const int f) { return cb_vect_clip(v, f); }
 				);
 			}
 		}
@@ -208,15 +223,15 @@ namespace mocha {
 
 	std::vector<MotionLine> MotionHandler::apply_motion(
 		std::vector<MotionLine> &lines,
-		int collection_start_frame,
-		std::function<int(int)> frame_from_ms,
+		const int collection_start_frame,
+		const std::function<int(int)> &frame_from_ms,
 		std::function<int(int)> ms_from_frame) {
 		std::vector<MotionLine> result;
 
 		for (auto &line : lines) {
 			// 计算行相对追踪数据的起止帧
-			int start_frame = frame_from_ms(line.start_time);
-			int end_frame = frame_from_ms(line.end_time);
+			const int start_frame = frame_from_ms(line.start_time);
+			const int end_frame = frame_from_ms(line.end_time);
 
 			// 相对于行集合起始帧的偏移（从1开始）
 			line.relative_start = start_frame - collection_start_frame + 1;
@@ -224,9 +239,9 @@ namespace mocha {
 
 			// 选择处理模式
 			// 对应 MoonScript: linear and not (origin and hasOrg) and not ((clipData) and hasClip)
-			bool use_linear = options_.linear
-							&& !(options_.origin && line.has_org)
-							&& !(line.has_clip && (rect_clip_data_ || vect_clip_data_));
+			const bool use_linear = options_.linear
+									&& !(options_.origin && line.has_org)
+									&& !(line.has_clip && (rect_clip_data_ || vect_clip_data_));
 
 			if (use_linear) {
 				apply_linear(line, collection_start_frame, frame_from_ms, ms_from_frame, result);
@@ -238,10 +253,10 @@ namespace mocha {
 		return result;
 	}
 
-	void MotionHandler::apply_linear(MotionLine &line,
+	void MotionHandler::apply_linear(const MotionLine &line,
 									int collection_start_frame,
-									std::function<int(int)> &frame_from_ms,
-									std::function<int(int)> &ms_from_frame,
+									const std::function<int(int)> &frame_from_ms,
+									const std::function<int(int)> &ms_from_frame,
 									std::vector<MotionLine> &result) {
 		// 对应 MoonScript linear()
 		// 计算 \t 的起止时间
@@ -298,28 +313,10 @@ namespace mocha {
 		result.push_back(std::move(new_line));
 	}
 
-/// @brief 非线性模式：逐帧生成独立字幕行
-///
-/// 对应 MoonScript nonlinear()。
-/// 核心流程：
-///   1. 逆序遍历帧（从 relativeEnd 到 relativeStart），输出为逆时序
-///      调用方需对输出排序以恢复时间正序
-///   2. 每帧计算精确的起止时间（10ms 对齐，避免渲染空隙）
-///   3. 处理变换标签：kill_trans=true 时逐帧插值 \t，否则仅偏移时间
-///   4. 处理 \fade：转换为逐帧 \alpha 值或偏移 \fade 时间参数
-///   5. 处理 \move：插值为当前帧的 \pos
-///   6. 计算追踪数据当前帧状态（position_math 依赖此状态）
-///   7. 应用全部回调（位置/缩放/旋转/clip 标签替换）
-///   8. 生成新行并设置卡拉OK偏移量
-///
-/// @param line 原始行（已预处理，包含 tokenized 变换标签）
-/// @param collection_start_frame 行集合的绝对起始帧号
-/// @param ms_from_frame 帧号→毫秒转换函数
-/// @param result 输出行集合（追加到末尾）
 	void MotionHandler::apply_nonlinear(const MotionLine &line,
 										int collection_start_frame,
 										std::function<int(int)> &ms_from_frame,
-										std::vector<MotionLine> &result) {
+										std::vector<MotionLine> &result) const {
 		// 对应 MoonScript nonlinear()
 		// 逆序遍历帧（沿袭 MoonScript 从 relativeEnd 到 relativeStart 的遍历顺序）
 		// 注意：输出向量为逆时序（最晚帧在前），调用方需对输出排序以恢复正序
@@ -344,9 +341,11 @@ namespace mocha {
 
 			// 双时间基准 fade 采样
 			int fade_td_original, fade_td_shifted;
-			fade_sampler.compute(new_start_time, new_end_time,
+			fade_sampler.compute(
+				new_start_time, new_end_time,
 				line.start_time, line.end_time,
-				fade_td_original, fade_td_shifted);
+				fade_td_original, fade_td_shifted
+			);
 
 			// 生成新文本（处理变换标签）
 			std::string new_text;
@@ -361,6 +360,13 @@ namespace mocha {
 			} else {
 				// 传递新行持续时间，用于抑制超出行范围的 \t 标签
 				new_text = line.detokenize_transforms_copy(time_delta, new_line_duration);
+				if ((rect_clip_data_ || vect_clip_data_) && line.transforms_tokenized) {
+					const auto current_clip_tags = CollectEffectiveClipTags(
+						line.interpolate_transforms_copy(new_start_time, res_x_, res_y_, std::nullopt, std::nullopt)
+					);
+					new_text = RebaseLeadingClipTags(new_text, current_clip_tags);
+					new_text = ClampActiveClipTransformStarts(new_text, new_line_duration);
+				}
 			}
 
 			// 处理 \fade 标签
@@ -400,14 +406,14 @@ namespace mocha {
 						new_text, [&](const std::string &block, int) {
 							std::string result_block;
 							std::sregex_iterator it(block.begin(), block.end(), alpha_re);
-							std::sregex_iterator end;
+							const std::sregex_iterator end;
 							size_t last = 0;
 							while (it != end) {
 								const auto &m = *it;
 								result_block += block.substr(last, m.position() - last);
 
 								std::string alpha_tag = m[1].str();
-								int alpha_val = std::stoi(m[2].str(), nullptr, 16);
+								const int alpha_val = std::stoi(m[2].str(), nullptr, 16);
 								int new_alpha = static_cast<int>(math::round(255.0 - (opacity * (255.0 - alpha_val))));
 								new_alpha = std::max(0, std::min(255, new_alpha));
 
@@ -501,7 +507,7 @@ namespace mocha {
 		}
 	}
 
-	std::string MotionHandler::apply_callbacks(const std::string &text, int frame) {
+	std::string MotionHandler::apply_callbacks(const std::string &text, int frame) const {
 		std::string result = text;
 
 		for (const auto &entry : callbacks_) {
@@ -592,37 +598,15 @@ namespace mocha {
 
 // --- 回调函数实现 ---
 
-/// @brief 位置数学核心算法 - 坐标变换（旋转补偿 + 缩放）
-///
-/// 对应 MoonScript positionMath()。
-/// 算法原理：
-///   1. 计算当前坐标 (x, y) 相对于追踪数据起始位置 (start_x, start_y) 的偏移量
-///   2. 将偏移量乘以缩放比例 (x_ratio, y_ratio)
-///   3. 转换为极坐标 (radius, alpha)
-///   4. 减去旋转差值 (z_rotation_diff)，实现旋转补偿
-///   5. 转换回直角坐标并加上追踪数据当前位置
-///
-/// 数学公式：
-///   dx = (x - x_start) * x_ratio
-///   dy = (y - y_start) * y_ratio
-///   r  = sqrt(dx² + dy²)
-///   α  = atan2(dy, dx)
-///   new_x = x_current + r * cos(α - Δθ)
-///   new_y = y_current + r * sin(α - Δθ)
-///
-/// @param x 原始 X 坐标（可来自 \pos、\org 等标签）
-/// @param y 原始 Y 坐标
-/// @param data 追踪数据（包含起始/当前位置、缩放比、旋转差值）
-/// @return 变换后的 (new_x, new_y) 坐标对
-	std::pair<double, double> MotionHandler::position_math(double x, double y, DataHandler *data) {
+	std::pair<double, double> MotionHandler::position_math(const double x, const double y, const DataHandler *data) {
 		// 对应 MoonScript positionMath()
 		// 相对起始位置的偏移，乘以缩放比例
-		double dx = (x - data->x_start_position) * data->x_ratio;
-		double dy = (y - data->y_start_position) * data->y_ratio;
+		const double dx = (x - data->x_start_position) * data->x_ratio;
+		const double dy = (y - data->y_start_position) * data->y_ratio;
 
 		// 极坐标变换
-		double radius = std::sqrt(dx * dx + dy * dy);
-		double alpha = math::d_atan(dy, dx);
+		const double radius = std::sqrt(dx * dx + dy * dy);
+		const double alpha = math::d_atan(dy, dx);
 
 		// 旋转补偿后的新坐标
 		double new_x = data->x_current_position + radius * math::d_cos(alpha - data->z_rotation_diff);
@@ -631,7 +615,7 @@ namespace mocha {
 		return {new_x, new_y};
 	}
 
-	std::string MotionHandler::cb_position(const std::string &value, int frame) {
+	std::string MotionHandler::cb_position(const std::string &value, int frame) const {
 		// 对应 MoonScript position()
 		// 解析 "x,y"
 		static const std::regex xy_re(R"(([-.0-9]+),([-.0-9]+))");
@@ -693,7 +677,7 @@ namespace mocha {
 		return buf;
 	}
 
-	std::string MotionHandler::cb_origin(const std::string &value, int frame) {
+	std::string MotionHandler::cb_origin(const std::string &value, int frame) const {
 		// 对应 MoonScript origin()
 		static const std::regex xy_re(R"(([-.0-9]+),([-.0-9]+))");
 		std::smatch m;
@@ -715,7 +699,7 @@ namespace mocha {
 		return buf;
 	}
 
-	std::string MotionHandler::cb_scale(const std::string &value, int frame) {
+	std::string MotionHandler::cb_scale(const std::string &value, int frame) const {
 		// 对应 MoonScript scale()
 		// scale *= xRatio
 		double scale_val;
@@ -727,7 +711,7 @@ namespace mocha {
 		return buf;
 	}
 
-	std::string MotionHandler::cb_blur(const std::string &value, int frame) {
+	std::string MotionHandler::cb_blur(const std::string &value, int frame) const {
 		// 对应 MoonScript blur()
 		// ratio = 1 - (1 - xRatio) * blurScale
 		// result = blur * ratio
@@ -742,7 +726,7 @@ namespace mocha {
 		return buf;
 	}
 
-	std::string MotionHandler::cb_rotate_x(const std::string &value, int frame) {
+	std::string MotionHandler::cb_rotate_x(const std::string &value, int frame) const {
 		double rot;
 		try { rot = std::stod(value); } catch (...) { return value; }
 		rot += main_data_->x_rotation_diff;
@@ -752,7 +736,7 @@ namespace mocha {
 		return buf;
 	}
 
-	std::string MotionHandler::cb_rotate_y(const std::string &value, int frame) {
+	std::string MotionHandler::cb_rotate_y(const std::string &value, int frame) const {
 		double rot;
 		try { rot = std::stod(value); } catch (...) { return value; }
 		rot += main_data_->y_rotation_diff;
@@ -761,7 +745,7 @@ namespace mocha {
 		return buf;
 	}
 
-	std::string MotionHandler::cb_rotate_z(const std::string &value, int frame) {
+	std::string MotionHandler::cb_rotate_z(const std::string &value, int frame) const {
 		double rot;
 		try { rot = std::stod(value); } catch (...) { return value; }
 		rot += main_data_->z_rotation_diff;
@@ -771,7 +755,7 @@ namespace mocha {
 		return buf;
 	}
 
-	std::string MotionHandler::cb_z_position(const std::string &value, int frame) {
+	std::string MotionHandler::cb_z_position(const std::string &value, int frame) const {
 		// 3D 深度：\z += zPositionDiff
 		double z;
 		try { z = std::stod(value); } catch (...) { return value; }
@@ -782,7 +766,7 @@ namespace mocha {
 		return buf;
 	}
 
-	std::string MotionHandler::cb_rect_clip(const std::string &value, int frame) {
+	std::string MotionHandler::cb_rect_clip(const std::string &value, int frame) const {
 		// 对应 MoonScript rectangularClip()
 		if (rect_clip_data_) {
 			rect_clip_data_->calculate_current_state(frame);
@@ -829,7 +813,7 @@ namespace mocha {
 		return "(" + value + ")";
 	}
 
-	std::string MotionHandler::cb_vect_clip(const std::string &value, int frame) {
+	std::string MotionHandler::cb_vect_clip(const std::string &value, int frame) const {
 		// 对应 MoonScript vectorClip()
 		if (vect_clip_data_) {
 			vect_clip_data_->calculate_current_state(frame);
@@ -872,13 +856,12 @@ namespace mocha {
 		return "(" + value + ")";
 	}
 
-	std::string MotionHandler::cb_vect_clip_srs(const std::string &value, int frame) {
+	std::string MotionHandler::cb_vect_clip_srs(const std::string &value, const int frame) const {
 		// 对应 MoonScript vectorClipSRS()
 		// SRS 数据追加到原始 clip 内容之后（原始 clip 绘图保留）
 		// MoonScript: return '(' .. clip .. ' ' .. @vectClipData.data[frame]\sub(1,-2) .. ')'
 		if (vect_clip_data_ && vect_clip_data_->is_srs()) {
-			std::string drawing = vect_clip_data_->get_srs_drawing(frame);
-			if (!drawing.empty()) {
+			if (std::string drawing = vect_clip_data_->get_srs_drawing(frame); !drawing.empty()) {
 				// 对应 MoonScript \sub(1,-2)：移除最后一个字符（通常为换行或空格）
 				if (!drawing.empty()) {
 					drawing.pop_back();

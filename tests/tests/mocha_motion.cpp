@@ -12,7 +12,6 @@
 #include "motion_processor.h"
 
 #include <algorithm>
-#include <cmath>
 #include <regex>
 
 using namespace mocha;
@@ -21,7 +20,7 @@ using namespace mocha;
 // math 工具测试
 // ============================================================================
 
-class MochaMath : public libagi { };
+class MochaMath : public libagi {};
 
 TEST(MochaMath, RoundZeroDecimalPlaces) {
 	EXPECT_DOUBLE_EQ(math::round(3.7), 4.0);
@@ -80,7 +79,7 @@ TEST(MochaMath, ClampAboveMax) {
 // TagRegistry 标签注册表测试
 // ============================================================================
 
-class MochaTags : public libagi { };
+class MochaTags : public libagi {};
 
 TEST(MochaTags, RegistrySingleton) {
 	const auto &r1 = TagRegistry::instance();
@@ -149,6 +148,25 @@ TEST(MochaTags, CountTag) {
 	std::string text = R"({\fscx100}text{\fscx200})";
 	int count = tag_utils::count_tag(text, R"(\\fscx[\d.]+)");
 	EXPECT_EQ(count, 2);
+}
+
+TEST(MochaTags, CleanEmptyBlocks) {
+	std::string text = R"({}text{})";
+	auto result = tag_utils::clean_empty_blocks(text);
+	EXPECT_EQ(result, "text");
+}
+
+TEST(MochaTags, CleanEmptyClips) {
+	std::string text = R"({\clip()}text{\iclip()})";
+	auto result = tag_utils::clean_empty_clips(text);
+	EXPECT_EQ(result.find(R"(\clip())"), std::string::npos);
+	EXPECT_EQ(result.find(R"(\iclip())"), std::string::npos);
+}
+
+TEST(MochaTags, CleanEmptyClipsThenBlocks) {
+	std::string text = R"({\clip()}text{\iclip()})";
+	auto result = tag_utils::clean_empty_blocks(tag_utils::clean_empty_clips(text));
+	EXPECT_EQ(result, "text");
 }
 
 TEST(MochaTags, DeduplicateTag) {
@@ -269,7 +287,7 @@ TEST(MochaTags, ExtractFadeShortTag) {
 // Transform 变换标签测试
 // ============================================================================
 
-class MochaTransform : public libagi { };
+class MochaTransform : public libagi {};
 
 TEST(MochaTransform, FromStringBasic) {
 	auto t = Transform::from_string("(0,1000,\\fscx200)", 5000, 0);
@@ -442,7 +460,7 @@ TEST(MochaTransform, InterpolateNumberNearBoundary) {
 // MotionLine 行处理测试
 // ============================================================================
 
-class MochaLine : public libagi { };
+class MochaLine : public libagi {};
 
 TEST(MochaLine, BasicConstruction) {
 	MotionLine line;
@@ -506,18 +524,22 @@ TEST(MochaLine, EnsureLeadingOverrideExists) {
 TEST(MochaLine, RunCallbackOnFirstOverride) {
 	MotionLine line;
 	line.text = R"({\fscx100}hello)";
-	line.run_callback_on_first_override([](const std::string &block) {
-		return "{\\fscx200}";
-	});
+	line.run_callback_on_first_override(
+		[](const std::string &block) {
+			return "{\\fscx200}";
+		}
+	);
 	EXPECT_NE(line.text.find("\\fscx200"), std::string::npos);
 }
 
 TEST(MochaLine, RunCallbackOnOverrides) {
 	MotionLine line;
 	line.text = R"({first}text{second}more)";
-	line.run_callback_on_overrides([](const std::string &block, int) {
-		return "{replaced}";
-	});
+	line.run_callback_on_overrides(
+		[](const std::string &block, int) {
+			return "{replaced}";
+		}
+	);
 	// 所有 override 块都应被替换
 	EXPECT_EQ(line.text.find("{first}"), std::string::npos);
 	EXPECT_EQ(line.text.find("{second}"), std::string::npos);
@@ -536,7 +558,7 @@ TEST(MochaLine, ShiftKaraoke) {
 // DataHandler 数据解析器测试
 // ============================================================================
 
-class MochaDataHandler : public libagi { };
+class MochaDataHandler : public libagi {};
 
 // AE 关键帧有效测试数据
 static const std::string AE_VALID_DATA =
@@ -606,10 +628,12 @@ TEST(MochaDataHandler, ParseMalformedHeaderField_H4) {
 		"\r\n"
 		"End of Keyframe Data\r\n";
 	DataHandler dh;
-	EXPECT_NO_THROW({
+	EXPECT_NO_THROW(
+		{
 		bool ok = dh.parse(malformed, 1920, 1080);
 		EXPECT_FALSE(ok);
-	});
+		}
+	);
 }
 
 TEST(MochaDataHandler, ParseMalformedDimension_H4) {
@@ -623,10 +647,12 @@ TEST(MochaDataHandler, ParseMalformedDimension_H4) {
 		"\r\n"
 		"End of Keyframe Data\r\n";
 	DataHandler dh;
-	EXPECT_NO_THROW({
+	EXPECT_NO_THROW(
+		{
 		bool ok = dh.parse(malformed, 1920, 1080);
 		EXPECT_FALSE(ok);
-	});
+		}
+	);
 }
 
 TEST(MochaDataHandler, ParseEmptyData) {
@@ -706,7 +732,7 @@ TEST(MochaDataHandler, SRSOutOfRangeFrame) {
 // MotionHandler 回调与运动计算测试
 // ============================================================================
 
-class MochaHandler : public libagi { };
+class MochaHandler : public libagi {};
 
 /// @brief 辅助函数：创建含有效数据的 DataHandler
 static DataHandler make_test_data_handler() {
@@ -767,11 +793,13 @@ TEST(MochaHandler, CbPositionInvalidInput_H3) {
 	opts.x_position = true;
 	MotionHandler handler(opts, &dh, nullptr, nullptr);
 
-	EXPECT_NO_THROW({
+	EXPECT_NO_THROW(
+		{
 		auto result = handler.cb_position("abc,def", 2);
 		// 无法匹配坐标正则，应返回原值
 		EXPECT_EQ(result, "(abc,def)");
-	});
+		}
+	);
 }
 
 TEST(MochaHandler, CbAbsolutePositionValid) {
@@ -799,10 +827,12 @@ TEST(MochaHandler, CbAbsolutePositionEmptyData_H1) {
 	opts.abs_pos = true;
 	MotionHandler handler(opts, &empty_dh, nullptr, nullptr);
 
-	EXPECT_NO_THROW({
+	EXPECT_NO_THROW(
+		{
 		auto result = handler.cb_absolute_position("960,540", 1);
 		EXPECT_EQ(result, "(960,540)");
-	});
+		}
+	);
 }
 
 TEST(MochaHandler, CbOriginValid) {
@@ -827,10 +857,12 @@ TEST(MochaHandler, CbOriginInvalidInput_H3) {
 	opts.origin = true;
 	MotionHandler handler(opts, &dh, nullptr, nullptr);
 
-	EXPECT_NO_THROW({
+	EXPECT_NO_THROW(
+		{
 		auto result = handler.cb_origin("not,numbers", 2);
 		EXPECT_EQ(result, "(not,numbers)");
-	});
+		}
+	);
 }
 
 TEST(MochaHandler, CbScaleBasic) {
@@ -843,7 +875,7 @@ TEST(MochaHandler, CbScaleBasic) {
 
 	auto result = handler.cb_scale("100", 2);
 	// 缩放值应为有效数字
-	EXPECT_NO_THROW({ std::stod(result); });
+	EXPECT_NO_THROW({ static_cast<void>(std::stod(result)); });
 }
 
 TEST(MochaHandler, CbScaleInvalid) {
@@ -867,7 +899,7 @@ TEST(MochaHandler, CbBlurBasic) {
 	MotionHandler handler(opts, &dh, nullptr, nullptr);
 
 	auto result = handler.cb_blur("5.0", 2);
-	EXPECT_NO_THROW({ std::stod(result); });
+	EXPECT_NO_THROW({ static_cast<void>(std::stod(result)); });
 }
 
 TEST(MochaHandler, CbBlurInvalid) {
@@ -890,7 +922,7 @@ TEST(MochaHandler, CbRotateX) {
 	MotionHandler handler(opts, &dh, nullptr, nullptr);
 
 	auto result = handler.cb_rotate_x("0", 2);
-	EXPECT_NO_THROW({ std::stod(result); });
+	EXPECT_NO_THROW({ static_cast<void>(std::stod(result)); });
 }
 
 TEST(MochaHandler, CbRotateY) {
@@ -902,7 +934,7 @@ TEST(MochaHandler, CbRotateY) {
 	MotionHandler handler(opts, &dh, nullptr, nullptr);
 
 	auto result = handler.cb_rotate_y("0", 2);
-	EXPECT_NO_THROW({ std::stod(result); });
+	EXPECT_NO_THROW({ static_cast<void>(std::stod(result)); });
 }
 
 TEST(MochaHandler, CbRotateZ) {
@@ -914,7 +946,7 @@ TEST(MochaHandler, CbRotateZ) {
 	MotionHandler handler(opts, &dh, nullptr, nullptr);
 
 	auto result = handler.cb_rotate_z("0", 2);
-	EXPECT_NO_THROW({ std::stod(result); });
+	EXPECT_NO_THROW({ static_cast<void>(std::stod(result)); });
 }
 
 TEST(MochaHandler, CbRotateInvalid) {
@@ -938,7 +970,7 @@ TEST(MochaHandler, CbZPosition) {
 	MotionHandler handler(opts, &dh, nullptr, nullptr);
 
 	auto result = handler.cb_z_position("0", 2);
-	EXPECT_NO_THROW({ std::stod(result); });
+	EXPECT_NO_THROW({ static_cast<void>(std::stod(result)); });
 }
 
 TEST(MochaHandler, CbZPositionInvalid) {
@@ -975,9 +1007,11 @@ TEST(MochaHandler, CbRectClipInvalidCoords_H3) {
 	opts.rect_clip = true;
 	MotionHandler handler(opts, &main_dh, &clip_dh, nullptr);
 
-	EXPECT_NO_THROW({
+	EXPECT_NO_THROW(
+		{
 		auto result = handler.cb_rect_clip("abc,def,ghi,jkl", 2);
-	});
+		}
+	);
 }
 
 TEST(MochaHandler, CbVectClipValid) {
@@ -1046,10 +1080,12 @@ TEST(MochaHandler, ApplyCallbacksDoesNotCrash) {
 	MotionHandler handler(opts, &dh, nullptr, nullptr);
 
 	std::string text = R"({\pos(960,540)\fscx100\fscy100\frz0\clip()}hello)";
-	EXPECT_NO_THROW({
+	EXPECT_NO_THROW(
+		{
 		auto result = handler.apply_callbacks(text, 2);
 		EXPECT_FALSE(result.empty());
-	});
+		}
+	);
 }
 
 TEST(MochaHandler, SetupCallbacksClipOnly) {
@@ -1093,7 +1129,8 @@ TEST(MochaTransform, InterpolateTransformsCopyNoShift) {
 
 	std::string text = t.token + "\\pos(0,0)";
 	auto result = transform_utils::interpolate_transforms_copy(
-		text, transforms, 500, line_props, prior_tags, 0, 0);
+		text, transforms, 500, line_props, prior_tags, 0, 0
+	);
 
 	EXPECT_NE(result.find("\\fscx100"), std::string::npos)
 		<< "Expected start value before transform window, got: " << result;
@@ -1116,7 +1153,8 @@ TEST(MochaTransform, InterpolateTransformsCopyAtEnd) {
 
 	std::string text = t.token + "\\pos(0,0)";
 	auto result = transform_utils::interpolate_transforms_copy(
-		text, transforms, 800, line_props, prior_tags, 0, 0);
+		text, transforms, 800, line_props, prior_tags, 0, 0
+	);
 
 	EXPECT_NE(result.find("\\fscx200"), std::string::npos)
 		<< "Expected end value after transform window, got: " << result;
@@ -1140,7 +1178,8 @@ TEST(MochaTransform, InterpolateTransformsCopyMidFrame) {
 
 	std::string text = t.token + "\\pos(0,0)";
 	auto result = transform_utils::interpolate_transforms_copy(
-		text, transforms, 500, line_props, prior_tags, 0, 0);
+		text, transforms, 500, line_props, prior_tags, 0, 0
+	);
 
 	// progress=0.5，从 100 到 200 的中间值应为 150
 	EXPECT_NE(result.find("\\fscx150"), std::string::npos)
@@ -1174,6 +1213,106 @@ TEST(MochaHandler, ApplyMotionClipTransformUsesScriptResolutionDefault) {
 		<< "Expected script-resolution rect clip default, got: " << result[0].text;
 }
 
+TEST(MochaHandler, ApplyMotionClipTransformWithoutKillTransRebasesCurrentRectClip) {
+	auto dh = make_test_data_handler();
+
+	MotionOptions opts;
+	opts.kill_trans = false;
+	opts.rect_clip = true;
+	MotionHandler handler(opts, &dh, &dh, nullptr, 1920, 1080);
+
+	MotionLine line;
+	line.text = R"({\clip(10,20,110,120)\t(0,2000,\clip(20,40,120,140))}hello)";
+	line.start_time = 0;
+	line.end_time = 3000;
+	line.duration = 3000;
+	line.tokenize_transforms();
+	line.has_clip = true;
+
+	std::vector<MotionLine> lines = {line};
+	auto result = handler.apply_motion(
+		lines,
+		0,
+		[](int ms) { return ms / 1000; },
+		[](int frame) { return frame * 1000; }
+	);
+
+	std::sort(
+		result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+			return a.start_time < b.start_time;
+		}
+	);
+
+	auto mid_it = std::find_if(
+		result.begin(), result.end(), [](const MotionLine &item) {
+			return item.start_time == 1000;
+		}
+	);
+	ASSERT_NE(mid_it, result.end());
+
+	const std::string tracked_initial = "\\clip" + handler.cb_rect_clip("10,20,110,120", 2);
+	const std::string tracked_mid = "\\clip" + handler.cb_rect_clip("15,30,115,130", 2);
+
+	EXPECT_NE(mid_it->text.find(tracked_mid), std::string::npos)
+		<< "Expected current clip state rebased at line start, got: " << mid_it->text;
+	EXPECT_EQ(mid_it->text.find(tracked_initial), std::string::npos)
+		<< "Clip base state should not reset to the original pre-transform value: " << mid_it->text;
+	EXPECT_NE(mid_it->text.find("\\t(0,1000,\\clip("), std::string::npos)
+		<< "Expected active clip transform to restart from the sub-line origin: " << mid_it->text;
+	EXPECT_EQ(mid_it->text.find("\\t(-1000,1000,\\clip("), std::string::npos)
+		<< "Negative-start clip transform should be clamped after rebasing: " << mid_it->text;
+}
+
+TEST(MochaHandler, ApplyMotionInverseClipTransformWithoutKillTransRebasesCurrentRectClip) {
+	auto dh = make_test_data_handler();
+
+	MotionOptions opts;
+	opts.kill_trans = false;
+	opts.rect_clip = true;
+	MotionHandler handler(opts, &dh, &dh, nullptr, 1920, 1080);
+
+	MotionLine line;
+	line.text = R"({\iclip(10,20,110,120)\t(0,2000,\iclip(20,40,120,140))}hello)";
+	line.start_time = 0;
+	line.end_time = 3000;
+	line.duration = 3000;
+	line.tokenize_transforms();
+	line.has_clip = true;
+
+	std::vector<MotionLine> lines = {line};
+	auto result = handler.apply_motion(
+		lines,
+		0,
+		[](int ms) { return ms / 1000; },
+		[](int frame) { return frame * 1000; }
+	);
+
+	std::sort(
+		result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+			return a.start_time < b.start_time;
+		}
+	);
+
+	auto mid_it = std::find_if(
+		result.begin(), result.end(), [](const MotionLine &item) {
+			return item.start_time == 1000;
+		}
+	);
+	ASSERT_NE(mid_it, result.end());
+
+	const std::string tracked_initial = "\\iclip" + handler.cb_rect_clip("10,20,110,120", 2);
+	const std::string tracked_mid = "\\iclip" + handler.cb_rect_clip("15,30,115,130", 2);
+
+	EXPECT_NE(mid_it->text.find(tracked_mid), std::string::npos)
+		<< "Expected current inverse clip state rebased at line start, got: " << mid_it->text;
+	EXPECT_EQ(mid_it->text.find(tracked_initial), std::string::npos)
+		<< "Inverse clip base state should not reset to the original pre-transform value: " << mid_it->text;
+	EXPECT_NE(mid_it->text.find("\\t(0,1000,\\iclip("), std::string::npos)
+		<< "Expected active inverse clip transform to restart from the sub-line origin: " << mid_it->text;
+	EXPECT_EQ(mid_it->text.find("\\t(-1000,1000,\\iclip("), std::string::npos)
+		<< "Negative-start inverse clip transform should be clamped after rebasing: " << mid_it->text;
+}
+
 TEST(MochaHandler, ApplyMotionFadeKillTransFirstVisibleFrameShouldNotBeFullyTransparent) {
 	auto dh = make_test_data_handler();
 
@@ -1195,9 +1334,11 @@ TEST(MochaHandler, ApplyMotionFadeKillTransFirstVisibleFrameShouldNotBeFullyTran
 		[](int frame) { return frame * 100; }
 	);
 
-	std::sort(result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
-		return a.start_time < b.start_time;
-	});
+	std::sort(
+		result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+			return a.start_time < b.start_time;
+		}
+	);
 
 	ASSERT_EQ(result.size(), 3u);
 	EXPECT_EQ(result[0].start_time, 100);
@@ -1228,9 +1369,11 @@ TEST(MochaHandler, ApplyMotionFadeKillTransLastVisibleFrameShouldNotBeFullyTrans
 		[](int frame) { return frame * 100; }
 	);
 
-	std::sort(result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
-		return a.start_time < b.start_time;
-	});
+	std::sort(
+		result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+			return a.start_time < b.start_time;
+		}
+	);
 
 	ASSERT_EQ(result.size(), 3u);
 	EXPECT_EQ(result.back().start_time, 300);
@@ -1260,9 +1403,11 @@ TEST(MochaHandler, ApplyMotionFadeWithoutKillTransKeepsFadeInsideOverrideBlock) 
 		[](int frame) { return frame * 100; }
 	);
 
-	std::sort(result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
-		return a.start_time < b.start_time;
-	});
+	std::sort(
+		result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+			return a.start_time < b.start_time;
+		}
+	);
 
 	ASSERT_FALSE(result.empty());
 	EXPECT_TRUE(std::regex_search(result[0].text, std::regex(R"(\{[^}]*\\fade\()")));
@@ -1291,9 +1436,11 @@ TEST(MochaHandler, ApplyMotionTransformAlphaKillTransFirstVisibleFrameShouldNotB
 		[](int frame) { return frame * 100; }
 	);
 
-	std::sort(result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
-		return a.start_time < b.start_time;
-	});
+	std::sort(
+		result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+			return a.start_time < b.start_time;
+		}
+	);
 
 	ASSERT_EQ(result.size(), 2u);
 	int alpha = extract_alpha_value(result[0].text);
@@ -1323,9 +1470,11 @@ TEST(MochaHandler, ApplyMotionTransformPrimaryAlphaKillTransFirstVisibleFrameSho
 		[](int frame) { return frame * 100; }
 	);
 
-	std::sort(result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
-		return a.start_time < b.start_time;
-	});
+	std::sort(
+		result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+			return a.start_time < b.start_time;
+		}
+	);
 
 	ASSERT_EQ(result.size(), 2u);
 	int alpha = extract_alpha_value(result[0].text);
@@ -1366,22 +1515,28 @@ TEST(MochaHandler, ApplyMotionTransformAlphaKillTransAtFrameZeroShouldNotShift) 
 // ============================================================================
 
 TEST(FadeSampler, CreateShiftsOriginBackOneFrame) {
-	auto sampler = FadeSampler::create(1, 1,
-		std::function<int(int)>([](int f) { return f * 100; }));
+	auto sampler = FadeSampler::create(
+		1, 1,
+		std::function<int(int)>([](int f) { return f * 100; })
+	);
 	// first_vis_frame_abs = 1+1-1 = 1, origin_frame = 0, ms(0)=0
 	EXPECT_EQ(sampler.fade_origin, 0);
 }
 
 TEST(FadeSampler, CreateClampsAtFrameZero) {
-	auto sampler = FadeSampler::create(0, 1,
-		std::function<int(int)>([](int f) { return f * 100; }));
+	auto sampler = FadeSampler::create(
+		0, 1,
+		std::function<int(int)>([](int f) { return f * 100; })
+	);
 	// first_vis_frame_abs = 0, origin_frame = max(0,-1) = 0
 	EXPECT_EQ(sampler.fade_origin, 0);
 }
 
 TEST(FadeSampler, ComputeShiftedGreaterThanOriginal) {
-	auto sampler = FadeSampler::create(1, 1,
-		std::function<int(int)>([](int f) { return f * 100; }));
+	auto sampler = FadeSampler::create(
+		1, 1,
+		std::function<int(int)>([](int f) { return f * 100; })
+	);
 
 	int td_orig, td_shift;
 	sampler.compute(100, 200, 150, 450, td_orig, td_shift);
@@ -1389,8 +1544,10 @@ TEST(FadeSampler, ComputeShiftedGreaterThanOriginal) {
 }
 
 TEST(FadeSampler, ComputeNoShiftAtFrameZero) {
-	auto sampler = FadeSampler::create(0, 1,
-		std::function<int(int)>([](int f) { return f * 100; }));
+	auto sampler = FadeSampler::create(
+		0, 1,
+		std::function<int(int)>([](int f) { return f * 100; })
+	);
 
 	int td_orig, td_shift;
 	sampler.compute(0, 100, 0, 300, td_orig, td_shift);
@@ -1404,7 +1561,7 @@ TEST(FadeSampler, EvaluateFadeInUsesShifted) {
 	// td_shifted 已过 fade-in 端点，td_original 仍在 fade-in 窗口内
 	// evaluate 应返回 a2（完全不透明），因为 shifted >= t2
 	double factor = FadeSampler::evaluate_fade(f, 175, 25);
-	EXPECT_DOUBLE_EQ(factor, 0.0);  // a2 = 0
+	EXPECT_DOUBLE_EQ(factor, 0.0); // a2 = 0
 }
 
 TEST(FadeSampler, EvaluateFadeOutUsesOriginal) {
@@ -1469,9 +1626,11 @@ TEST(MochaHandler, ApplyMotionFadeOutLastFrameShouldNotBeFullyTransparentWithShi
 		[](int frame) { return frame * 100; }
 	);
 
-	std::sort(result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
-		return a.start_time < b.start_time;
-	});
+	std::sort(
+		result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+			return a.start_time < b.start_time;
+		}
+	);
 
 	ASSERT_GE(result.size(), 2u);
 	int last_alpha = extract_alpha_value(result.back().text);
@@ -1504,21 +1663,25 @@ TEST(MochaHandler, ApplyMotionTransformAlphaFadeOutTailShouldNotOvershoot) {
 		[](int frame) { return frame * 100; }
 	);
 
-	std::sort(result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
-		return a.start_time < b.start_time;
-	});
+	std::sort(
+		result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+			return a.start_time < b.start_time;
+		}
+	);
 
 	ASSERT_GE(result.size(), 6u);
-	auto late_it = std::find_if(result.begin(), result.end(), [](const MotionLine &line) {
-		return line.start_time == 600;
-	});
+	auto late_it = std::find_if(
+		result.begin(), result.end(), [](const MotionLine &line) {
+			return line.start_time == 600;
+		}
+	);
 	ASSERT_NE(late_it, result.end());
 	int late_alpha = extract_alpha_value(late_it->text);
 	ASSERT_GE(late_alpha, 0);
 	EXPECT_LT(late_alpha, 255);
 }
 
-class MochaProcessor : public libagi { };
+class MochaProcessor : public libagi {};
 
 TEST(MochaProcessor, PostprocessRemovesEmptyClipInLinear) {
 	MotionOptions opts;
