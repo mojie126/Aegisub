@@ -34,6 +34,48 @@ class wxBitmapButton;
 class wxCommandEvent;
 class wxToolBar;
 
+enum class DragFeatureRole {
+	None,
+	Start,
+	End,
+	Origin,
+};
+
+/// @brief 将拖拽句柄类型归一化为联动分组角色
+inline DragFeatureRole GetDragFeatureRole(DraggableFeatureType type) {
+	switch (type) {
+		case DRAG_BIG_SQUARE:
+			return DragFeatureRole::Start;
+		case DRAG_BIG_CIRCLE:
+			return DragFeatureRole::End;
+		case DRAG_BIG_TRIANGLE:
+			return DragFeatureRole::Origin;
+		default:
+			return DragFeatureRole::None;
+	}
+}
+
+namespace visual_tool_drag_detail {
+
+template <typename FeatureRange, typename FeaturePtr, typename IsLineSelected, typename OnMatched>
+bool CollectGroupedDragSelection(FeatureRange& features, FeaturePtr clicked_feature,
+	IsLineSelected&& is_line_selected, OnMatched&& on_matched) {
+	if (!clicked_feature || !is_line_selected(clicked_feature->line))
+		return false;
+
+	const DragFeatureRole role = GetDragFeatureRole(clicked_feature->type);
+	if (role == DragFeatureRole::None)
+		return false;
+
+	for (auto& candidate : features) {
+		if (is_line_selected(candidate.line) && GetDragFeatureRole(candidate.type) == role)
+			on_matched(candidate);
+	}
+	return true;
+}
+
+}
+
 /// @class VisualToolDrag
 /// @brief Moveable features for the positions of each visible line
 class VisualToolDrag final : public VisualTool<VisualToolDragDraggableFeature> {
@@ -45,7 +87,7 @@ class VisualToolDrag final : public VisualTool<VisualToolDragDraggableFeature> {
 	/// longer exists
 	Feature *primary = nullptr;
 	/// The last announced selection set
-	std::vector<AssDialogue *> selection;
+	std::set<AssDialogue *> selection;
 
 	/// When the button is pressed, will it convert the line to a move (vs. from
 	/// move to pos)? Used to avoid changing the button's icon unnecessarily
@@ -56,6 +98,9 @@ class VisualToolDrag final : public VisualTool<VisualToolDragDraggableFeature> {
 	/// @param pos Insertion point in the feature list
 	void MakeFeatures(AssDialogue *diag, feature_list::iterator pos);
 	void MakeFeatures(AssDialogue *diag);
+	Feature *GetFeatureAt(Vector2D const& mouse_pos);
+	bool IsLineSelected(AssDialogue *line) const;
+	void SetSelectedFeaturesForClickedFeature(Feature *feature);
 
 	void OnSelectedSetChanged();
 
@@ -63,6 +108,7 @@ class VisualToolDrag final : public VisualTool<VisualToolDragDraggableFeature> {
 	void OnFileChanged() override;
 	void OnLineChanged() override;
 	void OnCoordinateSystemsChanged() override { OnFileChanged(); }
+	void OnMouseEvent(wxMouseEvent &event) override;
 
 	bool InitializeDrag(Feature *feature) override;
 	void UpdateDrag(Feature *feature) override;

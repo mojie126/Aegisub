@@ -33,7 +33,7 @@
 #include <libaegisub/format.h>
 
 #include <algorithm>
-#include <boost/range/algorithm/binary_search.hpp>
+#include <limits>
 
 #include <wx/toolbar.h>
 
@@ -54,7 +54,30 @@ VisualToolDrag::VisualToolDrag(VideoDisplay *parent, agi::Context *context)
 {
 	connections.push_back(c->selectionController->AddSelectionListener(&VisualToolDrag::OnSelectedSetChanged, this));
 	auto const& sel_set = c->selectionController->GetSelectedSet();
-	selection.insert(begin(selection), begin(sel_set), end(sel_set));
+	selection.insert(begin(sel_set), end(sel_set));
+}
+
+VisualToolDrag::Feature *VisualToolDrag::GetFeatureAt(Vector2D const& mouse_pos) {
+	int max_layer = std::numeric_limits<int>::min();
+	Feature *result = nullptr;
+	for (auto& feature : features) {
+		if (feature.IsMouseOver(mouse_pos) && feature.layer >= max_layer) {
+			result = &feature;
+			max_layer = feature.layer;
+		}
+	}
+	return result;
+}
+
+bool VisualToolDrag::IsLineSelected(AssDialogue *line) const {
+	return line && selection.find(line) != selection.end();
+}
+
+void VisualToolDrag::SetSelectedFeaturesForClickedFeature(Feature *feature) {
+	sel_features.clear();
+	visual_tool_drag_detail::CollectGroupedDragSelection(features, feature,
+		[this](AssDialogue *line) { return IsLineSelected(line); },
+		[this](Feature& candidate) { sel_features.insert(&candidate); });
 }
 
 void VisualToolDrag::SetToolbar(wxToolBar *tb) {
@@ -111,6 +134,15 @@ void VisualToolDrag::OnLineChanged() {
 	UpdateToggleButtons();
 }
 
+void VisualToolDrag::OnMouseEvent(wxMouseEvent &event) {
+	if (event.LeftDown() && !event.CmdDown()) {
+		if (Feature *feature = GetFeatureAt(event.GetPosition()); feature && IsLineSelected(feature->line))
+			SetSelectedFeaturesForClickedFeature(feature);
+	}
+
+	VisualTool<Feature>::OnMouseEvent(event);
+}
+
 void VisualToolDrag::OnFileChanged() {
 	/// @todo it should be possible to preserve the selection in some cases
 	features.clear();
@@ -154,36 +186,17 @@ void VisualToolDrag::OnFrameChanged() {
 	}
 }
 
-template<class C, class T> static bool line_not_present(C const& set, T const& it) {
-	return std::none_of(set.begin(), set.end(), [&](typename C::value_type const& cmp) {
-		return cmp->line == it->line;
-	});
-}
-
 void VisualToolDrag::OnSelectedSetChanged() {
 	auto const& new_sel_set = c->selectionController->GetSelectedSet();
-	std::vector<AssDialogue *> new_sel(begin(new_sel_set), end(new_sel_set));
+	selection = new_sel_set;
 
-	bool any_changed = false;
-	for (auto it = features.begin(); it != features.end(); ) {
-		bool was_selected = boost::binary_search(selection, it->line);
-		bool is_selected = boost::binary_search(new_sel, it->line);
-		if (was_selected && !is_selected) {
-			sel_features.erase(&*it++);
-			any_changed = true;
-		}
-		else {
-			if (is_selected && !was_selected && it->type == DRAG_START && line_not_present(sel_features, it)) {
-				sel_features.insert(&*it);
-				any_changed = true;
-			}
-			++it;
-		}
+	sel_features.clear();
+	for (auto& feature : features) {
+		if (feature.type == DRAG_START && IsLineSelected(feature.line))
+			sel_features.insert(&feature);
 	}
 
-	if (any_changed)
-		parent->Render();
-	selection = std::move(new_sel);
+	parent->Render();
 }
 
 void VisualToolDrag::Draw() {
@@ -244,7 +257,7 @@ void VisualToolDrag::MakeFeatures(AssDialogue *diag, feature_list::iterator pos)
 	feat->type = DRAG_START;
 	feat->line = diag;
 
-	if (boost::binary_search(selection, diag))
+	if (selection.find(diag) != selection.end())
 		sel_features.insert(feat.get());
 	features.insert(pos, *feat.release());
 
