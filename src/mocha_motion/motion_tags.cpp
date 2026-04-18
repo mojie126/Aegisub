@@ -8,25 +8,26 @@
 #include <algorithm>
 #include <regex>
 #include <cstdio>
+#include <ranges>
 
 namespace mocha {
 // ============================================================
 // TagDef 格式化方法
 // ============================================================
 
-	std::string TagDef::format_int(int value) const {
+	std::string TagDef::format_int(const int value) const {
 		char buf[64];
 		std::snprintf(buf, sizeof(buf), "%s%d", tag.c_str(), value);
 		return buf;
 	}
 
-	std::string TagDef::format_float(double value) const {
+	std::string TagDef::format_float(const double value) const {
 		char buf[64];
 		std::snprintf(buf, sizeof(buf), "%s%g", tag.c_str(), value);
 		return buf;
 	}
 
-	std::string TagDef::format_alpha(int value) const {
+	std::string TagDef::format_alpha(const int value) const {
 		char buf[64];
 		std::snprintf(buf, sizeof(buf), "%s&H%02X&", tag.c_str(), value & 0xFF);
 		return buf;
@@ -70,7 +71,7 @@ namespace mocha {
 	}
 
 	const TagDef *TagRegistry::get(const std::string &name) const {
-		auto it = all_tags_.find(name);
+		const auto it = all_tags_.find(name);
 		return (it != all_tags_.end()) ? &it->second : nullptr;
 	}
 
@@ -246,7 +247,7 @@ namespace mocha {
 		all_tags_["vectiClip"] = {"vectiClip", R"(\\iclip\((\d+,)?([^,]*?)\))", "\\iclip", false, true, "", TagType::MULTI, {}, {"scale", "shape"}};
 
 		// 分类标签
-		for (auto &[name, tag_def] : all_tags_) {
+		for (auto &tag_def : all_tags_ | std::views::values) {
 			// 预编译正则表达式，避免运行时反复编译开销
 			tag_def.compiled_pattern = std::regex(tag_def.pattern);
 
@@ -272,7 +273,7 @@ namespace mocha {
 
 	namespace tag_utils {
 		std::string find_tag_value(const std::string &text, const std::string &pattern) {
-			std::regex re(pattern);
+			const std::regex re(pattern);
 			std::smatch match;
 			if (std::regex_search(text, match, re) && match.size() > 1) {
 				return match[1].str();
@@ -289,27 +290,14 @@ namespace mocha {
 		}
 
 		int count_tag(const std::string &text, const std::string &pattern) {
-			std::regex re(pattern);
-			auto begin = std::sregex_iterator(text.begin(), text.end(), re);
-			auto end = std::sregex_iterator();
+			const std::regex re(pattern);
+			const auto begin = std::sregex_iterator(text.begin(), text.end(), re);
+			const auto end = std::sregex_iterator();
 			return static_cast<int>(std::distance(begin, end));
 		}
 
-/// @brief 去重同一标签块内的重复标签（保留最后一个）
-///
-/// 对应 MoonScript deduplicateTag()。
-/// 在运动处理管线中，回调函数可能多次为同一标签块添加值，
-/// 导致同一标签出现多次。此函数保留最后一次出现的值（最新值）。
-///
-/// 与 Issue #69 的关系：
-///   本函数只处理已经提取了 \t 标签的文本，因此不会误删
-///   \t(\c) 内部的颜色标签。参见 extract_transforms() 的文档。
-///
-/// @param tag_block 单个 ASS 标签块（如 "{\pos(1,2)\fscx100\fscx200}"）
-/// @param pattern 匹配目标标签的正则表达式
-/// @return 去重后的标签块
 		std::string deduplicate_tag(const std::string &tag_block, const std::string &pattern) {
-			std::regex re(pattern);
+			const std::regex re(pattern);
 			return deduplicate_tag(tag_block, re);
 		}
 
@@ -337,30 +325,6 @@ namespace mocha {
 			return result;
 		}
 
-/// @brief 提取并移除文本中的所有 \t 变换标签
-///
-/// 这是 Issue #69 修复的关键函数。
-///
-/// 问题背景 (Issue #69)：
-///   当字幕行同时存在 \c（颜色标签）和 \t(\c)（变换中的颜色标签）时，
-///   如果不先将 \t 标签整体提取出来，deduplicate_tag() 在去重 \c 时
-///   会错误地将 \t(\c) 内部的 \c 也作为独立标签处理，导致外层的 \c
-///   被移除（因为去重保留最后一个出现的）。
-///
-/// 解决方案：
-///   1. 先用本函数将所有 \t 标签完整提取出来（保存到 t_data_list）
-///   2. 用占位符替换 \t 标签位置（tokenize_transforms）
-///   3. 在清理后的文本上安全执行 deduplicate_tag()
-///   4. 最后将 \t 标签还原回去（detokenize_transforms）
-///
-/// 正则表达式设计：
-///   - 使用 (?:[^,()]|\([^)]*\)) 模式匹配参数，可正确处理嵌套括号
-///   - 先尝试4参数格式 \t(t1,t2,accel,effect)，再尝试3参数格式 \t(t1,t2,effect)
-///   - 通过 raw_string 比较避免3参数格式重复匹配已被4参数格式捕获的标签
-///
-/// @param text 原始 ASS 行文本
-/// @param t_data_list 输出：提取到的变换数据列表
-/// @return 移除 \t 标签后的文本
 		std::string extract_transforms(const std::string &text, std::vector<TransformData> &t_data_list) {
 			t_data_list.clear();
 
@@ -477,12 +441,13 @@ namespace mocha {
 		}
 
 		std::string clean_empty_blocks(const std::string &text) {
-			return std::regex_replace(text, std::regex(R"(\{\})"), "");
+			static const std::regex empty_block_re(R"(\{\})");
+			return std::regex_replace(text, empty_block_re, "");
 		}
 
-		std::string merge_adjacent_blocks(const std::string &text) {
-			// 合并 }{ 为连续的标签块（用分隔符替换后再还原）
-			return std::regex_replace(text, std::regex(R"(\}\{)"), "");
+		std::string clean_empty_clips(const std::string &text) {
+			static const std::regex empty_clip_re(R"(\\i?clip\(\))");
+			return std::regex_replace(text, empty_clip_re, "");
 		}
 
 		std::string run_callback_on_overrides(const std::string &text, const std::function<std::string(const std::string &, int)> &callback) {
@@ -515,10 +480,10 @@ namespace mocha {
 
 		std::string run_callback_on_first_override(const std::string &text, const std::function<std::string(const std::string &)> &callback) {
 			// 仅处理第一个标签块
-			std::regex first_re(R"(^\{[^}]*\})");
+			const std::regex first_re(R"(^\{[^}]*\})");
 			std::smatch match;
 			if (std::regex_search(text, match, first_re)) {
-				std::string processed = callback(match.str());
+				const std::string processed = callback(match.str());
 				return processed + match.suffix().str();
 			}
 			return text;
@@ -538,10 +503,10 @@ namespace mocha {
 			);
 			std::smatch match;
 			if (std::regex_match(clip, match, rect_re)) {
-				double l = std::stod(match[2]);
-				double t = std::stod(match[3]);
-				double r = std::stod(match[4]);
-				double b = std::stod(match[5]);
+				const double l = std::stod(match[2]);
+				const double t = std::stod(match[3]);
+				const double r = std::stod(match[4]);
+				const double b = std::stod(match[5]);
 
 				char buf[256];
 				std::snprintf(
