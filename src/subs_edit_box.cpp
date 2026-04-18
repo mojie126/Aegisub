@@ -79,6 +79,19 @@ void change_value(wxTextCtrl *ctrl, wxString const& value) {
 		ctrl->ChangeValue(value);
 }
 
+/// @brief 重新计算编辑框拟合尺寸，并更新当前最小尺寸约束
+void RefreshFittingSize(wxWindow *window) {
+	auto *sizer = window->GetSizer();
+	if (!sizer)
+		return;
+
+	window->SetMinSize(wxDefaultSize);
+	window->InvalidateBestSize();
+	sizer->Layout();
+	sizer->Fit(window);
+	window->SetMinSize(window->GetBestSize());
+}
+
 wxString new_value([[maybe_unused]] wxComboBox *ctrl, [[maybe_unused]] wxCommandEvent &evt) {
 #ifdef __WXGTK__
 	return ctrl->GetValue();
@@ -665,11 +678,9 @@ void SubsEditBox::DoOnSplit(bool show_original) {
 
 	GetSizer()->Show(secondary_editor, show_original);
 	GetSizer()->Show(bottom_sizer, show_original);
-	Fit();
-	SetMinSize(GetSize());
-	wxSizer* parent_sizer = GetParent()->GetSizer();
-	if (parent_sizer) parent_sizer->Layout();
+	RefreshFittingSize(this);
 	Thaw();
+	SendSizeEventToParent();
 }
 
 void SubsEditBox::UpdateSecondaryEditorFont() {
