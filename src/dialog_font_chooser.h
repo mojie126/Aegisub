@@ -211,19 +211,17 @@ private:
 	wxTextCtrl *fontNameInput_;       ///< 字体名称搜索输入框
 	wxCheckBox *quickPreviewCheck_;   ///< 便捷预览复选框
 	FontPreviewListBox *fontNameList_; ///< 字体名称列表（自绘预览）
-	wxTextCtrl *fontStyleInput_;      ///< 字体样式输入框
-	wxListBox *fontStyleList_;        ///< 字体样式列表
 	wxTextCtrl *fontSizeInput_;       ///< 字体大小输入框
 	wxListBox *fontSizeList_;         ///< 字体大小列表
 	wxCheckBox *strikeoutCheck_;      ///< 删除线复选框
 	wxCheckBox *underlineCheck_;      ///< 下划线复选框
+	wxCheckBox *boldCheck_;           ///< 粗体复选框（仅支持常规/粗体）
 	wxTextCtrl *previewInput_;        ///< 预览文本输入框
 	wxButton *previewApplyButton_;    ///< 将示例文案应用到字体列表的确认按钮
 	wxPanel *previewPanel_;           ///< 预览面板
 	wxStaticText *previewText_;       ///< 预览文字
 	FontPreviewListBox *favoriteFontList_; ///< 收藏字体列表
-	std::vector<FontStyleEntry> fontStyleEntries_; ///< 当前字体可用的字形列表
-	wxString currentStyleFace_;          ///< 当前已填充字形列表对应的字体名称
+
 	bool fontNameFilterDirty_ = false;  ///< 延迟字体列表到达前用户是否已主动修改过滤条件
 	std::shared_future<wxArrayString> deferredFontList_; ///< 异步枚举中的字体列表
 	wxTimer fontListTimer_;              ///< 轮询异步字体枚举结果，避免首次打开时阻塞 UI
@@ -234,9 +232,6 @@ private:
 	bool previewListRefreshInProgress_ = false; ///< 是否正在执行示例文案列表重建
 
 	wxFont selectedFont_;             ///< 当前选中的字体
-
-	/// @brief 填充字体样式列表
-	void PopulateStyleList(const wxString &faceName = wxString());
 
 	/// @brief 根据当前输入解析实际使用的字体名称
 	/// @return 优先使用当前列表选中项，否则回退到输入框内容
@@ -255,9 +250,9 @@ private:
 	/// @return 最佳匹配索引；若无更佳匹配则回退到当前过滤结果的第 0 项
 	int FindBestFilteredFontMatchIndex(const wxString &input) const;
 
-	/// @brief 根据字体对象选择匹配的字形项
-	/// @param font 需要匹配的字体对象
-	void SelectMatchingStyle(const wxFont &font);
+	// Removed SelectMatchingStyle: 字形选择已废弃，相关匹配逻辑已从对话框删除。
+
+
 
 	/// @brief 根据搜索文本过滤字体名称列表
 	void FilterFontList();
@@ -281,7 +276,6 @@ private:
 	// 事件处理
 	void OnFontNameInput(wxCommandEvent &event);
 	void OnFontNameSelected(wxCommandEvent &event);
-	void OnFontStyleSelected(wxCommandEvent &event);
 	void OnFontSizeInput(wxCommandEvent &event);
 	void OnFontSizeSelected(wxCommandEvent &event);
 	void OnDeferredFontListTimer(wxTimerEvent &event);

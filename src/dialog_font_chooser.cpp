@@ -998,7 +998,7 @@ DialogFontChooser::DialogFontChooser(wxWindow *parent, const wxFont &initial, co
 	fontNameSizer->Add(fontNameList_, 1, wxEXPAND);
 	topSizer->Add(fontNameSizer, 10, wxEXPAND | wxRIGHT, 10);
 
-	// 大小/字形组合列（上大小，下字形）
+	// 大小列
 	auto *fontOptionSizer = new wxBoxSizer(wxVERTICAL);
 	fontOptionSizer->Add(new wxStaticText(this, wxID_ANY, _("&Size:")), 0, wxBOTTOM, 4);
 	fontSizeInput_ = new wxTextCtrl(this, wxID_ANY);
@@ -1007,13 +1007,6 @@ DialogFontChooser::DialogFontChooser(wxWindow *parent, const wxFont &initial, co
 	for (int size : kFontSizes)
 		fontSizeList_->Append(std::to_wstring(size));
 	fontOptionSizer->Add(fontSizeList_, 2, wxEXPAND | wxBOTTOM, 10);
-
-	fontOptionSizer->Add(new wxStaticText(this, wxID_ANY, _("Font st&yle:")), 0, wxBOTTOM, 4);
-	fontStyleInput_ = new wxTextCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_READONLY);
-	fontOptionSizer->Add(fontStyleInput_, 0, wxEXPAND | wxBOTTOM, 4);
-	fontStyleList_ = new wxListBox(this, wxID_ANY, wxDefaultPosition, FromDIP(wxSize(150, 132)));
-	PopulateStyleList(initial.IsOk() ? initial.GetFaceName() : wxString());
-	fontOptionSizer->Add(fontStyleList_, 3, wxEXPAND);
 	topSizer->Add(fontOptionSizer, 2, wxEXPAND | wxRIGHT, 10);
 
 	// 收藏字体列
@@ -1032,11 +1025,13 @@ DialogFontChooser::DialogFontChooser(wxWindow *parent, const wxFont &initial, co
 	// --- 下半部分：效果区和预览区（跟随对话框缩放） ---
 	auto *bottomSizer = new wxBoxSizer(wxHORIZONTAL);
 
-	// 效果区
+	// 效果区（新增粗体，仅支持常规/粗体）
 	auto *effectsBox = new wxStaticBoxSizer(wxVERTICAL, this, _("Effects"));
+	boldCheck_ = new wxCheckBox(effectsBox->GetStaticBox(), wxID_ANY, _("&Bold"));
 	strikeoutCheck_ = new wxCheckBox(effectsBox->GetStaticBox(), wxID_ANY, _("Stri&keout"));
 	underlineCheck_ = new wxCheckBox(effectsBox->GetStaticBox(), wxID_ANY, _("&Underline"));
-	effectsBox->Add(strikeoutCheck_, 0, wxALL, 10);
+	effectsBox->Add(boldCheck_, 0, wxALL, 10);
+	effectsBox->Add(strikeoutCheck_, 0, wxLEFT | wxRIGHT | wxBOTTOM, 10);
 	effectsBox->Add(underlineCheck_, 0, wxLEFT | wxRIGHT | wxBOTTOM, 10);
 	bottomSizer->Add(effectsBox, 0, wxEXPAND | wxRIGHT, 10);
 
@@ -1089,8 +1084,11 @@ DialogFontChooser::DialogFontChooser(wxWindow *parent, const wxFont &initial, co
 		if (sizeIdx != wxNOT_FOUND)
 			fontSizeList_->SetSelection(sizeIdx);
 
-		// 设置样式
-		SelectMatchingStyle(initial);
+		// 设置粗体（仅支持常规/粗体）
+		if (initial.IsOk())
+			boldCheck_->SetValue(initial.GetNumericWeight() >= 700);
+		else
+			boldCheck_->SetValue(false);
 
 		// 设置效果
 		strikeoutCheck_->SetValue(initial.GetStrikethrough());
@@ -1100,7 +1098,8 @@ DialogFontChooser::DialogFontChooser(wxWindow *parent, const wxFont &initial, co
 		int sizeIdx = fontSizeList_->FindString("36");
 		if (sizeIdx != wxNOT_FOUND)
 			fontSizeList_->SetSelection(sizeIdx);
-		SelectMatchingStyle(BuildFontFromControls());
+		// 默认不启用粗体
+		if (boldCheck_) boldCheck_->SetValue(false);
 	}
 
 	UpdatePreview();
@@ -1124,7 +1123,7 @@ DialogFontChooser::DialogFontChooser(wxWindow *parent, const wxFont &initial, co
 		evt.Skip();
 	});
 	fontNameList_->Bind(wxEVT_LISTBOX, &DialogFontChooser::OnFontNameSelected, this);
-	fontStyleList_->Bind(wxEVT_LISTBOX, &DialogFontChooser::OnFontStyleSelected, this);
+	boldCheck_->Bind(wxEVT_CHECKBOX, &DialogFontChooser::OnEffectChanged, this);
 	fontSizeInput_->Bind(wxEVT_TEXT, &DialogFontChooser::OnFontSizeInput, this);
 	fontSizeList_->Bind(wxEVT_LISTBOX, &DialogFontChooser::OnFontSizeSelected, this);
 	Bind(wxEVT_TIMER, &DialogFontChooser::OnDeferredFontListTimer, this, fontListTimer_.GetId());
@@ -1262,8 +1261,6 @@ void DialogFontChooser::ApplyLoadedFontList(const wxArrayString &fonts) {
 		fontNameList_->PrepareForSmoothScroll(best_idx);
 	}
 
-	PopulateStyleList(GetEffectiveFaceName());
-	SelectMatchingStyle(BuildFontFromControls());
 	UpdatePreview();
 }
 
@@ -1430,21 +1427,7 @@ void DialogFontChooser::StartDeferredFontListLoad() {
 	ApplyLoadedFontList(ResolveReadyPreferredFontFaceList(deferredFontList_));
 }
 
-void DialogFontChooser::PopulateStyleList(const wxString &faceName) {
-	const wxString normalized_face = GetFontPreviewFaceName(faceName);
-	if (fontStyleList_->GetCount() > 0 && normalized_face.CmpNoCase(currentStyleFace_) == 0)
-		return;
-
-	currentStyleFace_ = normalized_face;
-	fontStyleEntries_ = GetFontStyleEntriesForFace(normalized_face);
-	if (fontStyleEntries_.empty())
-		fontStyleEntries_ = GetDefaultStyleEntries();
-
-	fontStyleList_->Clear();
-	for (const auto &entry : fontStyleEntries_)
-		fontStyleList_->Append(entry.name);
-}
-
+// 字形选择逻辑已移除：对话框仅支持常规与粗体（b0 / b1），原有的字形枚举和选择被删去。
 wxString DialogFontChooser::GetEffectiveFaceName() const {
 	const int sel = fontNameList_->GetSelection();
 	if (sel != wxNOT_FOUND)
@@ -1504,29 +1487,7 @@ int DialogFontChooser::FindBestFilteredFontMatchIndex(const wxString &input) con
 	return 0;
 }
 
-void DialogFontChooser::SelectMatchingStyle(const wxFont &font) {
-	if (fontStyleEntries_.empty())
-		PopulateStyleList(font.GetFaceName());
-
-	const int target_weight = font.GetNumericWeight();
-	const int target_style = font.GetStyle();
-	int best_index = 0;
-	int best_diff = INT_MAX;
-	for (size_t i = 0; i < fontStyleEntries_.size(); ++i) {
-		const auto &entry = fontStyleEntries_[i];
-		int diff = std::abs(entry.lfWeight - target_weight);
-		if (entry.style != target_style)
-			diff += 1000; // 样式不匹配则大幅惩罚
-		// 优先选择 stretch 最接近 Normal(5) 的变体
-		diff += std::abs(entry.stretch - 5) * 10;
-		if (diff < best_diff) {
-			best_diff = diff;
-			best_index = static_cast<int>(i);
-		}
-	}
-	fontStyleList_->SetSelection(best_index);
-	fontStyleInput_->SetValue(fontStyleList_->GetString(best_index));
-}
+// 字形自动匹配函数已移除；保留相关枚举/工具函数以便将来回退或扩展。
 
 void DialogFontChooser::FilterFontList() {
 	wxString input = fontNameInput_->GetValue().Lower();
@@ -1612,22 +1573,16 @@ wxFont DialogFontChooser::BuildFontFromControls() const {
 	if (size < 1) size = 1;
 	if (size > 999) size = 999;
 
-	int styleIdx = fontStyleList_->GetSelection();
-	if (styleIdx == wxNOT_FOUND) styleIdx = 0;
-
-	int lfWeight = 400;
+	// 仅支持常规/粗体（b0/b1）
+	const bool bold = boldCheck_ && boldCheck_->GetValue();
+	int lfWeight = bold ? 700 : 400;
 	int style = wxFONTSTYLE_NORMAL;
-	if (static_cast<size_t>(styleIdx) < fontStyleEntries_.size()) {
-		lfWeight = fontStyleEntries_[static_cast<size_t>(styleIdx)].lfWeight;
-		style = fontStyleEntries_[static_cast<size_t>(styleIdx)].style;
-	}
 
 	wxFont font(static_cast<int>(size), wxFONTFAMILY_DEFAULT,
 		style,
 		lfWeight >= 700 ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL,
 		underlineCheck_->GetValue(),
 		faceName);
-	font.SetNumericWeight(lfWeight);
 	font.SetStrikethrough(strikeoutCheck_->GetValue());
 	return font;
 }
@@ -1635,8 +1590,6 @@ wxFont DialogFontChooser::BuildFontFromControls() const {
 void DialogFontChooser::OnFontNameInput(wxCommandEvent &) {
 	fontNameFilterDirty_ = true;
 	FilterFontList();
-	PopulateStyleList(GetEffectiveFaceName());
-	SelectMatchingStyle(BuildFontFromControls());
 	UpdatePreview();
 }
 
@@ -1647,16 +1600,7 @@ void DialogFontChooser::OnFontNameSelected(wxCommandEvent &) {
 		fontNameInput_->Unbind(wxEVT_TEXT, &DialogFontChooser::OnFontNameInput, this);
 		fontNameInput_->SetValue(fontNameList_->GetFontName(sel));
 		fontNameInput_->Bind(wxEVT_TEXT, &DialogFontChooser::OnFontNameInput, this);
-		PopulateStyleList(fontNameList_->GetFontName(sel));
-		SelectMatchingStyle(BuildFontFromControls());
 	}
-	UpdatePreview();
-}
-
-void DialogFontChooser::OnFontStyleSelected(wxCommandEvent &) {
-	int sel = fontStyleList_->GetSelection();
-	if (sel != wxNOT_FOUND)
-		fontStyleInput_->SetValue(fontStyleList_->GetString(sel));
 	UpdatePreview();
 }
 
@@ -1724,8 +1668,6 @@ void DialogFontChooser::OnFavoriteFontSelected(wxCommandEvent &) {
 		fontNameList_->ScrollToRow(idx);
 		fontNameList_->PrepareForSmoothScroll(idx);
 	}
-	PopulateStyleList(fontName);
-	SelectMatchingStyle(BuildFontFromControls());
 	UpdatePreview();
 }
 
