@@ -217,10 +217,10 @@ namespace {
 
 			// 将选中行按出现顺序排列后反转（对应 MoonScript: for i = #sel, 1, -1）
 			// 反向处理确保插入新行后不影响后续行的索引定位
-			std::vector<AssDialogue *> selected_lines(selected_set.begin(), selected_set.end());
+			std::vector selected_lines(selected_set.begin(), selected_set.end());
 			std::sort(
 				selected_lines.begin(), selected_lines.end(),
-				[&](AssDialogue *a, AssDialogue *b) {
+				[&](const AssDialogue *a, const AssDialogue *b) {
 					// 按在事件列表中的位置排序
 					// 严格弱序要求：comp(a, a) 必须为 false
 					if (a == b) return false;
@@ -231,7 +231,7 @@ namespace {
 					return false;
 				}
 			);
-			std::reverse(selected_lines.begin(), selected_lines.end());
+			std::ranges::reverse(selected_lines);
 
 			// 计算行集合的帧范围（遍历所有选中行的最早起始帧和最晚结束帧）
 			// 对应 MoonScript: LineCollection.startFrame / .endFrame / .totalFrames
@@ -316,7 +316,7 @@ namespace {
 					break;
 				}
 				// 从 AssDialogue 构建模块内部使用的 MotionLine 数据结构
-				mocha::MotionLine motion_line = processor.build_line(active_line);
+				mocha::MotionLine motion_line = mocha::MotionProcessor::build_line(active_line);
 
 				// 构建行集合
 				std::vector<mocha::MotionLine> lines = {motion_line};
