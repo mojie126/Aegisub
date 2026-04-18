@@ -5,6 +5,7 @@
 #include "motion_processor.h"
 #include "motion_tags.h"
 #include "motion_transform.h"
+#include "motion_handler.h"
 
 #include "../ass_dialogue.h"
 #include "../ass_style.h"
@@ -30,7 +31,7 @@ namespace mocha {
 		style_lookup_ = std::move(lookup);
 	}
 
-	MotionLine MotionProcessor::build_line(const AssDialogue *diag) const {
+	MotionLine MotionProcessor::build_line(const AssDialogue *diag) {
 		MotionLine line;
 		line.text = diag->Text.get();
 		line.style = diag->Style.get();
@@ -47,7 +48,7 @@ namespace mocha {
 		return line;
 	}
 
-	std::map<std::string, double> MotionProcessor::extract_style_properties(const AssStyle *style) const {
+	std::map<std::string, double> MotionProcessor::extract_style_properties(const AssStyle *style) {
 		if (!style) return {};
 
 		std::map<std::string, double> props;
@@ -79,7 +80,7 @@ namespace mocha {
 	}
 
 	std::string MotionProcessor::get_missing_alphas(const std::string &block,
-													const std::map<std::string, double> &properties) const {
+													const std::map<std::string, double> &properties) {
 		// 对应 MoonScript getMissingAlphas()
 		auto get_prop = [&](const std::string &key) -> double {
 			auto it = properties.find(key);
@@ -229,7 +230,7 @@ namespace mocha {
 ///
 /// @param lines 待预处理的行集合（就地修改）
 	void MotionProcessor::prepare_lines(std::vector<MotionLine> &lines,
-	                                   const ClipTrackOptions *clip_options) {
+										const ClipTrackOptions *clip_options) {
 		// 对应 MoonScript prepareLines()
 		const bool clip_tracking_enabled =
 			options_.rect_clip || options_.vect_clip ||
@@ -363,8 +364,8 @@ namespace mocha {
 					static const std::regex reset_re(R"(\\r(?!nd[sxyz\d])([^\\}]*)(.*))");
 					std::smatch m;
 					if (std::regex_search(result, m, reset_re)) {
-						std::string reset_style = m[1].str();
-						std::string remainder = m[2].str();
+						const std::string reset_style = m[1].str();
+						const std::string remainder = m[2].str();
 
 						const AssStyle *rs = nullptr;
 						if (style_lookup_) {
@@ -475,10 +476,8 @@ namespace mocha {
 			line.shift_karaoke();
 
 			// 清理空标签块和无效的空 clip 占位符
-			static const std::regex empty_block_re(R"(\{\})");
-			static const std::regex empty_clip_re(R"(\\i?clip\(\))");
-			line.text = std::regex_replace(line.text, empty_clip_re, "");
-			line.text = std::regex_replace(line.text, empty_block_re, "");
+			line.text = tag_utils::clean_empty_clips(line.text);
+			line.text = tag_utils::clean_empty_blocks(line.text);
 		}
 
 		// 合并相邻相同行
