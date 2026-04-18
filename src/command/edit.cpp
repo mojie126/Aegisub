@@ -600,22 +600,12 @@ struct edit_font final : public Command {
 				do_set_tag("\\fn", from_wx(font.GetFaceName()));
 			if (font.GetPointSize() != startfont.GetPointSize())
 				do_set_tag("\\fs", std::to_string(font.GetPointSize()));
-			if (font.GetNumericWeight() != startfont.GetNumericWeight()) {
-				const int w = font.GetNumericWeight();
-				// 仅 VSFilterMod/SGNB fork 支持数值字重
-				bool use_numeric_weight = false;
-#ifdef WITH_CSRI
-				auto provider = OPT_GET("Subtitle/Provider")->GetString();
-				const std::string csri_prefix = "CSRI/";
-				if (provider.compare(0, csri_prefix.size(), csri_prefix) == 0) {
-					auto longname = csri::GetLongName(provider.substr(csri_prefix.size()));
-					use_numeric_weight = longname == "VSFilterMod/SGNB";
-				}
-#endif
-				if (use_numeric_weight)
-					do_set_tag("\\b", std::to_string(w));
-				else
-					do_set_tag("\\b", std::to_string(w >= 700 ? 1 : 0));
+			// 仅写入布尔粗体值 b0/b1（不再回写数值字重）
+			{
+				const int new_b = font.GetNumericWeight() >= 700 ? 1 : 0;
+				const int start_b = startfont.GetNumericWeight() >= 700 ? 1 : 0;
+				if (new_b != start_b)
+					do_set_tag("\\b", std::to_string(new_b));
 			}
 			if (font.GetStyle() != startfont.GetStyle())
 				do_set_tag("\\i", std::to_string(font.GetStyle() == wxFONTSTYLE_ITALIC));
