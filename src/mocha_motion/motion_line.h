@@ -153,7 +153,7 @@ namespace mocha {
 		/// 对第一个标签块执行回调
 		void run_callback_on_first_override(const std::function<std::string(const std::string &)> &callback);
 
-		/// 移位卡拉OK计时标签
+		/// 移位卡拉OK、`\kt` 与 VSFilterMod `\kk` 打字机计时标签
 		void shift_karaoke();
 	};
 } // namespace mocha

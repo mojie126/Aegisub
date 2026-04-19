@@ -7,7 +7,285 @@
 
 #include <regex>
 #include <algorithm>
+#include <cctype>
 #include <cmath>
+
+namespace {
+	/**
+	 * @brief PendingKkTag 表示一个未完成的 VSFilterMod `\kk(...)` 打字机标签的运行时状态
+	 *
+	 * 该结构用于在逐帧/时间偏移处理时保存 `\kk` 标签内部每个字符对应的出现时间序列、
+	 * 当前处理位置（next_index）以及尚未显示的字符数量（remaining_chars）。
+	 *
+	 * 设计约束：
+	 * - durations 存储每个字符的出现时间（默认 100cs），可按需要被 reduce_current_duration 修改。
+	 * - consume_char 在字符被输出后前移索引并减少 remaining_chars。
+	 * - format_tag 在需要将剩余未显示字符重新编码回 `\kk(...)` 标签时生成合适的标签文本（用于逐帧输出重建）。
+	 */
+	struct PendingKkTag {
+		std::vector<int> durations;
+		size_t next_index = 0;
+		int remaining_chars = 0;
+
+		[[nodiscard]] bool active() const {
+			return remaining_chars > 0 && next_index < durations.size();
+		}
+
+		void reset() {
+			durations.clear();
+			next_index = 0;
+			remaining_chars = 0;
+		}
+
+		void consume_char() {
+			if (!active()) return;
+			++next_index;
+			--remaining_chars;
+			if (!active()) reset();
+		}
+
+		[[nodiscard]] double current_duration() const {
+			return active() ? durations[next_index] : 0.0;
+		}
+
+		void reduce_current_duration(const double shift) {
+			if (!active()) return;
+			durations[next_index] = std::max(0, static_cast<int>(durations[next_index] - shift));
+		}
+
+		[[nodiscard]] std::string format_tag() const {
+			if (!active()) return "";
+
+			std::string result = "{\\kk(" + std::to_string(remaining_chars);
+			int last_non_default = -1;
+			for (int i = 0; i < remaining_chars; ++i) {
+				if (durations[next_index + i] != 100)
+					last_non_default = i;
+			}
+
+			for (int i = 0; i <= last_non_default; ++i) {
+				result += ",";
+				const int duration = durations[next_index + i];
+				if (duration != 100)
+					result += std::to_string(duration);
+			}
+
+			result += ")}";
+			return result;
+		}
+	};
+
+	[[nodiscard]] std::string trim_copy(const std::string &value) {
+		const auto first = std::find_if_not(
+			value.begin(), value.end(),
+			[](const unsigned char ch) { return std::isspace(ch) != 0; }
+		);
+		if (first == value.end()) return "";
+		const auto last = std::find_if_not(
+			value.rbegin(), value.rend(),
+			[](const unsigned char ch) { return std::isspace(ch) != 0; }
+		).base();
+		return std::string(first, last);
+	}
+
+	[[nodiscard]] bool parse_int_value(const std::string &text, int &value) {
+		const std::string trimmed = trim_copy(text);
+		if (trimmed.empty()) return false;
+
+		size_t parsed = 0;
+		try {
+			value = std::stoi(trimmed, &parsed);
+		} catch (...) {
+			return false;
+		}
+		return parsed == trimmed.size();
+	}
+
+	/**
+	 * @brief 解析 `\kk(...)` 标签参数为 PendingKkTag
+	 * @param params 标签内部参数字符串（不包括括号）
+	 * @return 已解析的 PendingKkTag（解析失败返回空/非激活态对象）
+	 *
+	 * 语义：
+	 * - 第一个参数为字符计数（必须为正整数）。
+	 * - 随后的参数为每个字符的出现时间（可选），未指定的项使用默认值 100。
+	 */
+	[[nodiscard]] PendingKkTag parse_kk_tag(const std::string &params) {
+		std::vector<std::string> parts;
+		size_t start = 0;
+		while (true) {
+			const size_t comma = params.find(',', start);
+			if (comma == std::string::npos) {
+				parts.push_back(trim_copy(params.substr(start)));
+				break;
+			}
+			parts.push_back(trim_copy(params.substr(start, comma - start)));
+			start = comma + 1;
+		}
+
+		PendingKkTag kk;
+		if (parts.empty()) return kk;
+
+		int charcount = 0;
+		if (!parse_int_value(parts[0], charcount) || charcount <= 0)
+			return kk;
+
+		kk.durations.assign(charcount, 100);
+		kk.remaining_chars = charcount;
+		for (int i = 1; i < static_cast<int>(parts.size()) && i <= charcount; ++i) {
+			if (parts[i].empty()) continue;
+
+			int duration = 0;
+			if (!parse_int_value(parts[i], duration))
+				continue;
+			kk.durations[i - 1] = std::max(duration, 0);
+		}
+
+		return kk;
+	}
+
+	[[nodiscard]] size_t utf8_char_length(const unsigned char lead) {
+		if ((lead & 0x80) == 0) return 1;
+		if ((lead & 0xE0) == 0xC0) return 2;
+		if ((lead & 0xF0) == 0xE0) return 3;
+		if ((lead & 0xF8) == 0xF0) return 4;
+		return 1;
+	}
+
+	struct PlainToken {
+		std::string text;
+		size_t length = 0;
+		bool visible = true;
+	};
+
+	[[nodiscard]] PlainToken next_plain_token(const std::string &text, const size_t pos) {
+		if (text[pos] == '\\' && pos + 1 < text.size()) {
+			const char escaped = text[pos + 1];
+			if (escaped == 'N' || escaped == 'n')
+				return {text.substr(pos, 2), 2, false};
+			if (escaped == 'h')
+				return {text.substr(pos, 2), 2, true};
+		}
+
+		const size_t len = std::min(utf8_char_length(static_cast<unsigned char>(text[pos])), text.size() - pos);
+		return {text.substr(pos, len), len, true};
+	}
+
+	[[nodiscard]] std::string shift_standard_karaoke_tag(const std::string &tag, const int time, double &shift) {
+		if (shift <= 0)
+			return tag + std::to_string(time);
+
+		const double old_shift = -shift;
+		const double new_time = time - shift;
+		shift -= time;
+		if (new_time <= 0)
+			return "";
+
+		char buf[64];
+		if (tag == "\\kf") {
+			std::snprintf(
+				buf, sizeof(buf), "%s%d%s%d",
+				tag.c_str(), static_cast<int>(old_shift),
+				tag.c_str(), time
+			);
+		} else {
+			std::snprintf(buf, sizeof(buf), "%s%d", tag.c_str(), static_cast<int>(new_time));
+		}
+		return buf;
+	}
+
+	[[nodiscard]] std::string shift_karaoke_start_tag(const int time, double &shift) {
+		if (shift <= 0)
+			return "\\kt" + std::to_string(time);
+
+		const double new_time = time - shift;
+		if (new_time > 0) {
+			shift = 0;
+			return "\\kt" + std::to_string(static_cast<int>(new_time));
+		}
+
+		shift = -new_time;
+		return "";
+	}
+
+	/**
+	 * @brief 处理 override 块（{...}）内与卡拉OK相关的标签并应用时间前移
+	 * @param block override 块文本（不包含外层花括号）
+	 * @param shift 要前移的时间量（毫秒），函数会根据标签更新并消费 shift
+	 * @param pending_kk 引用形式传入/返回当前的 PendingKkTag 状态
+	 * @return 处理后替换了被前移标签的 override 块文本
+	 *
+	 * 该函数额外处理的标签包括：\kk(...)（设置 pending_kk），\kt（逐字计时起始），以及标准 \k/\K/\kf/\ko 标签。
+	 */
+	[[nodiscard]] std::string process_override_block(const std::string &block, double &shift, PendingKkTag &pending_kk) {
+		static const std::regex karaoke_re(R"(\\kk\(([^)]*)\)|\\kt(-?\d+)|(\\[kK][fo]?)(\d+))");
+
+		std::string result;
+		size_t last = 0;
+		for (std::sregex_iterator it(block.begin(), block.end(), karaoke_re), end; it != end; ++it) {
+			const auto &match = *it;
+			result += block.substr(last, match.position() - last);
+
+			if (match[1].matched) {
+				pending_kk = parse_kk_tag(match[1].str());
+			} else if (match[2].matched) {
+				pending_kk.reset();
+				result += shift_karaoke_start_tag(std::stoi(match[2].str()), shift);
+			} else {
+				pending_kk.reset();
+				result += shift_standard_karaoke_tag(match[3].str(), std::stoi(match[4].str()), shift);
+			}
+
+			last = match.position() + match.length();
+		}
+		result += block.substr(last);
+		return result;
+	}
+
+	/**
+	 * @brief 处理纯文本区块（非 override）时的逐字符输出与 \kk 状态同步
+	 * @param plain 纯文本片段
+	 * @param shift 此次需要前移的时间（毫秒），会被消耗或用于调整 pending_kk
+	 * @param pending_kk 当前的 PendingKkTag 状态引用
+	 * @return 处理后的文本（可能包含重建的 \kk(...) 标签以保留未显示字符的剩余计时）
+	 *
+	 * 处理细节：
+	 * - 使用 next_plain_token 识别普通字符与转义序列（如 \h, \N 等）。
+	 * - 普通字符按 UTF-8 码点前进；这覆盖常见 BMP 文本，但与 VSFilterMod 的 UTF-16 码元边界并不完全一致。
+	 * - 当 pending_kk 处于激活状态且遇到可见字符时，根据 shift 与当前字符的持续时间决定是消耗该字符、
+	 *   还是根据剩余时间重写为新的 \kk(...) 标签以保留后续字符的定时信息。
+	 */
+	[[nodiscard]] std::string process_plain_text(const std::string &plain, double &shift, PendingKkTag &pending_kk) {
+		std::string result;
+		size_t pos = 0;
+		while (pos < plain.size()) {
+			const PlainToken token = next_plain_token(plain, pos);
+			if (pending_kk.active() && token.visible) {
+				if (shift > 0) {
+					if (shift >= pending_kk.current_duration()) {
+						shift -= pending_kk.current_duration();
+						result += token.text;
+						pending_kk.consume_char();
+					} else {
+						pending_kk.reduce_current_duration(shift);
+						shift = 0;
+						result += pending_kk.format_tag();
+						pending_kk.reset();
+						result += token.text;
+					}
+				} else {
+					result += pending_kk.format_tag();
+					pending_kk.reset();
+					result += token.text;
+				}
+			} else {
+				result += token.text;
+			}
+			pos += token.length;
+		}
+		return result;
+	}
+}
 
 namespace mocha {
 	void MotionLine::calculate_default_position(const int style_align, const int style_margin_l, const int style_margin_r, const int style_margin_t, const int res_x, const int res_y) {
@@ -409,50 +687,32 @@ namespace mocha {
 		if (karaoke_shift == 0) return;
 
 		double shift = karaoke_shift;
-		std::regex k_re(R"((\\[kK][fo]?)(\d+))");
+		PendingKkTag pending_kk;
+		std::string result;
+		size_t pos = 0;
 
-		text = tag_utils::run_callback_on_overrides(
-			text, [&](const std::string &tag_block, int) {
-				std::string result;
-				std::sregex_iterator it(tag_block.begin(), tag_block.end(), k_re);
-				std::sregex_iterator end;
-				size_t last = 0;
-
-				while (it != end) {
-					const auto &m = *it;
-					result += tag_block.substr(last, m.position() - last);
-
-					std::string k_tag = m[1].str();
-					double time = std::stod(m[2].str());
-
-					if (shift > 0) {
-						double old_shift = -shift;
-						double new_time = time - shift;
-						shift -= time;
-						if (new_time > 0) {
-							if (k_tag == "\\kf") {
-								char buf[64];
-								// 卡拉OK时间值为整数厘秒，使用 %d 格式
-								// 对应 MoonScript: formatInt
-								std::snprintf(buf, sizeof(buf), "%s%d%s%d", k_tag.c_str(), static_cast<int>(old_shift), k_tag.c_str(), static_cast<int>(time));
-								result += buf;
-							} else {
-								char buf[64];
-								std::snprintf(buf, sizeof(buf), "%s%d", k_tag.c_str(), static_cast<int>(new_time));
-								result += buf;
-							}
-						}
-						// 如果 new_time <= 0，移除该标签
-					} else {
-						result += m.str();
-					}
-
-					last = m.position() + m.length();
-					++it;
+		while (pos < text.size()) {
+			if (text[pos] == '{') {
+				const size_t end = text.find('}', pos);
+				if (end == std::string::npos) {
+					result += process_plain_text(text.substr(pos), shift, pending_kk);
+					break;
 				}
-				result += tag_block.substr(last);
-				return result;
+
+				result += "{";
+				result += process_override_block(text.substr(pos + 1, end - pos - 1), shift, pending_kk);
+				result += "}";
+				pos = end + 1;
+				continue;
 			}
-		);
+
+			const size_t next_block = text.find('{', pos);
+			const size_t count = (next_block == std::string::npos) ? text.size() - pos : next_block - pos;
+			result += process_plain_text(text.substr(pos, count), shift, pending_kk);
+			if (next_block == std::string::npos) break;
+			pos = next_block;
+		}
+
+		text = std::move(result);
 	}
 } // namespace mocha

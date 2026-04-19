@@ -199,6 +199,12 @@ namespace mocha {
 		// \fsc 同时设置 \fscx 和 \fscy，不会被 \fscx/\fscy 模式误匹配
 		all_tags_["fsc"] = {"fsc", R"(\\fsc([\d.]+))", "\\fsc", false, false, ""};
 
+		/**
+		 * @brief 混合模式标签 \blend（vpatch v003）
+		 * @deprecated 不建议使用：在不同 ASS 渲染器间兼容性差且行为可能不一致，可能导致不可移植或不可预测的渲染效果。
+		 * 建议替代：使用 PNG 图像纹理（如 `\\1img`/`\\2img` 等）配合透明度，或在视频后期合成实现混合效果。
+		 * @note 参数可为数字（0-8）或关键字（normal, over, add, mult 等）
+		 */
 		// --- 混合模式 (vpatch v003) ---
 		// 参数可为数字（0-8）或关键字（normal, add, mult 等）
 		all_tags_["blend"] = {"blend", R"(\\blend(\w+))", "\\blend", false, false, "", TagType::STRING};
@@ -224,9 +230,11 @@ namespace mocha {
 		// --- 卡拉 OK 标签 ---
 		// 对应 MoonScript: karaoke: { pattern: "(\\[kK][fo]?)(%d+)", convert: convertKaraoke }
 		// 匹配 \k, \K, \kf, \ko 等变体。不可变换，不是全局标签
-		// 注：shift_karaoke() 使用独立的硬编码正则处理卡拉 OK 偏移，
+		// 注：shift_karaoke() 使用独立的硬编码解析处理 \k/\K/\kf/\ko/\kt 以及 VSFilterMod \kk 的偏移，
 		//     此注册仅用于 TagRegistry 完整性和 repeat_tags 去重
 		all_tags_["karaoke"] = {"karaoke", R"(\\[kK][fo]?(\d+))", "\\k", false, false, ""};
+		all_tags_["karaokeTime"] = {"karaokeTime", R"(\\kt(-?\d+))", "\\kt", false, false, ""};
+		all_tags_["typingKaraoke"] = {"typingKaraoke", R"(\\kk\(([^)]*)\))", "\\kk", false, false, "", TagType::STRING};
 
 		// --- 变换标签 ---
 		all_tags_["transform"] = {"transform", R"(\\t(\(.*?\)))", "\\t", false, false, "", TagType::TRANSFORM};

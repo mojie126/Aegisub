@@ -554,6 +554,36 @@ TEST(MochaLine, ShiftKaraoke) {
 	EXPECT_NE(line.text.find("\\k"), std::string::npos);
 }
 
+TEST(MochaLine, ShiftTypingKaraokeAcrossOverrideBlocks) {
+	MotionLine line;
+	line.text = R"({\bord1\kk(4,3,4,5,6)}AB{\i1}CD)";
+	line.karaoke_shift = 5.0;
+	line.shift_karaoke();
+	line.text = tag_utils::clean_empty_blocks(line.text);
+
+	EXPECT_EQ(line.text, R"({\bord1}A{\kk(3,2,5,6)}B{\i1}CD)");
+}
+
+TEST(MochaLine, ShiftTypingKaraokeCountsHardSpaceButSkipsLineBreak) {
+	MotionLine line;
+	line.text = R"({\kk(3,2,2,2)}A\h\N B)";
+	line.karaoke_shift = 4.0;
+	line.shift_karaoke();
+	line.text = tag_utils::clean_empty_blocks(line.text);
+
+	EXPECT_EQ(line.text, R"(A\h\N{\kk(1,2)} B)");
+}
+
+TEST(MochaLine, ShiftKaraokeHonorsKtAnchor) {
+	MotionLine line;
+	line.text = R"({\kt5\k10}AB)";
+	line.karaoke_shift = 7.0;
+	line.shift_karaoke();
+	line.text = tag_utils::clean_empty_blocks(line.text);
+
+	EXPECT_EQ(line.text, R"({\k8}AB)");
+}
+
 // ============================================================================
 // DataHandler 数据解析器测试
 // ============================================================================
@@ -1696,6 +1726,22 @@ TEST(MochaProcessor, PostprocessRemovesEmptyClipInLinear) {
 
 	ASSERT_EQ(lines.size(), 1u);
 	EXPECT_EQ(lines[0].text, "hello");
+}
+
+TEST(MochaProcessor, PostprocessShiftsTypingKaraokeAndCleansEmptyBlocks) {
+	MotionOptions opts;
+	MotionProcessor processor(opts, 640, 360);
+
+	MotionLine line;
+	line.text = R"({\kk(4,3,4,5,6)}ABCD)";
+	line.was_linear = true;
+	line.karaoke_shift = 5.0;
+
+	std::vector<MotionLine> lines = {line};
+	processor.postprocess_lines(lines);
+
+	ASSERT_EQ(lines.size(), 1u);
+	EXPECT_EQ(lines[0].text, R"(A{\kk(3,2,5,6)}BCD)");
 }
 
 TEST(MochaProcessor, PrepareLinesHonorsIndependentClipOptions) {
