@@ -499,8 +499,18 @@ struct audio_autoscroll final : public Command {
 		return OPT_GET("Audio/Auto/Scroll")->GetBool();
 	}
 
-	void operator()(agi::Context *) override {
+	/**
+	 * @brief 切换“自动卷动音频显示至所选行”选项
+	 *
+	 * 切换选项后若为启用状态，则立即将音频显示滚动到当前活动行，
+	 * 以便通过工具栏或命令启用时能够立刻生效。
+	 *
+	 * @param c 应用上下文，可能为 nullptr；调用前需判空。
+	 */
+	void operator()(agi::Context *c) override {
 		toggle("Audio/Auto/Scroll");
+		if (OPT_GET("Audio/Auto/Scroll")->GetBool() && c && c->audioBox)
+			c->audioBox->ScrollToActiveLine();
 	}
 };
 
