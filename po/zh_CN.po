@@ -5731,7 +5731,7 @@ msgstr "默认使用鼠标滚轮缩放"
 
 #: ../src/preferences.cpp:130
 msgid "Lock scroll on cursor"
-msgstr "随光标滚动"
+msgstr "播放时跟随播放光标"
 
 #: ../src/preferences.cpp:131
 msgid "Snap markers by default"
