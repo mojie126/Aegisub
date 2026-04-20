@@ -1254,6 +1254,12 @@ void AudioDisplay::OnAudioOpen(agi::AudioProvider *provider)
 				OPT_SUB("Colour/Audio Display/Waveform", &AudioDisplay::ReloadRenderingSettings, this),
 				OPT_SUB("Audio/Renderer/Spectrum/Quality", &AudioDisplay::ReloadRenderingSettings, this),
 				OPT_SUB("Audio/Renderer/Spectrum/FreqCurve", &AudioDisplay::ReloadRenderingSettings, this),
+				/**
+				 * @brief 当“自动卷动音频显示至所选行”选项被切换时，触发与选区变更相同的处理
+				 *
+				 * 这样在通过偏好对话或其他路径修改该选项时也能立即生效。
+				 */
+				OPT_SUB("Audio/Auto/Scroll", &AudioDisplay::OnSelectionChanged, this),
 			});
 			OnTimingController();
 		}
