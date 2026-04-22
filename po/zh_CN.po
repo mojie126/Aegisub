@@ -7361,6 +7361,24 @@ msgstr "添加黑边"
 msgid "Expands logical video height with black borders for script alignment/resolution. Decoded frame data is unchanged."
 msgstr "通过添加黑边扩展逻辑视频高度，用于脚本对齐/分辨率；不会修改解码后的帧数据。"
 
+msgid "Smart add black borders"
+msgstr "自动添加黑边"
+
+msgid "Automatically add top/bottom black borders to match a standard resolution for FFmpegSource, BestSource, and VapourSynth. When enabled, the manual black border values below are ignored. Changes persist in preferences and reload the current video."
+msgstr "为 FFmpegSource、BestSource 和 VapourSynth 自动添加上下黑边以匹配标准分辨率。启用后会忽略下方的手动黑边数值。更改会保存到偏好设置，并重新加载当前视频"
+
+msgid "Open a video to preview smart black borders."
+msgstr "打开视频后可预览自动黑边结果"
+
+msgid "Current video provider does not support smart black borders."
+msgstr "当前视频提供者不支持自动黑边预览"
+
+msgid "Current video: no black borders added."
+msgstr "当前视频未添加黑边"
+
+msgid "Current video: top %d px, bottom %d px"
+msgstr "当前视频：上 %d px，下 %d px"
+
 msgid "Decoding the full track to ensure perfect frame accuracy. This will take a while!"
 msgstr "解码全轨道，确保完美的帧精度。这需要一段时间！"
 

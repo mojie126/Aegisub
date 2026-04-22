@@ -161,8 +161,11 @@ int OpenScriptOrVideo(const VSAPI *api, const VSSCRIPTAPI *sapi, VSScript *scrip
 			throw VapourSynthError("Failed to create VSMap for script info");
 
 		SetStringVar(api, map, "filename", filename.string());
-		// 设置黑边
-		SetStringVar(api, map, "padding", std::to_string(OPT_GET("Provider/Video/VapourSynth/ABB")->GetInt()));
+		/// @brief Smart ABB 启用时由脚本端根据实际帧高度自动计算黑边
+		if (OPT_GET("Provider/Video/Smart ABB")->GetBool())
+			SetStringVar(api, map, "padding", std::string("auto"));
+		else
+			SetStringVar(api, map, "padding", std::to_string(OPT_GET("Provider/Video/VapourSynth/ABB")->GetInt()));
 		const auto vscache = config::path->Decode("?local/vscache");
 		agi::fs::CreateDirectory(vscache);
 		SetStringVar(api, map, "__aegi_vscache", vscache.string());

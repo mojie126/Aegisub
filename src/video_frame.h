@@ -33,6 +33,29 @@ struct AdaptivePadding {
 /// @brief 标准显示高度列表（升序）
 static constexpr std::array<int, 6> kStandardHeights = {480, 720, 1080, 1440, 2160, 4320};
 
+/// @brief 计算智能 ABB（自动匹配标准高度）
+///
+/// 给定显示高度（已考虑旋转），在标准高度表中选择第一个 >= display_height 的目标高度（若不存在则使用最大的标准高度），
+/// 并将差值平均分配到上下两侧（若为奇数，顶部多一行）。返回 {top, bottom}。
+inline AdaptivePadding CalculateSmartPadding(int display_height) {
+	if (display_height <= 0)
+		return {0, 0};
+
+	int target_standard = 0;
+	for (int sh : kStandardHeights) {
+		if (sh >= display_height) { target_standard = sh; break; }
+	}
+	if (target_standard == 0) target_standard = kStandardHeights.back();
+
+	int total_padding = target_standard - display_height;
+	if (total_padding > 0) {
+		int half = total_padding / 2;
+		int remainder = total_padding % 2;
+		return {half + remainder, half};
+	}
+	return {0, 0};
+}
+
 /// @brief 计算自适应黑边分配
 ///
 /// 根据帧高度和用户期望的单侧黑边值，自动匹配最近的标准分辨率高度，

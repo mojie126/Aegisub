@@ -42,6 +42,7 @@ core = vs.core
 
 aegi_vscache: str = ""
 aegi_vsplugins: str = ""
+_aegi_script_vars: Dict[str, Any] | None = None
 _translate: Callable[[str], str] = lambda message: message
 
 plugin_extension = ".dll" if os.name == "nt" else ".so"
@@ -102,9 +103,53 @@ def set_paths(vars: dict):
     """
     global aegi_vscache
     global aegi_vsplugins
+    global _aegi_script_vars
     _init_translation(vars)
     aegi_vscache = vars["__aegi_vscache"]
     aegi_vsplugins = vars["__aegi_vsplugins"]
+    _aegi_script_vars = vars
+
+
+def _publish_videoinfo(videoinfo: Dict[str, Any]):
+    """将 wrapper 生成的关键元数据同步回调用脚本。"""
+    if _aegi_script_vars is None:
+        return
+
+    def _as_nonneg_int(v: Any):
+        try:
+            iv = int(v)
+            return iv if iv >= 0 else None
+        except Exception:
+            return None
+
+    # 映射并做最小范围校验，避免脚本端收到非法类型或负值导致解析问题
+    if 'timecodes' in videoinfo:
+        try:
+            _aegi_script_vars['__aegi_timecodes'] = list(videoinfo['timecodes'])
+        except Exception:
+            pass
+
+    if 'keyframes' in videoinfo:
+        try:
+            _aegi_script_vars['__aegi_keyframes'] = list(videoinfo['keyframes'])
+        except Exception:
+            pass
+
+    if 'padding_top' in videoinfo:
+        pt = _as_nonneg_int(videoinfo['padding_top'])
+        if pt is not None:
+            _aegi_script_vars['__aegi_padding_top'] = pt
+
+    if 'padding_bottom' in videoinfo:
+        pb = _as_nonneg_int(videoinfo['padding_bottom'])
+        if pb is not None:
+            _aegi_script_vars['__aegi_padding_bottom'] = pb
+
+    for key in ('hw_decode_active', 'hw_decode_requested', 'hw_decode'):
+        if key in videoinfo:
+            v = _as_nonneg_int(videoinfo[key])
+            if v is not None:
+                _aegi_script_vars[f'__aegi_{key}'] = v
 
 
 def ensure_plugin(name: str, loadname: str, errormsg: str):
@@ -275,13 +320,36 @@ def wrap_lwlibavsource(filename: str, padding: str, cachedir: str | None = None,
     lw_kwargs.setdefault("prefer_hw", 3)
     clip = core.lsmas.LWLibavSource(source=filename, cachefile=cachefile, cachedir=".", **lw_kwargs)
 
-    # 自适应黑边：根据帧高度和用户期望padding计算最近标准分辨率的top/bottom分配
-    padding_top, padding_bottom = _calculate_adaptive_padding(clip.height, padding)
+    # 自适应黑边：支持数值 padding（作为用户期望单侧像素）或字符串 "auto"（自动匹配最近标准分辨率）
+    padding_top = 0
+    padding_bottom = 0
+    try:
+        # 尝试将 padding 转换为整数（例如来自 C++ 的 "0"/"16"）
+        user_padding_int = int(padding)
+        padding_top, padding_bottom = _calculate_adaptive_padding(clip.height, user_padding_int)
+    except Exception:
+        # 非数值（例如 "auto"），执行自动匹配最近的标准分辨率并对齐到上/下两侧
+        target_standard = None
+        for sh in _STANDARD_HEIGHTS:
+            if sh >= clip.height:
+                target_standard = sh
+                break
+        if target_standard is None:
+            target_standard = _STANDARD_HEIGHTS[-1]
+        total_padding = target_standard - clip.height
+        if total_padding > 0:
+            half = total_padding // 2
+            remainder = total_padding % 2
+            padding_top = half + remainder
+            padding_bottom = half
+
     if padding_top > 0 or padding_bottom > 0:
         clip = core.std.AddBorders(clip, left=0, right=0, top=padding_top, bottom=padding_bottom)
 
     progress_set_message(_("Getting timecodes and keyframes from the index file"))
     result = info_from_lwindex(cachefile)
+    result["padding_top"] = padding_top
+    result["padding_bottom"] = padding_bottom
 
     # 向 Aegisub 报告硬件解码状态：
     # 1) hw_decode_requested: 是否请求了硬解（来自 prefer_hw）
@@ -321,6 +389,7 @@ def wrap_lwlibavsource(filename: str, padding: str, cachedir: str | None = None,
     result["hw_decode_active"] = hw_active
     # 兼容旧脚本键名
     result["hw_decode"] = max(hw_active, 0)
+    _publish_videoinfo(result)
 
     return clip, result
 

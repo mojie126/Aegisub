@@ -22,11 +22,13 @@
 #include <memory>
 #include <vector>
 
+#include <libaegisub/signal.h>
+
 #include <wx/dialog.h>
 
 class wxButton;
 class wxTreebook;
-namespace agi { class OptionValue; }
+namespace agi { class OptionValue; struct Context; }
 
 class Preferences final : public wxDialog {
 public:
@@ -34,10 +36,12 @@ public:
 private:
 	wxTreebook *book;
 	wxButton *applyButton;
+	agi::Context *context = nullptr;
 
 	std::map<std::string, std::unique_ptr<agi::OptionValue>> pending_changes;
 	std::vector<Thunk> pending_callbacks;
 	std::vector<std::string> option_names;
+	std::vector<agi::signal::Connection> signal_connections;
 
 	void OnOK(wxCommandEvent &);
 	void OnCancel(wxCommandEvent &);
@@ -45,7 +49,7 @@ private:
 	void OnResetDefault(wxCommandEvent&);
 
 public:
-	Preferences(wxWindow *parent);
+	Preferences(wxWindow *parent, agi::Context *context);
 
 	/// Add an option to be set when the OK or Apply button is clicked
 	/// @param new_value Clone of the option with the new value to copy over
@@ -62,4 +66,10 @@ public:
 	/// simply revert to the default config file as a bunch of things other than
 	/// user options are stored in it. Perhaps that should change in the future.
 	void AddChangeableOption(std::string const& name);
+
+	/// @brief 获取当前项目上下文
+	agi::Context *GetContext() const { return context; }
+
+	/// @brief 持有信号连接，保证对话框存活期间回调有效
+	void AddSignalConnection(agi::signal::Connection connection);
 };

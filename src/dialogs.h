@@ -138,7 +138,7 @@ void ShowKanjiTimerDialog(agi::Context *c);
 
 void ShowLogWindow(agi::Context *c);
 
-void ShowPreferences(wxWindow *parent);
+void ShowPreferences(agi::Context *c);
 
 void ShowPropertiesDialog(agi::Context *c);
 void ShowSearchReplaceDialog(agi::Context *c, bool replace);

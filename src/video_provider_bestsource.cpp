@@ -108,6 +108,8 @@ public:
 	std::string GetDecoderName() const override { return "BestSource"; };
 	bool WantsCaching() const override { return false; };
 	bool HasAudio() const override { return has_audio; };
+	int GetPaddingTop() const override { return paddingTop; }
+	int GetPaddingBottom() const override { return paddingBottom; }
 	HDRType GetHDRType() const override { return detected_hdr_type_; };
 	int GetDVProfile() const override { return dv_profile_; };
 	bool IsHWDecoding() const override { return hw_decode_active; };
@@ -277,9 +279,16 @@ BSVideoProvider::BSVideoProvider(agi::fs::path const& filename, std::string cons
 
 	SetColorSpace(colormatrix);
 
-	// 读取 ABB 黑边选项并计算自适应分配
+	/// @brief 根据显示高度计算智能或手动黑边分配
 	const int userPadding = std::max(0, static_cast<int>(OPT_GET("Provider/Video/BestSource/ABB")->GetInt()));
-	if (userPadding > 0) {
+	const bool smartABB = OPT_GET("Provider/Video/Smart ABB")->GetBool();
+	if (smartABB) {
+		const int displayHeight = properties.Height;
+		const auto ap = CalculateSmartPadding(displayHeight);
+		paddingTop = ap.top;
+		paddingBottom = ap.bottom;
+	}
+	else if (userPadding > 0) {
 		const auto ap = CalculateAdaptivePadding(properties.Height, userPadding);
 		paddingTop = ap.top;
 		paddingBottom = ap.bottom;

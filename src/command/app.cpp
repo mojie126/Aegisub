@@ -209,7 +209,7 @@ struct app_options final : public Command {
 
 	void operator()(agi::Context *c) override {
 		try {
-			ShowPreferences(c->parent);
+			ShowPreferences(c);
 		} catch (agi::Exception& e) {
 			LOG_E("config/init") << "Caught exception: " << e.GetMessage();
 		}

@@ -8285,3 +8285,27 @@ msgstr ""
 #: ../src/dialog_font_chooser.cpp
 msgid "Sample"
 msgstr ""
+
+#: ../src/preferences.cpp
+msgid "Smart add black borders"
+msgstr ""
+
+#: ../src/preferences.cpp
+msgid "Automatically add top/bottom black borders to match a standard resolution for FFmpegSource, BestSource, and VapourSynth. When enabled, the manual black border values below are ignored. Changes persist in preferences and reload the current video."
+msgstr ""
+
+#: ../src/preferences.cpp
+msgid "Open a video to preview smart black borders."
+msgstr ""
+
+#: ../src/preferences.cpp
+msgid "Current video provider does not support smart black borders."
+msgstr ""
+
+#: ../src/preferences.cpp
+msgid "Current video: no black borders added."
+msgstr ""
+
+#: ../src/preferences.cpp
+msgid "Current video: top %d px, bottom %d px"
+msgstr ""

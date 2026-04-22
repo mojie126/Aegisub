@@ -153,6 +153,12 @@ public:
 
 	/// Does the file which this provider is reading have an audio track?
 	virtual bool HasAudio() const { return false; }
+
+	/// @brief 获取顶部黑边像素行数
+	virtual int GetPaddingTop() const { return 0; }
+
+	/// @brief 获取底部黑边像素行数
+	virtual int GetPaddingBottom() const { return 0; }
 };
 
 DEFINE_EXCEPTION(VideoProviderError, agi::Exception);

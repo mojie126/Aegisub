@@ -180,6 +180,8 @@ public:
 	std::string GetDecoderName() const    { return source_provider->GetDecoderName(); }
 	bool ShouldSetVideoProperties() const { return source_provider->ShouldSetVideoProperties(); }
 	bool HasAudio() const                 { return source_provider->HasAudio(); }
+	int GetPaddingTop() const             { return source_provider->GetPaddingTop(); }
+	int GetPaddingBottom() const          { return source_provider->GetPaddingBottom(); }
 	uint_fast32_t GetProviderId() const   { return provider_id; }
 
 	/// @brief Constructor

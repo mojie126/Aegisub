@@ -31,6 +31,7 @@
 #include <libaegisub/path.h>
 #include <libaegisub/scoped_ptr.h>
 
+#include <algorithm>
 #include <mutex>
 
 #include "vapoursynth_wrap.h"
@@ -45,6 +46,8 @@ static const char *audio_key = "__aegi_hasaudio";
 static const char *hw_decode_active_key = "__aegi_hw_decode_active";
 static const char *hw_decode_requested_key = "__aegi_hw_decode_requested";
 static const char *hw_decode_legacy_key = "__aegi_hw_decode";
+static const char *padding_top_key = "__aegi_padding_top";
+static const char *padding_bottom_key = "__aegi_padding_bottom";
 
 namespace {
 class VapourSynthVideoProvider: public VideoProvider {
@@ -65,6 +68,8 @@ class VapourSynthVideoProvider: public VideoProvider {
 	HDRType detected_hdr_type_ = HDRType::SDR;  // 检测到的HDR类型
 	HWDecodeState hw_decode_state_ = HWDecodeState::Software;  // VS脚本上报的硬件解码三态
 	int dv_profile_ = 0;     // Dolby Vision Profile编号（0=无DV/未知）
+	int padding_top_ = 0;    ///< 顶部黑边像素行数
+	int padding_bottom_ = 0; ///< 底部黑边像素行数
 
 	agi::scoped_holder<const VSFrame *, void (*)(const VSFrame *) noexcept> GetVSFrame(VSNode *node, int n);
 	void SetResizeArg(VSMap *args, const VSMap *props, const char *arg_name, const char *prop_name, int64_t deflt, int64_t unspecified = -1);
@@ -96,6 +101,8 @@ public:
 	std::string GetDecoderName() const override    { return "VapourSynth"; }
 	HDRType GetHDRType() const override             { return detected_hdr_type_; }
 	int GetDVProfile() const override               { return dv_profile_; }
+	int GetPaddingTop() const override              { return padding_top_; }
+	int GetPaddingBottom() const override           { return padding_bottom_; }
 	bool IsHWDecoding() const override              { return hw_decode_state_ == HWDecodeState::Hardware; }
 	HWDecodeState GetHWDecodeState() const override { return hw_decode_state_; }
 	bool ShouldSetVideoProperties() const override { return colorspace != "Unknown"; }
@@ -169,6 +176,8 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 	vs.GetScriptAPI()->getVariable(script, hw_decode_active_key, clipinfo);
 	vs.GetScriptAPI()->getVariable(script, hw_decode_requested_key, clipinfo);
 	vs.GetScriptAPI()->getVariable(script, hw_decode_legacy_key, clipinfo);
+	vs.GetScriptAPI()->getVariable(script, padding_top_key, clipinfo);
+	vs.GetScriptAPI()->getVariable(script, padding_bottom_key, clipinfo);
 
 	int numkf = vs.GetAPI()->mapNumElements(clipinfo, kf_key);
 	int numtc = vs.GetAPI()->mapNumElements(clipinfo, tc_key);
@@ -176,6 +185,16 @@ VapourSynthVideoProvider::VapourSynthVideoProvider(agi::fs::path const& filename
 	int64_t audio = vs.GetAPI()->mapGetInt(clipinfo, audio_key, 0, &err1);
 	if (!err1)
 		has_audio = bool(audio);
+
+	int padding_err = 0;
+	int64_t padding_top_value = vs.GetAPI()->mapGetInt(clipinfo, padding_top_key, 0, &padding_err);
+	if (!padding_err)
+		padding_top_ = std::max(0, static_cast<int>(padding_top_value));
+
+	padding_err = 0;
+	int64_t padding_bottom_value = vs.GetAPI()->mapGetInt(clipinfo, padding_bottom_key, 0, &padding_err);
+	if (!padding_err)
+		padding_bottom_ = std::max(0, static_cast<int>(padding_bottom_value));
 
 	// 优先读取实际激活状态（三态：-1=未知, 0=软解, 1=硬解），兼容旧脚本的 __aegi_hw_decode。
 	// 若只拿到"请求硬解"但无激活确认，则按非硬解处理，避免误报。

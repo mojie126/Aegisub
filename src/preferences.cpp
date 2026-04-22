@@ -19,11 +19,13 @@
 #include "preferences.h"
 
 #include "ass_style_storage.h"
+#include "async_video_provider.h"
 #include "audio_provider_factory.h"
 #include "audio_renderer_waveform.h"
 #include "command/command.h"
 #include "compat.h"
 #include "help_button.h"
+#include "include/aegisub/context.h"
 #include "hotkey_data_view_model.h"
 #include "include/aegisub/audio_player.h"
 #include "include/aegisub/hotkey.h"
@@ -31,6 +33,8 @@
 #include "libresrc/libresrc.h"
 #include "options.h"
 #include "preferences_base.h"
+#include "project.h"
+#include "video_frame.h"
 #include "video_provider_manager.h"
 
 #ifdef WITH_PORTAUDIO
@@ -43,6 +47,7 @@
 
 #include <libaegisub/hotkey.h>
 
+#include <algorithm>
 #include <unordered_set>
 
 #include <wx/checkbox.h>
@@ -51,6 +56,7 @@
 #include <wx/event.h>
 #include <wx/listctrl.h>
 #include <wx/msgdlg.h>
+#include <wx/settings.h>
 #include <wx/srchctrl.h>
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
@@ -59,6 +65,34 @@
 #include <wx/treebook.h>
 
 namespace {
+/// @brief 当前视频提供者是否支持智能黑边预览
+static bool SupportsSmartAbbPreview(const AsyncVideoProvider *provider) {
+	if (!provider) return false;
+	const auto decoder = provider->GetDecoderName();
+	return decoder == "FFmpegSource" || decoder == "BestSource" || decoder == "VapourSynth";
+}
+
+/// @brief 生成智能黑边状态文案
+static wxString BuildSmartAbbStatus(const AsyncVideoProvider *provider, bool enabled) {
+	if (!enabled)
+		return {};
+	if (!provider)
+		return _("Open a video to preview smart black borders.");
+	if (!SupportsSmartAbbPreview(provider))
+		return _("Current video provider does not support smart black borders.");
+
+	const int current_top = std::max(0, provider->GetPaddingTop());
+	const int current_bottom = std::max(0, provider->GetPaddingBottom());
+	if (current_top <= 0 && current_bottom <= 0)
+		return _("Current video: no black borders added.");
+
+	return wxString::Format(
+		_("Current video: top %d px, bottom %d px"),
+		current_top,
+		current_bottom
+	);
+}
+
 /// General preferences page
 void General(wxTreebook *book, Preferences *parent) {
 	auto p = new OptionPage(book, parent, _("General"));
@@ -516,6 +550,48 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 	wxArrayString sp_choice = to_wx(SubtitlesProviderFactory::GetClasses());
 	p->OptionChoice(expert, _("Subtitles provider"), sp_choice, "Subtitle/Provider");
 
+	constexpr char smart_abb_opt[] = "Provider/Video/Smart ABB";
+	parent->AddChangeableOption(smart_abb_opt);
+	auto *smart_abb = new wxCheckBox(expert.box, -1, _("Smart add black borders"));
+	smart_abb->SetValue(OPT_GET(smart_abb_opt)->GetBool());
+	smart_abb->SetToolTip(_("Automatically add top/bottom black borders to match a standard resolution for FFmpegSource, BestSource, and VapourSynth. When enabled, the manual black border values below are ignored. Changes persist in preferences and reload the current video."));
+
+	auto *smart_abb_status = new wxStaticText(expert.box, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxST_ELLIPSIZE_END);
+	smart_abb_status->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_GRAYTEXT));
+	smart_abb_status->SetMinSize(expert.box->FromDIP(wxSize(280, -1)));
+
+	auto *smart_abb_row = new wxBoxSizer(wxHORIZONTAL);
+	smart_abb_row->Add(smart_abb, 0, wxALIGN_CENTER_VERTICAL);
+	smart_abb_row->AddSpacer(expert.box->FromDIP(8));
+	smart_abb_row->Add(smart_abb_status, 1, wxALIGN_CENTER_VERTICAL);
+	expert.sizer->Add(smart_abb_row, 1, wxEXPAND);
+	expert.sizer->AddSpacer(0);
+
+	auto update_smart_abb_status = [p, parent, smart_abb, smart_abb_status] {
+		auto *context = parent->GetContext();
+		auto *provider = context && context->project ? context->project->VideoProvider() : nullptr;
+		const wxString status = BuildSmartAbbStatus(provider, smart_abb->GetValue());
+		smart_abb_status->SetLabel(status);
+		smart_abb_status->Show(!status.empty());
+		if (auto *row = smart_abb_status->GetContainingSizer())
+			row->Layout();
+		p->Layout();
+		p->FitInside();
+	};
+
+	smart_abb->Bind(wxEVT_CHECKBOX, [parent, smart_abb_opt, update_smart_abb_status](wxCommandEvent &evt) mutable {
+		evt.Skip();
+		parent->SetOption(std::make_unique<agi::OptionValueBool>(smart_abb_opt, !!evt.GetInt()));
+		update_smart_abb_status();
+	});
+	update_smart_abb_status();
+
+	if (auto *context = parent->GetContext(); context && context->project) {
+		parent->AddSignalConnection(context->project->AddVideoProviderListener(
+			[update_smart_abb_status](AsyncVideoProvider *) mutable { update_smart_abb_status(); }
+		));
+	}
+
 
 #ifdef WITH_AVISYNTH
 	auto avisynth = p->PageSizer("Avisynth");
@@ -530,10 +606,11 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 	p->OptionChoice(ffms, _("Debug log verbosity"), log_levels_choice, "Provider/FFmpegSource/Log Level", true);
 
 	// 添加黑边
-	p->OptionAdd(ffms, _("Add black borders"), "Provider/Video/FFmpegSource/ABB", 0)
-		->SetToolTip(
+	auto *ffms_abb = p->OptionAdd(ffms, _("Add black borders"), "Provider/Video/FFmpegSource/ABB", 0);
+	ffms_abb->SetToolTip(
 			_("Expands logical video height with black borders for script alignment/resolution. Decoded frame data is unchanged.")
 		);
+	p->DisableIfChecked(smart_abb, ffms_abb);
 
 	// 硬件加速选项
 	const wxString h_wx_string[] = {"cuda", "d3d11va", "dxva2", "none"};
@@ -546,10 +623,11 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 
 #ifdef WITH_BESTSOURCE
 	auto bs = p->PageSizer("BestSource");
-	p->OptionAdd(bs, _("Add black borders"), "Provider/Video/BestSource/ABB", 0)
-		->SetToolTip(
+	auto *bs_abb = p->OptionAdd(bs, _("Add black borders"), "Provider/Video/BestSource/ABB", 0);
+	bs_abb->SetToolTip(
 			_("Expands logical video height with black borders for script alignment/resolution. Decoded frame data is unchanged.")
 		);
+	p->DisableIfChecked(smart_abb, bs_abb);
 	p->OptionAdd(bs, _("Max cache size (MB)"), "Provider/Video/BestSource/Max Cache Size");
 	p->OptionAdd(bs, _("Decoder Threads (0 to autodetect)"), "Provider/Video/BestSource/Threads");
 	p->OptionAdd(bs, _("Seek preroll (Frames)"), "Provider/Video/BestSource/Seek Preroll");
@@ -565,7 +643,8 @@ void Advanced_Video(wxTreebook *book, Preferences *parent) {
 
 	#ifdef WITH_VAPOURSYNTH
 	const auto vs = p->PageSizer("VapourSynth");
-	p->OptionAdd(vs, _("Add black borders"), "Provider/Video/VapourSynth/ABB", 0);
+	auto *vs_abb = p->OptionAdd(vs, _("Add black borders"), "Provider/Video/VapourSynth/ABB", 0);
+	p->DisableIfChecked(smart_abb, vs_abb);
 	#endif
 
 	p->SetSizerAndFit(p->sizer);
@@ -936,6 +1015,10 @@ void Preferences::AddChangeableOption(std::string const& name) {
 	option_names.push_back(name);
 }
 
+void Preferences::AddSignalConnection(agi::signal::Connection connection) {
+	signal_connections.push_back(std::move(connection));
+}
+
 void Preferences::OnOK(wxCommandEvent &event) {
 	OnApply(event);
 	EndModal(0);
@@ -973,7 +1056,9 @@ void Preferences::OnResetDefault(wxCommandEvent&) {
 	EndModal(-1);
 }
 
-Preferences::Preferences(wxWindow *parent): wxDialog(parent, -1, _("Preferences"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
+Preferences::Preferences(wxWindow *parent, agi::Context *context)
+: wxDialog(parent, -1, _("Preferences"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+, context(context) {
 	SetIcon(GETICON(options_button_16));
 
 	// 冻结窗口以抑制创建大量控件时的中间重绘和布局计算
@@ -1032,6 +1117,6 @@ Preferences::Preferences(wxWindow *parent): wxDialog(parent, -1, _("Preferences"
 	defaultButton->Bind(wxEVT_BUTTON, &Preferences::OnResetDefault, this);
 }
 
-void ShowPreferences(wxWindow *parent) {
-	while (Preferences(parent).ShowModal() < 0);
+void ShowPreferences(agi::Context *context) {
+	while (Preferences(context->parent, context).ShowModal() < 0);
 }

@@ -73,6 +73,8 @@ public:
 	bool HasAudio() const override                 { return master->HasAudio(); }
 	HDRType GetHDRType() const override            { return master->GetHDRType(); }
 	int GetDVProfile() const override              { return master->GetDVProfile(); }
+	int GetPaddingTop() const override             { return master->GetPaddingTop(); }
+	int GetPaddingBottom() const override          { return master->GetPaddingBottom(); }
 	bool IsHWDecoding() const override             { return master->IsHWDecoding(); }
 	HWDecodeState GetHWDecodeState() const override { return master->GetHWDecodeState(); }
 };

@@ -49,6 +49,7 @@ tests_src = [
     'tests/mocha_motion.cpp',
     'tests/ycbcr.cpp',
     'tests/hdr_video_audit.cpp',
+    'tests/abb_smart_test.cpp',
     'tests/text_file_writer.cpp',
     'tests/audit_fixes.cpp',
     'tests/style_rename.cpp',
@@ -65,6 +66,10 @@ text_file_writer_src = [
 
 video_frame_src = [
     '../src/video_frame.cpp',
+]
+
+video_provider_test_src = [
+    '../src/video_provider_cache.cpp',
 ]
 
 # 版本信息源文件（版本比较函数）
@@ -99,7 +104,7 @@ endif
 
 runner = executable(
     'gtest-main',
-    tests_src + mocha_src + text_file_writer_src + video_frame_src + version_src, version_h,
+    tests_src + mocha_src + text_file_writer_src + video_frame_src + video_provider_test_src + version_src, version_h,
     include_directories: [tests_inc, libaegisub_inc, mocha_inc, aegisub_src_inc, aegisub_src_dir_inc, version_inc],
     dependencies: [tests_deps, deps],
     cpp_args: tests_args,

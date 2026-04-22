@@ -129,6 +129,8 @@ public:
 	std::string GetDecoderName() const override    { return "FFmpegSource"; }
 	bool WantsCaching() const override             { return true; }
 	bool HasAudio() const override                 { return has_audio; }
+	int GetPaddingTop() const override             { return paddingTop; }
+	int GetPaddingBottom() const override          { return paddingBottom; }
 	bool IsHWDecoding() const override {
 		return hw_decode_active;
 	}
@@ -278,8 +280,16 @@ void FFmpegSourceVideoProvider::LoadVideo(agi::fs::path const& filename, std::st
 		Width  = TempFrame->EncodedWidth;
 		Height = TempFrame->EncodedHeight;
 
-		// 根据帧实际高度计算自适应黑边分配
-		if (userPadding > 0) {
+		/// @brief 根据显示高度计算智能或手动黑边分配
+		const bool smartABB = OPT_GET("Provider/Video/Smart ABB")->GetBool();
+		if (smartABB) {
+			const bool rotated = (VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 180 == -90);
+			const int displayHeight = rotated ? Width : Height;
+			const auto ap = CalculateSmartPadding(displayHeight);
+			paddingTop = ap.top;
+			paddingBottom = ap.bottom;
+		}
+		else if (userPadding > 0) {
 			const bool rotated = (VideoInfo->Rotation % 180 == 90 || VideoInfo->Rotation % 180 == -90);
 			const int displayHeight = rotated ? Width : Height;
 			const auto ap = CalculateAdaptivePadding(displayHeight, userPadding);
