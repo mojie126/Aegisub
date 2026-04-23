@@ -38,11 +38,8 @@
 #include <libaegisub/cajun/reader.h>
 #include <libaegisub/dispatch.h>
 #include <libaegisub/exception.h>
-#include <libaegisub/line_iterator.h>
 #include <libaegisub/scoped_ptr.h>
-#include <libaegisub/split.h>
 
-#include <ctime>
 #include <curl/curl.h>
 #include <functional>
 #include <mutex>
@@ -60,7 +57,6 @@
 #include <wx/statline.h>
 #include <wx/stattext.h>
 #include <wx/string.h>
-#include <wx/textctrl.h>
 #include <wx/html/htmlwin.h>
 
 #include <regex>
@@ -92,24 +88,30 @@ std::string HtmlEscape(const std::string& text) {
 
 /// @brief 处理 Markdown 行内格式（加粗、斜体、行内代码、图片、链接）
 /// @param line 一行文本（已 HTML 转义）
+/// @param code_font
 /// @return 替换行内格式标记后的 HTML 文本
-std::string ProcessInlineMarkdown(const std::string& line) {
+std::string ProcessInlineMarkdown(const std::string& line, const std::string& code_font = std::string()) {
 	std::string result = line;
 
-	// 行内代码: `code`
-	result = std::regex_replace(result, std::regex("`([^`]+)`"), "<code>$1</code>");
+	// 行内代码: `code`（可指定使用的代码字体）
+	if (!code_font.empty()) {
+		const std::string repl = std::string("<code><font face=\"") + HtmlEscape(code_font) + "\">$1</font></code>";
+		result = std::regex_replace(result, std::regex("`([^`]+)`"), repl);
+	} else {
+		result = std::regex_replace(result, std::regex("`([^`]+)`"), "<code>$1</code>");
+	}
 
 	// 加粗: **text**
-	result = std::regex_replace(result, std::regex("\\*\\*([^*]+)\\*\\*"), "<b>$1</b>");
+	result = std::regex_replace(result, std::regex(R"(\*\*([^*]+)\*\*)"), "<b>$1</b>");
 
 	// 斜体: *text*
 	result = std::regex_replace(result, std::regex("\\*([^*]+)\\*"), "<i>$1</i>");
 
 	// 图片: ![alt](url) — wxHtmlWindow 不支持加载外部图片，直接移除
-	result = std::regex_replace(result, std::regex("!\\[([^\\]]*)\\]\\(([^)]+)\\)"), "");
+	result = std::regex_replace(result, std::regex(R"(!\[([^\]]*)\]\(([^)]+)\))"), "");
 
 	// 链接: [text](url)
-	result = std::regex_replace(result, std::regex("\\[([^\\]]+)\\]\\(([^)]+)\\)"), "<a href=\"$2\">$1</a>");
+	result = std::regex_replace(result, std::regex(R"(\[([^\]]+)\]\(([^)]+)\))"), "<a href=\"$2\">$1</a>");
 
 	return result;
 }
@@ -117,8 +119,9 @@ std::string ProcessInlineMarkdown(const std::string& line) {
 /// @brief 将 GitHub Release 的 Markdown 正文转换为 HTML
 /// @details 支持标题、加粗、斜体、行内代码、链接、无序列表、代码块
 /// @param markdown Markdown 格式文本
+/// @param code_font
 /// @return HTML 格式文本
-std::string MarkdownToHtml(const std::string& markdown) {
+std::string MarkdownToHtml(const std::string& markdown, const std::string& code_font = std::string()) {
 	// 预处理: 移除原始 HTML <img> 标签（wxHtmlWindow 不支持加载外部 HTTPS 图片）
 	static const std::regex img_tag_re(R"re(<img\b[^>]*/?>)re", std::regex::icase);
 	std::string preprocessed = std::regex_replace(markdown, img_tag_re, "");
@@ -128,7 +131,9 @@ std::string MarkdownToHtml(const std::string& markdown) {
 	std::istringstream stream(preprocessed);
 	std::string line;
 	bool in_code_block = false;
-	bool in_list = false;
+	// 支持嵌套列表
+	std::regex list_re(R"re(^(\s*)[-*+]\s+(.*)$)re");
+	std::vector<int> list_stack; //<ul>缩进大小
 
 	while (std::getline(stream, line)) {
 		// 移除行尾 \r
@@ -138,11 +143,13 @@ std::string MarkdownToHtml(const std::string& markdown) {
 		// 代码块: ```
 		if (line.substr(0, 3) == "```") {
 			if (in_code_block) {
-				html += "</pre>";
+				if (!code_font.empty()) html += "</font></pre>";
+				else html += "</pre>";
 				in_code_block = false;
 			} else {
-				if (in_list) { html += "</ul>"; in_list = false; }
-				html += "<pre>";
+				while (!list_stack.empty()) { html += "</li></ul>"; list_stack.pop_back(); }
+				if (!code_font.empty()) html += std::string("<pre><font face=\"") + HtmlEscape(code_font) + "\">";
+				else html += "<pre>";
 				in_code_block = true;
 			}
 			continue;
@@ -153,44 +160,63 @@ std::string MarkdownToHtml(const std::string& markdown) {
 			continue;
 		}
 
-		// 空行
+		// 空行：在列表内部保留为空行（不要关闭列表），否则输出换行
 		if (line.empty()) {
-			if (in_list) { html += "</ul>"; in_list = false; }
-			html += "<br>";
+			if (list_stack.empty()) html += "<br>";
 			continue;
 		}
 
-		std::string escaped = HtmlEscape(line);
-
 		// 标题: # ## ### ####
 		if (line[0] == '#') {
-			if (in_list) { html += "</ul>"; in_list = false; }
+			while (!list_stack.empty()) { html += "</li></ul>"; list_stack.pop_back(); }
 			int level = 0;
-			while (level < (int)line.size() && line[level] == '#') level++;
-			if (level >= 1 && level <= 6 && level < (int)line.size() && line[level] == ' ') {
+			while (level < static_cast<int>(line.size()) && line[level] == '#') level++;
+			if (level >= 1 && level <= 6 && level < static_cast<int>(line.size()) && line[level] == ' ') {
 				std::string content = HtmlEscape(line.substr(level + 1));
-				content = ProcessInlineMarkdown(content);
+				content = ProcessInlineMarkdown(content, code_font);
 				html += "<h" + std::to_string(level) + ">" + content + "</h" + std::to_string(level) + ">";
 				continue;
 			}
 		}
 
-		// 无序列表: - item 或 * item
-		if ((line[0] == '-' || line[0] == '*') && line.size() > 1 && line[1] == ' ') {
-			if (!in_list) { html += "<ul>"; in_list = true; }
-			std::string content = HtmlEscape(line.substr(2));
-			content = ProcessInlineMarkdown(content);
-			html += "<li>" + content + "</li>";
+		// 无序列表（支持嵌套，基于缩进空格数）
+		std::smatch m;
+		if (std::regex_match(line, m, list_re)) {
+			int indent = static_cast<int>(m[1].length());
+			std::string content = m[2];
+
+			while (!list_stack.empty() && indent < list_stack.back()) {
+				html += "</li></ul>";
+				list_stack.pop_back();
+			}
+
+			if (list_stack.empty() || indent > list_stack.back()) {
+				html += "<ul>";
+				list_stack.push_back(indent);
+			} else if (indent == list_stack.back()) {
+				html += "</li>";
+			}
+
+			std::string content_escaped = HtmlEscape(content);
+			content_escaped = ProcessInlineMarkdown(content_escaped, code_font);
+			html += "<li>" + content_escaped;
 			continue;
 		}
 
+		// 非列表时，若有未关闭的列表，则全部关闭
+		while (!list_stack.empty()) { html += "</li></ul>"; list_stack.pop_back(); }
+
 		// 普通段落
-		escaped = ProcessInlineMarkdown(escaped);
+		std::string escaped = HtmlEscape(line);
+		escaped = ProcessInlineMarkdown(escaped, code_font);
 		html += escaped + "<br>";
 	}
 
-	if (in_list) html += "</ul>";
-	if (in_code_block) html += "</pre>";
+	while (!list_stack.empty()) { html += "</li></ul>"; list_stack.pop_back(); }
+	if (in_code_block) {
+		if (!code_font.empty()) html += "</font></pre>";
+		else html += "</pre>";
+	}
 
 	html += "</body></html>";
 	return html;
@@ -221,15 +247,13 @@ public:
 	/// @param has_update 是否有可用更新
 	/// @param current_ver 当前版本号
 	/// @param update 最新Release信息（可为空）
-	VersionCheckerResultDialog(bool has_update, wxString const& current_ver,
-	                           const AegisubUpdateDescription &update);
+	VersionCheckerResultDialog(bool has_update, wxString const &current_ver, const AegisubUpdateDescription &update);
 
-	bool ShouldPreventAppExit() const override { return false; }
+	[[nodiscard]] bool ShouldPreventAppExit() const override { return false; }
 };
 
-VersionCheckerResultDialog::VersionCheckerResultDialog(bool has_update, wxString const& current_ver,
-                                                       const AegisubUpdateDescription &update)
-: wxDialog(nullptr, -1, _("Version Checker"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+VersionCheckerResultDialog::VersionCheckerResultDialog(bool has_update, wxString const &current_ver, const AegisubUpdateDescription &update)
+	: wxDialog(nullptr, -1, _("Version Checker"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 {
 	const int controls_width = FromDIP(400);
 
@@ -282,13 +306,15 @@ VersionCheckerResultDialog::VersionCheckerResultDialog(bool has_update, wxString
 		auto *descbox = new HtmlWindowWithLinks(this, -1, wxDefaultPosition,
 			FromDIP(wxSize(controls_width, 240)), wxHW_SCROLLBAR_AUTO);
 		descbox->SetStandardFonts(descbox->GetFont().GetPointSize());
-		descbox->SetPage(to_wx(MarkdownToHtml(update.description)));
+		// 使用控件当前字体作为代码块与行内代码的显示字体，保证与系统默认字体一致
+		const std::string code_font = from_wx(descbox->GetFont().GetFaceName());
+		descbox->SetPage(to_wx(MarkdownToHtml(update.description, code_font)));
 		main_sizer->Add(descbox, 1, wxEXPAND|wxBOTTOM, FromDIP(8));
 	}
 
 	// 发行页面链接
 	if (!update.url.empty()) {
-		wxString link_label = has_update ? _("Download from GitHub") : _("View on GitHub");
+		const wxString link_label = has_update ? _("Download from GitHub") : _("View on GitHub");
 		main_sizer->Add(new wxHyperlinkCtrl(this, -1,
 			link_label, to_wx(update.url)),
 			0, wxALIGN_LEFT|wxBOTTOM, FromDIP(8));
@@ -302,13 +328,13 @@ VersionCheckerResultDialog::VersionCheckerResultDialog(bool has_update, wxString
 	main_sizer->Add(automatic_check_checkbox, 0, wxEXPAND|wxBOTTOM, FromDIP(8));
 
 	auto *button_sizer = new wxStdDialogButtonSizer();
-	wxButton *close_button = new wxButton(this, wxID_OK, _("&Close"));
+	auto *close_button = new wxButton(this, wxID_OK, _("&Close"));
 	button_sizer->AddButton(close_button);
 	if (has_update) {
 		auto *remind_btn = new wxButton(this, wxID_NO, _("Remind me again in a &week"));
 		button_sizer->AddButton(remind_btn);
 		Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
-			time_t new_next_check_time = time(nullptr) + 7*24*60*60;
+			const time_t new_next_check_time = time(nullptr) + 7*24*60*60;
 			OPT_SET("Version/Next Check")->SetInt(new_next_check_time);
 			Close();
 		}, wxID_NO);
@@ -320,9 +346,9 @@ VersionCheckerResultDialog::VersionCheckerResultDialog(bool has_update, wxString
 	outer_sizer->Add(main_sizer, 1, wxALL|wxEXPAND, FromDIP(12));
 
 	SetSizerAndFit(outer_sizer);
-	SetMinSize(FromDIP(wxSize(360, 280)));
+	wxTopLevelWindowBase::SetMinSize(FromDIP(wxSize(360, 280)));
 	Centre();
-	Show();
+	wxDialog::Show();
 
 	SetAffirmativeId(wxID_OK);
 	SetEscapeId(wxID_OK);
