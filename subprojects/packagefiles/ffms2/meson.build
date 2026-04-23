@@ -70,3 +70,10 @@ ffms2_indexer_test = executable(
 )
 
 test('ffms2 indexer', ffms2_indexer_test)
+
+custom_target('run-ffms2-indexer-test',
+	input: ffms2_indexer_test,
+	output: 'ffms2-indexer-test.ran',
+	command: [ffms2_indexer_test],
+	build_by_default: false
+)

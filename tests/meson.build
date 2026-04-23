@@ -1,9 +1,9 @@
 gtest_ver = '>=1.14.0'
-gtest_dep = dependency('gtest', 
-                       fallback : ['gtest', 'gtest_dep'], 
+gtest_dep = dependency('gtest',
+                       fallback : ['gtest', 'gtest_dep'],
                        version : gtest_ver)
-gmock_dep = dependency('gmock', 
-                       fallback : ['gtest', 'gmock_dep'], 
+gmock_dep = dependency('gmock',
+                       fallback : ['gtest', 'gmock_dep'],
                        version : gtest_ver)
 
 tests_deps = [
@@ -112,7 +112,8 @@ runner = executable(
 )
 
 test('gtest main', runner)
-test('luajit-52', executable('luajit-52', 'tests/luajit_52.c', dependencies: luajit))
+luajit_exe = executable('luajit-52', 'tests/luajit_52.c', dependencies: luajit)
+test('luajit-52', luajit_exe)
 
 # setup test env
 if host_machine.system() == 'windows'
@@ -122,9 +123,36 @@ else
 endif
 
 tests_data_des = meson.project_build_root()
-custom_target('setup-test-data',
+setup_target = custom_target('setup-test-data',
     input: runner,
     output: 'applied_test_setup',
     command: [setup_sh, tests_data_des],
     build_by_default: true
+)
+
+custom_target('run-gtest-main',
+    input: [runner, setup_target],
+    output: 'gtest-main.ran',
+    command: [runner],
+    build_by_default: false
+)
+
+custom_target('run-luajit-52',
+    input: [luajit_exe, setup_target],
+    output: 'luajit-52.ran',
+    command: [luajit_exe],
+    build_by_default: false
+)
+
+if host_machine.system() == 'windows'
+    ffms2_exe = meson.project_build_root() + '/subprojects/ffms2/ffms2-indexer-test.exe'
+else
+    ffms2_exe = meson.project_build_root() + '/subprojects/ffms2/ffms2-indexer-test'
+endif
+
+custom_target('run-ffms2-indexer-test-root',
+    input: [ffms2_exe, setup_target],
+    output: 'ffms2-indexer-test.ran',
+    command: [ffms2_exe],
+    build_by_default: false
 )
