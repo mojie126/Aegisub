@@ -99,7 +99,8 @@ static bool IsPostReleaseSuffix(const std::string& suffix) {
 		else
 			break;
 	}
-	return prefix == "fix" || prefix == "patch" || prefix == "hotfix" || prefix == "rev";
+	// 将常见的后缀（包括 feature/feat）视为补丁类发布标记（高于同版本号的正式版）
+	return prefix == "fix" || prefix == "patch" || prefix == "hotfix" || prefix == "rev" || prefix == "feature" || prefix == "feat";
 }
 
 /// @brief 获取后缀的优先级权重

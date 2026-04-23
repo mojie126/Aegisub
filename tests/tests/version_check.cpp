@@ -78,6 +78,16 @@ TEST(VersionCheck, CompoundFixSuffix) {
 	EXPECT_TRUE(IsNewerVersion("3.4.4-rev2", "3.4.4"));
 }
 
+TEST(VersionCheck, FeatureSuffixHigherThanRelease) {
+	EXPECT_TRUE(IsNewerVersion("3.4.9-feature1", "3.4.9"));
+	EXPECT_FALSE(IsNewerVersion("3.4.9", "3.4.9-feature1"));
+}
+
+TEST(VersionCheck, FeatureNumericOrdering) {
+	EXPECT_TRUE(IsNewerVersion("3.4.9-feature10", "3.4.9-feature2"));
+	EXPECT_FALSE(IsNewerVersion("3.4.9-feature2", "3.4.9-feature10"));
+}
+
 TEST(VersionCheck, NumericSuffixOrdering) {
 	EXPECT_TRUE(IsNewerVersion("3.4.4-fix10", "3.4.4-fix9"));
 	EXPECT_TRUE(IsNewerVersion("3.4.4-RC10", "3.4.4-RC2"));
