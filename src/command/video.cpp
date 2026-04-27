@@ -50,6 +50,7 @@
 #include "../selection_controller.h"
 #include "../utils.h"
 #include "../video_controller.h"
+#include "../video_export_utils.h"
 #include "../video_display.h"
 #include "../video_frame.h"
 #include "../video_out_gl.h"
@@ -169,14 +170,14 @@ namespace {
 	/// @param image_name 导出文件名前缀
 	/// @param start_frame 起始帧
 	/// @param end_frame 结束帧
-	/// @param speed_rate 倍速
+	/// @param scale_factor 分辨率缩放比例
 	/// @return 完整 GIF 文件路径
 	agi::fs::path MakeGifExportPath(const agi::fs::path &output_dir, const wxString &image_name,
-		long start_frame, long end_frame, int speed_rate) {
+		long start_frame, long end_frame, int scale_factor) {
 		wxString gif_name;
-		if (speed_rate > 1)
+		if (scale_factor > 1)
 			gif_name = wxString::Format(wxT("%s_[%ld-%ld]_s%d.gif"),
-				image_name, start_frame, end_frame, speed_rate);
+				image_name, start_frame, end_frame, scale_factor);
 		else
 			gif_name = wxString::Format(wxT("%s_[%ld-%ld].gif"),
 				image_name, start_frame, end_frame);
@@ -464,11 +465,16 @@ namespace {
 		return fwrite(buf, 1, buf_len, f) == buf_len ? GIFSKI_OK : 1;
 	}
 
-	bool CreateGifFromWxImages(const agi::Context *c, agi::ProgressSink *ps, const std::wstring &outputPath, const double delay, const int totalFrame, const int speed_rate = 1) {
+	bool CreateGifFromWxImages(const agi::Context *c, agi::ProgressSink *ps, const std::wstring &outputPath, const int totalFrame, const int scale_factor = 1) {
 		const int start_frame = getStartFrame();
 		const int end_frame = getEndFrame();
-		if (start_frame > end_frame) {
+		if (!agi::IsValidMultiFrameExportRange(start_frame, end_frame)) {
 			wxLogError("Invalid frame range for GIF export");
+			return false;
+		}
+		const auto frame_pts = agi::BuildGifFramePresentationTimestamps(c->project->Timecodes(), start_frame, end_frame);
+		if (frame_pts.size() != static_cast<size_t>(totalFrame)) {
+			wxLogError("Failed to build GIF frame timestamps");
 			return false;
 		}
 
@@ -517,8 +523,8 @@ namespace {
 		GifskiSettings settings;
 		settings.quality = getGifQuality();
 		// scale_factor > 1 时缩小输出分辨率，宽高至少保留 1 像素
-		settings.width = std::max(1, (speed_rate > 1) ? (cw / speed_rate) : cw);
-		settings.height = std::max(1, (speed_rate > 1) ? (ch / speed_rate) : ch);
+		settings.width = std::max(1, (scale_factor > 1) ? (cw / scale_factor) : cw);
+		settings.height = std::max(1, (scale_factor > 1) ? (ch / scale_factor) : ch);
 		settings.fast = false;
 		settings.repeat = 0;
 
@@ -612,8 +618,8 @@ namespace {
 				}
 			}
 
-			// 计算累计时间戳（秒），delay 为毫秒/帧
-			double pts = current_frame * (delay / 1000.0);
+			// 计算相对首帧的累计时间戳（秒）
+			double pts = frame_pts[static_cast<size_t>(current_frame)];
 			error = gifski_add_frame_rgba(g, current_frame, cw, ch, pixels.data(), pts);
 			if (error != GIFSKI_OK) {
 				wxLogError("Failed to add frame %d: %d", i, error);
@@ -659,15 +665,14 @@ namespace {
 
 		if (getOnOK()) {
 			DialogProgress progress(nullptr, _("Export gif image"), wxEmptyString);
-			const double delay = static_cast<double>(getEndTime() - getStartTime()) / (getEndFrame() - getStartFrame() + 1);
-			const int speed_rate = getGifSpeedRate();
+			const int scale_factor = getGifScaleFactor();
 			const auto gif_path = MakeGifExportPath(output_dir, SanitizeFileName(fName.GetName()),
-				getStartFrame(), getEndFrame(), speed_rate);
+				getStartFrame(), getEndFrame(), scale_factor);
 			try {
 				progress.Run(
 					[&](agi::ProgressSink *ps) {
 						CreateGifFromWxImages(
-							c, ps, gif_path.wstring(), delay, getEndFrame() - getStartFrame() + 1, speed_rate
+							c, ps, gif_path.wstring(), getEndFrame() - getStartFrame() + 1, scale_factor
 						);
 					}
 				);

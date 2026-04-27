@@ -6,6 +6,8 @@
 
 #include <main.h>
 
+#include "video_export_utils.h"
+
 #include <libaegisub/format.h>
 #include <libaegisub/vfr.h>
 #include <libaegisub/ass/time.h>
@@ -543,6 +545,40 @@ TEST(lagi_image_video, import_duration_display) {
 	EXPECT_FALSE(formatted.empty());
 }
 
+TEST(lagi_image_video, gif_pts_follow_cfr_frame_starts) {
+	agi::vfr::Framerate fr(24.0);
+	const auto pts = agi::BuildGifFramePresentationTimestamps(fr, 100, 103);
+	ASSERT_EQ(4u, pts.size());
+	EXPECT_DOUBLE_EQ(0.0, pts[0]);
+	EXPECT_DOUBLE_EQ(0.041, pts[1]);
+	EXPECT_DOUBLE_EQ(0.083, pts[2]);
+	EXPECT_DOUBLE_EQ(0.125, pts[3]);
+}
+
+TEST(lagi_image_video, gif_pts_follow_vfr_timecodes) {
+	agi::vfr::Framerate fr({0, 50, 80, 130, 160});
+	const auto pts = agi::BuildGifFramePresentationTimestamps(fr, 1, 4);
+	ASSERT_EQ(4u, pts.size());
+	EXPECT_DOUBLE_EQ(0.0, pts[0]);
+	EXPECT_DOUBLE_EQ(0.03, pts[1]);
+	EXPECT_DOUBLE_EQ(0.08, pts[2]);
+	EXPECT_DOUBLE_EQ(0.11, pts[3]);
+}
+
+TEST(lagi_image_video, gif_pts_normalize_to_selected_first_frame) {
+	agi::vfr::Framerate fr({1000, 1040, 1085});
+	const auto pts = agi::BuildGifFramePresentationTimestamps(fr, 1, 2);
+	ASSERT_EQ(2u, pts.size());
+	EXPECT_DOUBLE_EQ(0.0, pts[0]);
+	EXPECT_DOUBLE_EQ(0.045, pts[1]);
+}
+
+TEST(lagi_image_video, multi_frame_export_range_requires_end_after_start) {
+	EXPECT_TRUE(agi::IsValidMultiFrameExportRange(10, 11));
+	EXPECT_FALSE(agi::IsValidMultiFrameExportRange(10, 10));
+	EXPECT_FALSE(agi::IsValidMultiFrameExportRange(10, 9));
+}
+
 // ============================================================================
 // 导出图片序列 —— 文件名生成格式测试
 // ============================================================================
@@ -582,11 +618,11 @@ static std::filesystem::path MakeSnapshotExportPath(const std::filesystem::path 
 
 /// @brief 模拟 GIF 导出文件路径生成逻辑
 static std::filesystem::path MakeGifExportPath(const std::filesystem::path &output_dir, const std::wstring &image_name,
-	long start_frame, long end_frame, int speed_rate) {
+	long start_frame, long end_frame, int scale_factor) {
 	std::wostringstream filename;
 	filename << image_name << L"_[" << start_frame << L"-" << end_frame << L"]";
-	if (speed_rate > 1)
-		filename << L"_s" << speed_rate;
+	if (scale_factor > 1)
+		filename << L"_s" << scale_factor;
 	filename << L".gif";
 	return output_dir / std::filesystem::path(filename.str());
 }

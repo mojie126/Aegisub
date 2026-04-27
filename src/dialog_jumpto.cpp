@@ -42,6 +42,7 @@
 #include "timeedit_ctrl.h"
 #include "validators.h"
 #include "video_controller.h"
+#include "video_export_utils.h"
 #include "video_frame.h"
 #include "video_out_gl.h"
 
@@ -67,11 +68,9 @@
 
 long sFrame;
 long eFrame;
-int startTime;
-int endTime;
 bool onOK = false;
 long onGifQuality;
-int onGifSpeedRate = 1; ///< GIF导出速率倍率（1/2/4/8/16）
+int onGifScaleFactor = 1; ///< GIF导出分辨率缩放比例（1/2/4/6/8/10）
 
 /// 裁剪区域坐标（视频实际像素坐标）
 int cropX = 0;
@@ -279,7 +278,7 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 
 		/// 开始循环播放（异步解码 + 预缓存帧）
 		void StartPlayback() {
-			if (start_frame_ >= end_frame_) return;
+			if (!agi::IsValidMultiFrameExportRange(static_cast<int>(start_frame_), static_cast<int>(end_frame_))) return;
 			if (!ctx_->project->VideoProvider()) return;
 
 			CancelDecode();
@@ -696,8 +695,8 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		wxTextCtrl *editEndFrame; ///< 结束帧编辑控件
 		long gifQuality;
 		wxSpinCtrl *editGifQuality;
-		int gifSpeedRate; ///< 速率倍率（1/2/4/8/16）
-		wxChoice *choiceSpeedRate; ///< 速率倍率下拉框
+		int gifScaleFactor; ///< 分辨率缩放比例（1/2/4/6/8/10）
+		wxChoice *choiceScaleFactor; ///< 分辨率缩放比例下拉框
 		CropSelectionPanel *cropPanel; ///< 裁剪区域选择面板
 		wxToggleButton *playBtn; ///< 循环播放控制按钮
 
@@ -713,7 +712,7 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 
 		void OnEditGifQuality(wxCommandEvent &event);
 
-		void OnChoiceSpeedRate(wxCommandEvent &event);
+		void OnChoiceScaleFactor(wxCommandEvent &event);
 
 		/// Dialog initializer to set default focus and selection
 		void OnInitDialog(wxInitDialogEvent &);
@@ -727,7 +726,7 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		, startFrame(INT_MAX)
 		, endFrame(INT_MIN)
 		, gifQuality(OPT_GET("Tool/GIF Export/Quality")->GetInt())
-		, gifSpeedRate(OPT_GET("Tool/GIF Export/Resolution Scale")->GetInt()) {
+		, gifScaleFactor(OPT_GET("Tool/GIF Export/Resolution Scale")->GetInt()) {
 		d.SetIcon(GETICON(jumpto_button_16));
 
 		// 从选中行计算起止帧
@@ -736,11 +735,9 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 			const int currentEndFrame = c->videoController->FrameAtTime(line->End, agi::vfr::END);
 			if (currentStartFrame < startFrame) {
 				startFrame = currentStartFrame;
-				startTime = line->Start;
 			}
 			if (currentEndFrame > endFrame) {
 				endFrame = currentEndFrame;
-				endTime = line->End;
 			}
 		}
 
@@ -792,24 +789,24 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 			new wxStaticText(&d, -1, _("Resolution Scale:")),
 			0, wxALIGN_CENTER_VERTICAL
 		);
-		wxArrayString speedChoices;
-		speedChoices.Add("1:1");
-		speedChoices.Add("1:2");
-		speedChoices.Add("1:4");
-		speedChoices.Add("1:6");
-		speedChoices.Add("1:8");
-		speedChoices.Add("1:10");
-		choiceSpeedRate = new wxChoice(&d, -1, wxDefaultPosition, wxSize(-1, -1), speedChoices);
+		wxArrayString scaleChoices;
+		scaleChoices.Add("1:1");
+		scaleChoices.Add("1:2");
+		scaleChoices.Add("1:4");
+		scaleChoices.Add("1:6");
+		scaleChoices.Add("1:8");
+		scaleChoices.Add("1:10");
+		choiceScaleFactor = new wxChoice(&d, -1, wxDefaultPosition, wxSize(-1, -1), scaleChoices);
 		{
-			static constexpr int kRates[] = {1, 2, 4, 6, 8, 10};
+			static constexpr int kScaleFactors[] = {1, 2, 4, 6, 8, 10};
 			int idx = 2;
-			for (int i = 0; i < static_cast<int>(std::size(kRates)); ++i) {
-				if (kRates[i] == gifSpeedRate) { idx = i; break; }
+			for (int i = 0; i < static_cast<int>(std::size(kScaleFactors)); ++i) {
+				if (kScaleFactors[i] == gifScaleFactor) { idx = i; break; }
 			}
-			choiceSpeedRate->SetSelection(idx);
+			choiceScaleFactor->SetSelection(idx);
 		}
-		choiceSpeedRate->SetToolTip(_("Scale down output resolution. 1:2 = half width and height, producing smaller files"));
-		range_grid->Add(choiceSpeedRate, 1, wxEXPAND);
+		choiceScaleFactor->SetToolTip(_("Scale down output resolution. 1:2 = half width and height, producing smaller files"));
+		range_grid->Add(choiceScaleFactor, 1, wxEXPAND);
 
 		range_sizer->Add(range_grid, 0, wxEXPAND | wxALL, inner_pad);
 
@@ -863,7 +860,7 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		editStartFrame->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditStartFrame, this);
 		editEndFrame->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditEndFrame, this);
 		editGifQuality->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditGifQuality, this);
-		choiceSpeedRate->Bind(wxEVT_CHOICE, &DialogJumpFrameTo::OnChoiceSpeedRate, this);
+		choiceScaleFactor->Bind(wxEVT_CHOICE, &DialogJumpFrameTo::OnChoiceScaleFactor, this);
 		playBtn->Bind(
 			wxEVT_TOGGLEBUTTON, [this](wxCommandEvent &) {
 				// 切换播放前同步帧范围
@@ -884,18 +881,20 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 	}
 
 	void DialogJumpFrameTo::OnOK(wxCommandEvent &) {
-		if (endFrame <= startFrame) {
+		if (!agi::IsValidMultiFrameExportRange(startFrame, endFrame)) {
 			wxMessageBox(_("The end frame cannot be less than or equal to the start frame"), _("Error"), wxICON_ERROR);
 			return;
 		}
 		cropPanel->StopPlayback();
+		sFrame = startFrame;
+		eFrame = endFrame;
 		d.EndModal(0);
 		onOK = true;
 		onGifQuality = gifQuality = editGifQuality->GetValue();
-		onGifSpeedRate = gifSpeedRate;
+		onGifScaleFactor = gifScaleFactor;
 
 		OPT_SET("Tool/GIF Export/Quality")->SetInt(gifQuality);
-		OPT_SET("Tool/GIF Export/Resolution Scale")->SetInt(gifSpeedRate);
+		OPT_SET("Tool/GIF Export/Resolution Scale")->SetInt(gifScaleFactor);
 
 		// 保存裁剪区域到全局变量
 		if (cropPanel->HasSelection()) {
@@ -928,21 +927,18 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 	void DialogJumpFrameTo::OnEditEndFrame(wxCommandEvent &event) {
 		eFrame = endFrame = static_cast<int>(wxAtol(editEndFrame->GetValue()));
 		cropPanel->SetFrameRange(startFrame, endFrame);
-		if (endFrame <= startFrame) {
-			wxMessageBox(_("The end frame cannot be less than or equal to the start frame"),_("Error"), wxICON_ERROR);
-		}
 	}
 
 	void DialogJumpFrameTo::OnEditGifQuality(wxCommandEvent &event) {
 		onGifQuality = gifQuality = editGifQuality->GetValue();
 	}
 
-	void DialogJumpFrameTo::OnChoiceSpeedRate(wxCommandEvent &event) {
+	void DialogJumpFrameTo::OnChoiceScaleFactor(wxCommandEvent &event) {
 		/// 分辨率缩放比例映射表：索引 0~5 对应 1/2/4/6/8/10
-		static constexpr int kSpeedRates[] = {1, 2, 4, 6, 8, 10};
-		int sel = choiceSpeedRate->GetSelection();
-		if (sel >= 0 && sel < static_cast<int>(std::size(kSpeedRates)))
-			gifSpeedRate = kSpeedRates[sel];
+		static constexpr int kScaleFactors[] = {1, 2, 4, 6, 8, 10};
+		int sel = choiceScaleFactor->GetSelection();
+		if (sel >= 0 && sel < static_cast<int>(std::size(kScaleFactors)))
+			gifScaleFactor = kScaleFactors[sel];
 	}
 
 	/// 帧序列导出对话框（仅帧范围，不含裁剪和GIF质量）
@@ -1054,7 +1050,7 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 	}
 
 	void DialogFrameSeqExport::OnOK(wxCommandEvent &) {
-		if (endFrame <= startFrame) {
+		if (!agi::IsValidMultiFrameExportRange(startFrame, endFrame)) {
 			wxMessageBox(_("The end frame cannot be less than or equal to the start frame"), _("Error"), wxICON_ERROR);
 			return;
 		}
@@ -1092,14 +1088,6 @@ long getEndFrame() {
 	return eFrame;
 }
 
-int getStartTime() {
-	return startTime;
-}
-
-int getEndTime() {
-	return endTime;
-}
-
 bool getOnOK() {
 	return onOK;
 }
@@ -1108,8 +1096,8 @@ long getGifQuality() {
 	return onGifQuality;
 }
 
-int getGifSpeedRate() {
-	return onGifSpeedRate;
+int getGifScaleFactor() {
+	return onGifScaleFactor;
 }
 
 int getCropX() {

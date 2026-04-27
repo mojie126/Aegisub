@@ -106,15 +106,11 @@ long getStartFrame();
 
 long getEndFrame();
 
-int getStartTime();
-
-int getEndTime();
-
 bool getOnOK();
 
 long getGifQuality();
 
-int getGifSpeedRate();
+int getGifScaleFactor();
 
 int getCropX();
 
