@@ -645,6 +645,7 @@ namespace Automation4 {
 	int LuaAssFile::LuaParseKaraokeData(lua_State *L)
 	{
 		auto e = LuaToAssEntry(L, ass);
+		ScopedTrackedAssEntry tracked_entry(allocated_lines, e.get());
 		auto dia = check_cast_constptr<AssDialogue>(e.get());
 		argcheck(L, !!dia, 1, "Subtitle line must be a dialogue line");
 

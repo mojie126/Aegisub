@@ -29,7 +29,9 @@
 
 #include "auto4_base.h"
 
+#include <algorithm>
 #include <deque>
+#include <iterator>
 #include <vector>
 #include <wx/string.h>
 
@@ -39,6 +41,35 @@ class wxWindow;
 struct lua_State;
 
 namespace Automation4 {
+	/// @brief 在 Lua 调用正常返回前自动撤销临时 AssEntry 的取消清理登记
+	///
+	/// `aegisub.cancel()` 会通过 Lua 的非局部跳转中断执行，导致当前栈帧中的析构函数不运行。
+	/// 因此，进入可能中断的解析流程前需要先把对象登记到 `allocated_lines`，而正常返回时再撤销登记，
+	/// 避免后续取消脚本时重复释放已经析构的对象。
+	class ScopedTrackedAssEntry {
+		std::vector<AssEntry *> &allocated_lines;
+		AssEntry *line = nullptr;
+
+	public:
+		ScopedTrackedAssEntry(std::vector<AssEntry *> &allocated_lines, AssEntry *line)
+		: allocated_lines(allocated_lines)
+		, line(line) {
+			allocated_lines.push_back(line);
+		}
+
+		ScopedTrackedAssEntry(ScopedTrackedAssEntry const&) = delete;
+		ScopedTrackedAssEntry& operator=(ScopedTrackedAssEntry const&) = delete;
+
+		~ScopedTrackedAssEntry() {
+			if (!line)
+				return;
+
+			auto it = std::find(allocated_lines.rbegin(), allocated_lines.rend(), line);
+			if (it != allocated_lines.rend())
+				allocated_lines.erase(std::next(it).base());
+		}
+	};
+
 	/// @class LuaAssFile
 	/// @brief Object wrapping an AssFile object for modification through Lua
 	class LuaAssFile {
