@@ -91,6 +91,20 @@ Copy-New-Items "$InstallerDepsDir\Aegisub-Motion\src\*"  "$PortableOutputDir\aut
 Copy-New-Item $InstallerDepsDir\Yutils\src\Yutils.lua  $PortableOutputDir\automation\include
 Copy-New-Items "$InstallerDepsDir\luajson\lua\*"  "$PortableOutputDir\automation\include\"  -Recurse
 
+# Functional
+Copy-New-Items "$InstallerDepsDir\Functional\Functional.moon"  "$PortableOutputDir\automation\include\l0\"
+
+# ASSFoundation
+Copy-New-Items "$InstallerDepsDir\ASSFoundation\l0\*"  "$PortableOutputDir\automation\include\l0\"  -Recurse
+
+# SubInspector
+Copy-New-Items "$InstallerDepsDir\SubInspector\*"  "$PortableOutputDir\automation\include\SubInspector\"  -Recurse
+
+# Copy arch1t3cht-Aegisub-Scripts
+Copy-New-Items "$InstallerDepsDir\arch1t3cht-Aegisub-Scripts\macros\arch.PerspectiveMotion.moon"  "$PortableOutputDir\automation\autoload\"
+Copy-New-Items "$InstallerDepsDir\arch1t3cht-Aegisub-Scripts\macros\arch.Resample.moon"  "$PortableOutputDir\automation\autoload\"
+Copy-New-Items "$InstallerDepsDir\arch1t3cht-Aegisub-Scripts\modules\arch\*"  "$PortableOutputDir\automation\include\arch\"  -Recurse
+
 Copy-New-Item $InstallerDepsDir\ffi-experiments\build\requireffi\requireffi.lua  $PortableOutputDir\automation\include\requireffi
 Copy-New-Item $InstallerDepsDir\ffi-experiments\build\bad-mutex\BadMutex.dll  $PortableOutputDir\automation\include\BM\BadMutex
 Copy-New-Item $InstallerDepsDir\ffi-experiments\build\bad-mutex\BadMutex.lua  $PortableOutputDir\automation\include\BM
@@ -111,3 +125,16 @@ Copy-New-Item $SourceRoot\src\cube\DV2SDR.cube  "$PortableOutputDir\data\cube"
 Write-Output 'Creating portable zip'
 Remove-Item aegisub-portable-64.zip
 7z a aegisub-portable-64.zip aegisub-portable\
+
+if (Test-Path $InstallerDepsDir)
+{
+	try
+	{
+		Remove-Item -LiteralPath $InstallerDepsDir -Recurse -Force -ErrorAction Stop
+		Write-Host "Removed installer-deps directory: $InstallerDepsDir"
+	}
+	catch
+	{
+		Write-Warning "Failed to remove installer-deps directory: $_"
+	}
+}

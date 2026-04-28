@@ -43,6 +43,38 @@ if (!(Test-Path Aegisub-Motion))
 	Set-Location $DepsDir
 }
 
+# arch1t3cht-Aegisub-Scripts
+if (!(Test-Path arch1t3cht-Aegisub-Scripts))
+{
+	git clone https://github.com/TypesettingTools/arch1t3cht-Aegisub-Scripts.git
+	Set-Location arch1t3cht-Aegisub-Scripts
+	Set-Location $DepsDir
+}
+
+# Functional
+if (!(Test-Path Functional))
+{
+	git clone https://github.com/TypesettingTools/Functional.git
+}
+
+# ASSFoundation
+if (!(Test-Path ASSFoundation))
+{
+	git clone https://github.com/TypesettingTools/ASSFoundation.git
+}
+
+# SubInspector
+if (!(Test-Path SubInspector))
+{
+	New-Item -ItemType Directory SubInspector
+	$InspectorUrl = "https://raw.githubusercontent.com/TypesettingTools/SubInspector/refs/heads/master/examples/Aegisub/Inspector.moon"
+	Invoke-WebRequest $InspectorUrl -OutFile SubInspector/Inspector.moon -UseBasicParsing
+
+	New-Item -ItemType Directory SubInspector/Inspector
+	$SubInspectorUrl = "https://github.com/TypesettingTools/SubInspector/releases/download/v0.5.1/SubInspector-win64.dll"
+	Invoke-WebRequest $SubInspectorUrl -OutFile SubInspector/Inspector/SubInspector.dll -UseBasicParsing
+}
+
 # YUtils
 if (!(Test-Path YUtils))
 {
@@ -96,8 +128,7 @@ if (!(Test-Path L-SMASH-Works-new))
 	$newLSMASHDir = New-Item -ItemType Directory L-SMASH-Works-new
 	Set-Location $newLSMASHDir
 	$lsmasReleases = Invoke-WebRequest "https://api.github.com/repos/HomeOfAviSynthPlusEvolution/L-SMASH-Works/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
-	$lsmasUrl = "https://github.com/HomeOfAviSynthPlusEvolution/L-SMASH-Works/releases/download/" +
-			$lsmasReleases.tag_name + "/L-SMASH-Works-r" + $lsmasReleases.tag_name + ".7z"
+	$lsmasUrl = $lsmasReleases.assets[0].browser_download_url
 	Invoke-WebRequest $lsmasUrl -OutFile L-SMASH-Works-new.7z -UseBasicParsing
 	7z x L-SMASH-Works-new.7z
 	Remove-Item L-SMASH-Works-new.7z
@@ -122,8 +153,9 @@ if (!(Test-Path SCXVid))
 {
 	$scxDir = New-Item -ItemType Directory SCXVid
 	Set-Location $scxDir
-	$scxReleases = Invoke-WebRequest "https://api.github.com/repos/dubhater/vapoursynth-scxvid/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
-	$scxUrl = "https://github.com/dubhater/vapoursynth-scxvid/releases/download/" + $scxReleases.tag_name + "/vapoursynth-scxvid-v1-win64.7z"
+	# $scxReleases = Invoke-WebRequest "https://api.github.com/repos/dubhater/vapoursynth-scxvid/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
+	# $scxUrl = "https://github.com/dubhater/vapoursynth-scxvid/releases/download/" + $scxReleases.tag_name + "/vapoursynth-scxvid-v1-win64.7z"
+	$scxUrl = "https://github.com/dubhatervapoursynth/vapoursynth-scxvid/releases/download/v1/vapoursynth-scxvid-v1-win64.7z"
 	Invoke-WebRequest $scxUrl -OutFile vapoursynth-scxvid-v1-win64.7z -UseBasicParsing
 	7z x vapoursynth-scxvid-v1-win64.7z
 	Remove-Item vapoursynth-scxvid-v1-win64.7z

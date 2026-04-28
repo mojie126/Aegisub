@@ -66,6 +66,12 @@ meson compile -C build win-installer
 meson compile -C build win-portable
 ```
 
+## 单测验证
+
+```powershell
+meson test -C build --verbose "Aegisub:gtest main"
+```
+
 ## CLion Meson 配置选项
 
 ```

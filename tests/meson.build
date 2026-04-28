@@ -7,85 +7,85 @@ gmock_dep = dependency('gmock',
                        version : gtest_ver)
 
 tests_deps = [
-    gtest_dep,
-    gmock_dep,
+	gtest_dep,
+	gmock_dep,
 ]
 
 tests_src = [
-    'support/main.cpp',
-    'support/util.cpp',
+	'support/main.cpp',
+	'support/util.cpp',
 
-    'tests/access.cpp',
-    'tests/audio.cpp',
-    'tests/auto4_lua.cpp',
-    'tests/cajun.cpp',
-    'tests/calltip_provider.cpp',
-    'tests/character_count.cpp',
-    'tests/color.cpp',
-    'tests/dialogue_lexer.cpp',
-    'tests/format.cpp',
-    'tests/fs.cpp',
-    'tests/hotkey.cpp',
-    'tests/iconv.cpp',
-    'tests/ifind.cpp',
-    'tests/inline_string_encoding.cpp',
-    'tests/karaoke_matcher.cpp',
-    'tests/karaoke_syllable.cpp',
-    'tests/keyframe.cpp',
-    'tests/line_iterator.cpp',
-    'tests/line_wrap.cpp',
-    'tests/mru.cpp',
-    'tests/option.cpp',
-    'tests/path.cpp',
-    'tests/signals.cpp',
-    'tests/split.cpp',
-    'tests/syntax_highlight.cpp',
-    'tests/thesaurus.cpp',
-    'tests/time.cpp',
-    'tests/type_name.cpp',
-    'tests/util.cpp',
-    'tests/uuencode.cpp',
-    'tests/vfr.cpp',
-    'tests/word_split.cpp',
-    'tests/mocha_motion.cpp',
-    'tests/ycbcr.cpp',
-    'tests/hdr_video_audit.cpp',
-    'tests/abb_smart_test.cpp',
-    'tests/text_file_writer.cpp',
-    'tests/audit_fixes.cpp',
-    'tests/style_rename.cpp',
-    'tests/font_chooser.cpp',
-    'tests/ui_regression_audit.cpp',
-    'tests/image_video.cpp',
-    'tests/version_check.cpp',
+	'tests/access.cpp',
+	'tests/audio.cpp',
+	'tests/auto4_lua.cpp',
+	'tests/cajun.cpp',
+	'tests/calltip_provider.cpp',
+	'tests/character_count.cpp',
+	'tests/color.cpp',
+	'tests/dialogue_lexer.cpp',
+	'tests/format.cpp',
+	'tests/fs.cpp',
+	'tests/hotkey.cpp',
+	'tests/iconv.cpp',
+	'tests/ifind.cpp',
+	'tests/inline_string_encoding.cpp',
+	'tests/karaoke_matcher.cpp',
+	'tests/karaoke_syllable.cpp',
+	'tests/keyframe.cpp',
+	'tests/line_iterator.cpp',
+	'tests/line_wrap.cpp',
+	'tests/mru.cpp',
+	'tests/option.cpp',
+	'tests/path.cpp',
+	'tests/signals.cpp',
+	'tests/split.cpp',
+	'tests/syntax_highlight.cpp',
+	'tests/thesaurus.cpp',
+	'tests/time.cpp',
+	'tests/type_name.cpp',
+	'tests/util.cpp',
+	'tests/uuencode.cpp',
+	'tests/vfr.cpp',
+	'tests/word_split.cpp',
+	'tests/mocha_motion.cpp',
+	'tests/ycbcr.cpp',
+	'tests/hdr_video_audit.cpp',
+	'tests/abb_smart_test.cpp',
+	'tests/text_file_writer.cpp',
+	'tests/audit_fixes.cpp',
+	'tests/style_rename.cpp',
+	'tests/font_chooser.cpp',
+	'tests/ui_regression_audit.cpp',
+	'tests/image_video.cpp',
+	'tests/version_check.cpp',
 ]
 
 # TextFileWriter 源文件（需要从主项目引入）
 text_file_writer_src = [
-    '../src/text_file_writer.cpp',
+	'../src/text_file_writer.cpp',
 ]
 
 video_frame_src = [
-    '../src/video_frame.cpp',
+	'../src/video_frame.cpp',
 ]
 
 video_provider_test_src = [
-    '../src/video_provider_cache.cpp',
+	'../src/video_provider_cache.cpp',
 ]
 
 # 版本信息源文件（版本比较函数）
 version_src = [
-    '../src/version.cpp',
+	'../src/version.cpp',
 ]
 
 # 摩卡追踪模块源文件（排除依赖完整 UI 的 config/dialog）
 mocha_src = [
-    '../src/mocha_motion/motion_tags.cpp',
-    '../src/mocha_motion/motion_transform.cpp',
-    '../src/mocha_motion/motion_line.cpp',
-    '../src/mocha_motion/motion_data_handler.cpp',
-    '../src/mocha_motion/motion_handler.cpp',
-    '../src/mocha_motion/motion_processor.cpp',
+	'../src/mocha_motion/motion_tags.cpp',
+	'../src/mocha_motion/motion_transform.cpp',
+	'../src/mocha_motion/motion_line.cpp',
+	'../src/mocha_motion/motion_data_handler.cpp',
+	'../src/mocha_motion/motion_handler.cpp',
+	'../src/mocha_motion/motion_processor.cpp',
 ]
 
 mocha_inc = include_directories('../src/mocha_motion')
@@ -98,62 +98,64 @@ tests_args = []
 
 # force UTF8 for MSVC
 if host_machine.system() == 'windows'
-    tests_args += ['/utf-8']
+	tests_args += ['/utf-8']
 elif host_machine.system() == 'darwin'
-    tests_args += ['-DGTEST_HAS_POSIX_RE=0']
+	tests_args += ['-DGTEST_HAS_POSIX_RE=0']
 endif
 
 runner = executable(
-    'gtest-main',
-    tests_src + mocha_src + text_file_writer_src + video_frame_src + video_provider_test_src + version_src, version_h,
-    include_directories: [tests_inc, libaegisub_inc, mocha_inc, aegisub_src_inc, aegisub_src_dir_inc, version_inc],
-    dependencies: [tests_deps, deps],
-    cpp_args: tests_args,
-    link_with: libaegisub,
+	'gtest-main',
+	tests_src + mocha_src + text_file_writer_src + video_frame_src + video_provider_test_src + version_src, version_h,
+	include_directories : [tests_inc, libaegisub_inc, mocha_inc, aegisub_src_inc, aegisub_src_dir_inc, version_inc],
+	dependencies : [tests_deps, deps],
+	cpp_args : tests_args,
+	link_with : libaegisub,
 )
 
 test('gtest main', runner)
-luajit_exe = executable('luajit-52', 'tests/luajit_52.c', dependencies: luajit)
+luajit_exe = executable('luajit-52', 'tests/luajit_52.c', dependencies : luajit)
 test('luajit-52', luajit_exe)
 
 # setup test env
 if host_machine.system() == 'windows'
-    setup_sh = find_program('setup.bat')
+	setup_sh = find_program('setup.bat')
 else
-    setup_sh = find_program('setup.sh')
+	setup_sh = find_program('setup.sh')
 endif
 
 tests_data_des = meson.project_build_root()
 setup_target = custom_target('setup-test-data',
-    input: runner,
-    output: 'applied_test_setup',
-    command: [setup_sh, tests_data_des],
-    build_by_default: true
+                             input : runner,
+                             output : 'applied_test_setup',
+                             command : [setup_sh, tests_data_des],
+                             build_by_default : true
 )
 
 custom_target('run-gtest-main',
-    input: [runner, setup_target],
-    output: 'gtest-main.ran',
-    command: [runner],
-    build_by_default: false
+              input : [runner, setup_target],
+              output : 'gtest-main.ran',
+              command : [runner],
+              build_by_default : false
 )
 
 custom_target('run-luajit-52',
-    input: [luajit_exe, setup_target],
-    output: 'luajit-52.ran',
-    command: [luajit_exe],
-    build_by_default: false
+              input : [luajit_exe, setup_target],
+              output : 'luajit-52.ran',
+              command : [luajit_exe],
+              build_by_default : false
 )
 
-if host_machine.system() == 'windows'
-    ffms2_exe = meson.project_build_root() + '/subprojects/ffms2/ffms2-indexer-test.exe'
-else
-    ffms2_exe = meson.project_build_root() + '/subprojects/ffms2/ffms2-indexer-test'
+ffms2_sp = subproject('ffms2', required : false)
+ffms2_exe = false
+if ffms2_sp.found()
+	ffms2_exe = ffms2_sp.get_variable('ffms2_indexer_test')
 endif
 
-custom_target('run-ffms2-indexer-test-root',
-    input: [ffms2_exe, setup_target],
-    output: 'ffms2-indexer-test.ran',
-    command: [ffms2_exe],
-    build_by_default: false
-)
+if ffms2_exe.found()
+	custom_target('run-ffms2-indexer-test-root',
+	              input : [ffms2_exe, setup_target],
+	              output : 'ffms2-indexer-test.ran',
+	              command : [ffms2_exe],
+	              build_by_default : false
+	)
+endif

@@ -39,6 +39,24 @@ DestDir: {userappdata}\Aegisub\automation\autoload; Source: {#DEPS_DIR}\Dependen
 DestDir: {userappdata}\Aegisub\automation\include; Source: {#DEPS_DIR}\Yutils\src\Yutils.lua; Flags: ignoreversion; Components: macros\modules\yutils
 DestDir: {userappdata}\Aegisub\automation\include; Source: {#DEPS_DIR}\luajson\lua\*; Flags: ignoreversion recursesubdirs createallsubdirs; Components: macros\modules\luajson
 
+; Functional
+DestDir: {userappdata}\Aegisub\automation\include\l0; Source: {#DEPS_DIR}\Functional\Functional.moon; Flags: ignoreversion recursesubdirs createallsubdirs; Components: macros\modules\depctrl
+
+; ASSFoundation
+DestDir: {userappdata}\Aegisub\automation\include\l0; Source: {#DEPS_DIR}\ASSFoundation\l0\*; Flags: ignoreversion recursesubdirs createallsubdirs; Components: macros\modules\depctrl
+
+; SubInspector
+DestDir: {userappdata}\Aegisub\automation\include; Source: {#DEPS_DIR}\SubInspector\*; Flags: ignoreversion recursesubdirs createallsubdirs; Components: macros\modules\depctrl
+
+; Aegisub-Motion
+DestDir: {userappdata}\Aegisub\automation\autoload; Source: {#DEPS_DIR}\Aegisub-Motion\a-mo.Aegisub-Motion.moon; Flags: ignoreversion recursesubdirs createallsubdirs; Components: macros\modules\depctrl
+DestDir: {userappdata}\Aegisub\automation\include\a-mo; Source: {#DEPS_DIR}\Aegisub-Motion\src\*; Flags: ignoreversion recursesubdirs createallsubdirs; Components: macros\modules\depctrl
+
+; arch1t3cht Aegisub Scripts - PerspectiveMotion & Resample Perspective
+DestDir: {userappdata}\Aegisub\automation\autoload; Source: {#DEPS_DIR}\arch1t3cht-Aegisub-Scripts\macros\arch.PerspectiveMotion.moon; Flags: ignoreversion recursesubdirs createallsubdirs; Components: macros\modules\depctrl
+DestDir: {userappdata}\Aegisub\automation\autoload; Source: {#DEPS_DIR}\arch1t3cht-Aegisub-Scripts\macros\arch.Resample.moon; Flags: ignoreversion recursesubdirs createallsubdirs; Components: macros\modules\depctrl
+DestDir: {userappdata}\Aegisub\automation\include\arch; Source: {#DEPS_DIR}\arch1t3cht-Aegisub-Scripts\modules\arch\*; Flags: ignoreversion recursesubdirs createallsubdirs; Components: macros\modules\depctrl
+
 DestDir: {userappdata}\Aegisub\automation\include\requireffi; Source: {#DEPS_DIR}\ffi-experiments\build\requireffi\requireffi.lua; Flags: ignoreversion recursesubdirs createallsubdirs; Components: macros\modules\depctrl
 DestDir: {userappdata}\Aegisub\automation\include\BM\BadMutex; Source: {#DEPS_DIR}\ffi-experiments\build\bad-mutex\BadMutex.dll; Flags: ignoreversion recursesubdirs createallsubdirs; Components: macros\modules\depctrl
 DestDir: {userappdata}\Aegisub\automation\include\BM; Source: {#DEPS_DIR}\ffi-experiments\build\bad-mutex\BadMutex.lua; Flags: ignoreversion recursesubdirs createallsubdirs; Components: macros\modules\depctrl
@@ -58,7 +76,7 @@ Name: {userappdata}\Aegisub\automation\lifecycle\DepLifecycle\modules; Component
 
 [InstallDelete]
 Type: files; Name: "{userappdata}\Aegisub\l0.UpdateFeed_*.json"
-Type: files; Name: "{userappdata}\Aegisub\DependencyControl.json"     
+Type: files; Name: "{userappdata}\Aegisub\DependencyControl.json"
 Type: files; Name: "{userappdata}\Aegisub\Nudge.json"
 Type: files; Name: "{userappdata}\Aegisub\PasteAILines.json"
 Type: files; Name: "{userappdata}\Aegisub\ASSWipe.json"

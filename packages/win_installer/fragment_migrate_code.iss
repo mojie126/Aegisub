@@ -77,7 +77,7 @@ begin
       try
         repeat
           Log('Found style catalog: ' + OldCatalogDir + search.Name);
-          if FileCopy(OldCatalogDir+search.Name, NewCatalogDir+search.Name, True) then
+          if CopyFile(OldCatalogDir+search.Name, NewCatalogDir+search.Name, True) then
           begin
             Log('Copied catalog to: ' + NewCatalogDir+search.Name);
             DeleteFile(OldCatalogDir+search.Name);
