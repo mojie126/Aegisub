@@ -8309,3 +8309,132 @@ msgstr ""
 #: ../src/preferences.cpp
 msgid "Current video: top %d px, bottom %d px"
 msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Apply Perspective Motion"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Tracking Data (CC Power Pin)"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Paste AE CC Power Pin keyframe data:"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Supports Adobe After Effects CC Power Pin corner pin tracking data."
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Perspective Tracking"
+msgstr ""
+
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Track Pos && Perspecti&ve"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Apply perspective tracking to \\pos and all transform tags."
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Track &Clip"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Apply perspective mapping to \\clip coordinates."
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Scale &Border && Shadow"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Scale \\bord and \\shad with perspective scale ratio."
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Apply perspective"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Pre-apply the reference frame's perspective to the reference line before tracking."
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "\\org Mode"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Keep original"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Force center"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Try \\fax = 0"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "How to determine the \\org anchor point.\nKeep original: use existing \\org value.\nForce center: set \\org to quad center.\nTry \\fax = 0: find \\org to minimize shear."
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "No valid Power-Pin data"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Rel Frame:"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Abs Frame:"
+msgstr ""
+
+#: ../src/command/subtitle.cpp
+msgid "Apply Perspective-Motion"
+msgstr ""
+
+#: ../src/command/subtitle.cpp
+msgid "Apply perspective tracking data (CC Power Pin) to the current subtitle entry"
+msgstr ""
+
+#: ../src/command/subtitle.cpp
+msgid "Failed to parse Power-Pin tracking data."
+msgstr ""
+
+#: ../src/command/subtitle.cpp
+msgid "applying perspective motion"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Parsed %d frames"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Failed to parse Power-Pin data"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Only apply perspective tracking to clip tags. Ignores position and perspective transforms."
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Reverse tracking: automatically set start frame to the last frame of the selected lines."
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Data frames: %d | Line needs: %d frames | Video: %dx%d"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Data frames: %d"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Data frames: %d | Line needs: %d frames"
+msgstr ""

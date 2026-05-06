@@ -8713,3 +8713,140 @@ msgstr "删除线(&K)"
 #: ../src/dialog_font_chooser.cpp
 msgid "Sample"
 msgstr "示例"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Apply Perspective Motion"
+msgstr "应用透视追踪"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Tracking Data (CC Power Pin)"
+msgstr "追踪数据（CC Power Pin）"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Paste AE CC Power Pin keyframe data:"
+msgstr "粘贴 AE CC Power Pin 关键帧数据："
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Supports Adobe After Effects CC Power Pin corner pin tracking data."
+msgstr "支持 Adobe After Effects CC Power Pin 角点追踪数据。"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Perspective Tracking"
+msgstr "透视追踪"
+
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Track Pos && Perspecti&ve"
+msgstr "追踪位置与透视(&V)"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Apply perspective tracking to \\pos and all transform tags."
+msgstr "对 \\pos 及所有变换标签应用透视追踪。"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Track &Clip"
+msgstr "追踪剪裁(&C)"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Apply perspective mapping to \\clip coordinates."
+msgstr "对 \\clip 坐标进行透视映射。"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Scale &Border && Shadow"
+msgstr "缩放边框与阴影(&B)"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Scale \\bord and \\shad with perspective scale ratio."
+msgstr "根据透视缩放比例调整 \\bord 和 \\shad。"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Apply perspective"
+msgstr "应用透视"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Pre-apply the reference frame's perspective to the reference line before tracking."
+msgstr "追踪前将参考帧的透视预应用到参考行。"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "\\org Mode"
+msgstr "\\org 模式"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Keep original"
+msgstr "保持原值"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Force center"
+msgstr "强制中心"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Try \\fax = 0"
+msgstr "尝试令 \\fax = 0"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid ""
+"How to determine the \\org anchor point.\n"
+"Keep original: use existing \\org value.\n"
+"Force center: set \\org to quad center.\n"
+"Try \\fax = 0: find \\org to minimize shear."
+msgstr ""
+"如何确定 \\org 锚点。\n"
+"保持原值：使用现有的 \\org 值。\n"
+"强制中心：将 \\org 设为四边形中心。\n"
+"尝试 \\fax = 0：寻找使剪切最小化的 \\org。"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "No valid Power-Pin data"
+msgstr "无有效的 Power-Pin 数据"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Rel Frame:"
+msgstr "相对帧："
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Abs Frame:"
+msgstr "绝对帧："
+
+#: ../src/command/subtitle.cpp
+msgid "Apply Perspective-Motion"
+msgstr "应用透视追踪"
+
+#: ../src/command/subtitle.cpp
+msgid "Apply perspective tracking data (CC Power Pin) to the current subtitle entry"
+msgstr "对当前字幕条目应用 CC Power Pin 透视追踪数据"
+
+#: ../src/command/subtitle.cpp
+msgid "Failed to parse Power-Pin tracking data."
+msgstr "无法解析 Power-Pin 追踪数据。"
+
+#: ../src/command/subtitle.cpp
+msgid "applying perspective motion"
+msgstr "应用透视追踪"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Parsed %d frames"
+msgstr "已解析 %d 帧"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Failed to parse Power-Pin data"
+msgstr "无法解析 Power-Pin 数据"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Only apply perspective tracking to clip tags. Ignores position and perspective transforms."
+msgstr "仅对 clip 标签应用透视追踪。忽略位置和透视变换。"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Reverse tracking: automatically set start frame to the last frame of the selected lines."
+msgstr "反向追踪：自动将起始帧设置为选中行的最后一帧。"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Data frames: %d | Line needs: %d frames | Video: %dx%d"
+msgstr "数据帧数：%d | 所需帧数：%d | 视频：%dx%d"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Data frames: %d"
+msgstr "数据帧数：%d"
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Data frames: %d | Line needs: %d frames"
+msgstr "数据帧数：%d | 所需帧数：%d"
