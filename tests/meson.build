@@ -48,6 +48,9 @@ tests_src = [
 	'tests/vfr.cpp',
 	'tests/word_split.cpp',
 	'tests/mocha_motion.cpp',
+	'tests/perspective_math_test.cpp',
+	'tests/perspective_processor_test.cpp',
+		'tests/perspective_orgmode3_debug.cpp',
 	'tests/ycbcr.cpp',
 	'tests/hdr_video_audit.cpp',
 	'tests/abb_smart_test.cpp',
@@ -86,9 +89,16 @@ mocha_src = [
 	'../src/mocha_motion/motion_data_handler.cpp',
 	'../src/mocha_motion/motion_handler.cpp',
 	'../src/mocha_motion/motion_processor.cpp',
+	'../src/perspective_motion/perspective_math.cpp',
+	'../src/perspective_motion/perspective_data.cpp',
+	'../src/perspective_motion/perspective_processor.cpp',
+	'../src/vector2d.cpp',
+	'../src/vector3d.cpp',
+	'support/stubs.cpp',
 ]
 
 mocha_inc = include_directories('../src/mocha_motion')
+persp_inc = include_directories('../src/perspective_motion')
 aegisub_src_inc = include_directories('../src/include')
 aegisub_src_dir_inc = include_directories('../src')
 
@@ -106,7 +116,7 @@ endif
 runner = executable(
 	'gtest-main',
 	tests_src + mocha_src + text_file_writer_src + video_frame_src + video_provider_test_src + version_src, version_h,
-	include_directories : [tests_inc, libaegisub_inc, mocha_inc, aegisub_src_inc, aegisub_src_dir_inc, version_inc],
+	include_directories : [tests_inc, libaegisub_inc, mocha_inc, persp_inc, aegisub_src_inc, aegisub_src_dir_inc, version_inc],
 	dependencies : [tests_deps, deps],
 	cpp_args : tests_args,
 	link_with : libaegisub,
