@@ -48,8 +48,12 @@
 #include "../main.h"
 #include "../mocha_motion/motion_dialog.h"
 #include "../mocha_motion/motion_processor.h"
+#include "../perspective_motion/perspective_dialog.h"
+#include "../perspective_motion/perspective_data.h"
+#include "../perspective_motion/perspective_processor.h"
 #include "../options.h"
 #include "../project.h"
+#include "../async_video_provider.h"
 #include "../search_replace_engine.h"
 #include "../selection_controller.h"
 #include "../subs_controller.h"
@@ -457,6 +461,169 @@ namespace {
 		}
 	};
 
+	/// @brief 应用透视追踪数据到字幕行
+	/// 使用 perspective_motion 模块对字幕行应用 CC Power Pin 透视追踪
+	struct subtitle_apply_perspective final : public validate_nonempty_selection {
+		CMD_NAME("subtitle/apply/perspective")
+		STR_MENU("Apply Perspective-Motion")
+		STR_DISP("Apply Perspective-Motion")
+		STR_HELP("Apply perspective tracking data (CC Power Pin) to the current subtitle entry")
+		CMD_TYPE(COMMAND_VALIDATE)
+
+		bool Validate(const agi::Context *c) override {
+			return c->project->VideoProvider() && !c->selectionController->GetSelectedSet().empty();
+		}
+
+		void operator()(agi::Context *c) override {
+			c->videoController->Stop();
+
+			auto selected_set = c->selectionController->GetSelectedSet();
+			if (selected_set.empty()) return;
+
+			std::vector selected_lines(selected_set.begin(), selected_set.end());
+			std::sort(selected_lines.begin(), selected_lines.end(),
+				[&](const AssDialogue *a, const AssDialogue *b) {
+					if (a == b) return false;
+					for (auto &Event : c->ass->Events) {
+						if (&Event == a) return true;
+						if (&Event == b) return false;
+					}
+					return false;
+				});
+
+			int collection_start_frame = c->videoController->FrameAtTime(selected_lines.front()->Start, agi::vfr::START);
+			int collection_end_frame = c->videoController->FrameAtTime(selected_lines.back()->End, agi::vfr::START);
+			for (const auto *line : selected_lines) {
+				int sf = c->videoController->FrameAtTime(line->Start, agi::vfr::START);
+				int ef = c->videoController->FrameAtTime(line->End, agi::vfr::START);
+				if (sf < collection_start_frame) collection_start_frame = sf;
+				if (ef > collection_end_frame) collection_end_frame = ef;
+			}
+
+			int current_video_frame = c->videoController->GetFrameN();
+			int relframe = current_video_frame - collection_start_frame + 1;
+			if (relframe < 1) relframe = 1;
+
+			auto result = mocha::ShowPerspectiveDialog(c);
+			if (!result.accepted) return;
+
+				// FBF 交叉时间检查（对应 MoonScript frame2line 交叉检测）
+				{
+					int abs_relframe = collection_start_frame + relframe - 1;
+					std::map<int, const AssDialogue*> frame_to_line;
+					bool lines_intersect = false;
+					bool all_contain_relframe = true;
+
+					for (const auto *line : selected_lines) {
+						int sf = c->videoController->FrameAtTime(line->Start, agi::vfr::START);
+						int ef = c->videoController->FrameAtTime(line->End, agi::vfr::START);
+						all_contain_relframe = all_contain_relframe && (sf <= abs_relframe && abs_relframe < ef);
+						for (int f = sf; f < ef; ++f) {
+							if (frame_to_line.count(f)) lines_intersect = true;
+							frame_to_line[f] = line;
+						}
+					}
+
+					if (lines_intersect && !all_contain_relframe) {
+						wxMessageBox(_("Times of selected lines intersect but not all lines contain the reference frame."), _("Error"), wxICON_ERROR);
+						return;
+					}
+					if (!frame_to_line.count(abs_relframe)) {
+						wxMessageBox(_("No line at reference frame!"), _("Error"), wxICON_ERROR);
+						return;
+					}
+				}
+
+			mocha::PerspectiveDataHandler data_handler;
+			if (!data_handler.ParsePowerPin(result.raw_data)) {
+				wxMessageBox(_("Failed to parse Power-Pin tracking data."), _("Error"), wxICON_ERROR);
+				return;
+			}
+
+			int total_frames = collection_end_frame - collection_start_frame;
+			if (!data_handler.CheckLength(total_frames)) {
+				wxMessageBox(
+					wxString::Format(_("The tracking data is asymmetrical with the selected row data and requires %d frames"), total_frames),
+					_("Error"), wxICON_ERROR
+				);
+				return;
+			}
+
+			// 反向追踪和相对/绝对帧号转换
+			if (result.options.reverse_tracking) {
+				result.options.start_frame = total_frames - relframe + 1;
+			}
+
+			if (!result.options.relative) {
+				result.options.start_frame = result.options.start_frame - collection_start_frame + 1;
+				result.options.relative = true;
+			}
+
+			result.options.relframe = relframe;
+			result.options.selection_start_frame = collection_start_frame;
+			result.options.layout_res_y = c->ass->GetScriptInfoAsInt("LayoutResY");
+
+			mocha::PerspectiveProcessor processor(result.options,
+				c->ass->GetScriptInfoAsInt("PlayResX"),
+				c->ass->GetScriptInfoAsInt("PlayResY"));
+
+			processor.SetTimingFunctions(
+				[c](int ms) { return c->videoController->FrameAtTime(ms, agi::vfr::START); },
+				[c](int frame) { return c->videoController->TimeAtFrame(frame, agi::vfr::START); }
+			);
+			processor.SetStyleLookup(
+				[c](const std::string &name) -> const AssStyle * {
+					return c->ass->GetStyle(name);
+				}
+			);
+
+			int video_w = c->project->VideoProvider()->GetWidth();
+			int video_h = c->project->VideoProvider()->GetHeight();
+
+			for (auto it = selected_lines.rbegin(); it != selected_lines.rend(); ++it) {
+				AssDialogue *active_line = *it;
+				auto motion_line = mocha::PerspectiveProcessor::BuildLine(active_line);
+				std::vector<mocha::MotionLine> lines = {motion_line};
+				processor.PrepareLines(lines);
+
+				auto processed = processor.Apply(lines, data_handler.Quads(), video_w, video_h);
+				mocha::PerspectiveProcessor::PostprocessLines(processed);
+
+				if (processed.empty()) continue;
+
+				// 删除/注释原始行
+				if (result.options.preview)
+					active_line->Comment = true;
+				else {
+					for (auto evt_it = c->ass->Events.begin(); evt_it != c->ass->Events.end(); ++evt_it) {
+						if (&*evt_it == active_line) {
+							c->ass->Events.erase(evt_it);
+							break;
+						}
+					}
+				}
+
+				// 插入结果行
+				for (auto &pl : processed) {
+					auto *diag = new AssDialogue;
+					diag->Text = pl.text;
+					diag->Style = pl.style;
+					diag->Actor = pl.actor;
+					diag->Effect = pl.effect;
+					diag->Layer = pl.layer;
+					diag->Start = pl.start_time;
+					diag->End = pl.end_time;
+					diag->Margin[0] = pl.margin_l;
+					diag->Margin[1] = pl.margin_r;
+					diag->Margin[2] = pl.margin_t;
+					c->ass->Events.push_back(*diag);
+				}
+			}
+
+			c->ass->Commit(_("applying perspective motion"), AssFile::COMMIT_DIAG_ADDREM);
+		}
+	};
+
 	struct subtitle_insert_before final : public validate_nonempty_selection {
 		CMD_NAME("subtitle/insert/before")
 		STR_MENU("&Before Current")
@@ -739,6 +906,7 @@ namespace cmd {
 		reg(std::make_unique<subtitle_insert_after>());
 		reg(std::make_unique<subtitle_insert_after_videotime>());
 		reg(std::make_unique<subtitle_apply_mocha>());
+		reg(std::make_unique<subtitle_apply_perspective>());
 		reg(std::make_unique<subtitle_insert_before>());
 		reg(std::make_unique<subtitle_insert_before_videotime>());
 		reg(std::make_unique<subtitle_new>());

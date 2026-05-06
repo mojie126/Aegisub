@@ -16,6 +16,7 @@ tools/repack-thes-dict.dSYM
 
 # Platform-specific
 .DS_Store
+ru*.db
 
 # Meson
 build*/
@@ -30,6 +31,9 @@ build*/
 # IDE
 .idea
 .vscode
+.claude*
+.swarm
+.kiro
 
 # Documentation (generated/temporary)
 docs/*.md
