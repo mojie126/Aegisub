@@ -8728,7 +8728,7 @@ msgstr "粘贴 AE CC Power Pin 关键帧数据："
 
 #: ../src/perspective_motion/perspective_dialog.cpp
 msgid "Supports Adobe After Effects CC Power Pin corner pin tracking data."
-msgstr "支持 Adobe After Effects CC Power Pin 角点追踪数据。"
+msgstr "支持 Adobe After Effects CC Power Pin 角点追踪数据"
 
 #: ../src/perspective_motion/perspective_dialog.cpp
 msgid "Perspective Tracking"
@@ -8741,7 +8741,7 @@ msgstr "追踪位置与透视(&V)"
 
 #: ../src/perspective_motion/perspective_dialog.cpp
 msgid "Apply perspective tracking to \\pos and all transform tags."
-msgstr "对 \\pos 及所有变换标签应用透视追踪。"
+msgstr "对 \\pos 及所有变换标签应用透视追踪"
 
 #: ../src/perspective_motion/perspective_dialog.cpp
 msgid "Track &Clip"
@@ -8749,7 +8749,7 @@ msgstr "追踪剪裁(&C)"
 
 #: ../src/perspective_motion/perspective_dialog.cpp
 msgid "Apply perspective mapping to \\clip coordinates."
-msgstr "对 \\clip 坐标进行透视映射。"
+msgstr "对 \\clip 坐标进行透视映射"
 
 #: ../src/perspective_motion/perspective_dialog.cpp
 msgid "Scale &Border && Shadow"
@@ -8757,7 +8757,7 @@ msgstr "缩放边框与阴影(&B)"
 
 #: ../src/perspective_motion/perspective_dialog.cpp
 msgid "Scale \\bord and \\shad with perspective scale ratio."
-msgstr "根据透视缩放比例调整 \\bord 和 \\shad。"
+msgstr "根据透视缩放比例调整 \\bord 和 \\shad"
 
 #: ../src/perspective_motion/perspective_dialog.cpp
 msgid "Apply perspective"
@@ -8765,7 +8765,7 @@ msgstr "应用透视"
 
 #: ../src/perspective_motion/perspective_dialog.cpp
 msgid "Pre-apply the reference frame's perspective to the reference line before tracking."
-msgstr "追踪前将参考帧的透视预应用到参考行。"
+msgstr "追踪前将参考帧的透视预应用到参考行"
 
 #: ../src/perspective_motion/perspective_dialog.cpp
 msgid "\\org Mode"
@@ -8790,10 +8790,10 @@ msgid ""
 "Force center: set \\org to quad center.\n"
 "Try \\fax = 0: find \\org to minimize shear."
 msgstr ""
-"如何确定 \\org 锚点。\n"
-"保持原值：使用现有的 \\org 值。\n"
-"强制中心：将 \\org 设为四边形中心。\n"
-"尝试 \\fax = 0：寻找使剪切最小化的 \\org。"
+"如何确定 \\org 锚点\n"
+"保持原值：使用现有的 \\org 值\n"
+"强制中心：将 \\org 设为四边形中心\n"
+"尝试 \\fax = 0：寻找使剪切最小化的 \\org"
 
 #: ../src/perspective_motion/perspective_dialog.cpp
 msgid "No valid Power-Pin data"
@@ -8833,7 +8833,7 @@ msgstr "无法解析 Power-Pin 数据"
 
 #: ../src/perspective_motion/perspective_dialog.cpp
 msgid "Only apply perspective tracking to clip tags. Ignores position and perspective transforms."
-msgstr "仅对 clip 标签应用透视追踪。忽略位置和透视变换。"
+msgstr "仅对 clip 标签应用透视追踪。忽略位置和透视变换"
 
 #: ../src/perspective_motion/perspective_dialog.cpp
 msgid "Reverse tracking: automatically set start frame to the last frame of the selected lines."

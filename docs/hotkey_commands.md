@@ -212,6 +212,7 @@
 | 命令 | 功能 |
 |------|------|
 | `subtitle/apply/mocha` | 将 Mocha 运动追踪数据应用到当前字幕条目 |
+| `subtitle/apply/perspective` | 将透视追踪数据（CC Power Pin）应用到当前字幕条目 |
 | `subtitle/attachment` | 打开附件管理器对话框 |
 | `subtitle/close` | 关闭 |
 | `subtitle/find` | 在字幕中搜索文本 |

@@ -63,8 +63,6 @@ namespace mocha {
 			// Org 模式
 			wxRadioBox *radio_org_mode = nullptr;
 
-			// 处理模式
-
 			// 配置选项
 			wxCheckBox *chk_relative = nullptr;
 			wxSpinCtrl *spin_start_frame = nullptr;
@@ -181,10 +179,6 @@ namespace mocha {
 			radio_org_mode->SetSelection(1);
 			track_sizer->Add(radio_org_mode, 0, wxALL, inner_pad);
 
-			// ====== 处理模式 ======
-			auto *mode_box = new wxStaticBox(&d, wxID_ANY, _("Processing Mode"));
-			auto *mode_sizer = new wxStaticBoxSizer(mode_box, wxHORIZONTAL);
-
 			// ====== 配置选项 ======
 			auto *config_box = new wxStaticBox(&d, wxID_ANY, _("Configuration"));
 			auto *config_sizer = new wxStaticBoxSizer(config_box, wxVERTICAL);
@@ -228,7 +222,6 @@ namespace mocha {
 			// ====== 组装总布局 ======
 			main_sizer->Add(data_sizer, 1, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, pad);
 			main_sizer->Add(track_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, pad);
-			main_sizer->Add(mode_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, pad);
 			main_sizer->Add(config_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, pad);
 			main_sizer->Add(btn_sizer, 0, wxALIGN_RIGHT | wxALL, pad);
 
