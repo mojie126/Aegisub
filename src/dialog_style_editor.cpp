@@ -156,8 +156,8 @@ FontSelectionControl::FontSelectionControl(wxWindow *parent, wxWindowID id, cons
 	const int control_height = textCtrl_->GetBestSize().GetHeight();
 	dropButton_ = new wxButton(this, wxID_ANY, wxS("▼"), wxDefaultPosition, wxSize(FromDIP(26), control_height), wxBU_EXACTFIT);
 	dropButton_->SetMinSize(wxSize(FromDIP(26), control_height));
-	sizer->Add(textCtrl_, 1, wxEXPAND | wxALIGN_CENTER_VERTICAL, 0);
-	sizer->Add(dropButton_, 0, wxEXPAND | wxALIGN_CENTER_VERTICAL, 0);
+	sizer->Add(textCtrl_, 1, wxEXPAND, 0);
+	sizer->Add(dropButton_, 0, wxEXPAND, 0);
 	SetSizer(sizer);
 	SetMinSize(size.GetWidth() > 0 ? wxSize(size.GetWidth(), control_height) : wxSize(-1, control_height));
 	popup_ = new FontSelectionPopupWindow(this);
