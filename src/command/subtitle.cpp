@@ -500,16 +500,12 @@ namespace {
 				if (ef > collection_end_frame) collection_end_frame = ef;
 			}
 
-			int current_video_frame = c->videoController->GetFrameN();
-			int relframe = current_video_frame - collection_start_frame + 1;
-			if (relframe < 1) relframe = 1;
-
 			auto result = mocha::ShowPerspectiveDialog(c);
 			if (!result.accepted) return;
 
-				// FBF 交叉时间检查（对应 MoonScript frame2line 交叉检测）
-				{
-					int abs_relframe = collection_start_frame + relframe - 1;
+			// FBF 交叉时间检查（对应 MoonScript frame2line 交叉检测）
+			{
+					int abs_relframe = collection_start_frame + result.options.relframe - 1;
 					std::map<int, const AssDialogue*> frame_to_line;
 					bool lines_intersect = false;
 					bool all_contain_relframe = true;
@@ -551,7 +547,7 @@ namespace {
 
 			// 反向追踪和相对/绝对帧号转换
 			if (result.options.reverse_tracking) {
-				result.options.start_frame = total_frames - relframe + 1;
+				result.options.start_frame = total_frames - result.options.relframe + 1;
 			}
 
 			if (!result.options.relative) {
@@ -559,7 +555,6 @@ namespace {
 				result.options.relative = true;
 			}
 
-			result.options.relframe = relframe;
 			result.options.selection_start_frame = collection_start_frame;
 			result.options.layout_res_y = c->ass->GetScriptInfoAsInt("LayoutResY");
 
