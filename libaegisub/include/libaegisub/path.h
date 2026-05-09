@@ -36,6 +36,11 @@ public:
 	/// @return Absolute path
 	fs::path Decode(std::string_view path) const;
 
+	/// 检查是否为虚拟路径（dummy 视频/音频/图片视频等）
+	/// 虚拟路径不会被 MakeAbsolute 或 MakeRelative 修改
+	/// @return 是否为虚拟路径
+	static bool IsDummyPath(fs::path const& path);
+
 	/// If path is relative, make it absolute relative to the token's path
 	/// @param path A possibly relative path
 	/// @param token Token containing base path for resolving relative paths

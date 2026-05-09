@@ -282,6 +282,20 @@ void Project::LoadUnloadFiles(ProjectProperties properties) {
 	auto timecodes = context->path->MakeAbsolute(properties.timecodes_file, "?script");
 	auto keyframes = context->path->MakeAbsolute(properties.keyframes_file, "?script");
 
+	// 静默跳过不存在的关联文件，避免跨设备共享时弹出无意义的加载询问
+	// 存在 TOCTOU 竞态条件，但不会造成实际危害
+	if (!agi::fs::Exists(audio) && !context->path->IsDummyPath(audio))
+		audio = "";
+
+	if (!agi::fs::Exists(video) && !context->path->IsDummyPath(video))
+		video = "";
+
+	if (!agi::fs::Exists(timecodes))
+		timecodes = "";
+
+	if (!agi::fs::Exists(keyframes))
+		keyframes = "";
+
 	if (video == video_file && audio == audio_file && keyframes == keyframes_file && timecodes == timecodes_file)
 		return;
 

@@ -73,6 +73,11 @@ fs::path Path::Decode(std::string_view path) const {
 	return (paths[idx]/path).make_preferred();
 }
 
+bool Path::IsDummyPath(fs::path const& path) {
+	const auto str = path.string();
+	return str.starts_with("?dummy") || str.starts_with("?image:") || str.starts_with("dummy-audio:");
+}
+
 fs::path Path::MakeRelative(fs::path const& path, std::string_view token) const {
 	return MakeRelative(path, paths[checked_find_token(token)]);
 }
@@ -80,8 +85,7 @@ fs::path Path::MakeRelative(fs::path const& path, std::string_view token) const 
 fs::path Path::MakeRelative(fs::path const& path, fs::path const& base) const {
 	if (path.empty() || base.empty()) return path;
 
-	const auto str = path.string();
-	if (str.starts_with("?dummy") || str.starts_with("?image:") || str.starts_with("dummy-audio:"))
+	if (IsDummyPath(path))
 		return path;
 
 	// Paths on different volumes can't be made relative to each other
@@ -105,8 +109,7 @@ fs::path Path::MakeAbsolute(fs::path path, std::string_view token) const {
 	if (path.empty()) return path;
 	int idx = checked_find_token(token);
 
-	const auto str = path.string();
-	if (str.starts_with("?dummy") || str.starts_with("?image:") || str.starts_with("dummy-audio:"))
+	if (IsDummyPath(path))
 		return path;
 	path.make_preferred();
 	return (paths[idx].empty() || path.is_absolute()) ? path : paths[idx]/path;
