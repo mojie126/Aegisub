@@ -83,6 +83,11 @@ DialogPasteOver::DialogPasteOver(wxWindow *parent)
 	for (size_t i = 0; i < choices.size(); ++i)
 		ListBox->Check(i, options[i]);
 
+	// 计算列表高度以一次性显示全部选项，适配 HiDPI
+	int itemHeight = ListBox->GetCharHeight() + d.FromDIP(8);
+	int listHeight = static_cast<int>(choices.size()) * itemHeight + d.FromDIP(4);
+	ListBox->SetInitialSize(wxSize(-1, listHeight));
+
 	// Top buttons
 	wxButton *btn;
 	wxSizer *TopButtonSizer = new wxBoxSizer(wxHORIZONTAL);
