@@ -63,6 +63,9 @@ namespace mocha {
 			// Org 模式
 			wxRadioBox *radio_org_mode = nullptr;
 
+			// 参考帧
+			wxSpinCtrl *spin_relframe = nullptr;
+
 			// 配置选项
 			wxCheckBox *chk_relative = nullptr;
 			wxSpinCtrl *spin_start_frame = nullptr;
@@ -156,6 +159,24 @@ namespace mocha {
 			chk_apply_perspective->SetValue(true);
 			chk_apply_perspective->SetToolTip(_("Pre-apply the reference frame's perspective to the reference line before tracking."));
 			track_sizer->Add(chk_apply_perspective, 0, wxLEFT | wxRIGHT | wxBOTTOM, inner_pad);
+
+			// 参考帧号
+			{
+				auto *relframe_row = new wxBoxSizer(wxHORIZONTAL);
+				auto *lbl_relframe = new wxStaticText(&d, wxID_ANY, _("Reference frame:"));
+				spin_relframe = new wxSpinCtrl(
+					&d, wxID_ANY, "1",
+					wxDefaultPosition, wxSize(d.FromDIP(80), -1),
+					wxSP_ARROW_KEYS, 1, 9999999, 1
+				);
+				spin_relframe->SetToolTip(
+					_("The 1-based frame index in the tracking data to use as the perspective reference.\n"
+					  "A value of 0 makes the auto-computed reference frame be used.")
+				);
+				relframe_row->Add(lbl_relframe, 0, wxALIGN_CENTER_VERTICAL | wxALL, inner_pad);
+				relframe_row->Add(spin_relframe, 0, wxALIGN_CENTER_VERTICAL | wxALL, inner_pad);
+				track_sizer->Add(relframe_row, 0, wxEXPAND);
+			}
 
 			// Org 模式
 			const wxString org_choices[] = {
@@ -274,7 +295,9 @@ namespace mocha {
 			last_relative_ = result.options.relative;
 			last_reverse_ = result.options.reverse_tracking;
 
-			// relframe 自动从当前视频帧计算，不需用户指定
+			// 初始化参考帧号控件：范围 1..选中行帧数，值由当前视频帧自动计算
+			spin_relframe->SetRange(1, std::max(1, selection_frames));
+			spin_relframe->SetValue(relframe);
 			result.options.relframe = relframe;
 		}
 
@@ -409,6 +432,7 @@ namespace mocha {
 				opts.track_clip = chk_track_clip->GetValue();
 				opts.track_bord_shad = chk_track_bord_shad->GetValue();
 				opts.apply_perspective = chk_apply_perspective->GetValue();
+				opts.relframe = spin_relframe->GetValue();
 				opts.org_mode = radio_org_mode->GetSelection() + 1;
 				opts.relative = chk_relative->GetValue();
 				opts.start_frame = spin_start_frame->GetValue();
@@ -424,6 +448,7 @@ namespace mocha {
 			result.options.track_clip = chk_track_clip->GetValue();
 			result.options.track_bord_shad = chk_track_bord_shad->GetValue();
 			result.options.apply_perspective = chk_apply_perspective->GetValue();
+			result.options.relframe = spin_relframe->GetValue();
 			result.options.org_mode = radio_org_mode->GetSelection() + 1;
 			result.options.relative = chk_relative->GetValue();
 			result.options.start_frame = spin_start_frame->GetValue();

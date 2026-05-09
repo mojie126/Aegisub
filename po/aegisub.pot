@@ -8436,5 +8436,14 @@ msgid "Data frames: %d"
 msgstr ""
 
 #: ../src/perspective_motion/perspective_dialog.cpp
+msgid "Reference frame:"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
+msgid "The 1-based frame index in the tracking data to use as the perspective reference.\n"
+"A value of 0 makes the auto-computed reference frame be used."
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp
 msgid "Data frames: %d | Line needs: %d frames"
 msgstr ""
