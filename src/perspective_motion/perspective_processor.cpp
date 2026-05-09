@@ -637,15 +637,14 @@ namespace mocha {
 
 		int start_frame = options_.start_frame;
 		if (start_frame < 1) start_frame = 1;
-		int quad_offset = start_frame - 1;
-		int quads_available = static_cast<int>(quads.size()) - quad_offset;
+		int quads_available = static_cast<int>(quads.size());
 		if (quads_available <= 0) return result;
 
 		int relframe = options_.relframe;
 		if (relframe < 1 || relframe > quads_available)
 			relframe = 1;
 
-		const auto &rel_quad = quads[static_cast<size_t>(relframe - 1 + quad_offset)];
+		const auto &rel_quad = quads[static_cast<size_t>(relframe - 1)];
 
 		double layout_scale = 1.0;
 		// 匹配 MoonScript: PlayResY / (LayoutResY or videoH)
@@ -683,7 +682,7 @@ namespace mocha {
 			int line_frame_start = frame_from_ms_ ? frame_from_ms_(line.start_time) : 0;
 			int line_frame_end = frame_from_ms_ ? frame_from_ms_(line.end_time) : 0;
 
-			int rel_start = std::max(1, line_frame_start - collection_start + 1);
+			int rel_start = std::max(start_frame, std::max(1, line_frame_start - collection_start + 1));
 			int rel_end = std::min(
 				quads_available,
 				line_frame_end - collection_start
@@ -838,7 +837,7 @@ namespace mocha {
 				frame_line.end_time = new_end;
 				frame_line.duration = frame_duration;
 
-				const auto &frame_quad = quads[static_cast<size_t>(frame_idx - 1 + quad_offset)];
+				const auto &frame_quad = quads[static_cast<size_t>(frame_idx - 1)];
 
 				// 将帧文本分割为逐块段
 				auto frame_segments = ExtractOverrideSegments(frame_line.text);
