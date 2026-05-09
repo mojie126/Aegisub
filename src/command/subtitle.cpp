@@ -463,6 +463,9 @@ namespace {
 
 	/// @brief 应用透视追踪数据到字幕行
 	/// 使用 perspective_motion 模块对字幕行应用 CC Power Pin 透视追踪
+	/// 参照 subtitle_apply_mocha 的两阶段插入模式：
+	///   阶段 1：逐行处理并收集结果
+	///   阶段 2：确定插入位置，删除/注释原始行，在正确位置插入结果
 	struct subtitle_apply_perspective final : public validate_nonempty_selection {
 		CMD_NAME("subtitle/apply/perspective")
 		STR_MENU("Apply Perspective-Motion")
@@ -480,6 +483,7 @@ namespace {
 			auto selected_set = c->selectionController->GetSelectedSet();
 			if (selected_set.empty()) return;
 
+			// 按事件列表顺序排序后反转（参照 mocha 处理器）
 			std::vector selected_lines(selected_set.begin(), selected_set.end());
 			std::sort(selected_lines.begin(), selected_lines.end(),
 				[&](const AssDialogue *a, const AssDialogue *b) {
@@ -490,8 +494,10 @@ namespace {
 					}
 					return false;
 				});
+			std::ranges::reverse(selected_lines);
 
-			int collection_start_frame = c->videoController->FrameAtTime(selected_lines.front()->Start, agi::vfr::START);
+			// 计算选中行的帧范围
+			int collection_start_frame = c->videoController->FrameAtTime(selected_lines.back()->Start, agi::vfr::START);
 			int collection_end_frame = c->videoController->FrameAtTime(selected_lines.back()->End, agi::vfr::START);
 			for (const auto *line : selected_lines) {
 				int sf = c->videoController->FrameAtTime(line->Start, agi::vfr::START);
@@ -505,30 +511,30 @@ namespace {
 
 			// FBF 交叉时间检查（对应 MoonScript frame2line 交叉检测）
 			{
-					int abs_relframe = collection_start_frame + result.options.relframe - 1;
-					std::map<int, const AssDialogue*> frame_to_line;
-					bool lines_intersect = false;
-					bool all_contain_relframe = true;
+				int abs_relframe = collection_start_frame + result.options.relframe - 1;
+				std::map<int, const AssDialogue*> frame_to_line;
+				bool lines_intersect = false;
+				bool all_contain_relframe = true;
 
-					for (const auto *line : selected_lines) {
-						int sf = c->videoController->FrameAtTime(line->Start, agi::vfr::START);
-						int ef = c->videoController->FrameAtTime(line->End, agi::vfr::START);
-						all_contain_relframe = all_contain_relframe && (sf <= abs_relframe && abs_relframe < ef);
-						for (int f = sf; f < ef; ++f) {
-							if (frame_to_line.count(f)) lines_intersect = true;
-							frame_to_line[f] = line;
-						}
-					}
-
-					if (lines_intersect && !all_contain_relframe) {
-						wxMessageBox(_("Times of selected lines intersect but not all lines contain the reference frame."), _("Error"), wxICON_ERROR);
-						return;
-					}
-					if (!frame_to_line.count(abs_relframe)) {
-						wxMessageBox(_("No line at reference frame!"), _("Error"), wxICON_ERROR);
-						return;
+				for (const auto *line : selected_lines) {
+					int sf = c->videoController->FrameAtTime(line->Start, agi::vfr::START);
+					int ef = c->videoController->FrameAtTime(line->End, agi::vfr::START);
+					all_contain_relframe = all_contain_relframe && (sf <= abs_relframe && abs_relframe < ef);
+					for (int f = sf; f < ef; ++f) {
+						if (frame_to_line.count(f)) lines_intersect = true;
+						frame_to_line[f] = line;
 					}
 				}
+
+				if (lines_intersect && !all_contain_relframe) {
+					wxMessageBox(_("Times of selected lines intersect but not all lines contain the reference frame."), _("Error"), wxICON_ERROR);
+					return;
+				}
+				if (!frame_to_line.count(abs_relframe)) {
+					wxMessageBox(_("No line at reference frame!"), _("Error"), wxICON_ERROR);
+					return;
+				}
+			}
 
 			mocha::PerspectiveDataHandler data_handler;
 			if (!data_handler.ParsePowerPin(result.raw_data)) {
@@ -575,8 +581,9 @@ namespace {
 			int video_w = c->project->VideoProvider()->GetWidth();
 			int video_h = c->project->VideoProvider()->GetHeight();
 
-			for (auto it = selected_lines.rbegin(); it != selected_lines.rend(); ++it) {
-				AssDialogue *active_line = *it;
+			// 阶段 1：逐行处理，按组收集结果（与选中行顺序一致）
+			std::vector<std::vector<mocha::MotionLine>> grouped_results;
+			for (AssDialogue *active_line : selected_lines) {
 				auto motion_line = mocha::PerspectiveProcessor::BuildLine(active_line);
 				std::vector<mocha::MotionLine> lines = {motion_line};
 				processor.PrepareLines(lines);
@@ -584,34 +591,86 @@ namespace {
 				auto processed = processor.Apply(lines, data_handler.Quads(), video_w, video_h);
 				mocha::PerspectiveProcessor::PostprocessLines(processed);
 
-				if (processed.empty()) continue;
+				grouped_results.push_back(std::move(processed));
+			}
 
-				// 删除/注释原始行
-				if (result.options.preview)
-					active_line->Comment = true;
-				else {
-					for (auto evt_it = c->ass->Events.begin(); evt_it != c->ass->Events.end(); ++evt_it) {
-						if (&*evt_it == active_line) {
-							c->ass->Events.erase(evt_it);
+			// 检查是否有任何结果
+			bool has_any_results = false;
+			for (const auto &group : grouped_results) {
+				if (!group.empty()) { has_any_results = true; break; }
+			}
+			if (!has_any_results) return;
+
+			// 阶段 2：确定插入位置
+			// selected_lines 已反转（最晚行在前），front=最晚行, back=最早行
+			// 预览模式：在最晚行之后插入（保留所有注释后的原始行在前）
+			// 正式模式：在最早行位置插入（替换所有原始行）
+			AssDialogue *anchor_line = result.options.preview
+				? selected_lines.front()
+				: selected_lines.back();
+
+			int insert_index = -1;
+			int idx = 0;
+			for (const auto &event : c->ass->Events) {
+				if (&event == anchor_line) {
+					insert_index = idx + 1;
+					break;
+				}
+				++idx;
+			}
+			if (insert_index == -1)
+				insert_index = static_cast<int>(c->ass->Events.size());
+
+			// 阶段 3：反向删除/注释原始行
+			// selected_lines 已反转（最晚行在前），直接遍历即为反向删除
+			for (AssDialogue *line : selected_lines) {
+				if (result.options.preview) {
+					line->Comment = true;
+				} else {
+					int idx1 = 0;
+					for (auto it = c->ass->Events.begin(); it != c->ass->Events.end(); ++it, ++idx1) {
+						if (&*it == line) {
+							if (idx1 < insert_index)
+								--insert_index;
+							c->ass->Events.erase(it);
 							break;
 						}
 					}
 				}
+			}
 
-				// 插入结果行
-				for (auto &pl : processed) {
+			// 阶段 4：将索引转换为迭代器，在指定位置插入结果
+			auto insert_pos = c->ass->Events.end();
+			if (insert_index <= static_cast<int>(c->ass->Events.size())) {
+				int idx2 = 0;
+				for (auto it = c->ass->Events.begin(); it != c->ass->Events.end(); ++it, ++idx2) {
+					if (idx2 == insert_index) {
+						insert_pos = it;
+						break;
+					}
+				}
+			}
+
+			// 按原始行顺序逐组插入结果
+			// grouped_results 与 selected_lines 对应，为反序（最晚行在前）
+			// 反向遍历使得插入顺序与原始行顺序一致
+			for (int gi = static_cast<int>(grouped_results.size()) - 1; gi >= 0; --gi) {
+				if (grouped_results[gi].empty()) continue;
+
+				for (auto &pl : grouped_results[gi]) {
 					auto *diag = new AssDialogue;
 					diag->Text = pl.text;
 					diag->Style = pl.style;
 					diag->Actor = pl.actor;
 					diag->Effect = pl.effect;
+					diag->Comment = pl.comment;
 					diag->Layer = pl.layer;
 					diag->Start = pl.start_time;
 					diag->End = pl.end_time;
 					diag->Margin[0] = pl.margin_l;
 					diag->Margin[1] = pl.margin_r;
 					diag->Margin[2] = pl.margin_t;
-					c->ass->Events.push_back(*diag);
+					c->ass->Events.insert(insert_pos, *diag);
 				}
 			}
 
