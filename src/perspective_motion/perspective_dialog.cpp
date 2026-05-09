@@ -37,15 +37,13 @@ namespace mocha {
 
 			void OnActivate(wxActivateEvent &);
 
-			void OnRelativeToggled(wxCommandEvent &);
-
-			void OnReverseToggled(wxCommandEvent &);
-
 			void OnWriteConfChanged(wxCommandEvent &);
 
 			void UpdateDataStatus();
 
 			void UpdateStartFrameLabel();
+
+			void UpdateDependencies();
 
 			wxDialog d;
 			agi::Context *ctx;
@@ -82,6 +80,8 @@ namespace mocha {
 			int collection_end_frame_ = 0;
 			bool last_relative_ = true;
 			bool last_reverse_ = false;
+			// 正向追踪时的默认参考帧号（当前视频帧对应的相对帧号）
+			int default_relframe_ = 1;
 		};
 
 		PerspDialogImpl::PerspDialogImpl(agi::Context *c)
@@ -171,7 +171,7 @@ namespace mocha {
 				);
 				spin_relframe->SetToolTip(
 					_("The 1-based frame index in the tracking data to use as the perspective reference.\n"
-					  "A value of 0 makes the auto-computed reference frame be used.")
+					  "When reverse tracking is enabled, this is automatically set to the last frame.")
 				);
 				relframe_row->Add(lbl_relframe, 0, wxALIGN_CENTER_VERTICAL | wxALL, inner_pad);
 				relframe_row->Add(spin_relframe, 0, wxALIGN_CENTER_VERTICAL | wxALL, inner_pad);
@@ -225,7 +225,9 @@ namespace mocha {
 			chk_preview->SetValue(true);
 			chk_preview->SetToolTip(_("Annotate original subtitle to preview tracking effect, then click [Play Current Line] to preview."));
 			chk_reverse = new wxCheckBox(&d, wxID_ANY, _("Reverse tracking"));
-			chk_reverse->SetToolTip(_("Reverse tracking: automatically set start frame to the last frame of the selected lines."));
+			chk_reverse->SetToolTip(
+				_("Reverse tracking: automatically set both the start frame and the reference frame to the last frame of the selected lines.\nWhen enabled, the reference perspective is taken from the end of the motion data.")
+			);
 			chk_write_conf = new wxCheckBox(&d, wxID_ANY, _("Save config"));
 			chk_write_conf->SetValue(true);
 			chk_write_conf->SetToolTip(_("Save current options to configuration file for next use."));
@@ -264,16 +266,11 @@ namespace mocha {
 			chk_reverse->SetValue(result.options.reverse_tracking);
 			chk_write_conf->SetValue(result.options.write_conf);
 
-			// 根据当前视频帧设置初始起始帧
-			if (result.options.relative) {
-				int relative_frame = current_video_frame - collection_start_frame_ + 1;
-				if (relative_frame > 0 && relative_frame <= selection_frames)
-					spin_start_frame->SetValue(relative_frame);
-			} else {
-				spin_start_frame->SetValue(current_video_frame);
-			}
-
-			UpdateStartFrameLabel();
+			// 初始化参考帧号控件：范围 1..选中行帧数，值由当前视频帧自动计算
+			spin_relframe->SetRange(1, std::max(1, selection_frames));
+			spin_relframe->SetValue(relframe);
+			result.options.relframe = relframe;
+			default_relframe_ = relframe;
 
 			// 自动粘贴剪贴板（初始化）
 			wxCommandEvent evt;
@@ -288,17 +285,20 @@ namespace mocha {
 			// 事件绑定
 			d.Bind(wxEVT_BUTTON, &PerspDialogImpl::OnOK, this, wxID_OK);
 			d.Bind(wxEVT_BUTTON, &PerspDialogImpl::OnPaste, this, wxID_APPLY);
-			d.Bind(wxEVT_CHECKBOX, &PerspDialogImpl::OnRelativeToggled, this, chk_relative->GetId());
-			d.Bind(wxEVT_CHECKBOX, &PerspDialogImpl::OnReverseToggled, this, chk_reverse->GetId());
 			d.Bind(wxEVT_CHECKBOX, &PerspDialogImpl::OnWriteConfChanged, this, chk_write_conf->GetId());
 
-			last_relative_ = result.options.relative;
-			last_reverse_ = result.options.reverse_tracking;
+			// 相对/绝对和反向追踪通过统一 UpdateDependencies 联动
+			chk_relative->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent &) { UpdateDependencies(); });
+			chk_reverse->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent &) { UpdateDependencies(); });
 
-			// 初始化参考帧号控件：范围 1..选中行帧数，值由当前视频帧自动计算
-			spin_relframe->SetRange(1, std::max(1, selection_frames));
-			spin_relframe->SetValue(relframe);
-			result.options.relframe = relframe;
+			last_relative_ = result.options.relative;
+			// last_reverse_ 初始化为 false，使首次 UpdateDependencies()
+			// 能检测到配置中已勾选的反向追踪并自动设置起始帧和参考帧
+			last_reverse_ = false;
+
+			// 初始联动状态（根据加载的配置设置标签和帧号）
+			UpdateStartFrameLabel();
+			UpdateDependencies();
 		}
 
 		void PerspDialogImpl::UpdateStartFrameLabel() {
@@ -370,6 +370,12 @@ namespace mocha {
 					PerspectiveDataHandler temp;
 					if (!temp.BestEffortParse(current.ToStdString())) {
 						should_auto_paste = true;
+					} else if (collection_end_frame_ > collection_start_frame_) {
+						// 数据有效但帧数不匹配时也自动获取剪贴板
+						const int needed = collection_end_frame_ - collection_start_frame_;
+						if (temp.Length() != needed) {
+							should_auto_paste = true;
+						}
 					}
 				}
 				if (should_auto_paste) {
@@ -390,39 +396,73 @@ namespace mocha {
 			event.Skip();
 		}
 
-		void PerspDialogImpl::OnRelativeToggled(wxCommandEvent &) {
-			bool is_relative = chk_relative->GetValue();
-			if (is_relative == last_relative_) return;
+		void PerspDialogImpl::UpdateDependencies() {
+			// 集中管理所有控件联动逻辑
+			// 参照 mocha 的 motion_dialog.cpp UpdateDependencies()
 
-			if (is_relative) {
-				int abs_val = spin_start_frame->GetValue();
-				int rel_val = abs_val - collection_start_frame_ + 1;
-				spin_start_frame->SetValue(rel_val);
+			bool relative = chk_relative->GetValue();
+			bool reverse = chk_reverse->GetValue();
+
+			// 更新起始帧标签文字
+			if (relative) {
+				lbl_start_frame->SetLabel(_("Start Frame (relative):"));
 			} else {
-				int rel_val = spin_start_frame->GetValue();
-				int abs_val = rel_val + collection_start_frame_ - 1;
-				spin_start_frame->SetValue(abs_val);
+				lbl_start_frame->SetLabel(_("Start Frame (absolute):"));
 			}
 
-			last_relative_ = is_relative;
-			UpdateStartFrameLabel();
-		}
-
-		void PerspDialogImpl::OnReverseToggled(wxCommandEvent &) {
-			bool is_reverse = chk_reverse->GetValue();
-			if (is_reverse == last_reverse_) return;
-
-			if (is_reverse) {
-				if (chk_relative->GetValue()) {
-					spin_start_frame->SetValue(collection_end_frame_ - collection_start_frame_);
-				} else {
-					spin_start_frame->SetValue(collection_end_frame_);
+			// 检测相对/绝对模式是否发生了切换，切换时转换帧号数值
+			if (relative != last_relative_) {
+				last_relative_ = relative;
+				if (collection_start_frame_ > 0) {
+					const int old_val = spin_start_frame->GetValue();
+					if (relative) {
+						// 绝对 → 相对: relative = absolute - collection_start + 1
+						int new_val = old_val - collection_start_frame_ + 1;
+						if (new_val < 1) new_val = 1;
+						spin_start_frame->SetValue(new_val);
+					} else {
+						// 相对 → 绝对: absolute = relative + collection_start - 1
+						const int effective_rel = (old_val <= 0) ? 1 : old_val;
+						const int new_val = effective_rel + collection_start_frame_ - 1;
+						spin_start_frame->SetValue(new_val);
+					}
 				}
-			} else {
-				spin_start_frame->SetValue(1);
 			}
 
-			last_reverse_ = is_reverse;
+			// 检测反向追踪是否发生了切换，切换时调整起始帧和参考帧
+			if (reverse != last_reverse_) {
+				last_reverse_ = reverse;
+				if (collection_end_frame_ > collection_start_frame_) {
+					const int total_frames = collection_end_frame_ - collection_start_frame_;
+					const int sel_frames = std::max(1, total_frames);
+					if (reverse) {
+						// 反向追踪：起始帧设为选中行最后一帧
+						if (relative) {
+							spin_start_frame->SetValue(std::max(1, total_frames));
+						} else {
+							int last_abs = collection_end_frame_ - 1;
+							if (last_abs < collection_start_frame_) last_abs = collection_start_frame_;
+							spin_start_frame->SetValue(last_abs);
+						}
+						// 参考帧也设为末帧（追踪数据中最后一帧）
+						spin_relframe->SetRange(1, sel_frames);
+						spin_relframe->SetValue(std::max(1, total_frames));
+					} else {
+						// 正向追踪：起始帧恢复为第一帧
+						if (relative) {
+							spin_start_frame->SetValue(1);
+						} else {
+							spin_start_frame->SetValue(collection_start_frame_);
+						}
+						// 参考帧恢复为当前视频帧位置
+						spin_relframe->SetRange(1, sel_frames);
+						int restored = default_relframe_;
+						if (restored < 1) restored = 1;
+						if (restored > sel_frames) restored = sel_frames;
+						spin_relframe->SetValue(restored);
+					}
+				}
+			}
 		}
 
 		void PerspDialogImpl::OnWriteConfChanged(wxCommandEvent &) {
@@ -473,6 +513,31 @@ namespace mocha {
 					_("Error"), wxICON_ERROR
 				);
 				return;
+			}
+
+			// 检测追踪数据与选中行帧数的匹配度
+			// 不匹配时自动从剪贴板获取新数据重试（参照 mocha OnActivate 模式）
+			// 静默重试，不弹窗；最终错误由 subtitle.cpp 统一报告
+			if (collection_end_frame_ > collection_start_frame_) {
+				const int needed = collection_end_frame_ - collection_start_frame_;
+				if (handler.Length() != needed) {
+					if (wxTheClipboard->Open()) {
+						if (wxTheClipboard->IsSupported(wxDF_TEXT)) {
+							wxTextDataObject clipboard_data;
+							wxTheClipboard->GetData(clipboard_data);
+							const wxString clip_text = clipboard_data.GetText();
+							if (!clip_text.IsEmpty() && clip_text != wxString::FromUTF8(result.raw_data)) {
+								PerspectiveDataHandler handler2;
+								if (handler2.BestEffortParse(clip_text.ToStdString()) && handler2.Length() == needed) {
+									result.raw_data = clip_text.ToStdString();
+									data_text->SetValue(clip_text);
+									UpdateDataStatus();
+								}
+							}
+						}
+						wxTheClipboard->Close();
+					}
+				}
 			}
 
 			if (result.options.write_conf)

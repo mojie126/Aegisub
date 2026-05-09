@@ -8836,8 +8836,9 @@ msgid "Only apply perspective tracking to clip tags. Ignores position and perspe
 msgstr "仅对 clip 标签应用透视追踪。忽略位置和透视变换"
 
 #: ../src/perspective_motion/perspective_dialog.cpp
-msgid "Reverse tracking: automatically set start frame to the last frame of the selected lines."
-msgstr "反向追踪：自动将起始帧设置为选中行的最后一帧。"
+msgid "Reverse tracking: automatically set both the start frame and the reference frame to the last frame of the selected lines.\n"
+"When enabled, the reference perspective is taken from the end of the motion data."
+msgstr "反向追踪：自动将起始帧和参考帧都设为选中行的最后一帧。开启后以运动数据末帧为透视参考基准。"
 
 #: ../src/perspective_motion/perspective_dialog.cpp
 msgid "Data frames: %d | Line needs: %d frames | Video: %dx%d"
@@ -8853,9 +8854,21 @@ msgstr "参考帧："
 
 #: ../src/perspective_motion/perspective_dialog.cpp
 msgid "The 1-based frame index in the tracking data to use as the perspective reference.\n"
-"A value of 0 makes the auto-computed reference frame be used."
-msgstr "追踪数据中用作透视参考的帧索引（从 1 开始）。设为 0 则使用自动计算的参考帧。"
+"When reverse tracking is enabled, this is automatically set to the last frame."
+msgstr "追踪数据中用作透视参考的帧索引（从 1 开始）。启用反向追踪时自动设为末帧。"
 
 #: ../src/perspective_motion/perspective_dialog.cpp
 msgid "Data frames: %d | Line needs: %d frames"
 msgstr "数据帧数：%d | 所需帧数：%d"
+
+#: ../src/command/subtitle.cpp
+msgid "Times of selected lines intersect but not all lines contain the reference frame."
+msgstr "选中行时间相交，但并非所有行都包含参考帧。"
+
+#: ../src/command/subtitle.cpp
+msgid "No line at reference frame!"
+msgstr "参考帧位置没有对应的行！"
+
+#: ../src/command/subtitle.cpp
+msgid "The tracking data is asymmetrical with the selected row data and requires %d frames"
+msgstr "追踪数据与所选行不对称，需要 %d 帧数据"

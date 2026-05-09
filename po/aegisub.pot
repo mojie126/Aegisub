@@ -8424,7 +8424,8 @@ msgid "Only apply perspective tracking to clip tags. Ignores position and perspe
 msgstr ""
 
 #: ../src/perspective_motion/perspective_dialog.cpp
-msgid "Reverse tracking: automatically set start frame to the last frame of the selected lines."
+msgid "Reverse tracking: automatically set both the start frame and the reference frame to the last frame of the selected lines.\n"
+"When enabled, the reference perspective is taken from the end of the motion data."
 msgstr ""
 
 #: ../src/perspective_motion/perspective_dialog.cpp
@@ -8441,9 +8442,21 @@ msgstr ""
 
 #: ../src/perspective_motion/perspective_dialog.cpp
 msgid "The 1-based frame index in the tracking data to use as the perspective reference.\n"
-"A value of 0 makes the auto-computed reference frame be used."
+"When reverse tracking is enabled, this is automatically set to the last frame."
 msgstr ""
 
 #: ../src/perspective_motion/perspective_dialog.cpp
 msgid "Data frames: %d | Line needs: %d frames"
+msgstr ""
+
+#: ../src/command/subtitle.cpp
+msgid "Times of selected lines intersect but not all lines contain the reference frame."
+msgstr ""
+
+#: ../src/command/subtitle.cpp
+msgid "No line at reference frame!"
+msgstr ""
+
+#: ../src/command/subtitle.cpp
+msgid "The tracking data is asymmetrical with the selected row data and requires %d frames"
 msgstr ""
