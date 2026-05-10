@@ -809,3 +809,57 @@ TEST(PerspectiveProcessorTest, ApplyAdjustsFade) {
 	EXPECT_TRUE(has_fade || has_fad);
 	EXPECT_NE(result[0].text.find("text"), std::string::npos);
 }
+
+// ============================================================================
+// CalculateDrawingExtents: 绘图尺寸计算测试
+// ============================================================================
+
+TEST(PerspectiveProcessorTest, DrawingExtentsBasicRect) {
+	double w = 0, h = 0;
+	EXPECT_TRUE(mocha::CalculateDrawingExtents("m 0 0 l 100 0 l 100 50 l 0 50", 1, w, h));
+	EXPECT_NEAR(w, 100.0, 0.1);
+	EXPECT_NEAR(h, 50.0, 0.1);
+}
+
+TEST(PerspectiveProcessorTest, DrawingExtentsWithScale) {
+	double w = 0, h = 0;
+	EXPECT_TRUE(mocha::CalculateDrawingExtents("m 0 0 l 200 0 l 200 100 l 0 100", 2, w, h));
+	EXPECT_NEAR(w, 100.0, 0.1);
+	EXPECT_NEAR(h, 50.0, 0.1);
+}
+
+TEST(PerspectiveProcessorTest, DrawingExtentsOffset) {
+	double w = 0, h = 0;
+	EXPECT_TRUE(mocha::CalculateDrawingExtents("m 50 30 l 150 30 l 150 80 l 50 80", 1, w, h));
+	EXPECT_NEAR(w, 100.0, 0.1);
+	EXPECT_NEAR(h, 50.0, 0.1);
+}
+
+TEST(PerspectiveProcessorTest, DrawingExtentsBezier) {
+	double w = 0, h = 0;
+	EXPECT_TRUE(mocha::CalculateDrawingExtents("m 0 0 b 100 0 100 100 0 100", 1, w, h));
+	EXPECT_GT(w, 0);
+	EXPECT_GT(h, 0);
+	EXPECT_NEAR(w, 100.0, 0.1);
+	EXPECT_NEAR(h, 100.0, 0.1);
+}
+
+TEST(PerspectiveProcessorTest, DrawingExtentsInsufficientPoints) {
+	double w = 0, h = 0;
+	EXPECT_FALSE(mocha::CalculateDrawingExtents("m 0 0", 1, w, h));
+}
+
+TEST(PerspectiveProcessorTest, DrawingExtentsNegativeCoords) {
+	double w = 0, h = 0;
+	EXPECT_TRUE(mocha::CalculateDrawingExtents("m -10 -20 l 90 -20 l 90 30 l -10 30", 1, w, h));
+	EXPECT_NEAR(w, 100.0, 0.1);
+	EXPECT_NEAR(h, 50.0, 0.1);
+}
+
+TEST(PerspectiveProcessorTest, DrawingExtentsScale4) {
+	double w = 0, h = 0;
+	EXPECT_TRUE(mocha::CalculateDrawingExtents("m 0 0 l 800 0 l 800 400 l 0 400", 4, w, h));
+	EXPECT_NEAR(w, 100.0, 0.1);
+	EXPECT_NEAR(h, 50.0, 0.1);
+}
+
