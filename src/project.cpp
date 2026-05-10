@@ -245,10 +245,12 @@ void Project::LoadSubtitles(agi::fs::path path, std::string encoding, bool load_
 void Project::CloseSubtitles() {
 	context->subsController->Close();
 	context->path->SetToken("?script", "");
-	SyncVideoSubtitleDirFromCurrentScript(false);
-	LoadUnloadFiles(context->ass->Properties);
+	/// 在卸载关联文件之前更新选中与激活行，避免 LoadUnloadFiles 触发信号级联时，
+	/// SelectionController / SubsEditBox 等组件持有的旧 AssDialogue 指针已随 blank 销毁变为悬空指针
 	auto line = &*context->ass->Events.begin();
 	context->selectionController->SetSelectionAndActive({line}, line);
+	SyncVideoSubtitleDirFromCurrentScript(false);
+	LoadUnloadFiles(context->ass->Properties);
 }
 
 /// @brief 递归刷新窗口的所有子控件
