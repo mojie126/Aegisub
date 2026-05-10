@@ -419,6 +419,8 @@ struct app_clear_autosave final : public Command {
 
 		countAndRemove(config::path->Decode(OPT_GET("Path/Auto/Save")->GetString()), "*.AUTOSAVE.ass");
 
+		countAndRemove(config::path->Decode("?user/recovered"), "*.ass");
+
 		auto backup_str = OPT_GET("Path/Auto/Backup")->GetString();
 		if (!backup_str.empty())
 			countAndRemove(config::path->Decode(backup_str), "*.ORIGINAL.*");
