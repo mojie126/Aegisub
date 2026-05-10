@@ -602,6 +602,13 @@
 		},
 		{},
 		{
+			"command": "help/mocha"
+		},
+		{
+			"command": "help/perspective"
+		},
+		{},
+		{
 			"command": "help/irc"
 		},
 		{

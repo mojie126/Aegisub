@@ -1820,6 +1820,30 @@ msgstr "网站"
 msgid "Visit Aegisub's official website"
 msgstr "访问Aegisub的官方网站"
 
+#: ../src/command/help.cpp:80
+msgid "&Mocha Tracking Manual..."
+msgstr "摩卡追踪使用手册(&M)…"
+
+#: ../src/command/help.cpp:81
+msgid "Mocha Tracking Manual"
+msgstr "摩卡追踪使用手册"
+
+#: ../src/command/help.cpp:82
+msgid "Open the mocha tracking manual page on GitHub Wiki"
+msgstr "打开GitHub Wiki上的摩卡追踪使用手册页面"
+
+#: ../src/command/help.cpp:92
+msgid "&Perspective Tracking Manual..."
+msgstr "透视追踪使用手册(&P)…"
+
+#: ../src/command/help.cpp:93
+msgid "Perspective Tracking Manual"
+msgstr "透视追踪使用手册"
+
+#: ../src/command/help.cpp:94
+msgid "Open the perspective tracking manual page on GitHub Wiki"
+msgstr "打开GitHub Wiki上的透视追踪使用手册页面"
+
 #: ../src/command/keyframe.cpp:50 ../src/command/keyframe.cpp:51
 msgid "Close Keyframes"
 msgstr "关闭关键帧"

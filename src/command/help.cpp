@@ -74,6 +74,30 @@ struct help_contents final : public Command {
 	}
 };
 
+struct help_mocha final : public Command {
+	CMD_NAME("help/mocha")
+	CMD_ICON(website_button)
+	STR_MENU("&Mocha Tracking Manual...")
+	STR_DISP("Mocha Tracking Manual")
+	STR_HELP("Open the mocha tracking manual page on GitHub Wiki")
+
+	void operator()(agi::Context *) override {
+		wxLaunchDefaultBrowser("https://github.com/mojie126/Aegisub/wiki/%E6%91%A9%E5%8D%A1%E8%BF%BD%E8%B8%AA%E4%BD%BF%E7%94%A8%E6%89%8B%E5%86%8C", wxBROWSER_NEW_WINDOW);
+	}
+};
+
+struct help_perspective final : public Command {
+	CMD_NAME("help/perspective")
+	CMD_ICON(visual_perspective)
+	STR_MENU("&Perspective Tracking Manual...")
+	STR_DISP("Perspective Tracking Manual")
+	STR_HELP("Open the perspective tracking manual page on GitHub Wiki")
+
+	void operator()(agi::Context *) override {
+		wxLaunchDefaultBrowser("https://github.com/mojie126/Aegisub/wiki/%E9%80%8F%E8%A7%86%E8%BF%BD%E8%B8%AA%E4%BD%BF%E7%94%A8%E6%89%8B%E5%86%8C", wxBROWSER_NEW_WINDOW);
+	}
+};
+
 struct help_irc final : public Command {
 	CMD_NAME("help/irc")
 	CMD_ICON(irc_button)
@@ -116,6 +140,8 @@ namespace cmd {
 		reg(std::make_unique<help_bugs>());
 		reg(std::make_unique<help_contents>());
 		reg(std::make_unique<help_irc>());
+		reg(std::make_unique<help_mocha>());
+		reg(std::make_unique<help_perspective>());
 		reg(std::make_unique<help_video>());
 		reg(std::make_unique<help_website>());
 	}

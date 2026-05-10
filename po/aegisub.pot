@@ -1679,6 +1679,30 @@ msgstr ""
 msgid "Visit Aegisub's official website"
 msgstr ""
 
+#: ../src/command/help.cpp:80
+msgid "&Mocha Tracking Manual..."
+msgstr ""
+
+#: ../src/command/help.cpp:81
+msgid "Mocha Tracking Manual"
+msgstr ""
+
+#: ../src/command/help.cpp:82
+msgid "Open the mocha tracking manual page on GitHub Wiki"
+msgstr ""
+
+#: ../src/command/help.cpp:92
+msgid "&Perspective Tracking Manual..."
+msgstr ""
+
+#: ../src/command/help.cpp:93
+msgid "Perspective Tracking Manual"
+msgstr ""
+
+#: ../src/command/help.cpp:94
+msgid "Open the perspective tracking manual page on GitHub Wiki"
+msgstr ""
+
 #: ../src/command/keyframe.cpp:50 ../src/command/keyframe.cpp:51
 msgid "Close Keyframes"
 msgstr ""
