@@ -84,6 +84,9 @@ wxIMPLEMENT_APP(AegisubApp);
 
 static const char *LastStartupState = nullptr;
 
+/// 全局日志 JsonEmitter 指针，用于日志文件轮转时释放旧文件句柄
+static agi::log::JsonEmitter *json_log_emitter = nullptr;
+
 #ifdef WITH_STARTUPLOG
 #define StartupLog(a) MessageBox(0, L ## a, L"Aegisub startup log", 0)
 #else
@@ -126,6 +129,22 @@ wxDEFINE_EVENT(EVT_CALL_THUNK, ValueEvent<agi::dispatch::Thunk>);
 
 /// Message displayed when an exception has occurred.
 static wxString exception_message = "Oops, Aegisub has crashed!\n\nAn attempt has been made to save a copy of your file to:\n\n%s\n\nAegisub will now close.";
+
+void CloseLogEmitter() {
+	if (json_log_emitter) {
+		agi::log::log->Unsubscribe(json_log_emitter);
+		json_log_emitter = nullptr;
+	}
+}
+
+void RotateLogEmitter() {
+	CloseLogEmitter();
+	auto path_log = config::path->Decode("?user/log/");
+	agi::fs::CreateDirectory(path_log);
+	auto emitter = std::make_unique<agi::log::JsonEmitter>(path_log);
+	json_log_emitter = emitter.get();
+	agi::log::log->Subscribe(std::move(emitter));
+}
 
 /// @brief Gets called when application starts.
 /// @return bool
@@ -187,8 +206,11 @@ bool AegisubApp::OnInit() {
 	StartupLog("Create log writer");
 	auto path_log = config::path->Decode("?user/log/");
 	agi::fs::CreateDirectory(path_log);
-	agi::log::log->Subscribe(std::make_unique<agi::log::JsonEmitter>(path_log));
+	auto emitter = std::make_unique<agi::log::JsonEmitter>(path_log);
+	json_log_emitter = emitter.get();
+	agi::log::log->Subscribe(std::move(emitter));
 	CleanCache(path_log, "*.json", 10, 100);
+	CleanCache(path_log, "*.log", 10, 100);
 
 	StartupLog("Load user configuration");
 	try {

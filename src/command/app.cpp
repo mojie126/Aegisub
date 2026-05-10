@@ -345,10 +345,15 @@ struct app_clear_log final : public Command {
 		if (wxMessageBox(_("Clear all log files?"), _("Confirm"), wxYES_NO | wxICON_QUESTION, c->parent) != wxYES)
 			return;
 
+		// 关闭当前日志 emitter 以释放文件句柄
+		CloseLogEmitter();
+
 		int count = 0;
 		auto dir = config::path->Decode("?user/log/");
-		if (agi::fs::DirectoryExists(dir)) {
-			for (auto const& file : agi::fs::DirectoryIterator(dir, "*.json")) {
+
+		auto countAndRemove = [&](std::string const& pattern) {
+			if (!agi::fs::DirectoryExists(dir)) return;
+			for (auto const& file : agi::fs::DirectoryIterator(dir, pattern)) {
 				try {
 					agi::fs::Remove(dir / file);
 					++count;
@@ -357,7 +362,13 @@ struct app_clear_log final : public Command {
 					LOG_W("app/clear_log") << "Failed to delete " << (dir / file) << ": " << e.GetMessage();
 				}
 			}
-		}
+		};
+
+		countAndRemove("*.json");
+		countAndRemove("*.log");
+
+		// 重新创建日志 emitter
+		RotateLogEmitter();
 
 		wxMessageBox(wxString::Format(_("Deleted %d log files."), count), _("Clear Log Files"), wxOK | wxICON_INFORMATION, c->parent);
 	}

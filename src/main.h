@@ -42,6 +42,11 @@ namespace agi {
 	struct Context;
 }
 
+/// 关闭当前日志 JsonEmitter，释放文件句柄，使日志文件可被删除
+void CloseLogEmitter();
+/// 创建新的日志 JsonEmitter 并订阅到日志系统
+void RotateLogEmitter();
+
 class AegisubApp : public wxApp {
 	friend class FrameMain;
 
