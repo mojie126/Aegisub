@@ -17,6 +17,7 @@
 #include <cstdio>
 #include <mutex>
 #include <algorithm>
+#include <cmath>
 
 namespace mocha {
 // ============================================================================
@@ -89,6 +90,22 @@ namespace mocha {
 			}
 			return result;
 		}
+
+			/// @brief 检查 override 文本中指定标签的出现次数
+			int CountTagOccurrences(const TagRegistry &registry,
+			                        const std::string &ovr_text,
+			                        const std::string &tag_name) {
+				const TagDef *td = registry.get(tag_name);
+				if (!td) return 0;
+				int count = 0;
+				std::string search_str = ovr_text;
+				std::smatch m;
+				while (std::regex_search(search_str, m, td->compiled_pattern)) {
+					++count;
+					search_str = m.suffix().str();
+				}
+				return count;
+			}
 
 		/// @brief 通过 TagRegistry 从 override 文本中提取 double 标签值
 		double GetTagDouble(const TagRegistry &registry,
@@ -274,8 +291,31 @@ namespace mocha {
 			double font_size = get_val("fontSize", style.fontsize);
 
 			// 宽高计算
+			// 优先检查是否为绘图，通过 TagRegistry 获取 scale
+			int p_scale = 0;
+			{
+				const TagDef *draw_td = registry.get("drawing");
+				if (draw_td) {
+					std::string p_val = tag_utils::find_tag_value(block_content, draw_td->pattern);
+					if (!p_val.empty()) {
+						try { p_scale = std::stoi(p_val); } catch (...) {}
+					}
+				}
+			}
+
+			std::string draw_text;
+			if (p_scale >= 1) {
+				size_t ppos = block_content.find("\\p" + std::to_string(p_scale));
+				if (ppos != std::string::npos)
+					draw_text = block_content.substr(ppos);
+				draw_text += visible_text;
+			}
+
 			bool extents_ok = false;
-			if (style_lookup && font_size > 0 && !visible_text.empty()) {
+			if (p_scale >= 1 && !draw_text.empty()) {
+				extents_ok = CalculateDrawingExtents(draw_text, p_scale, width, height);
+			}
+			if (!extents_ok && style_lookup && font_size > 0 && !visible_text.empty()) {
 				auto *s = style_lookup(style_name);
 				if (s) {
 					AssStyle temp_style = *s;
@@ -301,8 +341,8 @@ namespace mocha {
 					} else if ((c & 0xF8) == 0xF0) {
 						cp = c & 0x07; len = 4;
 					}
-					for (int i = 1; i < len && (it + i) != visible_text.end(); ++i)
-						cp = (cp << 6) | (static_cast<unsigned char>(*(it + i)) & 0x3F);
+					for (int k = 1; k < len && (it + k) != visible_text.end(); ++k)
+						cp = (cp << 6) | (static_cast<unsigned char>(*(it + k)) & 0x3F);
 					if (cp > 0) {
 						++char_count;
 						if ((cp >= 0x4E00 && cp <= 0x9FFF) || (cp >= 0x3000 && cp <= 0x303F) ||
@@ -320,6 +360,21 @@ namespace mocha {
 
 			width /= (tags.scale_x / 100.0);
 			height /= (tags.scale_y / 100.0);
+
+			// 标签验证警告
+			{
+				const char* relevant[] = {"pos", "org", "xscale", "yscale", "zrot",
+					"xrot", "yrot", "xshear", "yshear", "border", "xborder", "yborder",
+					"shadow", "xshadow", "yshadow", "fontSize"};
+				for (const auto* tn : relevant) {
+					if (CountTagOccurrences(registry, block_content, tn) >= 2)
+						LOG_D("perspective_motion") << "Multiple " << tn << " tags in block";
+				}
+				if (HasTag(registry, block_content, "move"))
+					LOG_D("perspective_motion") << "\\move tag present in block";
+				if (width <= 0.01 || height <= 0.01)
+					LOG_D("perspective_motion") << "Zero or near-zero text/drawing size";
+			}
 
 			return tags;
 		}
@@ -397,6 +452,37 @@ namespace mocha {
 			return stripped;
 		}
 	} // anonymous namespace
+
+/// @brief 解析 ASS 绘图指令的坐标范围以计算尺寸
+/// 对应 MoonScript DrawingBase:getExtremePoints()
+bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
+                             double &width, double &height) {
+	std::vector<double> values;
+	std::regex num_re(R"([-+]?[0-9]*\.?[0-9]+)");
+	auto begin = std::sregex_iterator(draw_text.begin(), draw_text.end(), num_re);
+	auto end = std::sregex_iterator();
+	for (auto it = begin; it != end; ++it) {
+		try { values.push_back(std::stod((*it)[0].str())); } catch (...) {}
+	}
+	if (values.size() < 4) return false;
+
+	double min_x = values[0], max_x = values[0];
+	double min_y = values[1], max_y = values[1];
+	for (size_t j = 0; j + 1 < values.size(); j += 2) {
+		double x = values[j], y = values[j + 1];
+		if (x < min_x) min_x = x;
+		if (x > max_x) max_x = x;
+		if (y < min_y) min_y = y;
+		if (y > max_y) max_y = y;
+	}
+
+	double raw_w = std::max(0.01, max_x - min_x);
+	double raw_h = std::max(0.01, max_y - min_y);
+	double scale_div = std::pow(2.0, std::max(0, p_scale - 1));
+	width = raw_w / scale_div;
+	height = raw_h / scale_div;
+	return true;
+}
 
 // ============================================================================
 // 从行文本中提取标签值

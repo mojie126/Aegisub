@@ -119,4 +119,9 @@ namespace mocha {
 		MsFromFrame ms_from_frame_;
 		std::function<const AssStyle*(const std::string &)> style_lookup_;
 	};
+
+	/// @brief 解析 ASS 绘图指令的坐标范围以计算尺寸
+	/// 对应 MoonScript DrawingBase:getExtremePoints()
+	bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
+								 double &width, double &height);
 } // namespace mocha
