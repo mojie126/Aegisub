@@ -70,7 +70,7 @@ long sFrame;
 long eFrame;
 bool onOK = false;
 long onGifQuality;
-int onGifScaleFactor = 1; ///< GIF导出分辨率缩放比例（1/2/4/6/8/10）
+int onGifScaleFactor = 1; ///< GIF导出分辨率缩放比例（1-10整数）
 
 /// 裁剪区域坐标（视频实际像素坐标）
 int cropX = 0;
@@ -695,8 +695,8 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		wxTextCtrl *editEndFrame; ///< 结束帧编辑控件
 		long gifQuality;
 		wxSpinCtrl *editGifQuality;
-		int gifScaleFactor; ///< 分辨率缩放比例（1/2/4/6/8/10）
-		wxChoice *choiceScaleFactor; ///< 分辨率缩放比例下拉框
+		int gifScaleFactor; ///< 分辨率缩放比例（1-10整数）
+		wxTextCtrl *editScaleFactor; ///< 分辨率缩放比例输入框
 		CropSelectionPanel *cropPanel; ///< 裁剪区域选择面板
 		wxToggleButton *playBtn; ///< 循环播放控制按钮
 
@@ -712,7 +712,7 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 
 		void OnEditGifQuality(wxCommandEvent &event);
 
-		void OnChoiceScaleFactor(wxCommandEvent &event);
+		void OnEditScaleFactor(wxCommandEvent &event);
 
 		/// Dialog initializer to set default focus and selection
 		void OnInitDialog(wxInitDialogEvent &);
@@ -789,24 +789,13 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 			new wxStaticText(&d, -1, _("Resolution Scale:")),
 			0, wxALIGN_CENTER_VERTICAL
 		);
-		wxArrayString scaleChoices;
-		scaleChoices.Add("1:1");
-		scaleChoices.Add("1:2");
-		scaleChoices.Add("1:4");
-		scaleChoices.Add("1:6");
-		scaleChoices.Add("1:8");
-		scaleChoices.Add("1:10");
-		choiceScaleFactor = new wxChoice(&d, -1, wxDefaultPosition, wxSize(-1, -1), scaleChoices);
-		{
-			static constexpr int kScaleFactors[] = {1, 2, 4, 6, 8, 10};
-			int idx = 2;
-			for (int i = 0; i < static_cast<int>(std::size(kScaleFactors)); ++i) {
-				if (kScaleFactors[i] == gifScaleFactor) { idx = i; break; }
-			}
-			choiceScaleFactor->SetSelection(idx);
-		}
-		choiceScaleFactor->SetToolTip(_("Scale down output resolution. 1:2 = half width and height, producing smaller files"));
-		range_grid->Add(choiceScaleFactor, 1, wxEXPAND);
+		editScaleFactor = new wxTextCtrl(
+			&d, -1, std::to_string(gifScaleFactor), wxDefaultPosition, wxSize(-1, -1),
+			wxTE_PROCESS_ENTER, IntValidator(static_cast<int>(gifScaleFactor))
+		);
+		editScaleFactor->SetMaxLength(2);
+		editScaleFactor->SetToolTip(_("Scale down output resolution. Input 1-10, e.g. 4 = 1/4 width and height"));
+		range_grid->Add(editScaleFactor, 1, wxEXPAND);
 
 		range_sizer->Add(range_grid, 0, wxEXPAND | wxALL, inner_pad);
 
@@ -860,7 +849,7 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		editStartFrame->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditStartFrame, this);
 		editEndFrame->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditEndFrame, this);
 		editGifQuality->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditGifQuality, this);
-		choiceScaleFactor->Bind(wxEVT_CHOICE, &DialogJumpFrameTo::OnChoiceScaleFactor, this);
+		editScaleFactor->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditScaleFactor, this);
 		playBtn->Bind(
 			wxEVT_TOGGLEBUTTON, [this](wxCommandEvent &) {
 				// 切换播放前同步帧范围
@@ -891,6 +880,12 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		d.EndModal(0);
 		onOK = true;
 		onGifQuality = gifQuality = editGifQuality->GetValue();
+		// 从输入框最终读取分辨率缩放比例，确保值在有效范围内
+		{
+			long val = 0;
+			if (editScaleFactor->GetValue().ToLong(&val) && val >= 1 && val <= 10)
+				gifScaleFactor = static_cast<int>(val);
+		}
 		onGifScaleFactor = gifScaleFactor;
 
 		OPT_SET("Tool/GIF Export/Quality")->SetInt(gifQuality);
@@ -933,12 +928,10 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		onGifQuality = gifQuality = editGifQuality->GetValue();
 	}
 
-	void DialogJumpFrameTo::OnChoiceScaleFactor(wxCommandEvent &event) {
-		/// 分辨率缩放比例映射表：索引 0~5 对应 1/2/4/6/8/10
-		static constexpr int kScaleFactors[] = {1, 2, 4, 6, 8, 10};
-		int sel = choiceScaleFactor->GetSelection();
-		if (sel >= 0 && sel < static_cast<int>(std::size(kScaleFactors)))
-			gifScaleFactor = kScaleFactors[sel];
+	void DialogJumpFrameTo::OnEditScaleFactor(wxCommandEvent &event) {
+		long val = 0;
+		if (editScaleFactor->GetValue().ToLong(&val) && val >= 1 && val <= 10)
+			gifScaleFactor = static_cast<int>(val);
 	}
 
 	/// 帧序列导出对话框（仅帧范围，不含裁剪和GIF质量）

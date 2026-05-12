@@ -3776,7 +3776,7 @@ msgid "Resolution Scale:"
 msgstr ""
 
 #: ../src/dialog_jumpto.cpp
-msgid "Scale down output resolution. 1:2 = half width and height, producing smaller files"
+msgid "Scale down output resolution. Input 1-10, e.g. 4 = 1/4 width and height"
 msgstr ""
 
 #: ../src/dialog_jumpto.cpp:74

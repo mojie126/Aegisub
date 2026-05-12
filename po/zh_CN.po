@@ -7965,8 +7965,8 @@ msgstr "GIF动画质量（1-100），值越高质量越好但文件越大"
 msgid "Resolution Scale:"
 msgstr "分辨率缩放："
 
-msgid "Scale down output resolution. 1:2 = half width and height, producing smaller files"
-msgstr "缩小输出分辨率。如1:2表示宽高各减半，文件更小"
+msgid "Scale down output resolution. Input 1-10, e.g. 4 = 1/4 width and height"
+msgstr "缩放输出分辨率，输入1 ~ 10，如 4 表示宽高各缩放至 1/4"
 
 #~ msgid "Frame Rate:"
 #~ msgstr "帧率："
