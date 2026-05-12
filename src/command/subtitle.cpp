@@ -601,76 +601,61 @@ namespace {
 			}
 			if (!has_any_results) return;
 
-			// 阶段 2：确定插入位置
-			// selected_lines 已反转（最晚行在前），front=最晚行, back=最早行
-			// 预览模式：在最晚行之后插入（保留所有注释后的原始行在前）
-			// 正式模式：在最早行位置插入（替换所有原始行）
-			AssDialogue *anchor_line = result.options.preview
-				? selected_lines.front()
-				: selected_lines.back();
+			// 阶段 2-4：逐行处理插入（各自在对应行位置插入逐帧行）
+			// selected_lines 已反转（最晚行在前），grouped_results 对应相同顺序
+			// 从前往后遍历即为从事件列表底部到顶部，删除/插入不影响上方索引
+			//
+			// 注意：必须使用 new 分配堆对象。Events 是 boost::intrusive::list（auto_unlink），
+			// 栈对象离开作用域析构时自动解除链表链接，导致插入失效。
+			for (int gi = 0; gi < static_cast<int>(selected_lines.size()); ++gi) {
+				AssDialogue *line = selected_lines[gi];
+				auto &results = grouped_results[gi];
 
-			int insert_index = -1;
-			int idx = 0;
-			for (const auto &event : c->ass->Events) {
-				if (&event == anchor_line) {
-					insert_index = idx + 1;
-					break;
-				}
-				++idx;
-			}
-			if (insert_index == -1)
-				insert_index = static_cast<int>(c->ass->Events.size());
-
-			// 阶段 3：反向删除/注释原始行
-			// selected_lines 已反转（最晚行在前），直接遍历即为反向删除
-			for (AssDialogue *line : selected_lines) {
-				if (result.options.preview) {
-					line->Comment = true;
-				} else {
-					int idx1 = 0;
-					for (auto it = c->ass->Events.begin(); it != c->ass->Events.end(); ++it, ++idx1) {
-						if (&*it == line) {
-							if (idx1 < insert_index)
-								--insert_index;
-							c->ass->Events.erase(it);
-							break;
-						}
-					}
-				}
-			}
-
-			// 阶段 4：将索引转换为迭代器，在指定位置插入结果
-			auto insert_pos = c->ass->Events.end();
-			if (insert_index <= static_cast<int>(c->ass->Events.size())) {
-				int idx2 = 0;
-				for (auto it = c->ass->Events.begin(); it != c->ass->Events.end(); ++it, ++idx2) {
-					if (idx2 == insert_index) {
-						insert_pos = it;
+				auto it = c->ass->Events.end();
+				for (auto e = c->ass->Events.begin(); e != c->ass->Events.end(); ++e) {
+					if (&*e == line) {
+						it = e;
 						break;
 					}
 				}
-			}
+				if (it == c->ass->Events.end()) continue;
 
-			// 按原始行顺序逐组插入结果
-			// grouped_results 与 selected_lines 对应，为反序（最晚行在前）
-			// 反向遍历使得插入顺序与原始行顺序一致
-			for (int gi = static_cast<int>(grouped_results.size()) - 1; gi >= 0; --gi) {
-				if (grouped_results[gi].empty()) continue;
-
-				for (auto &pl : grouped_results[gi]) {
-					auto *diag = new AssDialogue;
-					diag->Text = pl.text;
-					diag->Style = pl.style;
-					diag->Actor = pl.actor;
-					diag->Effect = pl.effect;
-					diag->Comment = pl.comment;
-					diag->Layer = pl.layer;
-					diag->Start = pl.start_time;
-					diag->End = pl.end_time;
-					diag->Margin[0] = pl.margin_l;
-					diag->Margin[1] = pl.margin_r;
-					diag->Margin[2] = pl.margin_t;
-					c->ass->Events.insert(insert_pos, *diag);
+				if (result.options.preview) {
+					line->Comment = true;
+					auto insert_before = std::next(it);
+					for (auto &pl : results) {
+						auto *diag = new AssDialogue;
+						diag->Text = pl.text;
+						diag->Style = pl.style;
+						diag->Actor = pl.actor;
+						diag->Effect = pl.effect;
+						diag->Comment = pl.comment;
+						diag->Layer = pl.layer;
+						diag->Start = pl.start_time;
+						diag->End = pl.end_time;
+						diag->Margin[0] = pl.margin_l;
+						diag->Margin[1] = pl.margin_r;
+						diag->Margin[2] = pl.margin_t;
+						c->ass->Events.insert(insert_before, *diag);
+					}
+				} else {
+					auto insert_before = std::next(it);
+					c->ass->Events.erase(it);
+					for (auto &pl : results) {
+						auto *diag = new AssDialogue;
+						diag->Text = pl.text;
+						diag->Style = pl.style;
+						diag->Actor = pl.actor;
+						diag->Effect = pl.effect;
+						diag->Comment = pl.comment;
+						diag->Layer = pl.layer;
+						diag->Start = pl.start_time;
+						diag->End = pl.end_time;
+						diag->Margin[0] = pl.margin_l;
+						diag->Margin[1] = pl.margin_r;
+						diag->Margin[2] = pl.margin_t;
+						c->ass->Events.insert(insert_before, *diag);
+					}
 				}
 			}
 
