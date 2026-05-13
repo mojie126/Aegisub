@@ -341,7 +341,7 @@ bool AegisubApp::OnInit() {
 			for (size_t i = 1; i < args.size(); ++i) {
 				agi::fs::path p(from_wx(args[i]));
 				if (p.is_relative())
-					p = agi::fs::path(std::filesystem::absolute(p).string());
+					p = agi::fs::path(std::filesystem::absolute(p));
 				abs_args.push_back(to_wx(p.string()));
 			}
 		}
