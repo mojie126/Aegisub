@@ -11,6 +11,7 @@ Author: Terry Caton
 #include <algorithm>
 #include <boost/interprocess/streams/bufferstream.hpp>
 #include <cassert>
+#include <cstdint>
 
 /*
 
@@ -217,9 +218,59 @@ void Reader::MatchString(std::string& string, InputStream& inputStream) {
 				case 'n':  string.push_back('\n'); break;
 				case 'r':  string.push_back('\r'); break;
 				case 't':  string.push_back('\t'); break;
-				case 'u':  // TODO: what do we do with this?
-				default:
-					throw ScanException(std::string("Unrecognized escape sequence found in string: \\") + c, inputStream.GetLocation());
+			case 'u': {
+				// 解析 \uXXXX 为 Unicode 码点并编码为 UTF-8
+				auto read_hex4 = [&]() -> uint16_t {
+					uint16_t cp = 0;
+					for (int i = 0; i < 4; ++i) {
+						if (inputStream.EOS())
+							throw ScanException("Unexpected end of input while parsing \\uXXXX escape sequence", inputStream.GetLocation());
+						char h = inputStream.Get();
+						cp <<= 4;
+						if (h >= '0' && h <= '9')       cp |= (h - '0');
+						else if (h >= 'a' && h <= 'f')  cp |= (h - 'a' + 10);
+						else if (h >= 'A' && h <= 'F')  cp |= (h - 'A' + 10);
+						else throw ScanException(std::string("Invalid hex digit in \\uXXXX escape sequence: ") + h, inputStream.GetLocation());
+					}
+					return cp;
+				};
+
+				auto append_utf8 = [&](uint32_t cp) {
+					if (cp < 0x80) {
+						string.push_back(static_cast<char>(cp));
+					} else if (cp < 0x800) {
+						string.push_back(static_cast<char>(0xC0 | (cp >> 6)));
+						string.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+					} else if (cp < 0x10000) {
+						string.push_back(static_cast<char>(0xE0 | (cp >> 12)));
+						string.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+						string.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+					} else if (cp < 0x110000) {
+						string.push_back(static_cast<char>(0xF0 | (cp >> 18)));
+						string.push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
+						string.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+						string.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+					}
+				};
+
+				uint16_t cp = read_hex4();
+				// 处理代理对
+				if (cp >= 0xD800 && cp <= 0xDBFF) {
+					if (inputStream.EOS() || inputStream.Get() != '\\' || inputStream.EOS() || inputStream.Get() != 'u')
+						throw ScanException("Expected low surrogate \\uXXXX after high surrogate", inputStream.GetLocation());
+					uint16_t lo = read_hex4();
+					if (lo < 0xDC00 || lo > 0xDFFF)
+						throw ScanException("Invalid low surrogate in escape sequence", inputStream.GetLocation());
+					append_utf8(0x10000 + (uint32_t(cp - 0xD800) << 10) + (lo - 0xDC00));
+				} else if (cp >= 0xDC00 && cp <= 0xDFFF) {
+					throw ScanException("Lone low surrogate in \\u escape sequence", inputStream.GetLocation());
+				} else {
+					append_utf8(cp);
+				}
+				break;
+			}
+			default:
+				throw ScanException(std::string("Unrecognized escape sequence found in string: \\") + c, inputStream.GetLocation());
 			}
 		}
 		else {
