@@ -246,6 +246,66 @@ TEST(MochaTags, ConvertClipToFPNoScalePassthrough) {
 	EXPECT_EQ(result, clip);
 }
 
+TEST(MochaTags, ExtractMove6Param) {
+	std::optional<MoveData> move_data;
+	auto stripped = tag_utils::extract_move(
+		R"({\move(0,0,100,100,0,1000)})",
+		move_data
+	);
+
+	ASSERT_TRUE(move_data.has_value());
+	EXPECT_DOUBLE_EQ(move_data->x1, 0);
+	EXPECT_DOUBLE_EQ(move_data->y1, 0);
+	EXPECT_DOUBLE_EQ(move_data->x2, 100);
+	EXPECT_DOUBLE_EQ(move_data->y2, 100);
+	EXPECT_EQ(move_data->t1, 0);
+	EXPECT_EQ(move_data->t2, 1000);
+	EXPECT_EQ(stripped, "{}");
+}
+
+TEST(MochaTags, ExtractMove4Param) {
+	std::optional<MoveData> move_data;
+	auto stripped = tag_utils::extract_move(
+		R"({\move(50,60,200,300)})",
+		move_data
+	);
+
+	ASSERT_TRUE(move_data.has_value());
+	EXPECT_DOUBLE_EQ(move_data->x1, 50);
+	EXPECT_DOUBLE_EQ(move_data->y1, 60);
+	EXPECT_DOUBLE_EQ(move_data->x2, 200);
+	EXPECT_DOUBLE_EQ(move_data->y2, 300);
+	EXPECT_EQ(move_data->t1, -1);
+	EXPECT_EQ(move_data->t2, -1) << "4-param move should have t1=t2=-1";
+	EXPECT_EQ(stripped, "{}");
+}
+
+TEST(MochaTags, ExtractMove4ParamWithOtherTags) {
+	std::optional<MoveData> move_data;
+	auto stripped = tag_utils::extract_move(
+		R"({\an8\move(100,200,300,400)\frz45})",
+		move_data
+	);
+
+	ASSERT_TRUE(move_data.has_value());
+	EXPECT_DOUBLE_EQ(move_data->x1, 100);
+	EXPECT_DOUBLE_EQ(move_data->y1, 200);
+	EXPECT_DOUBLE_EQ(move_data->x2, 300);
+	EXPECT_DOUBLE_EQ(move_data->y2, 400);
+	EXPECT_EQ(stripped, R"({\an8\frz45})") << "other tags should be preserved";
+}
+
+TEST(MochaTags, ExtractMoveNoMatch) {
+	std::optional<MoveData> move_data;
+	auto stripped = tag_utils::extract_move(
+		R"({\pos(100,200)})",
+		move_data
+	);
+
+	EXPECT_FALSE(move_data.has_value());
+	EXPECT_EQ(stripped, R"({\pos(100,200)})") << "stripped should be unchanged";
+}
+
 TEST(MochaTags, ExtractFadeFullTag) {
 	std::optional<FadeData> fade_data;
 	std::optional<FullFadeData> full_fade_data;

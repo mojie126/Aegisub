@@ -401,19 +401,39 @@ namespace mocha {
 		}
 
 		std::string extract_move(const std::string &text, std::optional<MoveData> &move_data) {
-			const std::regex move_regex(
-				R"(\\move\(\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*\))"
-			);
-			std::smatch match;
 			std::string result = text;
 
-			if (std::regex_search(text, match, move_regex)) {
-				move_data = MoveData{
-					std::stod(match[1]), std::stod(match[2]),
-					std::stod(match[3]), std::stod(match[4]),
-					std::stoi(match[5]), std::stoi(match[6])
-				};
-				result = std::regex_replace(result, move_regex, "");
+			// 先尝试匹配 6 参数形式 \move(x1,y1,x2,y2,t1,t2)
+			{
+				static const std::regex move6_regex(
+					R"(\\move\(\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*\))"
+				);
+				std::smatch match;
+				if (std::regex_search(text, match, move6_regex)) {
+					move_data = MoveData{
+						std::stod(match[1]), std::stod(match[2]),
+						std::stod(match[3]), std::stod(match[4]),
+						std::stoi(match[5]), std::stoi(match[6])
+					};
+					result.erase(match.position(), match.length());
+					return result;
+				}
+			}
+
+			// 尝试匹配 4 参数形式 \move(x1,y1,x2,y2)
+			{
+				static const std::regex move4_regex(
+					R"(\\move\(\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*,\s*([-.0-9]+)\s*\))"
+				);
+				std::smatch match;
+				if (std::regex_search(text, match, move4_regex)) {
+					move_data = MoveData{
+						std::stod(match[1]), std::stod(match[2]),
+						std::stod(match[3]), std::stod(match[4]),
+						-1, -1
+					};
+					result.erase(match.position(), match.length());
+				}
 			}
 
 			return result;

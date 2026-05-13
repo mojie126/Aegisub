@@ -163,9 +163,9 @@ namespace mocha {
 		/// @return 移除 \t 标签后的文本
 		std::string extract_transforms(const std::string &text, std::vector<TransformData> &t_data_list);
 
-		/// 提取 \move 标签
+		/// 提取 \move 标签（支持 6 参数和 4 参数形式，4 参数返回 t1=t2=-1 哨兵值）
 		/// @param text 原始行文本
-		/// @param move_data 用于存储提取的 \move 数据
+		/// @param move_data 用于存储提取的 \move 数据（4 参数形式 t1=t2=-1，调用者需根据上下文填充默认值）
 		/// @return 移除 \move 后的文本
 		std::string extract_move(const std::string &text, std::optional<MoveData> &move_data);
 
