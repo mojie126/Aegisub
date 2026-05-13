@@ -76,7 +76,8 @@ struct ClipTrackOptions {
 };
 
 /// \move 标签数据
-/// 存储从 ASS 行解析出的 \move(x1,y1,x2,y2,t1,t2) 参数
+/// 支持 6 参数 \move(x1,y1,x2,y2,t1,t2) 和 4 参数 \move(x1,y1,x2,y2)
+/// 4 参数形式 t1=t2=-1（哨兵值），由调用者根据上下文填充默认时间
 /// 在 motion_line.cpp 中解析，在 motion_handler.cpp 中用于位置计算
 struct MoveData {
 	double x1 = 0, y1 = 0, x2 = 0, y2 = 0;
@@ -97,6 +98,18 @@ struct FullFadeData {
 	int a1 = 0, a2 = 0, a3 = 0;
 	int t1 = 0, t2 = 0, t3 = 0, t4 = 0;
 };
+
+/// 将 \fad 的淡入淡出时间 clamp 到行时长范围内
+/// \fad(fade_in, fade_out) 转完整 \fade 时，需确保 t2/t3 不重叠导致负数段
+/// @param line_duration 行总时长（毫秒）
+/// @param fade_in  \fad 的淡入时长
+/// @param fade_out \fad 的淡出时长
+/// @return (t2_clamped, t3_clamped) 防止 t2 > t3
+inline std::pair<int, int> ClampFadeTimes(int line_duration, int fade_in, int fade_out) {
+	int t2 = std::min(line_duration, fade_in);
+	int t3 = std::max(t2, line_duration - fade_out);
+	return {t2, t3};
+}
 
 /// \t 变换标签数据
 struct TransformData {
@@ -220,12 +233,18 @@ struct FadeSampler {
 	static double evaluate_fade(const FullFadeData &f, int td_shifted, int td_original) {
 		if (td_shifted < f.t1)
 			return static_cast<double>(f.a1);
-		if (td_shifted < f.t2)
-			return f.a1 + (f.a2 - f.a1) * static_cast<double>(td_shifted - f.t1) / (f.t2 - f.t1);
+		if (td_shifted < f.t2) {
+			double seg = static_cast<double>(td_shifted - f.t1);
+			double dur = static_cast<double>(f.t2 - f.t1);
+			return (dur > 0) ? f.a1 + (f.a2 - f.a1) * seg / dur : static_cast<double>(f.a2);
+		}
 		if (td_original < f.t3)
 			return static_cast<double>(f.a2);
-		if (td_original < f.t4)
-			return f.a2 + (f.a3 - f.a2) * static_cast<double>(td_original - f.t3) / (f.t4 - f.t3);
+		if (td_original < f.t4) {
+			double seg = static_cast<double>(td_original - f.t3);
+			double dur = static_cast<double>(f.t4 - f.t3);
+			return (dur > 0) ? f.a2 + (f.a3 - f.a2) * seg / dur : static_cast<double>(f.a3);
+		}
 		return static_cast<double>(f.a3);
 	}
 };

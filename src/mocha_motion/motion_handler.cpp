@@ -382,11 +382,12 @@ namespace mocha {
 						if (full_fade_data.has_value()) {
 							fade = full_fade_data;
 						} else if (fade_data.has_value()) {
+							auto [t2_clamped, t3_clamped] = ClampFadeTimes(line.duration, fade_data->fade_in, fade_data->fade_out);
 							fade = FullFadeData{
 								255, 0, 255,
 								0,
-								fade_data->fade_in,
-								line.duration - fade_data->fade_out,
+								t2_clamped,
+								t3_clamped,
 								line.duration
 							};
 						}
