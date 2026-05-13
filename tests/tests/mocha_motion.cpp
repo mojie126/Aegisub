@@ -1601,6 +1601,58 @@ TEST(MochaHandler, ApplyMotionTransformAlphaKillTransAtFrameZeroShouldNotShift) 
 }
 
 // ============================================================================
+// ClampFadeTimes 边界测试
+// ============================================================================
+
+TEST(ClampFadeTimes, NormalCase) {
+	auto [t2, t3] = ClampFadeTimes(1000, 200, 300);
+	EXPECT_EQ(t2, 200);
+	EXPECT_EQ(t3, 700);
+}
+
+TEST(ClampFadeTimes, FadeLongerThanLine) {
+	auto [t2, t3] = ClampFadeTimes(1000, 2000, 3000);
+	EXPECT_EQ(t2, 1000);
+	EXPECT_EQ(t3, 1000);
+}
+
+TEST(ClampFadeTimes, ZeroDuration) {
+	auto [t2, t3] = ClampFadeTimes(0, 200, 300);
+	EXPECT_EQ(t2, 0);
+	EXPECT_EQ(t3, 0);
+}
+
+TEST(ClampFadeTimes, NegativeDuration) {
+	auto [t2, t3] = ClampFadeTimes(-100, 200, 300);
+	EXPECT_EQ(t2, 0);
+	EXPECT_EQ(t3, 0);
+}
+
+TEST(ClampFadeTimes, NoFade) {
+	auto [t2, t3] = ClampFadeTimes(1000, 0, 0);
+	EXPECT_EQ(t2, 0);
+	EXPECT_EQ(t3, 1000);
+}
+
+TEST(ClampFadeTimes, FadeInOnly) {
+	auto [t2, t3] = ClampFadeTimes(1000, 300, 0);
+	EXPECT_EQ(t2, 300);
+	EXPECT_EQ(t3, 1000);
+}
+
+TEST(ClampFadeTimes, FadeOutOnly) {
+	auto [t2, t3] = ClampFadeTimes(1000, 0, 400);
+	EXPECT_EQ(t2, 0);
+	EXPECT_EQ(t3, 600);
+}
+
+TEST(ClampFadeTimes, FullOverlap) {
+	auto [t2, t3] = ClampFadeTimes(1000, 600, 600);
+	EXPECT_EQ(t2, 600);
+	EXPECT_EQ(t3, 600); // t2==t3, no visible segment
+}
+
+// ============================================================================
 // FadeSampler 单元测试
 // ============================================================================
 

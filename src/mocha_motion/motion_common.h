@@ -106,6 +106,7 @@ struct FullFadeData {
 /// @param fade_out \fad 的淡出时长
 /// @return (t2_clamped, t3_clamped) 防止 t2 > t3
 inline std::pair<int, int> ClampFadeTimes(int line_duration, int fade_in, int fade_out) {
+	if (line_duration <= 0) return {0, 0};
 	int t2 = std::min(line_duration, fade_in);
 	int t3 = std::max(t2, line_duration - fade_out);
 	return {t2, t3};
