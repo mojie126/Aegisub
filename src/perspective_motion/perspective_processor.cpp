@@ -380,6 +380,9 @@ namespace mocha {
 		}
 
 		/// @brief 保护 \t(...) 块，用占位符替换
+		/// 注意：此正则仅支持最多一层嵌套括号（如 \t(0,500,\move(...))），
+		/// 不支持 \t 嵌套 \t。但此限制非问题，因为 \t(...) 的插值求值已由
+		/// detokenize_transforms_copy 在调用此函数之前处理完毕，此处仅为安全网。
 		std::string protect_t_blocks(const std::string &content,
 									std::vector<std::string> &saved_blocks) {
 			static const std::regex t_regex(R"(\\t\([^()]*(?:\([^()]*\)[^()]*)*\))");
