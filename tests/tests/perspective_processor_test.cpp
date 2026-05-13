@@ -383,6 +383,153 @@ TEST(PerspectiveProcessorTest, ApplyTagsToLineHandlesBlockWithoutPerspTags) {
 }
 
 // ============================================================================
+// ApplyTagsToLine: \t(...) 保护测试
+// ============================================================================
+
+TEST(PerspectiveProcessorTest, ApplyTagsToLinePreservesTransformEffect) {
+	PerspectiveOptions opts;
+	PerspectiveProcessor processor(opts, 1920, 1080);
+
+	MotionLine line;
+	line.text = "{\\frz90\\t(0,500,\\fscx120\\fscy200)}text";
+
+	PerspectiveTagVals tags;
+	tags.pos_x = 100; tags.pos_y = 200;
+	tags.org_x = 50; tags.org_y = 50;
+	tags.angle = 30;
+	tags.scale_x = 150;
+	tags.scale_y = 100;
+
+	processor.ApplyTagsToLine(line, {tags});
+
+	// 新透视标签应存在
+	EXPECT_NE(line.text.find("\\pos(100,200)"), std::string::npos);
+	EXPECT_NE(line.text.find("\\frz30"), std::string::npos);
+
+	// \t(...) 效果内容应完整保留（不被旧标签移除破坏）
+	EXPECT_NE(line.text.find("\\t("), std::string::npos);
+	EXPECT_NE(line.text.find("\\fscx120"), std::string::npos) << "\\t internal \\fscx was corrupted";
+	EXPECT_NE(line.text.find("\\fscy200"), std::string::npos) << "\\t internal \\fscy was corrupted";
+
+	// 文本应保留
+	EXPECT_NE(line.text.find("text"), std::string::npos);
+}
+
+TEST(PerspectiveProcessorTest, ApplyTagsToLinePreservesTransformWithMultipleBlocks) {
+	PerspectiveOptions opts;
+	PerspectiveProcessor processor(opts, 1920, 1080);
+
+	MotionLine line;
+	line.text = "{\\frz90\\t(0,500,\\fscx120)}hello {\\fscx200\\t(0,300,\\fscy150)}world";
+
+	PerspectiveTagVals tags_a;
+	tags_a.pos_x = 100; tags_a.pos_y = 200;
+	tags_a.org_x = 50; tags_a.org_y = 50;
+	tags_a.angle = 30;
+	tags_a.scale_x = 150;
+
+	PerspectiveTagVals tags_b;
+	tags_b.pos_x = 300; tags_b.pos_y = 400;
+	tags_b.org_x = 150; tags_b.org_y = 150;
+	tags_b.scale_x = 75;
+
+	processor.ApplyTagsToLine(line, {tags_a, tags_b});
+
+	// 每个块的 \t(...) 效果内容应完整保留
+	EXPECT_NE(line.text.find("\\t("), std::string::npos);
+
+	// 第一个块的 \t 内容应保留
+	auto pos1 = line.text.find("\\t(");
+	ASSERT_NE(pos1, std::string::npos);
+	// 旧透视标签被移除
+	EXPECT_EQ(line.text.find("\\frz90"), std::string::npos);
+
+	// 文本应保留
+	EXPECT_NE(line.text.find("hello"), std::string::npos);
+	EXPECT_NE(line.text.find("world"), std::string::npos);
+}
+
+// ============================================================================
+// ApplyTagsToLine: \t(...) 与 \fad 共存测试
+// ============================================================================
+
+TEST(PerspectiveProcessorTest, ApplyTagsToLineWithTransformAndFad) {
+	PerspectiveOptions opts;
+	PerspectiveProcessor processor(opts, 1920, 1080);
+
+	MotionLine line;
+	line.text = "{\\fad(100,200)\\frz45\\t(0,500,\\fscx150)}text";
+
+	PerspectiveTagVals tags;
+	tags.pos_x = 200; tags.pos_y = 300;
+	tags.org_x = 100; tags.org_y = 100;
+	tags.angle = 20;
+	tags.scale_x = 130;
+	tags.scale_y = 130;
+
+	processor.ApplyTagsToLine(line, {tags});
+
+	// \t 效果内容应保留
+	EXPECT_NE(line.text.find("\\t("), std::string::npos);
+	EXPECT_NE(line.text.find("\\fscx150"), std::string::npos) << "\\t internal tag was corrupted";
+
+	// \fad 应保留（不在 remove_tag_names 中，由 AdjustFadeInBlock 处理）
+	// AdjustFadeInBlock 是在 Apply 帧循环中调用的，ApplyTagsToLine 仅处理透视标签
+	// 所以在这里（单测直接调用 ApplyTagsToLine）时 \fad 应原样保留
+	EXPECT_NE(line.text.find("\\fad("), std::string::npos) << "\\fad was incorrectly removed";
+
+	// 新透视标签应存在
+	EXPECT_NE(line.text.find("\\pos(200,300)"), std::string::npos);
+	EXPECT_NE(line.text.find("\\frz20"), std::string::npos);
+}
+
+// ============================================================================
+// ApplyTagsToLine: \move 移除测试
+// ============================================================================
+
+TEST(PerspectiveProcessorTest, ApplyTagsToLineRemovesMove) {
+	PerspectiveOptions opts;
+	PerspectiveProcessor processor(opts, 1920, 1080);
+
+	MotionLine line;
+	line.text = "{\\move(0,0,100,100,0,1000)}text";
+
+	PerspectiveTagVals tags;
+	tags.pos_x = 50; tags.pos_y = 50;
+	tags.org_x = 25; tags.org_y = 25;
+
+	processor.ApplyTagsToLine(line, {tags});
+
+	// \move 应被移除
+	EXPECT_EQ(line.text.find("\\move("), std::string::npos) << "\\move was not removed";
+
+	// 新 \pos 应存在
+	EXPECT_NE(line.text.find("\\pos(50,50)"), std::string::npos);
+}
+
+TEST(PerspectiveProcessorTest, ApplyTagsToLineWithTransformInsideMoveNotCorrupted) {
+	PerspectiveOptions opts;
+	PerspectiveProcessor processor(opts, 1920, 1080);
+
+	MotionLine line;
+	line.text = "{\\move(0,0,100,100,0,1000)\\t(0,500,\\fscx120)}text";
+
+	PerspectiveTagVals tags;
+	tags.pos_x = 50; tags.pos_y = 50;
+	tags.org_x = 25; tags.org_y = 25;
+	tags.scale_x = 150;
+
+	processor.ApplyTagsToLine(line, {tags});
+
+	// \move 应被移除
+	EXPECT_EQ(line.text.find("\\move("), std::string::npos);
+
+	// \t 效果内容应保留
+	EXPECT_NE(line.text.find("\\t("), std::string::npos);
+	EXPECT_NE(line.text.find("\\fscx120"), std::string::npos) << "\\t internal tag was corrupted by \\move removal";
+}
+
+// ============================================================================
 // PerspectiveDataHandler 数据解析测试
 // ============================================================================
 
@@ -786,7 +933,7 @@ TEST(PerspectiveProcessorTest, ApplyAdjustsFade) {
 	line.y_position = 540;
 	line.start_time = 0;
 	line.end_time = 2000;
-	line.duration = 1000;
+	line.duration = 2000;
 	line.tokenize_transforms();
 
 	std::vector<Quad> quads;
@@ -803,11 +950,115 @@ TEST(PerspectiveProcessorTest, ApplyAdjustsFade) {
 	auto result = processor.Apply(lines, quads, 1920, 1080);
 
 	ASSERT_FALSE(result.empty());
-	// \fad 应被调整后的 \fade 替换
-	bool has_fade = result[0].text.find("\\fade(") != std::string::npos;
-	bool has_fad = result[0].text.find("\\fad(") != std::string::npos;
-	EXPECT_TRUE(has_fade || has_fad);
+	// \fad(100,200) → t1=0,t2=100,t3=1800,t4=2000
+	// 双时间基准：帧1(0-2000ms)中点 td_shifted=td_original=1000
+	// td_shifted=1000 >= t2=100 → fade-in 已结束
+	// td_original=1000 < t3=1800 → 处于完全可见段 → alpha=0 (无 alpha 标签)
+	EXPECT_EQ(result[0].text.find("\\alpha"), std::string::npos)
+		<< "Frame 1 midpoint should have no alpha (fade-in complete)";
+	// \fad/\fade 不应保留
+	EXPECT_EQ(result[0].text.find("\\fade("), std::string::npos)
+		<< "\\fade should not remain in output";
+	EXPECT_EQ(result[0].text.find("\\fad("), std::string::npos)
+		<< "\\fad should not remain in output";
 	EXPECT_NE(result[0].text.find("text"), std::string::npos);
+}
+
+// ============================================================================
+// Apply 管线：\fad(500,0) 多帧 alpha 递进测试
+// 验证逐帧 alpha 值是否与 MoonScript 参考行为一致（线性衰减）
+// ============================================================================
+
+TEST(PerspectiveProcessorTest, ApplyFad500ConvertsToProgressiveAlpha) {
+	PerspectiveOptions opts;
+	opts.relframe = 1;
+	opts.start_frame = 1;
+	opts.selection_start_frame = 0;
+	opts.apply_perspective = true;
+	opts.track_pos = true;
+	opts.track_clip = false;
+	opts.track_bord_shad = false;
+	opts.org_mode = 2;
+	opts.preview = false;
+
+	PerspectiveProcessor processor(opts, 1920, 1080);
+	processor.SetTimingFunctions(
+		[](int ms) { return ms / 100; },  // frame_from_ms: 每帧 100ms
+		[](int frame) { return frame * 100; } // ms_from_frame
+	);
+
+	// \fad(500,0) + 普通文本，线长 14400ms（144帧×100ms）
+	MotionLine line;
+	line.text = "{\\fad(500,0)\\pos(960,540)}text";
+	line.style = "Default";
+	line.x_position = 960;
+	line.y_position = 540;
+	line.start_time = 0;
+	line.end_time = 14400;
+	line.duration = 14400;
+	line.tokenize_transforms();
+
+	// 标准四边形（无透视变形）
+	std::vector<Quad> quads;
+	for (int i = 0; i < 144; ++i) {
+		Quad q;
+		q.push_back(Vector2D(0, 0));
+		q.push_back(Vector2D(1920, 0));
+		q.push_back(Vector2D(1920, 1080));
+		q.push_back(Vector2D(0, 1080));
+		quads.push_back(std::move(q));
+	}
+
+	std::vector<MotionLine> lines = {line};
+	auto result = processor.Apply(lines, quads, 1920, 1080);
+	ASSERT_EQ(result.size(), 144u);
+
+	// 所有帧都不应包含 \fad/\fade
+	for (auto &frame : result) {
+		EXPECT_EQ(frame.text.find("\\fad("), std::string::npos)
+			<< "\\fad should not remain in output";
+		EXPECT_EQ(frame.text.find("\\fade("), std::string::npos)
+			<< "\\fade should not remain in output";
+	}
+
+	// 解析每帧 alpha 值验证递减趋势
+	// \fad(500,0) → t1=0,t2=500,t3=14400,t4=14400
+	// 双时间基准：每帧中点采样，fade_origin=0 → td_shifted=td_original=帧中点
+	// 帧1(0-100ms): td_shifted=50 → alpha=255-255*50/500=229.5 → \alpha&HE6&
+	// td_shifted >= 500 → no alpha（完全透明）
+	{
+		auto &f0 = result[0];
+		EXPECT_NE(f0.text.find("\\alpha&HE6&"), std::string::npos)
+			<< "Frame 1 (0-100ms) midpoint alpha should be ~230";
+	}
+
+	// 验证 alpha 单调递减到消失
+	int prev_alpha = 256;
+	int fade_frames = 0;
+	std::regex alpha_re(R"(\\alpha&H([0-9A-Fa-f]{2})&)");
+	for (size_t i = 0; i < result.size(); ++i) {
+		auto &frame = result[i];
+		std::smatch m;
+		bool has_alpha = std::regex_search(frame.text, m, alpha_re);
+		if (!has_alpha) {
+			// 找到第一个无 alpha 的帧 → fade 已结束
+			// 之后所有帧都不应有 alpha
+			for (size_t j = i; j < result.size(); ++j) {
+				EXPECT_EQ(std::regex_search(result[j].text, m, alpha_re), false)
+					<< "Frame " << j << " after fade end should have no alpha";
+			}
+			break;
+		}
+		++fade_frames;
+		int alpha = std::stoi(m[1].str(), nullptr, 16);
+		EXPECT_LE(alpha, prev_alpha)
+			<< "Frame " << i << " alpha should be <= previous";
+		prev_alpha = alpha;
+	}
+
+	// 500ms fade-in at 100ms/frame ≈ 5 frames
+	EXPECT_GT(fade_frames, 3) << "Should have multiple fade frames";
+	EXPECT_LT(fade_frames, 7) << "Fade should complete within expected range";
 }
 
 // ============================================================================

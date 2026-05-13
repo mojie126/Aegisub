@@ -379,19 +379,62 @@ namespace mocha {
 			return tags;
 		}
 
-		/// @brief 对块内容中 \move 进行插值替换为 \pos
+		/// @brief 保护 \t(...) 块，用占位符替换
+		std::string protect_t_blocks(const std::string &content,
+									std::vector<std::string> &saved_blocks) {
+			static const std::regex t_regex(R"(\\t\([^()]*(?:\([^()]*\)[^()]*)*\))");
+			std::string result;
+			auto begin = std::sregex_iterator(content.begin(), content.end(), t_regex);
+			auto end = std::sregex_iterator();
+			size_t last = 0;
+			int idx = 0;
+			for (auto it = begin; it != end; ++it) {
+				result += content.substr(last, it->position() - last);
+				saved_blocks.push_back(it->str());
+				result += "\x01" + std::to_string(idx) + "\x01";
+				++idx;
+				last = it->position() + it->length();
+			}
+			result += content.substr(last);
+			return result;
+		}
+
+		/// @brief 恢复 \t(...) 块
+		std::string restore_t_blocks(const std::string &content,
+									const std::vector<std::string> &saved_blocks) {
+			std::string result = content;
+			for (int i = static_cast<int>(saved_blocks.size()) - 1; i >= 0; --i) {
+				std::string ph = "\x01" + std::to_string(i) + "\x01";
+				size_t pos = result.find(ph);
+				if (pos != std::string::npos)
+					result.replace(pos, ph.length(), saved_blocks[i]);
+			}
+			return result;
+		}
+
+		/// @brief 将块内容中的 \move 插值替换为 \pos
 		/// @param block_content 块内容
 		/// @param time_delta 当前帧相对行起始的时间偏移
+		/// @param line_duration 行总时长（用于 4 参数 \move 默认 t2 填充）
 		/// @return 调整后的块内容（\move 被替换为 \pos）
 		std::string InterpolateMoveInBlock(const std::string &block_content,
-											int time_delta) {
+											int time_delta, int line_duration) {
+			std::vector<std::string> saved_t;
+			std::string protected_content = protect_t_blocks(block_content, saved_t);
+
 			std::optional<MoveData> move_data;
-			std::string stripped = tag_utils::extract_move(block_content, move_data);
+			std::string stripped = tag_utils::extract_move(protected_content, move_data);
 
 			if (!move_data.has_value())
 				return block_content;
 
-			const auto &move = move_data.value();
+			auto move = move_data.value();
+			// 4 参数 \move(x1,y1,x2,y2)：默认 t1=0, t2=line_duration
+			if (move.t1 == -1 && move.t2 == -1) {
+				move.t1 = 0;
+				move.t2 = line_duration;
+			}
+
 			double progress = 0;
 			if (move.t2 != move.t1)
 				progress = static_cast<double>(time_delta - move.t1) / (move.t2 - move.t1);
@@ -402,30 +445,38 @@ namespace mocha {
 			char buf[64];
 			std::snprintf(buf, sizeof(buf), "\\pos(%g,%g)", px, py);
 
-			// 在块末尾插入 \pos（移除 \move 后的文本）
+			stripped = restore_t_blocks(stripped, saved_t);
 			return stripped + buf;
 		}
 
-		/// @brief 对块内容应用 \fade 时间参数平移
-		/// 将 \fad/\fade 的时间参数减去 time_delta，使淡入淡出对齐到当前帧
+		/// @brief 将 \fad/\fade 逐帧静态化为 \alpha&Hxx& 标签
+		/// 使用双时间基准：fade-in 段用 td_shifted（前移采样），fade-out 段用 td_original（中点采样）
 		/// @param block_content 块内容
 		/// @param line_duration 行总时长
-		/// @param time_delta 当前帧相对行起始的时间偏移
-		/// @return 调整后的块内容（淡入淡出标签被替换为平移后的版本）
+		/// @param td_shifted 前移采样偏移（用于 fade-in 段）
+		/// @param td_original 中点采样偏移（用于 fade-out 段）
+		/// @return 调整后的块内容（淡入淡出标签被替换为静态 \alpha&Hxx&）
 		std::string AdjustFadeInBlock(const std::string &block_content,
-									int line_duration, int time_delta) {
+									int line_duration, int td_shifted, int td_original) {
+			// 先保护 \t(...) 块，防止 extract_fade 错误匹配内部的 \fad/\fade
+			std::vector<std::string> saved_t;
+			std::string protected_content = protect_t_blocks(block_content, saved_t);
+
 			std::optional<FadeData> fade_data;
 			std::optional<FullFadeData> full_fade_data;
-			std::string stripped = tag_utils::extract_fade(block_content, fade_data, full_fade_data);
+			std::string stripped = tag_utils::extract_fade(protected_content, fade_data, full_fade_data);
 
 			if (!fade_data.has_value() && !full_fade_data.has_value())
 				return block_content;
 
+			// \fad(fade_in, fade_out) 转完整 \fade，clamp t2/t3 防重叠段负数
 			if (!full_fade_data.has_value() && fade_data.has_value()) {
+				auto [t2_clamped, t3_clamped] = ClampFadeTimes(line_duration, fade_data->fade_in, fade_data->fade_out);
 				full_fade_data = FullFadeData{
-					255, 0, 255, 0,
-					fade_data->fade_in,
-					line_duration - fade_data->fade_out,
+					255, 0, 255,
+					0,
+					t2_clamped,
+					t3_clamped,
 					line_duration
 				};
 			}
@@ -433,22 +484,47 @@ namespace mocha {
 			if (!full_fade_data.has_value())
 				return block_content;
 
-			FullFadeData adjusted = full_fade_data.value();
-			adjusted.t1 -= time_delta;
-			adjusted.t2 -= time_delta;
-			adjusted.t3 -= time_delta;
-			adjusted.t4 -= time_delta;
+			const FullFadeData &f = full_fade_data.value();
 
-			char buf[128];
-			std::snprintf(buf, sizeof(buf), "\\fade(%d,%d,%d,%d,%d,%d,%d)",
-						adjusted.a1, adjusted.a2, adjusted.a3,
-						adjusted.t1, adjusted.t2, adjusted.t3, adjusted.t4);
+			// 移除残留的 alpha 标签（t(...) 受占位符保护）
+			static const std::regex alpha_remove_re(R"(\\(?:alpha|1a|2a|3a|4a)&H[0-9A-Fa-f]{2}&)");
+			stripped = std::regex_replace(stripped, alpha_remove_re, "");
 
-			size_t close_brace = stripped.rfind('}');
-			if (close_brace != std::string::npos)
-				stripped.insert(close_brace, buf);
-			else
-				stripped += buf;
+			// 恢复 \t(...)
+			stripped = restore_t_blocks(stripped, saved_t);
+
+			// 双时间基准 alpha 求值（与 FadeSampler::evaluate_fade 一致）
+			double alpha = 0;
+			if (td_shifted < f.t1) {
+				alpha = static_cast<double>(f.a1);
+			} else if (td_shifted < f.t2) {
+				double seg = static_cast<double>(td_shifted - f.t1);
+				double dur = static_cast<double>(f.t2 - f.t1);
+				alpha = (dur > 0)
+					? f.a1 + (f.a2 - f.a1) * seg / dur
+					: static_cast<double>(f.a2);
+			} else if (td_original < f.t3) {
+				alpha = static_cast<double>(f.a2);
+			} else if (td_original < f.t4) {
+				double seg = static_cast<double>(td_original - f.t3);
+				double dur = static_cast<double>(f.t4 - f.t3);
+				alpha = (dur > 0)
+					? f.a2 + (f.a3 - f.a2) * seg / dur
+					: static_cast<double>(f.a3);
+			} else {
+				alpha = static_cast<double>(f.a3);
+			}
+
+			// alpha=0（完全不透明）时不输出标签
+			int alpha_int = static_cast<int>(std::round(alpha));
+			if (alpha_int <= 0)
+				return stripped;
+
+			alpha_int = std::min(255, alpha_int);
+			char buf[16];
+			std::snprintf(buf, sizeof(buf), "\\alpha&H%02X&", alpha_int);
+
+			stripped += buf;
 			return stripped;
 		}
 	} // anonymous namespace
@@ -563,6 +639,7 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 			"xshear", "yshear",
 			"xborder", "yborder",
 			"xshadow", "yshadow",
+			"move",
 		};
 
 		// 逐块处理：每个块移除旧透视标签，写入对应的新标签
@@ -571,12 +648,20 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 			std::string content = block.substr(1, block.size() - 2);
 			int tag_idx = block_idx - 1; // 转为 0-based
 
-			// 移除当前块内的旧透视标签
+			// 保护 \t(...) 内部标签不被旧标签移除误伤
+			std::vector<std::string> saved_t;
+			std::string protected_content = protect_t_blocks(content, saved_t);
+			// 在受保护的内容上移除旧透视标签
 			for (const auto &name : remove_tag_names) {
 				const TagDef *td = registry.get(name);
 				if (td)
-					content = tag_utils::remove_tag(content, td->pattern);
+					protected_content = tag_utils::remove_tag(protected_content, td->pattern);
 			}
+			// 安全网：移除 4 参数 \move(x1,y1,x2,y2)（TagDef 只匹配 6 参）
+			static const std::regex move4_rem(R"(\\move\(\s*[.\d\-]+\s*,\s*[.\d\-]+\s*,\s*[.\d\-]+\s*,\s*[.\d\-]+\s*\))");
+			protected_content = std::regex_replace(protected_content, move4_rem, "");
+			// 恢复 \t(...)
+			content = restore_t_blocks(protected_content, saved_t);
 
 			// 写入对应块的新标签（如果存在）
 			if (tag_idx >= 0 && tag_idx < static_cast<int>(block_tag_strings.size())
@@ -908,6 +993,13 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 			// ---------------------------------------------------------------
 			// 帧循环：逐帧逐块处理
 			// ---------------------------------------------------------------
+
+			// FadeSampler 用于双时间基准 fade 求值
+			FadeSampler fade_sampler;
+			if (ms_from_frame_) {
+				fade_sampler = FadeSampler::create(collection_start, rel_start, ms_from_frame_);
+			}
+
 			for (int frame_idx = rel_start; frame_idx <= rel_end; ++frame_idx) {
 				int raw_start_ms = ms_from_frame_ ? ms_from_frame_(collection_start + frame_idx - 1) : line.start_time;
 				int raw_end_ms = ms_from_frame_ ? ms_from_frame_(collection_start + frame_idx) : line.end_time;
@@ -916,6 +1008,15 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 
 				int time_delta = new_start - line.start_time;
 				int frame_duration = new_end - new_start;
+
+				// 双时间基准偏移（用于 fade 求值）
+				int fade_td_shifted = time_delta;
+				int fade_td_original = time_delta;
+				if (ms_from_frame_) {
+					fade_sampler.compute(new_start, new_end,
+						line.start_time, line.end_time,
+						fade_td_original, fade_td_shifted);
+				}
 
 				MotionLine frame_line = line;
 				frame_line.text = line.detokenize_transforms_copy(time_delta, frame_duration);
@@ -928,7 +1029,9 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 				// 将帧文本分割为逐块段
 				auto frame_segments = ExtractOverrideSegments(frame_line.text);
 
+				// 对每段进行动效调整（fade→alpha, move→pos）并收集透视标签
 				std::vector<PerspectiveTagVals> per_block_tags;
+				std::vector<std::string> adjusted_blocks;
 				size_t num_blocks = std::min(frame_segments.size(), ref_blocks.size());
 
 				for (size_t seg_i = 0; seg_i < num_blocks; ++seg_i) {
@@ -937,11 +1040,13 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 					std::string block_content = seg.first;
 					const std::string &visible_text = seg.second;
 
-					// \fade 时间参数平移
-					block_content = AdjustFadeInBlock(block_content, line.duration, time_delta);
-
+					// \fad/\fade 逐帧静态化为 \alpha
+					block_content = AdjustFadeInBlock(block_content, line.duration,
+														fade_td_shifted, fade_td_original);
 					// \move 插值替换为 \pos
-					block_content = InterpolateMoveInBlock(block_content, time_delta);
+					block_content = InterpolateMoveInBlock(block_content, time_delta, line.duration);
+
+					adjusted_blocks.push_back(block_content);
 
 					// 当前块的标签值和文本尺寸
 					double block_width, block_height;
@@ -989,13 +1094,31 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 					per_block_tags.push_back(block_tags);
 				}
 
-				// 对超出 ref_blocks 数量的多余段：写入空透视标签（不追踪）
+				// 对超出 ref_blocks 数量的多余段：同样应用动效调整
 				for (size_t seg_i = num_blocks; seg_i < frame_segments.size(); ++seg_i) {
 					const auto &seg = frame_segments[seg_i];
+					std::string block_content = seg.first;
+					block_content = AdjustFadeInBlock(block_content, line.duration,
+														fade_td_shifted, fade_td_original);
+					block_content = InterpolateMoveInBlock(block_content, time_delta, line.duration);
+					adjusted_blocks.push_back(block_content);
+
 					double bw, bh;
-					PerspectiveTagVals bt = ExtractBlockTags(seg.first, seg.second,
+					PerspectiveTagVals bt = ExtractBlockTags(block_content, seg.second,
 						style_lookup_, line.style, bw, bh);
 					per_block_tags.push_back(bt);
+				}
+
+				// 将动效调整后的块内容写回 frame_line.text
+				if (!adjusted_blocks.empty()) {
+					std::string rebuilt;
+					for (size_t i = 0; i < frame_segments.size(); ++i) {
+						rebuilt += "{"
+							+ (i < adjusted_blocks.size() ? adjusted_blocks[i] : frame_segments[i].first)
+							+ "}";
+						rebuilt += frame_segments[i].second;
+					}
+					frame_line.text = rebuilt;
 				}
 
 				if (options_.track_clip)
