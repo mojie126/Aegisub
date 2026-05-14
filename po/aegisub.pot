@@ -8331,6 +8331,18 @@ msgid "Current video: no black borders added."
 msgstr ""
 
 #: ../src/preferences.cpp
+msgid "Font Preview"
+msgstr ""
+
+#: ../src/preferences.cpp
+msgid "Font Preview Size"
+msgstr ""
+
+#: ../src/preferences.cpp
+msgid "Sets the font size used for rendering preview in font list"
+msgstr ""
+
+#: ../src/preferences.cpp
 msgid "Current video: top %d px, bottom %d px"
 msgstr ""
 

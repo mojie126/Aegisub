@@ -7508,6 +7508,16 @@ msgstr "收藏字体数量"
 msgid "Sets the maximum number of favorite fonts"
 msgstr "设置最大收藏字体的数量"
 
+msgid "Font Preview"
+msgstr "字体预览"
+
+msgid "Font Preview Size"
+msgstr "字体预览大小"
+
+msgid "Sets the font size used for rendering preview in font list"
+msgstr "设置字体列表中渲染预览时使用的字号"
+
+
 msgid "Apply Mocha-Motion"
 msgstr "应用摩卡追踪"
 
