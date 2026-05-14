@@ -1062,6 +1062,143 @@ TEST(PerspectiveProcessorTest, ApplyFad500ConvertsToProgressiveAlpha) {
 }
 
 // ============================================================================
+// Apply 管线：完整 \fade(7参) 逐帧 alpha 测试
+// 验证完整 \fade(a1,a2,a3,t1,t2,t3,t4) 通过管道后变为静态 \alpha 标签
+// ============================================================================
+
+TEST(PerspectiveProcessorTest, ApplyFadeFull7ParamConvertsToAlpha) {
+	PerspectiveOptions opts;
+	opts.relframe = 1;
+	opts.start_frame = 1;
+	opts.selection_start_frame = 0;
+	opts.apply_perspective = true;
+	opts.track_pos = true;
+	opts.track_clip = false;
+	opts.track_bord_shad = false;
+	opts.org_mode = 2;
+	opts.preview = false;
+
+	PerspectiveProcessor processor(opts, 1920, 1080);
+	processor.SetTimingFunctions(
+		[](int ms) { return ms / 100; },
+		[](int frame) { return frame * 100; }
+	);
+
+	// \fade(255,0,255,  0,500,13000,14400)
+	// 淡入(透明→不透明,0-500ms) → 完全可见(500-13000ms) → 淡出(不透明→透明,13000-14400ms)
+	MotionLine line;
+	line.text = "{\\fade(255,0,255,0,500,13000,14400)\\pos(960,540)}text";
+	line.style = "Default";
+	line.x_position = 960;
+	line.y_position = 540;
+	line.start_time = 0;
+	line.end_time = 14400;
+	line.duration = 14400;
+	line.tokenize_transforms();
+
+	std::vector<Quad> quads;
+	for (int i = 0; i < 144; ++i) {
+		Quad q;
+		q.push_back(Vector2D(0, 0));
+		q.push_back(Vector2D(1920, 0));
+		q.push_back(Vector2D(1920, 1080));
+		q.push_back(Vector2D(0, 1080));
+		quads.push_back(std::move(q));
+	}
+
+	std::vector<MotionLine> lines = {line};
+	auto result = processor.Apply(lines, quads, 1920, 1080);
+	ASSERT_EQ(result.size(), 144u);
+
+	// 所有帧都不应包含 \fad/\fade
+	for (auto &frame : result) {
+		EXPECT_EQ(frame.text.find("\\fad("), std::string::npos)
+			<< "\\fad should not remain in output";
+		EXPECT_EQ(frame.text.find("\\fade("), std::string::npos)
+			<< "\\fade should not remain in output";
+	}
+
+	// 帧1(0-100ms): td_shifted=50，淡入进行中 alpha=255-(255*50/500)=230 → \alpha&HE6&
+	{
+		auto &f0 = result[0];
+		EXPECT_NE(f0.text.find("\\alpha&HE6&"), std::string::npos)
+			<< "Frame 1 fade-in midpoint alpha should be ~230";
+	}
+
+	// 帧30(2900-3000ms): td_original=2950 < t3=13000 → 完全不透明 → 无alpha标签
+	{
+		auto &f29 = result[29];
+		EXPECT_EQ(f29.text.find("\\alpha&H"), std::string::npos)
+			<< "Frame 30 fully opaque (td_original < t3) should have no alpha";
+	}
+
+	// 帧140(13900-14000ms): td_original=13950 淡出进行中
+	// alpha=0+(255-0)*(13950-13000)/(14400-13000)=173 → \alpha&HAD&
+	{
+		auto &f139 = result[139];
+		EXPECT_NE(f139.text.find("\\alpha&HAD&"), std::string::npos)
+			<< "Frame 140 fade-out alpha should be ~173";
+	}
+}
+
+TEST(PerspectiveProcessorTest, ApplyFad500WithTransformPreservesTBlock) {
+	PerspectiveOptions opts;
+	opts.relframe = 1;
+	opts.start_frame = 1;
+	opts.selection_start_frame = 0;
+	opts.apply_perspective = true;
+	opts.track_pos = true;
+	opts.track_clip = false;
+	opts.track_bord_shad = false;
+	opts.org_mode = 2;
+	opts.preview = false;
+
+	PerspectiveProcessor processor(opts, 1920, 1080);
+	processor.SetTimingFunctions(
+		[](int ms) { return ms / 100; },
+		[](int frame) { return frame * 100; }
+	);
+
+	// \fad(500,0) + \t(0,14400,\fscx200) 共存
+	// AdjustFadeInBlock 需正确处理 \fad→\alpha 的同时保留 \t(...) 内容
+	MotionLine line;
+	line.text = "{\\fad(500,0)\\t(0,14400,\\fscx200)\\pos(960,540)}text";
+	line.style = "Default";
+	line.x_position = 960;
+	line.y_position = 540;
+	line.start_time = 0;
+	line.end_time = 14400;
+	line.duration = 14400;
+	line.tokenize_transforms();
+
+	std::vector<Quad> quads;
+	for (int i = 0; i < 10; ++i) {
+		Quad q;
+		q.push_back(Vector2D(0, 0));
+		q.push_back(Vector2D(1920, 0));
+		q.push_back(Vector2D(1920, 1080));
+		q.push_back(Vector2D(0, 1080));
+		quads.push_back(std::move(q));
+	}
+
+	std::vector<MotionLine> lines = {line};
+	auto result = processor.Apply(lines, quads, 1920, 1080);
+	ASSERT_EQ(result.size(), 10u);
+
+	// \fad/\fade 不应保留
+	for (auto &frame : result) {
+		EXPECT_EQ(frame.text.find("\\fad("), std::string::npos);
+		EXPECT_EQ(frame.text.find("\\fade("), std::string::npos);
+	}
+
+	// \t(...) 效果应完整保留（不被 alpha_remove_re 或 extract_fade 误伤）
+	EXPECT_NE(result[0].text.find("\\t("), std::string::npos)
+		<< "\\t block was corrupted by fade processing";
+	EXPECT_NE(result[0].text.find("\\fscx200"), std::string::npos)
+		<< "\\t internal \\fscx200 was corrupted by fade processing";
+}
+
+// ============================================================================
 // CalculateDrawingExtents: 绘图尺寸计算测试
 // ============================================================================
 
