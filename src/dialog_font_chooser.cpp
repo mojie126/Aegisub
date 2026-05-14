@@ -679,12 +679,23 @@ FontPreviewListBox::FontPreviewListBox(wxWindow *parent, wxWindowID id,
 	SetBackgroundStyle(wxBG_STYLE_PAINT);
 	SetDoubleBuffered(true);
 	Bind(wxEVT_TIMER, &FontPreviewListBox::OnMetricWarmupTimer, this, metricWarmupTimer_.GetId());
-	// 预览字体大小基于系统 DPI，行高为字体高度的 2.2 倍以保证可读性
+	// 预览字体大小读取用户配置，行高为字体高度的 2.2 倍以保证可读性
+	previewFontSize_ = static_cast<int>(OPT_GET("App/Font Preview Size")->GetInt());
 	wxClientDC dc(this);
-	wxFont sysFont = GetFont();
-	previewFontSize_ = sysFont.GetPointSize() + 6;
 	dc.SetFont(wxFont(previewFontSize_, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
 	itemHeight_ = static_cast<int>(dc.GetCharHeight() * 2.2);
+	appFontPreviewSizeConnection_ = OPT_SUB("App/Font Preview Size", &FontPreviewListBox::OnAppFontPreviewSizeChanged, this);
+}
+
+void FontPreviewListBox::OnAppFontPreviewSizeChanged() {
+	previewFontSize_ = static_cast<int>(OPT_GET("App/Font Preview Size")->GetInt());
+	wxClientDC dc(this);
+	dc.SetFont(wxFont(previewFontSize_, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
+	itemHeight_ = static_cast<int>(dc.GetCharHeight() * 2.2);
+	ResetPreviewMetricsCache();
+	fontCache_.clear();
+	SetItemCount(fonts_.size());
+	Refresh();
 }
 
 void FontPreviewListBox::SetFonts(const wxArrayString &fonts) {

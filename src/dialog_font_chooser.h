@@ -36,6 +36,8 @@
 #include <map>
 #include <vector>
 
+#include <libaegisub/signal.h>
+
 #include <wx/dialog.h>
 #include <wx/font.h>
 #include <wx/arrstr.h>
@@ -166,8 +168,12 @@ private:
 	void WarmMetricBatch(size_t batchSize);
 	void OnMetricWarmupTimer(wxTimerEvent &event);
 
+	/// @brief 响应"App/Font Preview Size"选项变化
+	void OnAppFontPreviewSizeChanged();
 	void OnDrawItem(wxDC &dc, const wxRect &rect, size_t n) const override;
 	wxCoord OnMeasureItem(size_t n) const override;
+
+	agi::signal::Connection appFontPreviewSizeConnection_; ///< 字体预览大小选项订阅连接
 };
 
 /// @class DialogFontChooser

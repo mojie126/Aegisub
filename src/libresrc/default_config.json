@@ -10,6 +10,7 @@
 		},
 		"Call Tips" : false,
 		"First Start" : true,
+		"Font Preview Size" : 16,
 		"Hotkey Migrations" : [{"string": "placeholder since empty arrays aren't supported"}],
 		"Language" : "zh_CN",
 		"Maximized" : false,

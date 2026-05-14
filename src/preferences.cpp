@@ -263,6 +263,9 @@ void Interface(wxTreebook *book, Preferences *parent) {
 	const auto favoriteFont = p->PageSizer(_("Favorite Font"));
 	p->OptionAdd(favoriteFont, _("Favorite Font Number"), "Subtitle/Favorite Font Number")->SetToolTip(_("Sets the maximum number of favorite fonts"));
 
+	const auto fontPreview = p->PageSizer(_("Font Preview"));
+	p->OptionAdd(fontPreview, _("Font Preview Size"), "App/Font Preview Size")->SetToolTip(_("Sets the font size used for rendering preview in font list"));
+
 	auto grid = p->PageSizer(_("Grid"));
 	p->OptionAdd(grid, _("Focus grid on click"), "Subtitle/Grid/Focus Allow");
 	p->OptionAdd(grid, _("Highlight visible subtitles"), "Subtitle/Grid/Highlight Subtitles in Frame");
