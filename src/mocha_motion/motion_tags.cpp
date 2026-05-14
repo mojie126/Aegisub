@@ -433,6 +433,7 @@ namespace mocha {
 						-1, -1
 					};
 					result.erase(match.position(), match.length());
+					return result;
 				}
 			}
 
