@@ -514,6 +514,18 @@ aegisub = executable('Aegisub', aegisub_src, version_h, acconf, resrc,
 					 dependencies : [deps, other_dep],
 					 win_subsystem : 'windows')
 
+# 构建时复制3D LUT文件到构建目录data/cube/，确保dev运行时可找到
+# 注：run_command的CWD为源码目录，故需使用绝对路径
+cube_src_dir = meson.project_source_root() / 'src' / 'cube'
+cube_dst_dir = meson.project_build_root() / 'data' / 'cube'
+run_command(powershell_exe, '-Command',
+  'New-Item -ItemType Directory -Force "' + cube_dst_dir + '" | Out-Null',
+  check: false)
+foreach cube_file : ['PQ2SDR.cube', 'HLG2SDR.cube', 'DV2SDR.cube']
+  run_command(powershell_exe, '-Command',
+    'Copy-Item -Force "' + cube_src_dir / cube_file + '" "' + cube_dst_dir / cube_file + '"',
+    check: false)
+endforeach
 # 安装HDR/DV色彩映射所需的3D LUT文件
 install_data('src/cube/PQ2SDR.cube',
              install_dir : bindir / 'data' / 'cube')
