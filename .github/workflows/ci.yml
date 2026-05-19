@@ -142,37 +142,40 @@ jobs:
                 if: matrix.config.os == 'windows-latest'
                 run: meson compile win-portable -C build -j(Get-WmiObject -Class Win32_Processor).NumberOfLogicalProcessors
 
-            -   name: set release tag
+            -   name: set release package
                 id: set_tag
                 run: |
-                    mv build/Aegisub-*.exe build/aegisub-install-64.exe
-                    if [ -n "${{ github.event.inputs.version }}" ]; then
-                        echo "tag=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-                    else
-                        date=$(date -d '+8 hour' +'%Y-%m-%d %H:%M')
-                        echo "tag=$date" >> $GITHUB_OUTPUT
+                    version="${{ github.event.inputs.version }}"
+                    if [ -z "$version" ]; then
+                        version=$(date -d '+8 hour' +'%Y-%m-%d-%H%M%S')
                     fi
+                    echo "tag=$version" >> $GITHUB_OUTPUT
+
+                    installer_name="Aegisub-${version}-win64-installer.exe"
+                    portable_name="Aegisub-${version}-win64-portable.zip"
+                    mv build/Aegisub-*.exe "build/${installer_name}"
+                    mv build/aegisub-portable-64.zip "build/${portable_name}"
                 shell: bash
 
-            -   name: Upload artifacts - win_installer
-                uses: actions/upload-artifact@v6
-                if: matrix.config.os == 'windows-latest'
-                with:
-                    name: ${{ matrix.config.name }} - installer
-                    path: build/aegisub-install-64.exe
-                    if-no-files-found: error
-
-            -   name: Upload artifacts - portable.zip
-                uses: actions/upload-artifact@v6
-                if: matrix.config.os == 'windows-latest'
-                with:
-                    name: ${{ matrix.config.name }} - portable
-                    path: build/aegisub-portable-64.zip
+            #-   name: Upload artifacts - win_installer
+            #    uses: actions/upload-artifact@v6
+            #    if: matrix.config.os == 'windows-latest'
+            #    with:
+            #        name: ${{ matrix.config.name }} - installer
+            #        path: build/aegisub-install-64.exe
+            #        if-no-files-found: error
+            #
+            #-   name: Upload artifacts - portable.zip
+            #    uses: actions/upload-artifact@v6
+            #    if: matrix.config.os == 'windows-latest'
+            #    with:
+            #        name: ${{ matrix.config.name }} - portable
+            #        path: build/aegisub-portable-64.zip
 
             -   name: create Release
                 uses: ncipollo/release-action@v1.21.0
                 with:
                     allowUpdates: true
-                    artifacts: "build/aegisub-portable-64.zip,build/aegisub-install-64.exe"
+                    artifacts: "build/Aegisub-*-win64-installer.exe,build/Aegisub-*-win64-portable.zip"
                     tag: ${{ steps.set_tag.outputs.tag }}
                     draft: true
