@@ -1,8 +1,9 @@
 cd %1
 
-icacls data /grant:r %USERNAME%:F /T
-rd /s /q data
-mkdir data
+if not exist data mkdir data
+
+rem 清理data目录下除cube外的所有文件/子目录
+powershell -Command "Get-ChildItem -Path 'data\*' | Where-Object { $_.Name -ne 'cube' } | Remove-Item -Recurse -Force"
 
 copy nul data\file
 mkdir data\dir
