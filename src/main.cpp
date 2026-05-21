@@ -356,6 +356,8 @@ bool AegisubApp::OnInit() {
 		{
 			auto depctrl_path = config::path->Decode("?user/config/l0.DependencyControl.json");
 			try {
+				agi::fs::CreateDirectory(depctrl_path.parent_path());
+
 				json::Object root_obj;
 				if (agi::fs::FileExists(depctrl_path)) {
 					try {
