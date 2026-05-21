@@ -58,6 +58,7 @@
 #include "version.h"
 
 #include <libaegisub/cajun/elements.h>
+#include <libaegisub/cajun/writer.h>
 #include <libaegisub/dispatch.h>
 #include <libaegisub/format_path.h>
 #include <libaegisub/fs.h>
@@ -349,6 +350,38 @@ bool AegisubApp::OnInit() {
 		// Load plugins
 		Automation4::ScriptFactory::Register(std::make_unique<Automation4::LuaScriptFactory>());
 		libass::CacheFonts();
+
+		// 根据用户偏好配置 DependencyControl 的自动更新
+		// 必须在自动加载脚本加载前完成，因为 DependencyControl 会在初始化时读取其配置
+		{
+			auto depctrl_path = config::path->Decode("?user/config/l0.DependencyControl.json");
+			try {
+				json::Object root_obj;
+				if (agi::fs::FileExists(depctrl_path)) {
+					try {
+						auto existing = agi::json_util::parse(*agi::io::Open(depctrl_path));
+						root_obj = std::move(static_cast<json::Object &>(existing));
+					} catch (...) {}
+				}
+
+				json::Object config_obj;
+				auto config_it = root_obj.find("config");
+				if (config_it != root_obj.end()) {
+					try {
+						config_obj = std::move(static_cast<json::Object &>(config_it->second));
+					} catch (...) {}
+				}
+				bool enabled = OPT_GET("App/Auto/Dependency Check")->GetBool();
+				config_obj["updaterEnabled"] = json::UnknownElement(enabled);
+				root_obj["config"] = json::UnknownElement(std::move(config_obj));
+
+				agi::io::Save file(depctrl_path);
+				agi::JsonWriter::Write(root_obj, file.Get());
+			}
+			catch (agi::Exception const& e) {
+				LOG_E("depctrl/config") << "Failed to write DependencyControl config: " << e.GetMessage();
+			}
+		}
 
 		// Load Automation scripts
 		StartupLog("Load global Automation scripts");

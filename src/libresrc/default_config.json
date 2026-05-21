@@ -3,6 +3,7 @@
 		"Auto" : {
 			"Backup" : true,
 			"Check For Updates" : true,
+			"Dependency Check" : false,
 			"Load Linked Files" : 2,
 			"Save" : true,
 			"Save Every Seconds" : 60,

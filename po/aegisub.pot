@@ -5548,11 +5548,15 @@ msgstr ""
 msgid "General"
 msgstr ""
 
-#: ../src/preferences.cpp:65
+#: ../src/preferences.cpp:101
 msgid "Check for updates on startup"
 msgstr ""
 
-#: ../src/preferences.cpp:66
+#: ../src/preferences.cpp:102
+msgid "Check for automation script updates on startup"
+msgstr ""
+
+#: ../src/preferences.cpp:103
 msgid "Show main toolbar"
 msgstr ""
 

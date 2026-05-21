@@ -99,6 +99,7 @@ void General(wxTreebook *book, Preferences *parent) {
 
 	auto general = p->PageSizer(_("General"));
 	p->OptionAdd(general, _("Check for updates on startup"), "App/Auto/Check For Updates");
+	p->OptionAdd(general, _("Check for automation script updates on startup"), "App/Auto/Dependency Check")->SetToolTip(_("Check for automation script updates on startup"));
 	p->OptionAdd(general, _("Show main toolbar"), "App/Show Toolbar");
 	p->OptionAdd(general, _("Save UI state in subtitles files"), "App/Save UI State");
 	p->CellSkip(general);

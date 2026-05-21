@@ -5663,11 +5663,15 @@ msgstr "正在从Matroska(MKV)文件中读取字幕"
 msgid "General"
 msgstr "通用"
 
-#: ../src/preferences.cpp:65
+#: ../src/preferences.cpp:101
 msgid "Check for updates on startup"
 msgstr "启动时检查更新"
 
-#: ../src/preferences.cpp:66
+#: ../src/preferences.cpp:102
+msgid "Check for automation script updates on startup"
+msgstr "启动时检查自动化脚本更新"
+
+#: ../src/preferences.cpp:103
 msgid "Show main toolbar"
 msgstr "显示主工具栏"
 

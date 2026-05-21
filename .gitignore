@@ -34,6 +34,7 @@ build*/
 .claude*
 .swarm
 .kiro
+.codegraph
 
 # Documentation (generated/temporary)
 docs/*.md
