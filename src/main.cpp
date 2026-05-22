@@ -356,7 +356,7 @@ bool AegisubApp::OnInit() {
 		{
 			auto depctrl_path = config::path->Decode("?user/config/l0.DependencyControl.json");
 			try {
-				agi::fs::CreateDirectory(depctrl_path.parent_path());
+				bool enabled = OPT_GET("App/Auto/Dependency Check")->GetBool();
 
 				json::Object root_obj;
 				if (agi::fs::FileExists(depctrl_path)) {
@@ -373,12 +373,25 @@ bool AegisubApp::OnInit() {
 						config_obj = std::move(static_cast<json::Object &>(config_it->second));
 					} catch (...) {}
 				}
-				bool enabled = OPT_GET("App/Auto/Dependency Check")->GetBool();
-				config_obj["updaterEnabled"] = json::UnknownElement(enabled);
-				root_obj["config"] = json::UnknownElement(std::move(config_obj));
 
-				agi::io::Save file(depctrl_path);
-				agi::JsonWriter::Write(root_obj, file.Get());
+				// 检查现有值是否匹配，避免每次启动都写入文件
+				bool needs_write = true;
+				auto updater_it = config_obj.find("updaterEnabled");
+				if (updater_it != config_obj.end()) {
+					try {
+						if (static_cast<json::Boolean>(updater_it->second) == enabled)
+							needs_write = false;
+					} catch (...) {}
+				}
+
+				if (needs_write) {
+					agi::fs::CreateDirectory(depctrl_path.parent_path());
+					config_obj["updaterEnabled"] = json::UnknownElement(enabled);
+					root_obj["config"] = json::UnknownElement(std::move(config_obj));
+
+					agi::io::Save file(depctrl_path);
+					agi::JsonWriter::Write(root_obj, file.Get());
+				}
 			}
 			catch (agi::Exception const& e) {
 				LOG_E("depctrl/config") << "Failed to write DependencyControl config: " << e.GetMessage();
