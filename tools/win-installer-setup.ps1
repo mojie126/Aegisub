@@ -140,8 +140,9 @@ if (!(Test-Path BestSource))
 {
 	$bsDir = New-Item -ItemType Directory BestSource
 	Set-Location $bsDir
-	$basReleases = Invoke-WebRequest "https://api.github.com/repos/vapoursynth/bestsource/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
-	$bsUrl = $basReleases.assets[0].browser_download_url
+	# $basReleases = Invoke-WebRequest "https://api.github.com/repos/vapoursynth/bestsource/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
+	# $bsUrl = $basReleases.assets[0].browser_download_url
+	$bsUrl = "https://github.com/vapoursynth/bestsource/releases/download/R17/BestSource-R17.7z"
 	Invoke-WebRequest $bsUrl -OutFile bestsource.7z -UseBasicParsing
 	7z x bestsource.7z
 	Remove-Item bestsource.7z
