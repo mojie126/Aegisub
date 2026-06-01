@@ -196,6 +196,16 @@ bool ShouldSchedulePendingPreviewListRefresh(bool quick_preview_enabled, bool re
 	return quick_preview_enabled && refresh_pending && !refresh_scheduled && !refresh_in_progress;
 }
 
+/// @brief 判断当前字体列表预览刷新是否走快路径
+///
+/// MIRROR-OF: src/dialog_font_chooser.cpp :: DialogFontChooser::PrepareCurrentFontListPreview 的快路径判定
+/// @param quick_preview_enabled 便捷预览复选框当前值
+/// @return 非便捷预览时返回 true（直接 ConfigurePreviewText + Refresh，无 DialogProgress）；
+///         便捷预览时返回 false（仍需走度量缺失检测与可能的 DialogProgress 慢路径）
+bool ShouldTakeCurrentFontListPreviewFastPath(bool quick_preview_enabled) {
+	return !quick_preview_enabled;
+}
+
 struct PendingPreviewRefreshApplyResult {
 	bool should_apply = false;
 	bool refresh_pending = false;
@@ -571,6 +581,11 @@ TEST(FontChooserTest, PendingPreviewRefreshDoesNotReenterWhileApplying) {
 	EXPECT_TRUE(result.refresh_pending);
 	EXPECT_TRUE(result.refresh_in_progress);
 	EXPECT_EQ(result.pending_text, "示例文本");
+}
+
+TEST(FontChooserTest, NonQuickPreviewTakesCurrentListFastPath) {
+	EXPECT_TRUE(ShouldTakeCurrentFontListPreviewFastPath(false));
+	EXPECT_FALSE(ShouldTakeCurrentFontListPreviewFastPath(true));
 }
 
 TEST(FontChooserTest, TallPreviewItemExpandsHeight) {

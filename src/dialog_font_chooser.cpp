@@ -712,6 +712,8 @@ void FontPreviewListBox::SetFonts(const wxArrayString &fonts, bool prepareForSmo
 }
 
 void FontPreviewListBox::WarmAllMetrics(const std::function<void(size_t, size_t)> &progress) {
+	if (!usePreviewText_)
+		return;
 	if (metricWarmupTimer_.IsRunning())
 		metricWarmupTimer_.Stop();
 
@@ -729,6 +731,8 @@ void FontPreviewListBox::WarmAllMetrics(const std::function<void(size_t, size_t)
 }
 
 void FontPreviewListBox::WarmMetricsRange(size_t begin, size_t end) {
+	if (!usePreviewText_)
+		return;
 	if (metricWarmupTimer_.IsRunning())
 		metricWarmupTimer_.Stop();
 
@@ -756,7 +760,7 @@ void FontPreviewListBox::ConfigurePreviewText(bool usePreviewText, const wxStrin
 }
 
 void FontPreviewListBox::PrepareForSmoothScroll(int anchorRow) {
-	if (fonts_.empty())
+	if (fonts_.empty() || !usePreviewText_)
 		return;
 
 	StartMetricWarmup(anchorRow);
@@ -807,6 +811,8 @@ bool FontPreviewListBox::HasPreviewMetricsCached(const wxString &fontName, bool 
 }
 
 size_t FontPreviewListBox::CountMissingPreviewMetrics() const {
+	if (!usePreviewText_)
+		return 0;
 	return CountMissingPreviewMetrics(usePreviewText_, previewText_);
 }
 
@@ -891,6 +897,8 @@ void FontPreviewListBox::StartMetricWarmup(int anchorRow) {
 }
 
 void FontPreviewListBox::WarmMetricBatch(size_t batchSize) {
+	if (!usePreviewText_)
+		return;
 	if (metricWarmupCursor_ >= metricWarmupOrder_.size())
 		return;
 
@@ -953,6 +961,8 @@ void FontPreviewListBox::OnDrawItem(wxDC &dc, const wxRect &rect, size_t n) cons
 wxCoord FontPreviewListBox::OnMeasureItem(size_t n) const {
 	if (n >= fonts_.size())
 		return itemHeight_;
+	if (!usePreviewText_)
+		return itemHeight_;
 	return MeasureItemHeight(fonts_[n]);
 }
 
@@ -1004,8 +1014,8 @@ DialogFontChooser::DialogFontChooser(wxWindow *parent, const wxFont &initial, co
 	fontNameInputSizer->Add(quickPreviewCheck_, 0, wxALIGN_CENTER_VERTICAL);
 	fontNameSizer->Add(fontNameInputSizer, 0, wxEXPAND | wxBOTTOM, 4);
 	fontNameList_ = new FontPreviewListBox(this, wxID_ANY, wxDefaultPosition, FromDIP(wxSize(500, 280)));
-	fontNameList_->ConfigurePreviewText(initial_quick_preview, initial_preview_text);
 	fontNameList_->SetFonts(filteredFonts_);
+	fontNameList_->ConfigurePreviewText(initial_quick_preview, initial_preview_text);
 	fontNameSizer->Add(fontNameList_, 1, wxEXPAND);
 	topSizer->Add(fontNameSizer, 10, wxEXPAND | wxRIGHT, 10);
 
@@ -1026,8 +1036,8 @@ DialogFontChooser::DialogFontChooser(wxWindow *parent, const wxFont &initial, co
 	const int fontNameInputRowHeight = std::max(fontNameInput_->GetBestSize().GetHeight(), quickPreviewCheck_->GetBestSize().GetHeight());
 	favoriteSizer->AddSpacer(fontNameInputRowHeight + 4);
 	favoriteFontList_ = new FontPreviewListBox(this, wxID_ANY, wxDefaultPosition, FromDIP(wxSize(260, 280)));
-	favoriteFontList_->ConfigurePreviewText(initial_quick_preview, initial_preview_text);
 	RefreshFavoriteFontList();
+	favoriteFontList_->ConfigurePreviewText(initial_quick_preview, initial_preview_text);
 	favoriteSizer->Add(favoriteFontList_, 1, wxEXPAND);
 	topSizer->Add(favoriteSizer, 4, wxEXPAND);
 
@@ -1306,6 +1316,19 @@ void DialogFontChooser::PrepareForDisplay(wxWindow *progressParent) {
 				});
 			}
 
+			if (!quickPreviewCheck_->GetValue()) {
+				InvokeOnMainThreadAndWait([&] {
+					const wxString text = NormalizePreviewText(previewInput_->GetValue());
+					fontNameList_->ConfigurePreviewText(false, text, false);
+					favoriteFontList_->ConfigurePreviewText(false, text, false);
+					fontNameList_->Refresh();
+					favoriteFontList_->Refresh();
+				});
+				ps->SetMessage(from_wx(_("Font dialog is ready.")));
+				ps->SetProgress(1, 1);
+				return;
+			}
+
 			size_t font_count = 0;
 			size_t favorite_count = 0;
 			InvokeOnMainThreadAndWait([&] {
@@ -1356,11 +1379,19 @@ void DialogFontChooser::PrepareForDisplay(wxWindow *progressParent) {
 }
 
 void DialogFontChooser::PrepareCurrentFontListPreview(const wxString &text) {
-	const size_t missing_main_metrics = fontNameList_->CountMissingPreviewMetrics(quickPreviewCheck_->GetValue(), text);
-	const size_t missing_favorite_metrics = favoriteFontList_->CountMissingPreviewMetrics(quickPreviewCheck_->GetValue(), text);
+	if (!quickPreviewCheck_->GetValue()) {
+		fontNameList_->ConfigurePreviewText(false, text, false);
+		favoriteFontList_->ConfigurePreviewText(false, text, false);
+		fontNameList_->Refresh();
+		favoriteFontList_->Refresh();
+		return;
+	}
+
+	const size_t missing_main_metrics = fontNameList_->CountMissingPreviewMetrics(true, text);
+	const size_t missing_favorite_metrics = favoriteFontList_->CountMissingPreviewMetrics(true, text);
 	if (!NeedsPreviewMetricPreparation(missing_main_metrics, missing_favorite_metrics)) {
-		fontNameList_->ConfigurePreviewText(quickPreviewCheck_->GetValue(), text, false);
-		favoriteFontList_->ConfigurePreviewText(quickPreviewCheck_->GetValue(), text, false);
+		fontNameList_->ConfigurePreviewText(true, text, false);
+		favoriteFontList_->ConfigurePreviewText(true, text, false);
 		fontNameList_->Refresh();
 		favoriteFontList_->Refresh();
 		return;
