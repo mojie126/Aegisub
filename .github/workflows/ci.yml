@@ -153,7 +153,7 @@ jobs:
 
                     installer_name="Aegisub-${version}-win64-installer.exe"
                     portable_name="Aegisub-${version}-win64-portable.zip"
-                    mv build/Aegisub-*.exe "build/${installer_name}"
+                    mv build/Aegisub-${version}.exe "build/${installer_name}"
                     mv build/aegisub-portable-64.zip "build/${portable_name}"
                 shell: bash
 
