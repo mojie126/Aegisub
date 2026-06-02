@@ -63,7 +63,7 @@ BEGIN
             VALUE "FileVersion",      BUILD_GIT_VERSION_STRING
             VALUE "InternalName",     "Aegisub"
             VALUE "OriginalFilename", "Aegisub.exe"
-            VALUE "ProductName",      "Aegisub"
+            VALUE "ProductName",      "Aegisub sgnB"
             VALUE "ProductVersion",   BUILD_GIT_VERSION_STRING
         END
     END

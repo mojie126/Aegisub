@@ -41,14 +41,14 @@
 #include <wx/textctrl.h>
 
 void ShowAboutDialog(wxWindow *parent) {
-	wxDialog d(parent, -1, _("About Aegisub"), wxDefaultPosition, wxDefaultSize, wxCAPTION | wxCLOSE_BOX);
+	wxDialog d(parent, -1, _("About Aegisub sgnB"), wxDefaultPosition, wxDefaultSize, wxCAPTION | wxCLOSE_BOX);
 
 	wxString translatorCredit = _("Translated into LANGUAGE by PERSON\n");
 	if (translatorCredit == "Translated into LANGUAGE by PERSON\n")
 		translatorCredit.clear();
 
 	// Generate about string
-	wxString aboutString = wxString("Aegisub ") + GetAegisubShortVersionString() + ".\n"
+	wxString aboutString = wxString("Aegisub sgnB ") + GetAegisubShortVersionString() + ".\n"
 		"Copyright (c) 2005-2026 Rodrigo Braz Monteiro, Niels Martin Hansen, Thomas Goyne et al.\n\n"
 		"Programmers:\n"
 		"    Alysson Souza e Silva\n"
@@ -84,10 +84,10 @@ void ShowAboutDialog(wxWindow *parent) {
 		"Additional thanks to:\n"
 		"    Mentar\n"
 		"    Sigurd Tao Lyngse\n"
-		"    Everyone in the Aegisub IRC channel\n"
+		"    Everyone in the Aegisub sgnB IRC channel\n"
 		"    Everyone who ever reported a bug\n"
 		+ translatorCredit + "\n"
-		"Aegisub includes portions from the following other projects:\n"
+		"Aegisub sgnB includes portions from the following other projects:\n"
 		"    wxWidgets - Copyright (c) Julian Smart, Robert Roebling et al;\n"
 		"    wxStyledTextCtrl - Copyright (c) Robin Dunn, Neil Hodgson;\n"
 		"    Scintilla - Copyright (c) Neil Hodgson;\n"

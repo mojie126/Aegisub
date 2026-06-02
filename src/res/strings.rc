@@ -7,7 +7,7 @@ LANGUAGE LANG_ENGLISH, SUBLANG_DEFAULT
 STRINGTABLE 
 BEGIN
 	// Application "friendly name"
-	10000 "Aegisub"
+	10000 "Aegisub sgnB"
 	// Description of application's purpose
 	10001 "Create and edit styled subtitles with Aegisub."
 	// Association name for generic subtitle formats
