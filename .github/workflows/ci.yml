@@ -6,6 +6,14 @@ on:
             version:
                 description: 'Release version'
                 required: true
+            subproject:
+                description: '需更新的子项目名称 (如 ffms2/vapoursynth)'
+                required: false
+                default: ''
+            subproject_version:
+                description: '子项目目标分支/标签/提交 (默认 main)'
+                required: false
+                default: 'main'
 
 env:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -70,6 +78,58 @@ jobs:
                 run: |
                     ls -lah /d/a/Aegisub/Aegisub/subprojects
                     rm -f /d/a/Aegisub/Aegisub/build/git_version.h
+                shell: bash
+
+            -   name: Update subproject
+                if: github.event.inputs.subproject != ''
+                run: |
+                    SP="${{ github.event.inputs.subproject }}"
+                    SP_VER="${{ github.event.inputs.subproject_version }}"
+                    SP_DIR="subprojects/${SP}"
+                    echo "Updating subproject: ${SP} -> ${SP_VER}"
+
+                    if [ ! -d "$SP_DIR" ]; then
+                        echo "ERROR: subprojects/${SP} not found"
+                        exit 1
+                    fi
+
+                    cd "$SP_DIR"
+                    if [ ! -d .git ]; then
+                        echo "ERROR: ${SP_DIR} is not a git repository"
+                        exit 1
+                    fi
+
+                    # 获取当前 remote URL 以避免反复 config
+                    REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
+                    if [ -n "$REMOTE_URL" ]; then
+                        echo "Fetching from $REMOTE_URL"
+                        git fetch origin --tags --force
+                    else
+                        echo "WARNING: no origin remote, trying default URL"
+                        git fetch --tags --force
+                    fi
+
+                    git checkout "$SP_VER" || {
+                        echo "Checkout failed, trying fetch + checkout"
+                        git fetch origin "$SP_VER" --force
+                        git checkout FETCH_HEAD -B "$SP_VER"
+                    }
+                    git reset --hard "$SP_VER"
+                    echo "Subproject ${SP} updated to $(git rev-parse --short HEAD)"
+
+                    # 清除 meson 子项目构建缓存强制重编
+                    rm -rf ../../build/subprojects/${SP}
+                shell: bash
+
+            -   name: Reset subproject wrap lock
+                if: github.event.inputs.subproject != ''
+                run: |
+                    SP="${{ github.event.inputs.subproject }}"
+                    LOCK_FILE="subprojects/.wraplock"
+                    if [ -f "$LOCK_FILE" ]; then
+                        echo "Removing wrap lock to allow subproject update"
+                        rm -f "$LOCK_FILE"
+                    fi
                 shell: bash
 
             -   uses: actions/setup-python@v6

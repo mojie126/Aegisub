@@ -1,6 +1,6 @@
 [wrap-git]
 url = https://github.com/mojie126/ffms2.git
-revision = main
+revision = rebase-v2
 patch_directory = ffms2
 
 [provide]
