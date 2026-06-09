@@ -119,7 +119,8 @@ void CSRISubtitlesProvider::DrawSubtitles(VideoFrame &dst, double time) {
 		last_fmt_h = format.height;
 		last_fmt_pixfmt = format.pixfmt;
 	}
-	csri_render(instance.get(), &frame, time);
+	// 加1e-9防御浮点精度误差，避免int→double→*1000→int转换丢帧
+	csri_render(instance.get(), &frame, time + 1e-9);
 }
 }
 
