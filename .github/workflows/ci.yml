@@ -7,11 +7,11 @@ on:
                 description: 'Release version'
                 required: true
             subproject:
-                description: '需更新的子项目名称 (如 ffms2/vapoursynth)'
+                description: '需更新的子项目名称，多个用逗号分隔 (如 ffms2, vapoursynth)'
                 required: false
                 default: ''
             subproject_version:
-                description: '子项目目标分支/标签/提交 (默认 main)'
+                description: '子项目目标分支/标签/提交，多个用逗号分隔，与子项目一一对应 (默认 main)'
                 required: false
                 default: 'main'
 
@@ -83,48 +83,59 @@ jobs:
             -   name: Update subproject
                 if: github.event.inputs.subproject != ''
                 run: |
-                    SP="${{ github.event.inputs.subproject }}"
-                    SP_VER="${{ github.event.inputs.subproject_version }}"
-                    SP_DIR="subprojects/${SP}"
-                    echo "Updating subproject: ${SP} -> ${SP_VER}"
+                    IFS=',' read -ra SPS <<< "${{ github.event.inputs.subproject }}"
+                    IFS=',' read -ra VERS <<< "${{ github.event.inputs.subproject_version }}"
+                    DEFAULT_VER="main"
 
-                    if [ ! -d "$SP_DIR" ]; then
-                        echo "ERROR: subprojects/${SP} not found"
-                        exit 1
-                    fi
+                    for i in "${!SPS[@]}"; do
+                        SP="$(echo "${SPS[$i]}" | xargs)"
+                        [ -z "$SP" ] && continue
 
-                    cd "$SP_DIR"
-                    if [ ! -d .git ]; then
-                        echo "ERROR: ${SP_DIR} is not a git repository"
-                        exit 1
-                    fi
+                        SP_VER="$(echo "${VERS[$i]:-$DEFAULT_VER}" | xargs)"
+                        [ -z "$SP_VER" ] && SP_VER="$DEFAULT_VER"
 
-                    # 获取当前 remote URL 以避免反复 config
-                    REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
-                    if [ -n "$REMOTE_URL" ]; then
-                        echo "Fetching from $REMOTE_URL"
-                        git fetch origin --tags --force
-                    else
-                        echo "WARNING: no origin remote, trying default URL"
-                        git fetch --tags --force
-                    fi
+                        SP_DIR="subprojects/${SP}"
+                        echo "Updating subproject: ${SP} -> ${SP_VER}"
 
-                    git checkout "$SP_VER" || {
-                        echo "Checkout failed, trying fetch + checkout"
-                        git fetch origin "$SP_VER" --force
-                        git checkout FETCH_HEAD -B "$SP_VER"
-                    }
-                    git reset --hard "$SP_VER"
-                    echo "Subproject ${SP} updated to $(git rev-parse --short HEAD)"
+                        if [ ! -d "$SP_DIR" ]; then
+                            echo "ERROR: subprojects/${SP} not found"
+                            exit 1
+                        fi
 
-                    # 清除 meson 子项目构建缓存强制重编
-                    rm -rf ../../build/subprojects/${SP}
+                        pushd "$SP_DIR"
+                        if [ ! -d .git ]; then
+                            echo "ERROR: ${SP_DIR} is not a git repository"
+                            popd
+                            exit 1
+                        fi
+
+                        # 获取当前 remote URL 以避免反复 config
+                        REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
+                        if [ -n "$REMOTE_URL" ]; then
+                            echo "Fetching from $REMOTE_URL"
+                            git fetch origin --tags --force
+                        else
+                            echo "WARNING: no origin remote, trying default URL"
+                            git fetch --tags --force
+                        fi
+
+                        git checkout "$SP_VER" || {
+                            echo "Checkout failed, trying fetch + checkout"
+                            git fetch origin "$SP_VER" --force
+                            git checkout FETCH_HEAD -B "$SP_VER"
+                        }
+                        git reset --hard "$SP_VER"
+                        echo "Subproject ${SP} updated to $(git rev-parse --short HEAD)"
+                        popd
+
+                        # 清除 meson 子项目构建缓存强制重编
+                        rm -rf build/subprojects/${SP}
+                    done
                 shell: bash
 
             -   name: Reset subproject wrap lock
                 if: github.event.inputs.subproject != ''
                 run: |
-                    SP="${{ github.event.inputs.subproject }}"
                     LOCK_FILE="subprojects/.wraplock"
                     if [ -f "$LOCK_FILE" ]; then
                         echo "Removing wrap lock to allow subproject update"
