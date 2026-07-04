@@ -266,6 +266,43 @@ msgstr ""
 msgid "File was not recognized as a script"
 msgstr ""
 
+#: ../src/auto4_base.cpp:415
+msgid "Load associated automation scripts?"
+msgstr ""
+
+#: ../src/auto4_base.cpp:418
+msgid "Trust the authors && load scripts"
+msgstr ""
+
+#: ../src/auto4_base.cpp:418
+msgid "No"
+msgstr ""
+
+#: ../src/auto4_base.cpp:407
+#, c-format
+msgid ""
+"The subtitle file you have opened contains local automation scripts. "
+"Do you want to load the associated automation scripts?\n"
+"\n"
+"List of scripts:\n\n%s\n\n"
+"You should only load associated automation scripts if you trust their authors! "
+"They are not required to view or edit the subtitle file."
+msgstr ""
+
+#: ../src/auto4_base.cpp:414
+#, c-format
+msgid "    %s (%s)"
+msgstr ""
+
+#: ../src/auto4_base.cpp:431
+#, c-format
+msgid ""
+"Automation Script referenced could not be found.\n"
+"Filename specified: %s\n"
+"Searched relative to: %s\n"
+"Resolved filename: %s"
+msgstr ""
+
 #: ../src/charset_detect.cpp:55
 msgid ""
 "Aegisub could not narrow down the character set to a single one.\n"

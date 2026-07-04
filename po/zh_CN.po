@@ -421,6 +421,56 @@ msgstr "所有支持格式"
 msgid "File was not recognized as a script"
 msgstr "文件未被识别为脚本"
 
+#: ../src/auto4_base.cpp:415
+msgid "Load associated automation scripts?"
+msgstr "加载关联的自动化脚本？"
+
+#: ../src/auto4_base.cpp:418
+msgid "Trust the authors && load scripts"
+msgstr "信任作者并加载脚本"
+
+#: ../src/auto4_base.cpp:418
+msgid "No"
+msgstr "不"
+
+#: ../src/auto4_base.cpp:407
+#, c-format
+msgid ""
+"The subtitle file you have opened contains local automation scripts. "
+"Do you want to load the associated automation scripts?\n"
+"\n"
+"List of scripts:\n\n%s\n\n"
+"You should only load associated automation scripts if you trust their authors! "
+"They are not required to view or edit the subtitle file."
+msgstr ""
+"打开的字幕文件包含本地自动化脚本。\n"
+"是否要加载关联的自动化脚本？\n"
+"\n"
+"脚本列表：\n"
+"\n"
+"%s\n"
+"\n"
+"只有在信任脚本作者的情况下才应加载关联的自动化脚本！"
+"查看或编辑字幕文件并不需要它们。"
+
+#: ../src/auto4_base.cpp:414
+#, c-format
+msgid "    %s (%s)"
+msgstr "    %s (%s)"
+
+#: ../src/auto4_base.cpp:431
+#, c-format
+msgid ""
+"Automation Script referenced could not be found.\n"
+"Filename specified: %s\n"
+"Searched relative to: %s\n"
+"Resolved filename: %s"
+msgstr ""
+"引用的自动化脚本未找到。\n"
+"文件名：%s\n"
+"搜索目录：%s\n"
+"解析路径：%s"
+
 #: ../src/charset_detect.cpp:55
 msgid ""
 "Aegisub could not narrow down the character set to a single one.\n"
