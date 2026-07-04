@@ -90,11 +90,13 @@ void AssDialogue::Parse(std::string const& raw) {
 	std::string_view str = raw;
 	if (raw.starts_with("Dialogue:")) {
 		Comment = false;
-		str.remove_prefix(10);
+		// 当字符串以"Dialogue:"开头但长度不足10字节时，remove_prefix(10)会触发UB
+		str.remove_prefix(std::min<size_t>(raw.size(), 10));
 	}
 	else if (raw.starts_with("Comment:")) {
 		Comment = true;
-		str.remove_prefix(9);
+		// 同理处理短于9字节的情况
+		str.remove_prefix(std::min<size_t>(raw.size(), 9));
 	}
 	else
 		throw SubtitleFormatParseError("Failed parsing line: " + raw);
