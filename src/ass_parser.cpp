@@ -27,6 +27,7 @@
 
 #include <algorithm>
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/replace.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/regex.hpp>
@@ -167,7 +168,9 @@ void AssParser::ParseScriptInfoLine(std::string const& data) {
 		target->Info.emplace_back(std::move(key), std::move(value));
 }
 
-void AssParser::ParseMetadataLine(std::string const& data) {
+void AssParser::ParseMetadataLine(std::string const& rawdata) {
+	std::string data = SanitizeLine(rawdata);
+
 	size_t pos = data.find(':');
 	if (pos == data.npos) return;
 
@@ -198,7 +201,9 @@ void AssParser::ParseGraphicsLine(std::string const& data) {
 		attach = std::make_unique<AssAttachment>(data, AssEntryGroup::GRAPHIC);
 }
 
-void AssParser::ParseExtradataLine(std::string const &data) {
+void AssParser::ParseExtradataLine(std::string const& rawdata) {
+	std::string data = SanitizeLine(rawdata);
+
 	static const boost::regex matcher("Data:[[:space:]]*(\\d+),([^,]+),(.)(.*)");
 	boost::match_results<std::string::const_iterator> mr;
 
@@ -223,6 +228,12 @@ void AssParser::ParseExtradataLine(std::string const &data) {
 		target->next_extradata_id = std::max(id+1, target->next_extradata_id);
 		target->Extradata.push_back(ExtradataEntry{id, EXTRADATA_EXPIRATION_LIMIT + 1, std::move(key), std::move(value)});
 	}
+}
+
+std::string AssParser::SanitizeLine(std::string const& data) {
+	std::string result = data;
+	boost::replace_all(result, std::string("\0", 1), "\uFFFD");		// Unicode replacement character
+	return result;
 }
 
 void AssParser::AddLine(std::string const& data) {

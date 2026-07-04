@@ -34,7 +34,8 @@ class AssParser {
 	void ParseMetadataLine(std::string const& data);
 	void ParseFontLine(std::string const& data);
 	void ParseGraphicsLine(std::string const& data);
-	void ParseExtradataLine(std::string const &data);
+	void ParseExtradataLine(std::string const& data);
+	std::string SanitizeLine(std::string const& data);
 	void UnknownLine(std::string const&) { }
 public:
 	AssParser(AssFile *target, int version);
