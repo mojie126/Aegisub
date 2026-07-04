@@ -239,11 +239,18 @@ void SubsTextEditCtrl::OnKeyDown(wxKeyEvent &event) {
 	// Workaround for wxSTC eating tabs.
 	if (event.GetKeyCode() == WXK_TAB)
 		Navigate(event.ShiftDown() ? wxNavigationKeyEvent::IsBackward : wxNavigationKeyEvent::IsForward);
-	else if (event.GetKeyCode() == WXK_RETURN && event.GetModifiers() == wxMOD_SHIFT) {
+	bool linebreak = event.GetKeyCode() == WXK_RETURN && event.GetModifiers() == wxMOD_SHIFT;
+	bool hardspace = event.GetKeyCode() == WXK_SPACE && event.GetModifiers() == (wxMOD_CMD | wxMOD_SHIFT);
+	if (linebreak || hardspace) {
 		auto sel_start = GetSelectionStart(), sel_end = GetSelectionEnd();
 		wxCharBuffer old = GetTextRaw();
 		std::string data(old.data(), sel_start);
-		data.append(OPT_GET("Subtitle/Edit Box/Soft Line Break")->GetBool() ? "\\n" : "\\N");
+		// 根据事件类型插入换行符或硬空格
+		if (linebreak)
+			data.append(OPT_GET("Subtitle/Edit Box/Soft Line Break")->GetBool() ? "\\n" : "\\N");
+		else if (hardspace)
+			data.append("\\h");
+		// 将插入位置后的文本追加回字符串
 		data.append(old.data() + sel_end, old.length() - sel_end);
 		SetTextRaw(data.c_str());
 
