@@ -51,6 +51,23 @@ enum DraggableFeatureType {
 	DRAG_SMALL_CIRCLE
 };
 
+/// @brief 获取指定类型的锚点从中心到最远端的可视半径（像素坐标）
+/// 用于夹持时偏移，确保锚点完整显示在视频可见区域内
+inline int GetAnchorMargin(DraggableFeatureType type, int size) {
+	switch (type) {
+		case DRAG_BIG_SQUARE:
+		case DRAG_BIG_CIRCLE:
+			return 12; // 十字线延伸到 ±12
+		case DRAG_BIG_TRIANGLE:
+			return 16; // 线条延伸到 16
+		case DRAG_SMALL_SQUARE:
+		case DRAG_SMALL_CIRCLE:
+			return size;
+		default:
+			return 0;
+	}
+}
+
 /// @class VisualDraggableFeature
 /// @brief Onscreen control used by many visual tools
 ///
@@ -86,4 +103,15 @@ public:
 
 	/// Has this feature actually moved since a drag was last started?
 	bool HasMoved() const;
+};
+
+/// @brief RAII守卫：临时修改特征位置，析构时自动恢复原始位置
+struct ScopedClamp {
+	VisualDraggableFeature& f;
+	Vector2D orig;
+	ScopedClamp(VisualDraggableFeature& f, Vector2D clamped)
+		: f(f), orig(f.pos) { f.pos = clamped; }
+	~ScopedClamp() { f.pos = orig; }
+	ScopedClamp(const ScopedClamp&) = delete;
+	ScopedClamp& operator=(const ScopedClamp&) = delete;
 };

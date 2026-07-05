@@ -83,6 +83,16 @@ protected:
 	/// Called when the user double-clicks
 	virtual void OnDoubleClick() { }
 
+	/// @brief 鼠标捕获丢失时清理拖拽状态（由 OnMouseCaptureLost 调用）
+	/// 派生类应在此清理 active_feature、sel_features 等拖拽相关状态
+	virtual void OnDragCleanup() { }
+
+	/// @brief 将 point 限制在视频可见区域内（基于 Draw 坐标系）
+	/// @param margin 从边缘内缩的像素数，用于确保锚点完整可见
+	Vector2D ClampToVideo(Vector2D point, int margin = 0) const {
+		return point.Max(video_pos + margin).Min(video_pos + video_res - margin);
+	}
+
 	agi::Context *c;
 	VideoDisplay *parent;
 
@@ -228,6 +238,9 @@ public:
 	/// @brief Handler for all mouse events
 	/// @param event Shockingly enough, the mouse event
 	void OnMouseEvent(wxMouseEvent &event) override;
+
+	/// @brief 鼠标捕获丢失时清理拖拽选择集和活动特征
+	void OnDragCleanup() override;
 
 	/// @brief Constructor
 	/// @param parent The VideoDisplay to use for coordinate conversion
