@@ -100,6 +100,7 @@ void VisualToolBase::OnSeek(int new_frame) {
 void VisualToolBase::OnMouseCaptureLost(wxMouseCaptureLostEvent &) {
 	holding = false;
 	dragging = false;
+	OnDragCleanup();
 }
 
 void VisualToolBase::OnActiveLineChanged(AssDialogue *new_line) {
@@ -175,6 +176,16 @@ VisualTool<FeatureType>::VisualTool(VideoDisplay *parent, agi::Context *context)
 }
 
 template<class FeatureType>
+void VisualTool<FeatureType>::OnDragCleanup() {
+	if (dragging) {
+		for (auto sel : sel_features)
+			EndDrag(sel);
+		sel_features.clear();
+		active_feature = nullptr;
+	}
+}
+
+template<class FeatureType>
 void VisualTool<FeatureType>::OnMouseEvent(wxMouseEvent &event) {
 	bool left_click = event.LeftDown();
 	bool left_double = event.LeftDClick();
@@ -194,7 +205,9 @@ void VisualTool<FeatureType>::OnMouseEvent(wxMouseEvent &event) {
 		int max_layer = INT_MIN;
 		active_feature = nullptr;
 		for (auto& feature : features) {
-			if (feature.IsMouseOver(mouse_pos) && feature.layer >= max_layer) {
+			ScopedClamp clamp(feature, ClampToVideo(feature.pos, GetAnchorMargin(feature.type, feature.size)));
+			bool over = feature.IsMouseOver(mouse_pos);
+			if (over && feature.layer >= max_layer) {
 				active_feature = &feature;
 				max_layer = feature.layer;
 			}
@@ -202,8 +215,30 @@ void VisualTool<FeatureType>::OnMouseEvent(wxMouseEvent &event) {
 	}
 
 	if (dragging) {
+		// 鼠标捕获丢失时系统可能未投递 LEFT_UP，
+		// 此时收到 LEFT_DOWN 应视为前一次拖拽的隐式结束，
+		// 并重新进行特征检测让本次点击也能正常开始新拖拽
+		if (left_click) {
+			dragging = false;
+			for (auto sel : sel_features)
+				EndDrag(sel);
+			sel_features.clear();
+			active_feature = nullptr;
+			if (parent->HasCapture())
+				parent->ReleaseMouse();
+			// 重新检测特征（dragging 已为 false）
+			int max_layer = INT_MIN;
+			for (auto& feature : features) {
+				ScopedClamp clamp(feature, ClampToVideo(feature.pos, GetAnchorMargin(feature.type, feature.size)));
+				bool over = feature.IsMouseOver(mouse_pos);
+				if (over && feature.layer >= max_layer) {
+					active_feature = &feature;
+					max_layer = feature.layer;
+				}
+			}
+		}
 		// continue drag
-		if (event.LeftIsDown()) {
+		else if (event.LeftIsDown()) {
 			for (auto sel : sel_features)
 				sel->UpdateDrag(mouse_pos - drag_start, shift_down);
 			for (auto sel : sel_features)
@@ -304,6 +339,7 @@ void VisualTool<FeatureType>::DrawAllFeatures() {
 		else if (sel_features.count(&feature))
 			fill = alt_fill;
 		gl.SetFillColour(fill, 0.3f);
+		ScopedClamp clamp(feature, ClampToVideo(feature.pos, GetAnchorMargin(feature.type, feature.size)));
 		feature.Draw(gl);
 	}
 }
