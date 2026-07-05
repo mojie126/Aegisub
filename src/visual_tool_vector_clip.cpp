@@ -151,6 +151,7 @@ void VisualToolVectorClip::Draw() {
 			feature_color = highlight_color_secondary;
 		gl.SetFillColour(feature_color, .6f);
 
+		ScopedClamp clamp(feature, ClampToVideo(feature.pos, GetAnchorMargin(feature.type, feature.size)));
 		if (feature.type == DRAG_SMALL_SQUARE) {
 			gl.SetLineColour(line_color, .5f, 1);
 			gl.DrawRectangle(feature.pos - featureSize, feature.pos + featureSize);

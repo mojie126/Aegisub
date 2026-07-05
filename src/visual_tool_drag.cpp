@@ -61,7 +61,9 @@ VisualToolDrag::Feature *VisualToolDrag::GetFeatureAt(Vector2D const& mouse_pos)
 	int max_layer = std::numeric_limits<int>::min();
 	Feature *result = nullptr;
 	for (auto& feature : features) {
-		if (feature.IsMouseOver(mouse_pos) && feature.layer >= max_layer) {
+		ScopedClamp clamp(feature, ClampToVideo(feature.pos, GetAnchorMargin(feature.type, feature.size)));
+		bool over = feature.IsMouseOver(mouse_pos);
+		if (over && feature.layer >= max_layer) {
 			result = &feature;
 			max_layer = feature.layer;
 		}
@@ -136,8 +138,15 @@ void VisualToolDrag::OnLineChanged() {
 
 void VisualToolDrag::OnMouseEvent(wxMouseEvent &event) {
 	if (event.LeftDown() && !event.CmdDown()) {
-		if (Feature *feature = GetFeatureAt(event.GetPosition()); feature && IsLineSelected(feature->line))
-			SetSelectedFeaturesForClickedFeature(feature);
+		if (Feature *feature = GetFeatureAt(event.GetPosition()); feature) {
+			if (IsLineSelected(feature->line))
+				SetSelectedFeaturesForClickedFeature(feature);
+			else
+				// 点击的特征所在行不在选择集中，清除残留的 sel_features，
+				// 防止基类 SetSelection(active_feature, !ctrl_down) 中
+				// ctrl 未按下时不清除旧选择集导致拖拽行为异常
+				sel_features.clear();
+		}
 	}
 
 	VisualTool<Feature>::OnMouseEvent(event);
@@ -212,18 +221,24 @@ void VisualToolDrag::Draw() {
 		Feature *p2 = &feature;
 		Feature *p1 = feature.parent;
 
+		// 连接线两端使用夹持后的位置，确保越界时线段仍连接到预览区边缘的锚点
+		int m1 = GetAnchorMargin(p1->type, p1->size);
+		int m2 = GetAnchorMargin(p2->type, p2->size);
+		Vector2D clamped_p1 = ClampToVideo(p1->pos, m1);
+		Vector2D clamped_p2 = ClampToVideo(p2->pos, m2);
+
 		// Move end marker has an arrow; origin doesn't
 		bool has_arrow = p2->type == DRAG_END;
 		int arrow_len = has_arrow ? 10 : 0;
 
 		// Don't show the connecting line if the features are very close
-		Vector2D direction = p2->pos - p1->pos;
+		Vector2D direction = clamped_p2 - clamped_p1;
 		if (direction.SquareLen() < (20 + arrow_len) * (20 + arrow_len)) continue;
 
 		direction = direction.Unit();
 		// Get the start and end points of the line
-		Vector2D start = p1->pos + direction * 10;
-		Vector2D end = p2->pos - direction * (10 + arrow_len);
+		Vector2D start = clamped_p1 + direction * 10;
+		Vector2D end = clamped_p2 - direction * (10 + arrow_len);
 
 		if (has_arrow) {
 			gl.SetLineColour(line_color, 0.8f, 2);

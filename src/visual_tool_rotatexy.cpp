@@ -43,12 +43,15 @@ void VisualToolRotateXY::Draw() {
 
 	DrawAllFeatures();
 
+	// 辅助视觉元素使用夹持后的原点，使网格/坐标轴在预览区边缘完整可见
+	Vector2D clamped_org = ClampToVideo(org->pos, GetAnchorMargin(org->type, org->size));
+
 	// Load colors from options
 	wxColour line_color_primary = to_wx(line_color_primary_opt->GetColor());
 	wxColour line_color_secondary = to_wx(line_color_secondary_opt->GetColor());
 
 	// Transform grid
-	gl.SetOrigin(org->pos);
+	gl.SetOrigin(clamped_org);
 	gl.SetScale(100 * video_res / script_res);
 	gl.SetRotation(angle_x, angle_y, angle_z, script_res.Y() / layout_res.Y());
 	gl.SetScale(fsc);

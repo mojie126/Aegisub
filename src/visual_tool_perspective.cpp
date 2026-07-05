@@ -311,10 +311,22 @@ void VisualToolPerspective::Draw() {
 	gl.SetLineColour(line_color);
 	for (int i = 0; i < 4; i++) {
 		if (HasOuter()) {
-			gl.DrawDashedLine(outer_corners[i]->pos, outer_corners[(i + 1) % 4]->pos, 6);
-			gl.DrawLine(inner_corners[i]->pos, inner_corners[(i + 1) % 4]->pos);
+			int m1 = GetAnchorMargin(outer_corners[i]->type, outer_corners[i]->size);
+			int m2 = GetAnchorMargin(outer_corners[(i + 1) % 4]->type, outer_corners[(i + 1) % 4]->size);
+			Vector2D oc1 = ClampToVideo(outer_corners[i]->pos, m1);
+			Vector2D oc2 = ClampToVideo(outer_corners[(i + 1) % 4]->pos, m2);
+			gl.DrawDashedLine(oc1, oc2, 6);
+			int m3 = GetAnchorMargin(inner_corners[i]->type, inner_corners[i]->size);
+			int m4 = GetAnchorMargin(inner_corners[(i + 1) % 4]->type, inner_corners[(i + 1) % 4]->size);
+			Vector2D ic1 = ClampToVideo(inner_corners[i]->pos, m3);
+			Vector2D ic2 = ClampToVideo(inner_corners[(i + 1) % 4]->pos, m4);
+			gl.DrawLine(ic1, ic2);
 		} else {
-			gl.DrawDashedLine(inner_corners[i]->pos, inner_corners[(i + 1) % 4]->pos, 6);
+			int m1 = GetAnchorMargin(inner_corners[i]->type, inner_corners[i]->size);
+			int m2 = GetAnchorMargin(inner_corners[(i + 1) % 4]->type, inner_corners[(i + 1) % 4]->size);
+			Vector2D ic1 = ClampToVideo(inner_corners[i]->pos, m1);
+			Vector2D ic2 = ClampToVideo(inner_corners[(i + 1) % 4]->pos, m2);
+			gl.DrawDashedLine(ic1, ic2, 6);
 		}
 	}
 
@@ -334,7 +346,7 @@ void VisualToolPerspective::Draw() {
 		static const float fade_factor = 0.9f / radius;
 
 		// Transform grid
-		gl.SetOrigin(FromScriptCoords(org));
+		gl.SetOrigin(ClampToVideo(FromScriptCoords(org), GetAnchorMargin(centerf->type, centerf->size)));
 		gl.SetScale(100 * video_res / script_res);
 		gl.SetRotation(angle_x, angle_y, angle_z, script_res.Y() / layout_res.Y());
 		gl.SetScale(fsc);

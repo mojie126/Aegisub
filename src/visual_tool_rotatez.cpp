@@ -46,6 +46,9 @@ void VisualToolRotateZ::Draw() {
 
 	DrawAllFeatures();
 
+	// 辅助视觉元素使用夹持后的原点，使圆环/标记在预览区边缘完整可见
+	Vector2D clamped_org = ClampToVideo(org->pos, GetAnchorMargin(org->type, org->size));
+
 	// Load colors from options
 	wxColour line_color_primary = to_wx(line_color_primary_opt->GetColor());
 	wxColour line_color_secondary = to_wx(line_color_secondary_opt->GetColor());
@@ -57,7 +60,7 @@ void VisualToolRotateZ::Draw() {
 		radius = 50;
 
 	// Set up the projection
-	gl.SetOrigin(org->pos);
+	gl.SetOrigin(clamped_org);
 	gl.SetRotation(rotation_x, rotation_y, 0);
 	gl.SetScale(scale);
 
@@ -102,7 +105,7 @@ void VisualToolRotateZ::Draw() {
 	// Draw line to mouse if it isn't over the origin feature
 	if (mouse_pos && (mouse_pos - org->pos).SquareLen() > 100) {
 		gl.SetLineColour(line_color_secondary);
-		gl.DrawLine(org->pos, mouse_pos);
+		gl.DrawLine(clamped_org, mouse_pos);
 	}
 }
 
