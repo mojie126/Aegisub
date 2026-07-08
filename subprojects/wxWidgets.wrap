@@ -1,7 +1,7 @@
 [wrap-git]
 directory = wxWidgets
 url = https://github.com/wxWidgets/wxWidgets.git
-revision = v3.3.2
+revision = v3.3.3
 clone-recursive = true
 depth = 1
 diff_files = wxWidgets/0001-fix-owner-drawn-dark-mode-text.patch
