@@ -102,7 +102,6 @@ void General(wxTreebook *book, Preferences *parent) {
 	p->OptionAdd(general, _("Check for automation script updates on startup"), "App/Auto/Dependency Check")->SetToolTip(_("Check for automation script updates on startup"));
 	p->OptionAdd(general, _("Show main toolbar"), "App/Show Toolbar");
 	p->OptionAdd(general, _("Save UI state in subtitles files"), "App/Save UI State");
-	p->CellSkip(general);
 
 	p->OptionAdd(general, _("Toolbar Icon Size"), "App/Toolbar Icon Size");
 	wxString autoload_modes[] = { _("Never"), _("Always"), _("Ask") };
