@@ -354,6 +354,9 @@ void FrameMain::OnAudioOpen(agi::AudioProvider *provider) {
 void FrameMain::OnSubtitlesOpen() {
 	UpdateTitle();
 	SetDisplayMode(1, 1);
+	// 打开字幕后焦点落在字幕网格，使方向键可直接用于跳行
+	if (context->subsGrid)
+		context->subsGrid->SetFocus();
 }
 
 void FrameMain::OnKeyDown(wxKeyEvent &event) {
