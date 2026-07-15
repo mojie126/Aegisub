@@ -52,6 +52,8 @@ static const DraggableFeatureType DRAG_END = DRAG_BIG_CIRCLE;
 VisualToolDrag::VisualToolDrag(VideoDisplay *parent, agi::Context *context)
 : VisualTool<VisualToolDragDraggableFeature>(parent, context)
 {
+	// 从选项恢复辅助工具（\move/\pos 转换）状态
+	button_is_move = OPT_GET("Tool/Visual/Drag/Convert To Move")->GetBool();
 	connections.push_back(c->selectionController->AddSelectionListener(&VisualToolDrag::OnSelectedSetChanged, this));
 	auto const& sel_set = c->selectionController->GetSelectedSet();
 	selection.insert(begin(sel_set), end(sel_set));
@@ -85,7 +87,9 @@ void VisualToolDrag::SetSelectedFeaturesForClickedFeature(Feature *feature) {
 void VisualToolDrag::SetToolbar(wxToolBar *tb) {
 	toolbar = tb;
 	toolbar->AddSeparator();
-	toolbar->AddTool(-1, _("Toggle between \\move and \\pos"), ICON(visual_move_conv_move));
+	toolbar->AddTool(-1, _("Toggle between \\move and \\pos"),
+		button_is_move ? ICON(visual_move_conv_move) : ICON(visual_move_conv_pos),
+		_("Toggle between \\move and \\pos"));
 	toolbar->Realize();
 	toolbar->Show(true);
 
@@ -105,6 +109,8 @@ void VisualToolDrag::UpdateToggleButtons() {
 	toolbar->SetToolNormalBitmap(toolbar->GetToolByPos(1)->GetId(),
 		to_move ? ICON(visual_move_conv_move) : ICON(visual_move_conv_pos));
 	button_is_move = to_move;
+	// 保存辅助工具（\move/\pos 转换）状态，跨工具切换保留
+	OPT_SET("Tool/Visual/Drag/Convert To Move")->SetBool(button_is_move);
 }
 
 void VisualToolDrag::OnSubTool(wxCommandEvent &) {
