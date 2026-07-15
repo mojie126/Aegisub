@@ -51,6 +51,7 @@
 #include "video_out_gl.h"
 #include "video_controller.h"
 #include "visual_tool.h"
+#include "base_grid.h"
 
 
 #include <algorithm>
@@ -552,6 +553,8 @@ void VideoDisplay::OnContextMenu(wxContextMenuEvent&) {
 
 void VideoDisplay::OnKeyDown(wxKeyEvent &event) {
 	ime_blocker_.EnsureDisabled(this);
+	if (tool && tool->OnKeyDown(event))
+		return;
 	hotkey::check("Video", con, event);
 }
 
@@ -673,6 +676,10 @@ void VideoDisplay::SetTool(std::unique_ptr<VisualToolBase> new_tool) {
 		UpdateViewportSize(true);
 		PositionVideo();
 	}
+
+	// 切换视觉工具后焦点交还字幕网格，使方向键可跳行
+	if (con && con->subsGrid)
+		con->subsGrid->SetFocus();
 }
 
 bool VideoDisplay::ToolIsType(std::type_info const& type) const {

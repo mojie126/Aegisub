@@ -53,9 +53,14 @@ class VisualToolVectorClip final : public VisualTool<VisualToolVectorClipDraggab
 	bool inverse = false; /// is iclip?
 	int featureSize = 0;
 
+	int down_press_count = 0; /// 连续按下方向键计数
+	long long last_down_ms = 0; /// 上次按下方向键的时间戳
+	bool navigating = false; /// 是否已终止绘制进入导航模式（单次方向键跳行）
+
 	std::set<Feature *> box_added;
 
 	void Save();
+	void FinishCurrentLine();
 	void Commit(wxString message="") override;
 
 	void AddTool(std::string command_name, VisualToolVectorClipMode mode);
@@ -78,4 +83,5 @@ public:
 
 	void SetSubTool(int subtool) override;
 	int GetSubTool() override;
+	bool OnKeyDown(wxKeyEvent &event) override;
 };

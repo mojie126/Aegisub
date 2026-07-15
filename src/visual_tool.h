@@ -25,6 +25,8 @@
 
 #include <set>
 
+#include <wx/event.h>
+
 class AssDialogue;
 class VideoDisplay;
 class wxMouseCaptureLostEvent;
@@ -181,6 +183,8 @@ public:
 	virtual void SetToolbar(wxToolBar *) { }
 	virtual void SetSubTool(int subtool) { }
 	virtual int GetSubTool() { return 0; }
+	/// @brief 由 VideoDisplay 转发键盘事件，返回 true 表示事件已被工具消费
+	virtual bool OnKeyDown(wxKeyEvent &event) { return false; }
 	virtual ~VisualToolBase() = default;
 };
 

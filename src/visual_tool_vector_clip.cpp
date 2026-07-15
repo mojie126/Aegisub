@@ -16,6 +16,7 @@
 
 #include "visual_tool_vector_clip.h"
 
+#include "video_display.h"
 #include "ass_dialogue.h"
 #include "compat.h"
 #include "include/aegisub/context.h"
@@ -27,6 +28,7 @@
 #include <boost/range/algorithm/copy.hpp>
 #include <boost/range/algorithm/set_algorithm.hpp>
 #include <wx/toolbar.h>
+#include <wx/utils.h>
 
 int BUTTON_ID_BASE = 1300;
 
@@ -35,6 +37,10 @@ VisualToolVectorClip::VisualToolVectorClip(VideoDisplay *parent, agi::Context *c
 , spline(this)
 , featureSize(OPT_GET("Tool/Visual/Shape Handle Size")->GetInt())
 {
+	// 从选项恢复上次使用的辅助工具模式
+	int saved_mode = OPT_GET("Tool/Visual/Vector Clip/Mode")->GetInt();
+	if (saved_mode >= 0 && saved_mode < VCLIP_LAST)
+		mode = saved_mode;
 }
 
 // Having the mode as an extra argument here isn't the cleanest, but using a counter instead
@@ -67,7 +73,7 @@ void VisualToolVectorClip::SetToolbar(wxToolBar *toolBar) {
 	toolBar->Realize();
 	toolBar->Show(true);
 	toolBar->Bind(wxEVT_TOOL, [=, this](wxCommandEvent& e) { SetSubTool(e.GetId() - BUTTON_ID_BASE); });
-	SetSubTool(VCLIP_LINE);
+	SetSubTool(mode);
 }
 
 void VisualToolVectorClip::SetSubTool(int subtool) {
@@ -80,6 +86,14 @@ void VisualToolVectorClip::SetSubTool(int subtool) {
 		toolBar->ToggleTool(BUTTON_ID_BASE + i, i == subtool);
 
 	mode = subtool;
+	// 切换辅助工具后回到绘制模式，重置键盘导航状态
+	navigating = false;
+	down_press_count = 0;
+	last_down_ms = 0;
+	// 保存辅助工具模式，跨工具切换保留
+	OPT_SET("Tool/Visual/Vector Clip/Mode")->SetInt(subtool);
+	// 点击辅助工具栏后焦点会落在按钮上，交还视频显示区使方向键继续生效
+	parent->SetFocus();
 }
 
 int VisualToolVectorClip::GetSubTool() {
@@ -249,6 +263,9 @@ void VisualToolVectorClip::UpdateDrag(Feature *feature) {
 }
 
 bool VisualToolVectorClip::InitializeDrag(Feature *feature) {
+	navigating = false;
+	down_press_count = 0;
+	last_down_ms = 0;
 	if (mode != 5) return true;
 
 	auto curve = spline.begin() + feature->idx;
@@ -280,6 +297,9 @@ bool VisualToolVectorClip::InitializeDrag(Feature *feature) {
 }
 
 bool VisualToolVectorClip::InitializeHold() {
+	navigating = false;
+	down_press_count = 0;
+	last_down_ms = 0;
 	// Box selection
 	if (mode == VCLIP_DRAG) {
 		box_added.clear();
@@ -457,4 +477,63 @@ void VisualToolVectorClip::DoRefresh() {
 	spline.DecodeFromAss(vect);
 
 	MakeFeatures();
+}
+
+bool VisualToolVectorClip::OnKeyDown(wxKeyEvent &event) {
+	int key = event.GetKeyCode();
+	if (key != WXK_DOWN && key != WXK_UP)
+		return false;
+
+	if (navigating) {
+		// 导航模式：单次方向键即可逐行移动
+		if (key == WXK_DOWN)
+			c->selectionController->NextLine();
+		else
+			c->selectionController->PrevLine();
+		parent->SetFocus();
+		event.Skip(false);
+		return true;
+	}
+
+	// 绘制模式：连续两次下方向键是终止当前行矢量绘制的一次性确认手势
+	if (key == WXK_DOWN) {
+		// 仅在绘制进行中或当前行已有矢量内容时拦截下方向键，
+		// 否则放行给视频热键，避免空状态下误吞按键或误跳行
+		if (!holding && spline.empty())
+			return false;
+
+		long long now = wxGetLocalTimeMillis().GetValue();
+		if (last_down_ms != 0 && now - last_down_ms < 500)
+			++down_press_count;
+		else
+			down_press_count = 1;
+		last_down_ms = now;
+
+		if (down_press_count >= 2) {
+			down_press_count = 0;
+			last_down_ms = 0;
+			FinishCurrentLine();
+			navigating = true;
+		}
+
+		// 消费下方向键，避免触发视频热键或被网格导航处理
+		event.Skip(false);
+		return true;
+	}
+
+	// 绘制模式下上方向键不拦截，交由视频热键或其它处理
+	return false;
+}
+
+void VisualToolVectorClip::FinishCurrentLine() {
+	if (holding) {
+		holding = false;
+		UpdateHold();
+		Commit();
+		// 终止绘制时释放鼠标捕获，避免视频显示区持续捕获导致后续鼠标交互异常
+		parent->ReleaseMouse();
+	}
+	c->selectionController->NextLine();
+	// 保持键盘焦点在视频显示区，使矢量工具能持续响应下方向键
+	parent->SetFocus();
 }
