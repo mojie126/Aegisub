@@ -705,6 +705,12 @@
 				"Grid": false,
 				"Org Mode": 0
 			},
+			"Vector Clip": {
+				"Mode": 1
+			},
+			"Drag": {
+				"Convert To Move": false
+			},
 			"Shape Handle Size": 3,
 			"Autohide": false
 		},
