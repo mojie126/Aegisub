@@ -38,6 +38,7 @@
 #include "options.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <future>
 #include <map>
@@ -72,6 +73,28 @@ static const int kFontSizes[] = {
 	54, 60, 66, 72, 80, 88, 96
 };
 
+/// 系统字体列表静态缓存（文件级，供 InvalidateSystemFontCache 失效）
+static std::mutex g_font_cache_mutex;
+static bool g_font_cache_initialized = false;
+static wxArrayString g_cached_fonts;
+
+/// 字体列表世代号，字体注册/反注册后递增，用于检测开放对话框的字体列表是否过期
+static std::atomic<uint64_t> g_font_list_generation{0};
+
+uint64_t GetFontListGeneration() {
+	return g_font_list_generation.load(std::memory_order_acquire);
+}
+
+void BumpFontListGeneration() {
+	g_font_list_generation.fetch_add(1, std::memory_order_release);
+}
+
+void InvalidateSystemFontCache() {
+	std::lock_guard<std::mutex> lock(g_font_cache_mutex);
+	g_font_cache_initialized = false;
+	g_cached_fonts.Clear();
+}
+
 namespace {
 
 /// @brief 获取收藏字体 INI 文件路径
@@ -81,18 +104,14 @@ std::string FavoriteFontIniPath() {
 
 /// @brief 获取已排序的系统字体名称列表（带线程安全的静态缓存）
 wxArrayString GetSortedSystemFontFaceList() {
-	static std::mutex cache_mutex;
-	static bool initialized = false;
-	static wxArrayString cached_fonts;
-
-	std::lock_guard<std::mutex> lock(cache_mutex);
-	if (!initialized) {
-		cached_fonts = wxFontEnumerator::GetFacenames();
-		SortFontFaceList(cached_fonts);
-		initialized = true;
+	std::lock_guard<std::mutex> lock(g_font_cache_mutex);
+	if (!g_font_cache_initialized) {
+		g_cached_fonts = wxFontEnumerator::GetFacenames();
+		SortFontFaceList(g_cached_fonts);
+		g_font_cache_initialized = true;
 	}
 
-	return cached_fonts;
+	return g_cached_fonts;
 }
 
 /// @brief 获取已翻译的基本字形名称列表
@@ -976,6 +995,7 @@ DialogFontChooser::DialogFontChooser(wxWindow *parent, const wxFont &initial, co
 , deferredFontList_(std::move(deferredFontList))
 , fontListTimer_(this)
 , selectedFont_(initial)
+, savedFontListGeneration_(GetFontListGeneration())
 {
 	const bool initial_quick_preview = OPT_GET("Tool/Font Chooser/Quick Preview")->GetBool();
 	const wxString initial_preview_text = to_wx(OPT_GET("Tool/Font Chooser/Preview Text")->GetString());
@@ -1135,9 +1155,12 @@ DialogFontChooser::DialogFontChooser(wxWindow *parent, const wxFont &initial, co
 		int sizeSel = fontSizeList_->GetSelection();
 		if (sizeSel != wxNOT_FOUND)
 			fontSizeList_->EnsureVisible(sizeSel);
+		// 打开对话框时焦点落在字体名称搜索框，便于直接输入筛选
+		fontNameInput_->SetFocus();
 	});
 
 	// --- 绑定事件 ---
+	Bind(wxEVT_ACTIVATE, &DialogFontChooser::OnActivate, this);
 	fontNameInput_->Bind(wxEVT_TEXT, &DialogFontChooser::OnFontNameInput, this);
 	fontNameInput_->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent &evt) {
 		fontNameInput_->CallAfter([this]() { fontNameInput_->SelectAll(); });
@@ -1266,6 +1289,7 @@ void DialogFontChooser::ApplyLoadedFontList(const wxArrayString &fonts) {
 	allFonts_ = fonts;
 	filteredFonts_ = allFonts_;
 	RebuildFontSearchCache();
+	savedFontListGeneration_ = GetFontListGeneration();
 
 	if (fontNameFilterDirty_) {
 		FilterFontList();
@@ -1456,6 +1480,23 @@ void DialogFontChooser::PrepareCurrentFontListPreview(const wxString &text) {
 	}
 }
 
+bool DialogFontChooser::RefreshFontListIfNeeded() {
+	if (GetFontListGeneration() == savedFontListGeneration_)
+		return false;
+	savedFontListGeneration_ = GetFontListGeneration();
+	allFonts_ = GetPreferredFontFaceList();
+	RebuildFontSearchCache();
+	return true;
+}
+
+void DialogFontChooser::OnActivate(wxActivateEvent &evt) {
+	evt.Skip();
+	if (!evt.GetActive())
+		return;
+	if (RefreshFontListIfNeeded())
+		ApplyLoadedFontList(allFonts_);
+}
+
 void DialogFontChooser::StartDeferredFontListLoad() {
 	if (!deferredFontList_.valid())
 		return;
@@ -1532,6 +1573,7 @@ int DialogFontChooser::FindBestFilteredFontMatchIndex(const wxString &input) con
 // 字形自动匹配函数已移除；保留相关枚举/工具函数以便将来回退或扩展。
 
 void DialogFontChooser::FilterFontList() {
+	RefreshFontListIfNeeded();
 	wxString input = fontNameInput_->GetValue().Lower();
 
 	filteredFonts_.Clear();

@@ -53,7 +53,11 @@
 #include <wx/checkbox.h>
 #include <wx/combobox.h>
 #include <wx/dc.h>
+#include <wx/dirdlg.h>
+#include <wx/dataview.h>
 #include <wx/event.h>
+#include <wx/filedlg.h>
+#include <wx/filename.h>
 #include <wx/listctrl.h>
 #include <wx/msgdlg.h>
 #include <wx/settings.h>
@@ -259,12 +263,6 @@ void Video(wxTreebook *book, Preferences *parent) {
 /// Interface preferences page
 void Interface(wxTreebook *book, Preferences *parent) {
 	auto p = new OptionPage(book, parent, _("Interface"));
-
-	const auto favoriteFont = p->PageSizer(_("Favorite Font"));
-	p->OptionAdd(favoriteFont, _("Favorite Font Number"), "Subtitle/Favorite Font Number")->SetToolTip(_("Sets the maximum number of favorite fonts"));
-
-	const auto fontPreview = p->PageSizer(_("Font Preview"));
-	p->OptionAdd(fontPreview, _("Font Preview Size"), "App/Font Preview Size")->SetToolTip(_("Sets the font size used for rendering preview in font list"));
 
 	auto grid = p->PageSizer(_("Grid"));
 	p->OptionAdd(grid, _("Focus grid on click"), "Subtitle/Grid/Focus Allow");
@@ -904,6 +902,151 @@ static void edit_item(wxDataViewCtrl *dvc, wxDataViewItem item) {
 	dvc->EditItem(item, dvc->GetColumn(0));
 }
 
+/// @brief 用户字体路径列表的数据模型（支持搜索过滤、可编辑路径）
+class UserFontPathModel final : public wxDataViewModel {
+	/// 全量路径（原始顺序）
+	std::vector<std::string> paths;
+	/// 过滤后对应的全量索引（0 表示根节点，行索引从 1 开始编码，避免与根冲突）
+	std::vector<size_t> filtered;
+	wxString filter;
+
+	/// 由行号得到对应的 DataViewItem（行号从 0 开始）
+	static wxDataViewItem ItemForRow(size_t row) {
+		return wxDataViewItem(reinterpret_cast<void *>(row + 1));
+	}
+
+public:
+	/// 由 DataViewItem 得到行号（-1 表示无效）
+	static int RowForItem(wxDataViewItem item) {
+		if (!item.IsOk()) return -1;
+		return static_cast<int>(reinterpret_cast<uintptr_t>(item.GetID()) - 1);
+	}
+
+	/// 由过滤后行号映射回全量索引（-1 表示无效），供外部读取
+	int GetRealIndex(int row) const {
+		return static_cast<int>(RealIndex(row));
+	}
+
+	void SetPaths(std::vector<std::string> const& value) {
+		paths.clear();
+		std::unordered_set<std::string> seen;
+		for (auto const& p : value) {
+			if (p.empty())
+				continue;
+			std::string key = p;
+			std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+			if (seen.insert(key).second)
+				paths.push_back(p);
+		}
+		RebuildFilter();
+	}
+	std::vector<std::string> const& GetPaths() const { return paths; }
+
+	void SetFilter(wxString const& f) {
+		filter = f.Lower();
+		RebuildFilter();
+	}
+
+private:
+	void RebuildFilter() {
+		filtered.clear();
+		for (size_t i = 0; i < paths.size(); ++i) {
+			if (filter.empty() || wxString(paths[i]).Lower().Contains(filter))
+				filtered.push_back(i);
+		}
+		// 通知整棵树重建（Cleared 后重加，覆盖初始填充与过滤变更两种场景）
+		Cleared();
+		for (size_t i = 0; i < filtered.size(); ++i)
+			ItemAdded(wxDataViewItem(), ItemForRow(i));
+	}
+
+	/// 由过滤后行号映射回全量索引
+	size_t RealIndex(int row) const {
+		if (row < 0 || static_cast<size_t>(row) >= filtered.size())
+			return static_cast<size_t>(-1);
+		return filtered[row];
+	}
+
+public:
+	unsigned int GetColumnCount() const override { return 1; }
+	wxString GetColumnType(unsigned int) const override { return "string"; }
+
+	void GetValue(wxVariant &variant, wxDataViewItem const& item, unsigned int col) const override {
+		int row = RowForItem(item);
+		if (row < 0) return;
+		size_t real = RealIndex(row);
+		if (real == static_cast<size_t>(-1)) return;
+		if (col == 0)
+			variant = wxString(paths[real]);
+	}
+
+	bool SetValue(wxVariant const& variant, wxDataViewItem const& item, unsigned int col) override {
+		int row = RowForItem(item);
+		if (row < 0) return false;
+		size_t real = RealIndex(row);
+		if (real == static_cast<size_t>(-1)) return false;
+		if (col == 0) {
+			wxString val = variant.GetString();
+			val.Trim();
+			if (val.empty()) return false;
+			paths[real] = std::string(val.utf8_str());
+			return true;
+		}
+		return false;
+	}
+
+	bool IsContainer(wxDataViewItem const&) const override { return false; }
+	wxDataViewItem GetParent(wxDataViewItem const&) const override { return wxDataViewItem(); }
+
+	unsigned int GetChildren(wxDataViewItem const& item, wxDataViewItemArray &children) const override {
+		if (item.IsOk()) return 0;
+		for (size_t i = 0; i < filtered.size(); ++i)
+			children.Add(ItemForRow(i));
+		return static_cast<unsigned int>(filtered.size());
+	}
+
+	/// 在末尾追加一条路径（按小写路径去重），返回其行号（过滤后）；重复返回已存在行号
+	int AppendPath(std::string const& p) {
+		if (p.empty())
+			return -1;
+		std::string key = p;
+		std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+		for (size_t i = 0; i < paths.size(); ++i) {
+			std::string exist = paths[i];
+			std::transform(exist.begin(), exist.end(), exist.begin(), ::tolower);
+			if (exist == key) {
+				for (size_t r = 0; r < filtered.size(); ++r)
+					if (filtered[r] == i)
+						return static_cast<int>(r);
+				return -1;
+			}
+		}
+		paths.push_back(p);
+		if (filter.empty() || wxString(p).Lower().Contains(filter))
+			filtered.push_back(paths.size() - 1);
+		ItemAdded(wxDataViewItem(), ItemForRow(static_cast<size_t>(filtered.size()) - 1));
+		return static_cast<int>(filtered.size()) - 1;
+	}
+
+};
+
+class Interface_Fonts final : public OptionPage {
+	wxDataViewCtrl *dvc;
+	wxObjectDataPtr<UserFontPathModel> model;
+	wxSearchCtrl *quick_search;
+
+	std::vector<std::string> CollectPaths() const { return model->GetPaths(); }
+	void MarkDirty();
+
+	void OnAdd(wxCommandEvent&);
+	void OnAddDir(wxCommandEvent&);
+	void OnDelete(wxCommandEvent&);
+	void OnUpdateFilter(wxCommandEvent&);
+
+public:
+	Interface_Fonts(wxTreebook *book, Preferences *parent);
+};
+
 class Interface_Hotkeys final : public OptionPage {
 	wxDataViewCtrl *dvc;
 	wxObjectDataPtr<HotkeyDataViewModel> model;
@@ -1002,6 +1145,165 @@ void Interface_Hotkeys::OnUpdateFilter(wxCommandEvent&) {
 			dvc->Expand(context);
 	}
 }
+
+/// 字体路径列表变更后，将最新路径集合（去重）写入待应用选项（OK/Apply 时落盘）
+void Interface_Fonts::MarkDirty() {
+	std::vector<std::string> raw = model->GetPaths();
+	std::vector<std::string> paths;
+	std::unordered_set<std::string> seen;
+	for (auto const& p : raw) {
+		if (p.empty())
+			continue;
+		std::string key = p;
+		std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+		if (seen.insert(key).second)
+			paths.push_back(p);
+	}
+	if (paths.empty())
+		paths.emplace_back("");
+	auto ov = std::make_unique<agi::OptionValueListString>(
+		"App/User Font Paths", paths);
+	parent->SetOption(std::move(ov));
+}
+
+/// 字体管理器偏好设置子页
+Interface_Fonts::Interface_Fonts(wxTreebook *book, Preferences *parent)
+: OptionPage(book, parent, _("Font Manager"), OptionPage::PAGE_SUB)
+, model(new UserFontPathModel())
+{
+	quick_search = new wxSearchCtrl(this, -1);
+	auto add_button = new wxButton(this, -1, _("Add File (&A)..."));
+	auto add_dir_button = new wxButton(this, -1, _("Add Dir (&D)..."));
+	auto delete_button = new wxButton(this, -1, _("&Remove"));
+
+	add_button->Bind(wxEVT_BUTTON, &Interface_Fonts::OnAdd, this);
+	add_dir_button->Bind(wxEVT_BUTTON, &Interface_Fonts::OnAddDir, this);
+	delete_button->Bind(wxEVT_BUTTON, &Interface_Fonts::OnDelete, this);
+
+	quick_search->Bind(wxEVT_TEXT, &Interface_Fonts::OnUpdateFilter, this);
+	quick_search->Bind(wxEVT_SEARCHCTRL_CANCEL_BTN, [this](wxCommandEvent&) {
+		quick_search->SetValue("");
+	});
+
+	long dvc_style = wxDV_ROW_LINES | wxDV_VERT_RULES | wxDV_NO_HEADER | wxDV_MULTIPLE;
+#ifdef wxDV_VARIABLE_LINE_HEIGHT
+	dvc_style |= wxDV_VARIABLE_LINE_HEIGHT;
+#endif
+	dvc = new wxDataViewCtrl(this, -1, wxDefaultPosition, wxDefaultSize, dvc_style);
+	dvc->AssociateModel(model.get());
+	dvc->AppendColumn(new wxDataViewColumn(
+		_("Font Path"),
+		new wxDataViewTextRenderer("string", wxDATAVIEW_CELL_EDITABLE),
+		0, book->FromDIP(440), wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE));
+
+	// 模型与视图关联后再填充数据，确保初始行正确显示
+	model->SetPaths(OPT_GET("App/User Font Paths")->GetListString());
+
+	dvc->Bind(wxEVT_DATAVIEW_ITEM_EDITING_DONE, [this](wxDataViewEvent& evt) {
+		if (!evt.IsEditCancelled())
+			MarkDirty();
+		evt.Skip();
+	});
+
+	wxSizer *buttons = new wxBoxSizer(wxHORIZONTAL);
+	buttons->Add(quick_search, wxSizerFlags(1).CenterVertical().Border());
+	buttons->Add(add_button, wxSizerFlags().Border());
+	buttons->Add(add_dir_button, wxSizerFlags().Border());
+	buttons->Add(delete_button, wxSizerFlags().Border());
+
+	// Ctrl+A 全选
+	dvc->Bind(wxEVT_KEY_DOWN, [this](wxKeyEvent& evt) {
+		if (evt.ControlDown() && evt.GetKeyCode() == 'A') {
+			wxDataViewItemArray children;
+			model->GetChildren(wxDataViewItem(), children);
+			for (auto const& child : children)
+				dvc->Select(child);
+			return;
+		}
+		evt.Skip();
+	});
+
+	auto hint_text = new wxStaticText(this, -1,
+		_("Add fonts or folders containing fonts to expand the font selection, "
+		  "used for fonts that are not installed in the system."));
+	hint_text->Wrap(book->FromDIP(460));
+	sizer->Add(hint_text, wxSizerFlags().Expand().Border());
+
+	sizer->Add(buttons, wxSizerFlags().Expand().Border());
+	sizer->Add(dvc, wxSizerFlags(1).Expand().Border(wxLEFT | wxRIGHT));
+	sizer->AddSpacer(10);
+
+	// 迁移：收藏字体 / 字体预览 分区
+	auto favoriteFont = PageSizer(_("Favorite Font"));
+	OptionAdd(favoriteFont, _("Favorite Font Number"),
+		"Subtitle/Favorite Font Number")
+		->SetToolTip(_("Sets the maximum number of favorite fonts"));
+
+	auto fontPreview = PageSizer(_("Font Preview"));
+	OptionAdd(fontPreview, _("Font Preview Size"), "App/Font Preview Size")
+		->SetToolTip(_("Sets the font size used for rendering preview in font list"));
+
+	SetSizerAndFit(sizer);
+}
+
+/// 添加字体文件（多选）
+void Interface_Fonts::OnAdd(wxCommandEvent&) {
+	wxFileDialog fdlg(this, _("Add font files"), wxEmptyString, wxEmptyString,
+		_("Font files (*.ttf;*.otf;*.ttc;*.woff;*.fon;*.otc;*.pfb)|"
+		  "*.ttf;*.otf;*.ttc;*.woff;*.fon;*.otc;*.pfb|All files (*.*)|*.*"),
+		wxFD_OPEN | wxFD_MULTIPLE | wxFD_FILE_MUST_EXIST);
+	if (fdlg.ShowModal() == wxID_OK) {
+		wxArrayString files;
+		fdlg.GetPaths(files);
+		if (!files.empty()) {
+			const size_t old_count = model->GetPaths().size();
+			for (auto const& f : files)
+				model->AppendPath(std::string(f.utf8_str()));
+			if (model->GetPaths().size() > old_count)
+				MarkDirty();
+		}
+	}
+}
+
+/// 添加字体目录
+void Interface_Fonts::OnAddDir(wxCommandEvent&) {
+	wxDirDialog ddlg(this, _("Add a directory of fonts"), wxEmptyString,
+		wxDD_DEFAULT_STYLE | wxDD_DIR_MUST_EXIST);
+	if (ddlg.ShowModal() == wxID_OK) {
+		const wxString dir = ddlg.GetPath();
+		if (!dir.empty()) {
+			const size_t old_count = model->GetPaths().size();
+			model->AppendPath(std::string(dir.utf8_str()));
+			if (model->GetPaths().size() > old_count)
+				MarkDirty();
+		}
+	}
+}
+void Interface_Fonts::OnDelete(wxCommandEvent&) {
+	wxDataViewItemArray selections;
+	if (dvc->GetSelections(selections) == 0) return;
+
+	std::vector<int> real_indices;
+	for (auto const& sel : selections) {
+		int row = UserFontPathModel::RowForItem(sel);
+		if (row < 0) continue;
+		int real = model->GetRealIndex(row);
+		if (real >= 0)
+			real_indices.push_back(real);
+	}
+	if (real_indices.empty()) return;
+
+	auto paths = model->GetPaths();
+	std::sort(real_indices.begin(), real_indices.end(), std::greater<>());
+	for (int real : real_indices)
+		paths.erase(paths.begin() + real);
+	model->SetPaths(paths);
+	MarkDirty();
+}
+
+void Interface_Fonts::OnUpdateFilter(wxCommandEvent&) {
+	model->SetFilter(quick_search->GetValue());
+}
 }
 
 void Preferences::SetOption(std::unique_ptr<agi::OptionValue> new_value) {
@@ -1075,6 +1377,7 @@ Preferences::Preferences(wxWindow *parent, agi::Context *context)
 	Interface(book, this);
 	Interface_EditBox(book, this);
 	Interface_CharCounter(book, this);
+	new Interface_Fonts(book, this);
 	Interface_Colours(book, this);
 	new Interface_Hotkeys(book, this);
 	Backup(book, this);

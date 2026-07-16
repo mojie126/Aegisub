@@ -94,6 +94,7 @@ aegisub_src = files(
     'dialog_shift_times.cpp',
     'dialog_spellchecker.cpp',
     'dialog_font_chooser.cpp',
+    'font_manager.cpp',
     'dialog_style_editor.cpp',
     'dialog_style_manager.cpp',
     'dialog_styling_assistant.cpp',

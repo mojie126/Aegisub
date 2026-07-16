@@ -1,4 +1,4 @@
-# Aegisub 3.2
+﻿# Aegisub 3.2
 # Copyright (C) 2005-2014 Rodrigo Braz Monteiro, Niels Martin Hansen, Thomas Goyne et. al.
 # This file is distributed under the same license as the Aegisub package.
 # Niels Martin Hansen <nielsm@aegisub.org>, 2005-2014.
@@ -8536,4 +8536,34 @@ msgstr ""
 
 #: ../src/command/subtitle.cpp
 msgid "The tracking data is asymmetrical with the selected row data and requires %d frames"
+msgstr ""
+
+#: ../src/preferences.cpp
+msgid "Font Manager"
+msgstr ""
+
+#: ../src/preferences.cpp
+msgid "Add File (&A)..."
+msgstr ""
+
+#: ../src/preferences.cpp
+msgid "Add Dir (&D)..."
+msgstr ""
+
+#: ../src/preferences.cpp
+msgid "Font Path"
+msgstr ""
+
+#: ../src/preferences.cpp
+msgid "Add font files"
+msgstr ""
+
+#: ../src/preferences.cpp
+msgid "Add a directory of fonts"
+msgstr ""
+
+#: ../src/preferences.cpp
+msgid ""
+"Add fonts or folders containing fonts to expand the font selection, "
+"used for fonts that are not installed in the system."
 msgstr ""

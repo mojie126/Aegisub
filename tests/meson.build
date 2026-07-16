@@ -59,6 +59,8 @@ tests_src = [
 	'tests/audit_fixes.cpp',
 	'tests/style_rename.cpp',
 	'tests/font_chooser.cpp',
+	'tests/font_resource_probe.cpp',
+	'tests/option_liststring_probe.cpp',
 	'tests/ui_regression_audit.cpp',
 	'tests/image_video.cpp',
 	'tests/version_check.cpp',
@@ -113,6 +115,13 @@ if host_machine.system() == 'windows'
 elif host_machine.system() == 'darwin'
 	tests_args += ['-DGTEST_HAS_POSIX_RE=0']
 endif
+
+# 传入项目源根路径供 font_resource_probe 测试定位字体样本文件
+src_root = meson.project_source_root()
+if host_machine.system() == 'windows'
+	src_root = src_root.replace('\\', '\\\\')
+endif
+tests_args += ['-DFONT_PROBE_SRC_ROOT="' + src_root + '"']
 
 runner = executable(
 	'gtest-main',

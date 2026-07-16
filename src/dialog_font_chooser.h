@@ -57,6 +57,14 @@ void SortFontFaceList(wxArrayString &font_list);
 /// @return 已按收藏和普通排序整理后的字体列表
 wxArrayString GetPreferredFontFaceList();
 
+/// @brief 使系统字体静态缓存失效，强制后续取列表时重新枚举（含新注册字体）
+void InvalidateSystemFontCache();
+
+/// @brief 获取当前字体列表世代号
+uint64_t GetFontListGeneration();
+/// @brief 递增字体列表世代号，标记字体列表已变更
+void BumpFontListGeneration();
+
 /// @brief 异步获取当前偏好顺序的字体列表
 /// @return 可供调用方等待或轮询的共享字体列表 future
 /// @details 系统字体枚举本身已有静态缓存；此处每次重新封装异步任务，
@@ -238,6 +246,7 @@ private:
 	bool previewListRefreshInProgress_ = false; ///< 是否正在执行示例文案列表重建
 
 	wxFont selectedFont_;             ///< 当前选中的字体
+	uint64_t savedFontListGeneration_ = 0; ///< 当前字体列表世代号，用于检测外部变更
 
 	/// @brief 根据当前输入解析实际使用的字体名称
 	/// @return 优先使用当前列表选中项，否则回退到输入框内容
@@ -245,6 +254,9 @@ private:
 
 	/// @brief 重建字体搜索缓存
 	void RebuildFontSearchCache();
+	/// @brief 检查字体列表世代号，若已过期则重新枚举并刷新列表
+	/// @return 是否执行了刷新
+	bool RefreshFontListIfNeeded();
 	void ApplyLoadedFontList(const wxArrayString &fonts);
 	void ApplyPendingPreviewListRefresh();
 	void SchedulePendingPreviewListRefresh();
@@ -280,6 +292,7 @@ private:
 	wxFont BuildFontFromControls() const;
 
 	// 事件处理
+	void OnActivate(wxActivateEvent &event);
 	void OnFontNameInput(wxCommandEvent &event);
 	void OnFontNameSelected(wxCommandEvent &event);
 	void OnFontSizeInput(wxCommandEvent &event);

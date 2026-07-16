@@ -42,6 +42,7 @@
 #include "compat.h"
 #include "crash_writer.h"
 #include "dialogs.h"
+#include "font_manager.h"
 #include "export_fixstyle.h"
 #include "export_framerate.h"
 #include "format.h"
@@ -408,6 +409,9 @@ bool AegisubApp::OnInit() {
 
 		StartupLog("Install PNG handler");
 		wxImage::AddHandler(new wxPNGHandler);
+
+		// 启动后加载用户配置的字体路径并注册到进程字体表
+		font_manager::LoadUserFonts();
 
 		// Open main frame
 		StartupLog("Create main window");

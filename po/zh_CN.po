@@ -8960,3 +8960,33 @@ msgstr "参考帧位置没有对应的行！"
 #: ../src/command/subtitle.cpp
 msgid "The tracking data is asymmetrical with the selected row data and requires %d frames"
 msgstr "追踪数据与所选行不对称，需要 %d 帧数据"
+
+#: ../src/preferences.cpp
+msgid "Font Manager"
+msgstr "字体管理器"
+
+#: ../src/preferences.cpp
+msgid "Add File (&A)..."
+msgstr "添加文件(&A)..."
+
+#: ../src/preferences.cpp
+msgid "Add Dir (&D)..."
+msgstr "添加目录(&D)..."
+
+#: ../src/preferences.cpp
+msgid "Font Path"
+msgstr "字体路径"
+
+#: ../src/preferences.cpp
+msgid "Add font files"
+msgstr "添加字体文件"
+
+#: ../src/preferences.cpp
+msgid "Add a directory of fonts"
+msgstr "添加字体目录"
+
+#: ../src/preferences.cpp
+msgid ""
+"Add fonts or folders containing fonts to expand the font selection, "
+"used for fonts that are not installed in the system."
+msgstr "添加字体或包含字体的文件夹，扩充字体选择，用于使用没有安装在系统的字体"
