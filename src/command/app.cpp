@@ -429,6 +429,87 @@ struct app_clear_autosave final : public Command {
 	}
 };
 
+struct app_clear_all final : public Command {
+	CMD_NAME("app/clear_all")
+	STR_MENU("Clear &All Above...")
+	STR_DISP("Clear All Above")
+	STR_HELP("Clear cache, log, recent lists, and autosave/backup files")
+
+	void operator()(agi::Context *c) override {
+		if (wxMessageBox(_("Perform all four cleanup operations above?\n\n1. Clear audio and video index cache files\n2. Clear accumulated log files\n3. Clear all recently opened file lists\n4. Clear autosave and automatic backup files"), _("Confirm"), wxYES_NO | wxICON_QUESTION, c->parent) != wxYES)
+			return;
+
+		auto countAndRemove = [&](agi::fs::path const& dir, std::string const& pattern) -> int {
+			if (!agi::fs::DirectoryExists(dir)) return 0;
+			int count = 0;
+			for (auto const& file : agi::fs::DirectoryIterator(dir, pattern)) {
+				try {
+					agi::fs::Remove(dir / file);
+					++count;
+				}
+				catch (agi::Exception const& e) {
+					LOG_W("app/clear_all") << "Failed to delete " << (dir / file) << ": " << e.GetMessage();
+				}
+			}
+			return count;
+		};
+
+		int total = 0;
+
+		// 清理缓存
+		{
+			int count = 0;
+			count += countAndRemove(config::path->Decode("?local/ffms2cache/"), "*.ffindex");
+			count += countAndRemove(config::path->Decode("?local/bsindex/"), "*.bsindex");
+			count += countAndRemove(config::path->Decode("?local/bsindex/"), "*.json");
+			count += countAndRemove(config::path->Decode("?local/vscache/"), "");
+			LOG_D("app/clear_all") << "Deleted " << count << " cache files";
+			total += count;
+		}
+
+		// 清理日志
+		{
+			CloseLogEmitter();
+			auto dir = config::path->Decode("?user/log/");
+			int count = 0;
+			if (agi::fs::DirectoryExists(dir)) {
+				for (auto const& file : agi::fs::DirectoryIterator(dir, "*.json")) {
+					try { agi::fs::Remove(dir / file); ++count; }
+					catch (agi::Exception const& e) { LOG_W("app/clear_all") << "Failed to delete " << (dir / file) << ": " << e.GetMessage(); }
+				}
+				for (auto const& file : agi::fs::DirectoryIterator(dir, "*.log")) {
+					try { agi::fs::Remove(dir / file); ++count; }
+					catch (agi::Exception const& e) { LOG_W("app/clear_all") << "Failed to delete " << (dir / file) << ": " << e.GetMessage(); }
+				}
+			}
+			RotateLogEmitter();
+			LOG_D("app/clear_all") << "Deleted " << count << " log files";
+			total += count;
+		}
+
+		// 清除最近记录
+		config::mru->Clear("Audio");
+		config::mru->Clear("Keyframes");
+		config::mru->Clear("Subtitle");
+		config::mru->Clear("Timecodes");
+		config::mru->Clear("Video");
+
+		// 清理自动保存/备份
+		{
+			int count = 0;
+			count += countAndRemove(config::path->Decode(OPT_GET("Path/Auto/Save")->GetString()), "*.AUTOSAVE.ass");
+			count += countAndRemove(config::path->Decode("?user/recovered"), "*.ass");
+			auto backup_str = OPT_GET("Path/Auto/Backup")->GetString();
+			if (!backup_str.empty())
+				count += countAndRemove(config::path->Decode(backup_str), "*.ORIGINAL.*");
+			LOG_D("app/clear_all") << "Deleted " << count << " autosave/backup files";
+			total += count;
+		}
+
+		wxMessageBox(wxString::Format(_("All cleanup operations completed. Deleted %d files."), total), _("Clear All Above"), wxOK | wxICON_INFORMATION, c->parent);
+	}
+};
+
 }
 
 namespace cmd {
@@ -438,6 +519,7 @@ namespace cmd {
 		reg(std::make_unique<app_clear_cache>());
 		reg(std::make_unique<app_clear_log>());
 		reg(std::make_unique<app_clear_recent>());
+		reg(std::make_unique<app_clear_all>());
 		reg(std::make_unique<app_display_audio_subs>());
 		reg(std::make_unique<app_display_full>());
 		reg(std::make_unique<app_display_subs>());

@@ -741,6 +741,26 @@ msgstr "确定清理所有自动保存和自动备份文件？"
 msgid "Deleted %d autosave/backup files."
 msgstr "已删除 %d 个自动保存/备份文件。"
 
+#: ../src/command/app.cpp
+msgid "Clear &All Above..."
+msgstr "清理以上全部(&A)…"
+
+#: ../src/command/app.cpp
+msgid "Clear All Above"
+msgstr "清理以上全部"
+
+#: ../src/command/app.cpp
+msgid "Clear cache, log, recent lists, and autosave/backup files"
+msgstr "清理缓存、日志、最近记录和自动保存/备份文件"
+
+#: ../src/command/app.cpp
+msgid "Perform all four cleanup operations above?\n\n1. Clear audio and video index cache files\n2. Clear accumulated log files\n3. Clear all recently opened file lists\n4. Clear autosave and automatic backup files"
+msgstr "确定执行以上4项清理操作？\n\n1. 清理音视频缓存文件\n2. 清理累积的日志文件\n3. 清除所有最近打开的文件记录\n4. 清理自动保存和自动备份文件"
+
+#: ../src/command/app.cpp
+msgid "All cleanup operations completed. Deleted %d files."
+msgstr "全部清理操作已完成。已删除 %d 个文件。"
+
 #: ../src/command/audio.cpp:66
 msgid "&Close Audio"
 msgstr "关闭音频(&C)"

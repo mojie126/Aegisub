@@ -587,6 +587,10 @@
 		},
 		{
 			"command": "app/clear_autosave"
+		},
+		{},
+		{
+			"command": "app/clear_all"
 		}
 	],
 	"main/help": [

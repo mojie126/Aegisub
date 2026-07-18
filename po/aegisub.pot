@@ -571,6 +571,26 @@ msgstr ""
 msgid "Deleted %d autosave/backup files."
 msgstr ""
 
+#: ../src/command/app.cpp
+msgid "Clear &All Above..."
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Clear All Above"
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Clear cache, log, recent lists, and autosave/backup files"
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "Perform all four cleanup operations above?\n\n1. Clear audio and video index cache files\n2. Clear accumulated log files\n3. Clear all recently opened file lists\n4. Clear autosave and automatic backup files"
+msgstr ""
+
+#: ../src/command/app.cpp
+msgid "All cleanup operations completed. Deleted %d files."
+msgstr ""
+
 #: ../src/command/audio.cpp:66
 msgid "&Close Audio"
 msgstr ""
