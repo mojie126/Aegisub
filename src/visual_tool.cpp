@@ -306,7 +306,6 @@ void VisualTool<FeatureType>::OnMouseEvent(wxMouseEvent &event) {
 		else {
 			if (!alt_down && features.size() > 1) {
 				sel_features.clear();
-				c->selectionController->SetSelectedSet({ c->selectionController->GetActiveLine() });
 			}
 			if (active_line && InitializeHold()) {
 				holding = true;
