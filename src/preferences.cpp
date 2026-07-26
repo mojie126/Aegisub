@@ -48,6 +48,8 @@
 #include <libaegisub/hotkey.h>
 
 #include <algorithm>
+
+#include <wx/combobox.h>
 #include <unordered_set>
 
 #include <wx/checkbox.h>
@@ -97,6 +99,41 @@ static wxString BuildSmartAbbStatus(const AsyncVideoProvider *provider, bool ena
 	);
 }
 
+/// @brief 获取已注册命令的排序列表
+static wxArrayString get_registered_commands() {
+	wxArrayString commands = to_wx(cmd::get_registered_commands());
+	commands.Sort();
+	return commands;
+}
+
+#ifdef __APPLE__
+static void add_current_hotkey_commands(wxArrayString& commands, HotkeyDataViewModel *model, wxDataViewItem const& parent) {
+	wxDataViewItemArray children;
+	model->GetChildren(parent, children);
+
+	for (auto const& child : children) {
+		wxVariant value;
+		model->GetValue(value, child, 1);
+		wxString command = value.GetString();
+		if (commands.Index(command) == wxNOT_FOUND)
+			commands.Add(command);
+
+		if (model->IsContainer(child))
+			add_current_hotkey_commands(commands, model, child);
+	}
+}
+
+static wxArrayString get_hotkey_command_choices(HotkeyDataViewModel *model) {
+	wxArrayString commands = get_registered_commands();
+	if (commands.Index("") == wxNOT_FOUND)
+		commands.Add("");
+
+	add_current_hotkey_commands(commands, model, wxDataViewItem(nullptr));
+	commands.Sort();
+	return commands;
+}
+#endif
+
 /// General preferences page
 void General(wxTreebook *book, Preferences *parent) {
 	auto p = new OptionPage(book, parent, _("General"));
@@ -107,7 +144,29 @@ void General(wxTreebook *book, Preferences *parent) {
 	p->OptionAdd(general, _("Show main toolbar"), "App/Show Toolbar");
 	p->OptionAdd(general, _("Save UI state in subtitles files"), "App/Save UI State");
 
-	p->OptionAdd(general, _("Toolbar Icon Size"), "App/Toolbar Icon Size");
+	{
+		const wxString icon_sizes_str[] = { "16 × 16", "24 × 24", "32 × 32", "48 × 48", "64 × 64" };
+		const int icon_sizes_val[] = { 16, 24, 32, 48, 64 };
+		const int n_icon_sizes = 5;
+		parent->AddChangeableOption("App/Toolbar Icon Size");
+		int cur = OPT_GET("App/Toolbar Icon Size")->GetInt();
+		int sel = 0;
+		for (int i = 0; i < n_icon_sizes; i++) {
+			if (icon_sizes_val[i] == cur) { sel = i; break; }
+		}
+		wxArrayString icon_sizes_arr(n_icon_sizes, icon_sizes_str);
+		auto icon_size_cb = new wxComboBox(general.box, -1, wxEmptyString, wxDefaultPosition, wxDefaultSize, icon_sizes_arr, wxCB_READONLY | wxCB_DROPDOWN);
+		icon_size_cb->Select(sel);
+		icon_size_cb->Bind(wxEVT_COMBOBOX, [parent](wxCommandEvent& evt) {
+			evt.Skip();
+			static const int sizes[] = { 16, 24, 32, 48, 64 };
+			int idx = evt.GetInt();
+			if (idx >= 0 && idx < 5)
+				parent->SetOption(std::make_unique<agi::OptionValueInt>("App/Toolbar Icon Size", sizes[idx]));
+		});
+		general.sizer->Add(new wxStaticText(general.box, -1, _("Toolbar Icon Size")), 1, wxALIGN_CENTRE_VERTICAL);
+		general.sizer->Add(icon_size_cb, wxSizerFlags().Expand());
+	}
 	wxString autoload_modes[] = { _("Never"), _("Always"), _("Ask") };
 	wxArrayString autoload_modes_arr(3, autoload_modes);
 	p->OptionChoice(general, _("Automatically load linked files"), autoload_modes_arr, "App/Auto/Load Linked Files");
@@ -699,24 +758,40 @@ void VapourSynth(wxTreebook *book, Preferences *parent) {
 #endif
 }
 
-/// wxDataViewIconTextRenderer with command name autocompletion
+/// @brief 命令名称自动补全 + 图标渲染
 class CommandRenderer final : public wxDataViewCustomRenderer {
 	wxArrayString autocomplete;
 	wxDataViewIconText value;
 	static const int icon_width = 20;
 
+	wxDataViewIconText MakeValue(wxString const& text) const {
+		wxBitmap icon;
+		try {
+			icon = cmd::get(from_wx(text))->Icon(icon_width);
+		}
+		catch (agi::Exception const&) {
+			// 无效命令名由描述列报告
+		}
+		return wxDataViewIconText(text, icon);
+	}
+
 public:
 	CommandRenderer()
-	: wxDataViewCustomRenderer("wxDataViewIconText", wxDATAVIEW_CELL_EDITABLE)
-	, autocomplete(to_wx(cmd::get_registered_commands()))
+	: wxDataViewCustomRenderer("string", wxDATAVIEW_CELL_EDITABLE)
+	, autocomplete(get_registered_commands())
 	{
 	}
 
 	wxWindow *CreateEditorCtrl(wxWindow *parent, wxRect label_rect, wxVariant const& value) override {
-		wxDataViewIconText iconText;
-		iconText << value;
-
-		wxString text = iconText.GetText();
+		wxString text;
+		if (value.GetType() == "wxDataViewIconText") {
+			wxDataViewIconText iconText;
+			iconText << value;
+			text = iconText.GetText();
+		}
+		else {
+			text = value.GetString();
+		}
 
 		// adjust the label rect to take the width of the icon into account
 		label_rect.x += icon_width;
@@ -732,6 +807,10 @@ public:
 	bool SetValue(wxVariant const& var) override {
 		if (var.GetType() == "wxDataViewIconText") {
 			value << var;
+			return true;
+		}
+		if (var.GetType() == "string") {
+			value = MakeValue(var.GetString());
 			return true;
 		}
 		return false;
@@ -758,8 +837,7 @@ public:
 
 	bool GetValueFromEditorCtrl(wxWindow* editor, wxVariant &var) override {
 		wxTextCtrl *text = static_cast<wxTextCtrl*>(editor);
-		wxDataViewIconText iconText(text->GetValue(), value.GetIcon());
-		var << iconText;
+		var = text->GetValue();
 		return true;
 	}
 
@@ -1088,7 +1166,7 @@ Interface_Hotkeys::Interface_Hotkeys(wxTreebook *book, Preferences *parent)
 	auto col = new wxDataViewColumn("Hotkey", new wxDataViewTextRenderer("string", wxDATAVIEW_CELL_EDITABLE), 0, 150, wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE);
 	col->SetMinWidth(150);
 	dvc->AppendColumn(col);
-	dvc->AppendColumn(new wxDataViewColumn("Command", new wxDataViewIconTextRenderer("wxDataViewIconText", wxDATAVIEW_CELL_EDITABLE), 1, 250, wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE));
+	dvc->AppendColumn(new wxDataViewColumn("Command", new wxDataViewChoiceRenderer(get_hotkey_command_choices(model.get()), wxDATAVIEW_CELL_EDITABLE), 1, 250, wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE));
 #endif
 	dvc->AppendColumn(new wxDataViewColumn(_("Description"), new DescriptionRenderer, 2, book->FromDIP(300), wxALIGN_LEFT, wxCOL_SORTABLE | wxCOL_RESIZABLE));
 
@@ -1098,9 +1176,15 @@ Interface_Hotkeys::Interface_Hotkeys(wxTreebook *book, Preferences *parent)
 			wxDataViewItem item = evt.GetItem();
 			wxVariant value;
 			model->GetValue(value, item, 1);
-			wxDataViewIconText iconText;
-			iconText << value;
-			if (iconText.GetText().empty()) {
+			wxString cmdText;
+			if (value.GetType() == "wxDataViewIconText") {
+				wxDataViewIconText iconText;
+				iconText << value;
+				cmdText = iconText.GetText();
+			} else {
+				cmdText = value.GetString();
+			}
+			if (cmdText.empty()) {
 				CallAfter([this, item] {
 					if (item.IsOk())
 						dvc->EditItem(item, dvc->GetColumn(1));
