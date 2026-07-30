@@ -99,6 +99,8 @@ public:
 
 	bool IsVideoShown() const { return showVideo; }
 	bool IsAudioShown() const { return showAudio; }
+	/// 返回 Context 指针，供 MCP 模块动态获取活动工程
+	agi::Context* GetContext() { return context.get(); }
 
 	DECLARE_EVENT_TABLE()
 };

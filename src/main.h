@@ -78,6 +78,8 @@ public:
 		override
 #endif
 	;
+	// 返回 frames 向量地址，MCP 模块通过它动态获取当前活动 Context
+	std::vector<FrameMain*>* GetFrames() { return &frames; }
 };
 
 wxDECLARE_APP(AegisubApp);

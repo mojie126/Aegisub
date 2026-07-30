@@ -8587,3 +8587,38 @@ msgid ""
 "Add fonts or folders containing fonts to expand the font selection, "
 "used for fonts that are not installed in the system."
 msgstr ""
+
+#: ../src/preferences.cpp:522
+msgid "MCP Server"
+msgstr ""
+
+#: ../src/preferences.cpp:523
+msgid "Enable MCP server (requires restart)"
+msgstr ""
+
+#: ../src/preferences.cpp:529
+msgid "MCP listen address"
+msgstr ""
+
+#: ../src/preferences.cpp:530
+msgid "MCP listen port"
+msgstr ""
+
+#: ../src/preferences.cpp:536
+msgid ""
+"Enable MCP to allow AI clients (Claude Desktop, Cursor, etc.) to connect via HTTP.\n"
+"AI and user operate the same Aegisub instance, changes visible in GUI in real-time.\n\n"
+"Client config: AI side fill in http://%s:%d/mcp"
+msgstr ""
+
+#: ../src/preferences.cpp:556
+msgid "Enable MCP server, requires restart to take effect"
+msgstr ""
+
+#: ../src/preferences.cpp:563
+msgid "MCP server listen address, default 127.0.0.1 allows local access only"
+msgstr ""
+
+#: ../src/preferences.cpp:571
+msgid "MCP server listen port, default 7878"
+msgstr ""

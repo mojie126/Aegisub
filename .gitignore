@@ -35,6 +35,7 @@ build*/
 .swarm
 .kiro
 .codegraph
+.reasonix
 
 # Documentation (generated/temporary)
 docs/*.md

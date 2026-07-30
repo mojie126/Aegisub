@@ -20,7 +20,12 @@
 		"Save UI State" : true,
 		"Show Toolbar" : true,
 		"Toolbar Icon Size" : 16,
-		"Dark Mode" : 0
+		"Dark Mode" : 0,
+		"MCP" : {
+			"Enabled" : false,
+			"Host" : "127.0.0.1",
+			"Port" : 7878
+		}
 	},
 
 

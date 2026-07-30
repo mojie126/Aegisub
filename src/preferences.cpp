@@ -522,6 +522,88 @@ void Advanced(wxTreebook *book, Preferences *parent) {
 	p->SetSizerAndFit(p->sizer);
 }
 
+/// MCP Server 偏好设置页面
+	void MCP(wxTreebook *book, Preferences *parent) {
+		auto p = new OptionPage(book, parent, _("MCP Server"));
+
+		// 功能说明置于分组框之上，跨整行宽度
+		std::string host = OPT_GET("App/MCP/Host")->GetString();
+		int port = OPT_GET("App/MCP/Port")->GetInt();
+		auto hint = new wxStaticText(
+			p, wxID_ANY, wxString::Format(
+				_(
+					"Enable MCP to allow AI clients (Claude Desktop, Cursor, etc.) to connect via HTTP.\n"
+					"AI and user operate the same Aegisub instance, changes visible in GUI in real-time.\n\n"
+					"Client config: AI side fill in http://%s:%d/mcp"
+				),
+				host.c_str(), port
+			)
+		);
+		p->sizer->Add(hint, 0, wxALL | wxEXPAND, 5);
+
+		// 实时刷新提示文本
+		auto update_hint = [hint, book]() {
+			std::string h = OPT_GET("App/MCP/Host")->GetString();
+			int pt = OPT_GET("App/MCP/Port")->GetInt();
+			hint->SetLabel(
+				wxString::Format(
+					_(
+						"Enable MCP to allow AI clients (Claude Desktop, Cursor, etc.) to connect via HTTP.\n"
+						"AI and user operate the same Aegisub instance, changes visible in GUI in real-time.\n\n"
+						"Client config: AI side fill in http://%s:%d/mcp"
+					),
+					h.c_str(), pt
+				)
+			);
+			hint->Wrap(book->FromDIP(480));
+		};
+		update_hint();
+
+		auto options = p->PageSizer(_("Options"));
+
+		// 启用复选框，跨整行显示
+		auto cb = new wxCheckBox(options.box, -1, _("Enable MCP server (requires restart)"));
+		cb->SetValue(OPT_GET("App/MCP/Enabled")->GetBool());
+		cb->SetToolTip(_("Enable MCP server, requires restart to take effect"));
+		options.sizer->Add(cb, 1, wxEXPAND, 5);
+		p->CellSkip(options);
+		parent->AddChangeableOption("App/MCP/Enabled");
+		cb->Bind(
+			wxEVT_CHECKBOX, [parent](wxCommandEvent &evt) {
+				parent->SetOption(std::make_unique<agi::OptionValueBool>("App/MCP/Enabled", !!evt.GetInt()));
+			}
+		);
+
+		// 监听地址
+		auto host_ctrl = p->OptionAdd(options, _("MCP listen address"), "App/MCP/Host");
+		host_ctrl->SetToolTip(_("MCP server listen address, default 127.0.0.1 allows local access only"));
+		host_ctrl->Bind(wxEVT_TEXT, [update_hint](wxCommandEvent &) { update_hint(); });
+
+		// 监听端口
+		parent->AddChangeableOption("App/MCP/Port");
+		auto port_txt = new wxTextCtrl(options.box, -1, std::to_wstring(OPT_GET("App/MCP/Port")->GetInt()));
+		port_txt->SetToolTip(_("MCP server listen port, default 7878"));
+		port_txt->Bind(
+			wxEVT_TEXT, [parent, port_txt, update_hint](wxCommandEvent &) {
+				try {
+					int val = std::stoi(port_txt->GetValue().ToStdString());
+					if (val < 1 || val > 65535) {
+						wxBell();
+						return;
+					}
+					parent->SetOption(std::make_unique<agi::OptionValueInt>("App/MCP/Port", val));
+					update_hint();
+				} catch (...) {
+					wxBell();
+				}
+			}
+		);
+		options.sizer->Add(new wxStaticText(options.box, -1, _("MCP listen port")), 1, wxALIGN_CENTRE_VERTICAL);
+		options.sizer->Add(port_txt, 1, wxEXPAND);
+
+		p->SetSizerAndFit(p->sizer);
+	}
+
 /// Advanced Audio preferences subpage
 void Advanced_Audio(wxTreebook *book, Preferences *parent) {
 	auto p = new OptionPage(book, parent, _("Audio"), OptionPage::PAGE_SUB);
@@ -1466,6 +1548,7 @@ Preferences::Preferences(wxWindow *parent, agi::Context *context)
 	new Interface_Hotkeys(book, this);
 	Backup(book, this);
 	Automation(book, this);
+	MCP(book, this);
 	Advanced(book, this);
 	Advanced_Audio(book, this);
 	Advanced_Video(book, this);

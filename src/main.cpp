@@ -49,6 +49,7 @@
 #include "frame_main.h"
 #include "include/aegisub/context.h"
 #include "libresrc/libresrc.h"
+#include "mcp_server.h"
 #include "options.h"
 #include "project.h"
 #include "subs_controller.h"
@@ -66,6 +67,7 @@
 #include <libaegisub/io.h>
 #include <libaegisub/json.h>
 #include <libaegisub/log.h>
+#include <libaegisub/mcp/server.h>
 #include <libaegisub/path.h>
 #include <libaegisub/util.h>
 
@@ -74,6 +76,8 @@
 #include <wx/msgdlg.h>
 #include <wx/stackwalk.h>
 #include <wx/utils.h>
+
+#include <thread>
 
 namespace config {
 	agi::Options *opt = nullptr;
@@ -441,6 +445,24 @@ bool AegisubApp::OnInit() {
 		StartupLog("Parse command line");
 		if (!abs_args.empty())
 			OpenFiles(abs_args);
+
+		// 启动内嵌 MCP HTTP server（如果配置启用）
+		// 用户和 AI 操作同一个 Aegisub 实例，AI 的修改在 GUI 中实时可见
+		if (OPT_GET("App/MCP/Enabled")->GetBool()) {
+			StartupLog("MCP: register tools and start HTTP server");
+			agi::mcp::SetFrames(this->GetFrames());
+			agi::mcp::RegisterMcpTools();
+			std::string mcp_host = OPT_GET("App/MCP/Host")->GetString();
+			int mcp_port = OPT_GET("App/MCP/Port")->GetInt();
+			if (mcp_port < 1 || mcp_port > 65535) {
+				mcp_port = 7878;
+			}
+			std::thread(
+				[host = std::move(mcp_host), port = static_cast<uint16_t>(mcp_port)] {
+					agi::mcp::RunHttpServer(host, port);
+				}
+			).detach();
+		}
 	}
 	catch (agi::Exception const& e) {
 		wxMessageBox(to_wx(e.GetMessage()), _("Fatal error while initializing"));
@@ -465,6 +487,10 @@ bool AegisubApp::OnInit() {
 }
 
 int AegisubApp::OnExit() {
+	// 停止 MCP HTTP server 避免 orphan 线程
+	agi::mcp::StopHttpServer();
+	agi::mcp::SetFrames(nullptr);
+
 	for (auto frame : frames)
 		delete frame;
 	frames.clear();

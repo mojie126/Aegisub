@@ -9010,3 +9010,43 @@ msgid ""
 "Add fonts or folders containing fonts to expand the font selection, "
 "used for fonts that are not installed in the system."
 msgstr "添加字体或包含字体的文件夹，扩充字体选择，用于使用没有安装在系统的字体"
+
+#: ../src/preferences.cpp:522
+msgid "MCP Server"
+msgstr "MCP 服务"
+
+#: ../src/preferences.cpp:523
+msgid "Enable MCP server (requires restart)"
+msgstr "启用 MCP 服务（需要重启）"
+
+#: ../src/preferences.cpp:529
+msgid "MCP listen address"
+msgstr "MCP 监听地址"
+
+#: ../src/preferences.cpp:530
+msgid "MCP listen port"
+msgstr "MCP 监听端口"
+
+
+
+#: ../src/preferences.cpp:536
+msgid ""
+"Enable MCP to allow AI clients (Claude Desktop, Cursor, etc.) to connect via HTTP.\n"
+"AI and user operate the same Aegisub instance, changes visible in GUI in real-time.\n\n"
+"Client config: AI side fill in http://%s:%d/mcp"
+msgstr ""
+"开启 MCP 后，AI 客户端（如 Claude Desktop、Cursor 等）可通过 HTTP 连接 Aegisub 的字幕编辑能力。\n"
+"AI 和用户操作同一个 Aegisub 实例，修改在 GUI 中实时可见。\n\n"
+"客户端配置示例:  AI 侧填入 http://%s:%d/mcp"
+
+#: ../src/preferences.cpp:556
+msgid "Enable MCP server, requires restart to take effect"
+msgstr "启用 MCP 服务，需要重启后生效"
+
+#: ../src/preferences.cpp:563
+msgid "MCP server listen address, default 127.0.0.1 allows local access only"
+msgstr "MCP 服务监听地址，默认 127.0.0.1 仅本机可访问"
+
+#: ../src/preferences.cpp:571
+msgid "MCP server listen port, default 7878"
+msgstr "MCP 服务监听端口，默认 7878"

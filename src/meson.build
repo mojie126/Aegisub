@@ -3,6 +3,7 @@ subdir('libresrc')
 aegisub_src = files(
     'mimalloc_override.cpp',
     'MatroskaParser.c',
+    'mcp_server.cpp',
     'aegisublocale.cpp',
     'ass_attachment.cpp',
     'ass_dialogue.cpp',
