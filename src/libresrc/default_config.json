@@ -775,6 +775,7 @@
 			"Show Keyframes" : true
 		},
 		"Subtitle Sync" : true,
+		"Seek Follow Line" : true,
 		"Default to Video Zoom": false,
 		"Prefetch" : false
 	}

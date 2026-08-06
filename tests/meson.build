@@ -32,6 +32,7 @@ tests_src = [
 	'tests/karaoke_matcher.cpp',
 	'tests/karaoke_syllable.cpp',
 	'tests/keyframe.cpp',
+	'tests/line_at_time.cpp',
 	'tests/line_iterator.cpp',
 	'tests/line_wrap.cpp',
 	'tests/mru.cpp',

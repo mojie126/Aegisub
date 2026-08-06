@@ -273,6 +273,8 @@ void Video(wxTreebook *book, Preferences *parent) {
 	p->CellSkip(general);
 	p->OptionAdd(general, _("Seek video to line start on selection change"), "Video/Subtitle Sync");
 	p->CellSkip(general);
+	p->OptionAdd(general, _("Follow subtitle line when video position changes"), "Video/Seek Follow Line");
+	p->CellSkip(general);
 	p->OptionAdd(general, _("Automatically open audio when opening video"), "Video/Open Audio");
 	p->OptionAdd(general, _("Default to Video Zoom"), "Video/Default to Video Zoom")
 		->SetToolTip(_("Reverses the behavior of Ctrl while scrolling the video display. If not set, scrolling will default to UI zoom and Ctrl+scrolling will zoom the video. If set, this will be reversed."));

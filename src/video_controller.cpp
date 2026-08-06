@@ -88,7 +88,7 @@ void VideoController::OnSubtitlesCommit(int type, const AssDialogue *changed) {
 }
 
 void VideoController::OnActiveLineChanged(AssDialogue *line) {
-	if (line && provider && OPT_GET("Video/Subtitle Sync")->GetBool()) {
+	if (line && provider && !suppress_line_sync_ && OPT_GET("Video/Subtitle Sync")->GetBool()) {
 		Stop();
 		JumpToTime(line->Start);
 	}

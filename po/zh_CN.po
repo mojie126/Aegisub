@@ -3107,6 +3107,14 @@ msgstr "缩小"
 msgid "Zoom video out"
 msgstr "缩小视频"
 
+#: ../src/command/video.cpp:1233 ../src/command/video.cpp:1234
+msgid "Toggle follow subtitle line on video seek"
+msgstr "切换视频定位时自动跟随字幕行"
+
+#: ../src/command/video.cpp:1235
+msgid "Toggle automatically scrolling the subtitle grid to the line at the current video position when seeking"
+msgstr "切换视频定位（跳转/播放）时自动滚动字幕网格至当前视频位置对应的字幕行"
+
 #: ../src/command/vis_tool.cpp:102 ../src/command/vis_tool.cpp:103
 msgid "Standard"
 msgstr "标准"
@@ -5940,6 +5948,10 @@ msgid "Seek video to line start on selection change"
 msgstr "所选行更改后视频位置自动移到该行开始时间处"
 
 #: ../src/preferences.cpp:175
+msgid "Follow subtitle line when video position changes"
+msgstr "视频位置变化时自动跟随对应字幕行"
+
+#: ../src/preferences.cpp:176
 msgid "Automatically open audio when opening video"
 msgstr "打开视频时自动加载音频"
 

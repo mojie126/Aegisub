@@ -36,6 +36,7 @@
 #include "../ass_dialogue.h"
 #include "../ass_file.h"
 #include "../async_video_provider.h"
+#include "../base_grid.h"
 #include "../compat.h"
 #include "../dialog_detached_video.h"
 #include "../dialog_manager.h"
@@ -1227,6 +1228,26 @@ namespace {
 		}
 	};
 
+	struct video_opt_seek_follow final : public Command {
+		CMD_NAME("video/opt/seek_follow")
+		CMD_ICON(toggle_video_seek_follow)
+		STR_MENU("Toggle follow subtitle line on video seek")
+		STR_DISP("Toggle follow subtitle line on video seek")
+		STR_HELP("Toggle automatically scrolling the subtitle grid to the line at the current video position when seeking")
+		CMD_TYPE(COMMAND_TOGGLE)
+
+		bool IsActive(const agi::Context *) override {
+			return OPT_GET("Video/Seek Follow Line")->GetBool();
+		}
+
+		void operator()(agi::Context *c) override {
+			OPT_SET("Video/Seek Follow Line")->SetBool(!OPT_GET("Video/Seek Follow Line")->GetBool());
+			// 开启后立即将字幕网格定位到当前视频时间对应的行
+			if (OPT_GET("Video/Seek Follow Line")->GetBool() && c && c->subsGrid)
+				c->subsGrid->FollowVideoLine();
+		}
+	};
+
 	struct video_pan_reset final : public validator_video_loaded {
 		CMD_NAME("video/pan_reset")
 		STR_MENU("Reset Video Pan")
@@ -1407,6 +1428,7 @@ namespace cmd {
 		reg(std::make_unique<video_open_image>());
 		reg(std::make_unique<video_reload>());
 		reg(std::make_unique<video_opt_autoscroll>());
+		reg(std::make_unique<video_opt_seek_follow>());
 		reg(std::make_unique<video_pan_reset>());
 		reg(std::make_unique<video_play>());
 		reg(std::make_unique<video_play_line>());

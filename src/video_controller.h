@@ -101,6 +101,9 @@ class VideoController final : public wxEvtHandler {
 	/// Cached option for audio playing when frame stepping
 	const agi::OptionValue* playAudioOnStep;
 
+	/// 抑制活动行变更触发的视频跳转（跟随定位等内部行变更时使用）
+	bool suppress_line_sync_ = false;
+
 	std::vector<agi::signal::Connection> connections;
 
 	void OnPlayTimer(wxTimerEvent &event);
@@ -157,6 +160,11 @@ public:
 	void PlayLine();
 	/// Stop playing
 	void Stop();
+
+	/// @brief 设置是否抑制活动行变更导致的视频跳转
+	/// @param suppress 为 true 时活动行变更不再触发 Subtitle Sync 跳转
+	/// @details 用于视频定位跟随字幕行等内部行变更，避免与选行跳视频互相反馈
+	void SetSuppressLineSync(bool suppress) { suppress_line_sync_ = suppress; }
 
 	DEFINE_SIGNAL_ADDERS(Seek, AddSeekListener)
 	DEFINE_SIGNAL_ADDERS(ARChange, AddARChangeListener)

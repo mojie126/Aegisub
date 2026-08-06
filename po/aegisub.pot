@@ -2975,6 +2975,14 @@ msgstr ""
 msgid "Zoom video out"
 msgstr ""
 
+#: ../src/command/video.cpp:1233 ../src/command/video.cpp:1234
+msgid "Toggle follow subtitle line on video seek"
+msgstr ""
+
+#: ../src/command/video.cpp:1235
+msgid "Toggle automatically scrolling the subtitle grid to the line at the current video position when seeking"
+msgstr ""
+
 #: ../src/command/vis_tool.cpp:102 ../src/command/vis_tool.cpp:103
 msgid "Standard"
 msgstr ""
@@ -5810,6 +5818,10 @@ msgid "Seek video to line start on selection change"
 msgstr ""
 
 #: ../src/preferences.cpp:175
+msgid "Follow subtitle line when video position changes"
+msgstr ""
+
+#: ../src/preferences.cpp:176
 msgid "Automatically open audio when opening video"
 msgstr ""
 

@@ -98,6 +98,9 @@ class BaseGrid final : public wxWindow {
 	/// blocked if the relevant option is disabled
 	agi::signal::Connection seek_listener;
 
+	/// Connection for video seek follow event, not blocked by the highlight option
+	agi::signal::Connection seek_follow_listener;
+
 	/// Cached grid body context menu
 	std::unique_ptr<wxMenu> context_menu;
 
@@ -117,6 +120,7 @@ class BaseGrid final : public wxWindow {
 	void OnSubtitlesCommit(int type);
 	void OnActiveLineChanged(AssDialogue *);
 	void OnSeek();
+	void OnSeekFollow();
 
 	/// \brief 刷新指定数据行对应的可见区域
 	/// \param data_row 数据行索引（index_line_map中的索引）
@@ -155,6 +159,10 @@ public:
 
 	void SetByFrame(bool state);
 	void ScrollTo(int y);
+
+	/// @brief 将字幕网格定位到当前视频时间对应的字幕行
+	/// @details 依据选项 Video/Seek Follow Line 控制是否执行，用于视频定位后跟随字幕行
+	void FollowVideoLine();
 
 	DECLARE_EVENT_TABLE()
 };

@@ -39,6 +39,7 @@
 #include "compat.h"
 #include "fold_controller.h"
 #include "grid_column.h"
+#include "line_at_time.h"
 #include "options.h"
 #include "project.h"
 #include "theme.h"
@@ -69,6 +70,7 @@ BaseGrid::BaseGrid(wxWindow* parent, agi::Context *context)
 , columns(GetGridColumns())
 , columns_visible(OPT_GET("Subtitle/Grid/Column")->GetListBool())
 , seek_listener(context->videoController->AddSeekListener(&BaseGrid::OnSeek, this))
+, seek_follow_listener(context->videoController->AddSeekListener(&BaseGrid::OnSeekFollow, this))
 {
 	ime_blocker_.EnsureDisabled(this);
 
@@ -305,6 +307,30 @@ void BaseGrid::OnSeek() {
 			refresh_vis(r);
 
 	visible_rows = std::move(new_visible);
+}
+
+void BaseGrid::OnSeekFollow() {
+	FollowVideoLine();
+}
+
+void BaseGrid::FollowVideoLine() {
+	if (!OPT_GET("Video/Seek Follow Line")->GetBool()) return;
+	if (!context->project->VideoProvider()) return;
+
+	int time = context->videoController->TimeAtFrame(context->videoController->GetFrameN(), agi::vfr::EXACT);
+
+	// 当前活动行已覆盖该时间则无需处理，避免播放时反复定位
+	AssDialogue *active = context->selectionController->GetActiveLine();
+	if (active && active->Start <= time && time < active->End) return;
+
+	if (AssDialogue *target = agi::FindLineAtTime(vis_index_line_map, time)) {
+		if (target != active) {
+			// 抑制 Subtitle Sync 的反向跳转，避免跟随定位与选行跳视频互相反馈
+			context->videoController->SetSuppressLineSync(true);
+			context->selectionController->SetActiveLine(target);
+			context->videoController->SetSuppressLineSync(false);
+		}
+	}
 }
 
 void BaseGrid::OnPaint(wxPaintEvent &) {
