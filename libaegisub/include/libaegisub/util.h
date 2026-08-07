@@ -40,6 +40,12 @@ namespace agi::util {
 	/// based on the unfolded length.
 	std::pair<size_t, size_t> ifind(std::string const& haystack, std::string const& needle);
 
+	/// 计算两个字符串的编辑距离（Levenshtein），用于模糊匹配
+	/// @param a 第一个字符串
+	/// @param b 第二个字符串
+	/// @return 把 a 变换成 b 所需的最小单字符编辑次数（插入/删除/替换）
+	size_t edit_distance(std::string_view a, std::string_view b);
+
 	class tagless_find_helper {
 		std::vector<std::pair<size_t, size_t>> blocks;
 		size_t start = 0;

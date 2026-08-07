@@ -68,12 +68,15 @@
 #include "gifski.h"
 
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <map>
 #include <regex>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -401,17 +404,179 @@ UnknownElement HandleGetProjectInfo(Object const& /*args*/) {
 	return info;
 }
 
+/// 从已注册命令中找出与给定名称最相近的若干命令名，用于错误提示
+std::vector<std::string> FindSimilarCommands(std::string_view name, size_t max_count = 3) {
+	std::vector<std::pair<size_t, std::string>> scored;
+	// 编辑距离阈值：名称越长容错越多，但不超过名称长度的三分之一
+	size_t threshold = std::max<size_t>(3, name.size() / 3);
+	for (auto const& cmd_name : cmd::get_registered_commands()) {
+		size_t dist = agi::util::edit_distance(name, cmd_name);
+		if (dist <= threshold)
+			scored.emplace_back(dist, std::string(cmd_name));
+	}
+	std::sort(scored.begin(), scored.end());
+	std::vector<std::string> ret;
+	for (auto& [dist, cmd_name] : scored) {
+		ret.emplace_back(std::move(cmd_name));
+		if (ret.size() >= max_count) break;
+	}
+	return ret;
+}
+
 /// 执行已注册命令
 UnknownElement HandleRunCommand(Object const& args) {
 	auto command = GetString(args, "command");
 	if (command.empty())
 		throw std::runtime_error("missing 'command'");
-	bool executed = cmd::call(command, RequireContext());
+	bool executed = false;
+	try {
+		executed = cmd::call(command, RequireContext());
+	} catch (cmd::CommandNotFound const&) {
+		// 命令名错误时给出相近命令建议，便于 AI 客户端自行纠正
+		std::string msg = "'" + command + "' is not a valid command name";
+		auto suggestions = FindSimilarCommands(command);
+		if (!suggestions.empty())
+			msg += ", did you mean: " + boost::join(suggestions, ", ") + "?";
+		msg += ", use list_commands to query all valid command names";
+		throw std::runtime_error(msg);
+	}
 	Object result;
 	result["ok"] = true;
 	result["command"] = command;
 	// Validate 未通过（如缺少视频/音频/选中行）时命令不会执行，返回 false 便于调用方感知
 	result["executed"] = executed;
+	return result;
+}
+
+/// 已知会弹出模态对话框、文件选择器、确认框或输入框的命令，
+/// 执行后需要用户交互，AI 调用会阻塞直到用户关闭对话框，
+/// 名单对照 docs/hotkey_commands.md 全量命令逐一核对（源码中调用
+/// ShowXxxDialog / OpenFileSelector / SaveFileSelector / wxMessageBox /
+/// wxGetTextFromUser / GetColorFromUser / GetFontFromUser / PickLanguage /
+/// TryToClose 等阻塞 API 的命令），
+/// 以 '/' 结尾的条目按前缀匹配（如 recent/subtitle/ 匹配 recent/subtitle/0）
+static const std::set<std::string_view, std::less<>> blocking_commands = {
+	// 自动化
+	"am/manager",
+	"am/meta",
+	// 应用程序
+	"app/about",
+	"app/clear_all",
+	"app/clear_autosave",
+	"app/clear_cache",
+	"app/clear_log",
+	"app/clear_recent",
+	"app/exit",
+	"app/language",
+	"app/options",
+	// 音频
+	"audio/open",
+	"audio/save/clip",
+	// 编辑
+	"edit/color/outline",
+	"edit/color/primary",
+	"edit/color/secondary",
+	"edit/color/shadow",
+	"edit/find_replace",
+	"edit/font",
+	"edit/line/paste/over",
+	// 关键帧
+	"keyframe/open",
+	"keyframe/save",
+	// 最近文件（带序号动态注册，如 recent/subtitle/0）
+	"recent/subtitle/",
+	// 字幕文件
+	"subtitle/apply/mocha",
+	"subtitle/apply/perspective",
+	"subtitle/attachment",
+	"subtitle/close",
+	"subtitle/find",
+	"subtitle/find/next",
+	"subtitle/new",
+	"subtitle/open",
+	"subtitle/open/autosave",
+	"subtitle/open/charset",
+	"subtitle/open/video",
+	"subtitle/properties",
+	"subtitle/save",
+	"subtitle/save/as",
+	"subtitle/spellcheck",
+	// 时间调整
+	"time/align",
+	"time/shift",
+	// 时间码
+	"timecode/open",
+	"timecode/save",
+	// 工具
+	"tool/export",
+	"tool/font_collector",
+	"tool/line/select",
+	"tool/resampleres",
+	"tool/style/manager",
+	"tool/time/kanji",
+	"tool/time/postprocess",
+	"tool/translation_assistant",
+	// 视频
+	"video/aspect/custom",
+	"video/details",
+	"video/frame/save/export",
+	"video/import/image_sequence",
+	"video/jump",
+	"video/open",
+	"video/open/dummy",
+	"video/open/image",
+	"video/save/clip",
+	"video/save/gif",
+};
+
+/// 已提供专用 MCP 工具的命令 -> 工具名，AI 应优先使用专用工具而非 run_command
+static const std::map<std::string_view, std::string_view, std::less<>> command_to_tool = {
+	{"audio/close", "close_audio"},
+	{"audio/open", "open_audio"},
+	{"audio/play/line", "play_audio"},
+	{"audio/play/selection", "play_audio"},
+	{"edit/find_replace", "search_dialogue"},
+	{"edit/redo", "redo"},
+	{"edit/undo", "undo"},
+	{"subtitle/find", "search_dialogue"},
+	{"subtitle/new", "new_file"},
+	{"subtitle/open", "open_file"},
+	{"subtitle/save", "save_file"},
+	{"subtitle/save/as", "save_file"},
+	{"time/shift", "shift_times"},
+	{"video/close", "close_video"},
+	{"video/frame/save", "save_video_frame"},
+	{"video/open", "open_video"},
+	{"video/save/gif", "export_gif"},
+};
+
+/// 判断命令是否在阻塞名单中，
+/// 名单项以 '/' 结尾时按前缀匹配（如 recent/subtitle/ 匹配 recent/subtitle/0）
+bool IsBlockingCommand(std::string_view name) {
+	if (::blocking_commands.count(name) > 0)
+		return true;
+	for (auto const& prefix : ::blocking_commands) {
+		if (prefix.size() > 1 && prefix.back() == '/' &&
+			name.size() > prefix.size() && name.compare(0, prefix.size(), prefix) == 0)
+			return true;
+	}
+	return false;
+}
+
+/// 列出所有已注册命令名，附阻塞与专用工具信息
+UnknownElement HandleListCommands(Object const& /*args*/) {
+	Array commands;
+	for (auto const& name : cmd::get_registered_commands()) {
+		Object item;
+		item["name"] = std::string(name);
+		item["blocking"] = ::IsBlockingCommand(name);
+		auto it = ::command_to_tool.find(name);
+		if (it != ::command_to_tool.end())
+			item["tool"] = std::string(it->second);
+		commands.emplace_back(std::move(item));
+	}
+	Object result;
+	result["commands"] = std::move(commands);
 	return result;
 }
 
@@ -1772,13 +1937,27 @@ void RegisterMcpTools() {
 	}
 
 	{
+		::agi::mcp::RegisterTool(
+			"list_commands",
+			"List all valid Aegisub command names that run_command can execute. "
+			"Each entry has: name; blocking (true = opens a modal dialog/file picker and waits for user interaction, "
+			"the call will hang until the user closes it); tool (the dedicated MCP tool name that replaces this command, "
+			"prefer it over run_command when present). "
+			"Call this before run_command when unsure of the exact command name.",
+			::MakeObjectSchema(Object{}),
+			::HandleListCommands);
+	}
+
+	{
 		Object props;
-		props["command"] = ::MakeStringProp("Aegisub command name, e.g. 'time/shift'");
+		props["command"] = ::MakeStringProp("Aegisub command name, e.g. 'time/shift'. "
+			"Use list_commands to query all valid names first.");
 		Array required;
 		required.emplace_back(std::string("command"));
 		::agi::mcp::RegisterTool(
 			"run_command",
-			"Execute a registered Aegisub command by name (equivalent to clicking the menu item)",
+			"Execute a registered Aegisub command by name (equivalent to clicking the menu item). "
+			"Call list_commands first to get the exact command names.",
 			::MakeObjectSchema(std::move(props), std::move(required)),
 			::HandleRunCommand);
 	}

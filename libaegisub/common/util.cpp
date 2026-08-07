@@ -110,6 +110,21 @@ std::pair<size_t, size_t> ifind(std::string const& haystack, std::string const& 
 	}
 }
 
+size_t edit_distance(std::string_view a, std::string_view b) {
+	if (a.size() > b.size()) std::swap(a, b);
+	std::vector<size_t> prev(b.size() + 1), cur(b.size() + 1);
+	for (size_t j = 0; j <= b.size(); ++j) prev[j] = j;
+	for (size_t i = 1; i <= a.size(); ++i) {
+		cur[0] = i;
+		for (size_t j = 1; j <= b.size(); ++j) {
+			size_t cost = a[i - 1] == b[j - 1] ? 0 : 1;
+			cur[j] = std::min({prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost});
+		}
+		std::swap(prev, cur);
+	}
+	return prev[b.size()];
+}
+
 std::string tagless_find_helper::strip_tags(std::string const& str, size_t s) {
 	parse_blocks(blocks, str);
 

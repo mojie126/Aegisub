@@ -42,4 +42,14 @@ TEST(lagi_util, try_parse_int) {
 	EXPECT_EQ(1.0, i);
 }
 
+TEST(lagi_util, edit_distance) {
+	EXPECT_EQ(0, util::edit_distance("", ""));
+	EXPECT_EQ(3, util::edit_distance("", "abc"));
+	EXPECT_EQ(0, util::edit_distance("kitten", "kitten"));
+	EXPECT_EQ(3, util::edit_distance("kitten", "sitting"));
+	EXPECT_EQ(1, util::edit_distance("time/shift", "time/sift"));
+	EXPECT_EQ(2, util::edit_distance("edit/undo", "edit/redo"));
+	EXPECT_EQ(7, util::edit_distance("grid/line/next", "edit/line/copy"));
+}
+
 }
