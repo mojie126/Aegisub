@@ -53,6 +53,7 @@
 #include <libaegisub/character_count.h>
 #include <libaegisub/charset.h>
 #include <libaegisub/fs.h>
+#include <libaegisub/io.h>
 #include <libaegisub/keyframe.h>
 #include <libaegisub/mcp/server.h>
 #include <libaegisub/path.h>
@@ -71,12 +72,16 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
+#include <curl/curl.h>
+
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
 #include <map>
 #include <regex>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -1324,6 +1329,165 @@ UnknownElement HandleLoadKeyframes(Object const& args) {
 	return result;
 }
 
+/// 定位 VSFilterMod 标签文档，优先安装布局 ?data/data/，兼容 ?data/
+agi::fs::path FindVsmodDocPath() {
+	for (auto const& prefix : {"?data/data/", "?data/"}) {
+		auto p = config::path->Decode(std::string(prefix) + "AssRocket-VSFilterMod-使用文档.md");
+		if (agi::fs::FileExists(p))
+			return p;
+	}
+	return {};
+}
+
+/// 从一行 `#### \tag...` 条目标题提取标签名（到 '('、'<'、'&'、空格或 '-' 为止，含反斜杠）
+std::string ParseVsmodTagName(std::string const& heading) {
+	auto pos = heading.find('\\');
+	if (pos == std::string::npos) return {};
+	auto end = heading.find_first_of("(<& -", pos);
+	if (end == std::string::npos) end = heading.size();
+	return heading.substr(pos, end - pos);
+}
+
+/// curl 写回调：把响应体追加到 std::string
+size_t VsmodCurlWriteCb(char *contents, size_t size, size_t nmemb, void *userdata) {
+	static_cast<std::string*>(userdata)->append(contents, size * nmemb);
+	return size * nmemb;
+}
+
+/// 从 GitHub wiki 在线拉取 VSFilterMod 标签文档
+std::string FetchVsmodDocOnline() {
+	const char *url = "https://raw.githubusercontent.com/wiki/mojie126/Aegisub/AssRocket-VSFilterMod-%E4%BD%BF%E7%94%A8%E6%96%87%E6%A1%A3.md";
+
+	CURL *curl = curl_easy_init();
+	if (!curl)
+		throw std::runtime_error("curl init failed");
+
+	std::string result;
+	curl_easy_setopt(curl, CURLOPT_URL, url);
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
+	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
+	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
+	curl_easy_setopt(curl, CURLOPT_USERAGENT, "Aegisub-MCP");
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, VsmodCurlWriteCb);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &result);
+
+	CURLcode res = curl_easy_perform(curl);
+	curl_easy_cleanup(curl);
+
+	if (res != CURLE_OK)
+		throw std::runtime_error("failed to fetch VSFilterMod doc from GitHub wiki: " + std::string(curl_easy_strerror(res)));
+	return result;
+}
+
+/// 把文档文本拆成行
+std::vector<std::string> VsmodDocToLines(std::string const& content) {
+	std::vector<std::string> lines;
+	std::string line;
+	std::istringstream stream(content);
+	while (std::getline(stream, line))
+		lines.emplace_back(std::move(line));
+	return lines;
+}
+
+/// 解析文档：有 tag 返回条目详情，无 tag 返回标签清单
+Object ParseVsmodDoc(std::vector<std::string> const& lines, std::string const& tag) {
+	if (!tag.empty()) {
+		// 规范化输入：去掉反斜杠与参数部分（如 "\1vc(...)" 或 "1vc" 均匹配 \1vc）
+		std::string want = tag;
+		if (!want.empty() && want[0] == '\\') want.erase(0, 1);
+		auto paren = want.find('(');
+		if (paren != std::string::npos) want.erase(paren);
+		if (want.empty())
+			throw std::runtime_error("invalid tag: " + tag);
+
+		// 逐条扫描 #### 条目，匹配标签名
+		for (size_t i = 0; i < lines.size(); ++i) {
+			if (lines[i].compare(0, 6, "#### `") != 0) continue;
+			auto name = ParseVsmodTagName(lines[i]);
+			if (name.empty()) continue;
+			// 匹配标题首个标签名，或标题中出现的别名（如 "\K 或 \kf" 合并条目）
+			bool matched = false;
+			for (auto pos = lines[i].find('\\'); pos != std::string::npos; pos = lines[i].find('\\', pos + 1)) {
+				auto end = lines[i].find_first_of("(<& -", pos);
+				if (end == std::string::npos) end = lines[i].size();
+				auto cand = lines[i].substr(pos + 1, end - pos - 1);
+				if (cand == want) {
+					matched = true;
+					break;
+				}
+			}
+			if (!matched) continue;
+
+			// 收集条目内容直到下一个 #### / ### / ---
+			std::string entry = lines[i].substr(6) + "\n";
+			for (size_t j = i + 1; j < lines.size(); ++j) {
+				auto const& l = lines[j];
+				if (l.compare(0, 6, "#### `") == 0 || l.compare(0, 4, "### ") == 0 || l.compare(0, 3, "---") == 0)
+					break;
+				entry += l + "\n";
+			}
+			Object result;
+			result["tag"] = name;
+			result["syntax"] = entry;
+			return result;
+		}
+		throw std::runtime_error("tag not found in VSFilterMod syntax doc: " + tag);
+	}
+
+	// 无 tag：返回全部标签条目清单（标签名 + 条目标题说明）
+	Array tags;
+	for (auto const& l : lines) {
+		if (l.compare(0, 6, "#### `") != 0) continue;
+		auto name = ParseVsmodTagName(l);
+		if (name.empty()) continue;
+		Object item;
+		item["tag"] = name;
+		item["title"] = l.substr(6);
+		tags.emplace_back(std::move(item));
+	}
+	Object result;
+	int64_t count = static_cast<int64_t>(tags.size());
+	result["tags"] = std::move(tags);
+	result["count"] = count;
+	return result;
+}
+
+/// 查询 VSFilterMod 标签语法，source 支持 local/online/auto（本地无则在线）
+UnknownElement HandleVsmodSyntax(Object const& args) {
+	std::string source = GetString(args, "source");
+	if (source.empty()) source = "auto";
+
+	std::vector<std::string> lines;
+	std::string used_source;
+
+	if (source == "local" || source == "auto") {
+		auto doc_path = FindVsmodDocPath();
+		if (!doc_path.empty()) {
+			std::string content;
+			auto in = agi::io::Open(doc_path);
+			content.assign(std::istreambuf_iterator<char>(*in), std::istreambuf_iterator<char>());
+			lines = VsmodDocToLines(content);
+			used_source = "local";
+		}
+		else if (source == "local") {
+			throw std::runtime_error("VSFilterMod syntax doc not found, please install Aegisub data files or use source=online");
+		}
+	}
+
+	if (lines.empty() && (source == "online" || source == "auto")) {
+		lines = VsmodDocToLines(FetchVsmodDocOnline());
+		used_source = "online";
+	}
+
+	if (lines.empty())
+		throw std::runtime_error("no VSFilterMod syntax doc available");
+
+	Object result = ParseVsmodDoc(lines, GetString(args, "tag"));
+	result["source"] = used_source;
+	return result;
+}
+
 /// 剥离 ASS override 标签，返回纯文本
 UnknownElement HandleStripTags(Object const& args) {
 	std::string text = GetString(args, "text");
@@ -2319,6 +2483,28 @@ void RegisterMcpTools() {
 			"Load a keyframes file into the current project.",
 			::MakeObjectSchema(std::move(props), std::move(required)),
 			::HandleLoadKeyframes);
+	}
+
+	{
+		Object props;
+		props["tag"] = ::MakeStringProp(
+			"VSFilterMod tag name to look up, e.g. '\\1vc', '\\blur', '\\z' or '\\1img'. "
+			"Omit to list all available tags.");
+		props["source"] = ::MakeStringProp(
+			"Where to read the syntax reference from: 'local' (bundled doc), "
+			"'online' (fetch GitHub wiki), 'auto' (local first, fall back to online). Default: auto",
+			"auto");
+		::agi::mcp::RegisterTool(
+			"vsmod_syntax",
+			"Look up VSFilterMod (VSMod) subtitle override tag syntax and effect from the built-in reference "
+			"or the online GitHub wiki (https://github.com/mojie126/Aegisub/wiki). "
+			"Pass tag to get its usage, parameters, example, effect and conflict notes; "
+			"omit tag to list every documented tag. "
+			"VSMod tags are extensions beyond standard ASS, e.g. gradient colors \\1vc, PNG images \\1img, "
+			"3D transforms \\z/\\ortho, distortion \\distort, blur effects, jitter and Lua scripting. "
+			"Returns source ('local' or 'online') indicating where the info came from.",
+			::MakeObjectSchema(std::move(props)),
+			::HandleVsmodSyntax);
 	}
 
 	{

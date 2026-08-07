@@ -88,19 +88,21 @@ conf.set('WITH_UPDATE_CHECKER', get_option('enable_update_checker'))
 if get_option('enable_update_checker')
 	conf.set_quoted('UPDATE_CHECKER_SERVER', get_option('update_server'))
 	conf.set_quoted('UPDATE_CHECKER_BASE_URL', get_option('update_url'))
+endif
 
-	curl_disable = ['tool', 'dict', 'file', 'ftp', 'gopher', 'imap', 'ldap', 'ldaps', 'mqtt', 'pop3', 'rtmp', 'rtsp', 'smb', 'smtp', 'telnet', 'tftp']
-	curl_options = []
-	foreach opt : curl_disable
-		curl_options += opt + '=disabled'
-	endforeach
-	if host_machine.system() == 'windows'
-		curl_options += 'schannel=enabled'
-	elif host_machine.system() == 'darwin'
-		curl_options += 'secure-transport=enabled'
-	else
-		curl_options += 'openssl=enabled'
-	endif
+# libcurl 编译选项：禁用用不到的协议，按平台选择 TLS 后端
+# MCP 在线查询（vsmod_syntax source=online）与更新检查器共用该依赖
+curl_disable = ['tool', 'dict', 'file', 'ftp', 'gopher', 'imap', 'ldap', 'ldaps', 'mqtt', 'pop3', 'rtmp', 'rtsp', 'smb', 'smtp', 'telnet', 'tftp']
+curl_options = []
+foreach opt : curl_disable
+	curl_options += opt + '=disabled'
+endforeach
+if host_machine.system() == 'windows'
+	curl_options += 'schannel=enabled'
+elif host_machine.system() == 'darwin'
+	curl_options += 'secure-transport=enabled'
+else
+	curl_options += 'openssl=enabled'
 endif
 
 deps = []
@@ -108,9 +110,7 @@ deps_inc = []
 dep_avail = []
 add_project_arguments('-DMI_MALLOC=1', language : ['cpp', 'c'])
 
-if get_option('enable_update_checker')
-	deps += dependency('libcurl', allow_fallback: true, default_options: curl_options)
-endif
+deps += dependency('libcurl', allow_fallback: true, default_options: curl_options)
 
 deps += dependency('mimalloc_static')
 deps += dependency('ffnvcodec')
@@ -533,3 +533,16 @@ install_data('src/cube/HLG2SDR.cube',
              install_dir : bindir / 'data' / 'cube')
 install_data('src/cube/DV2SDR.cube',
              install_dir : bindir / 'data' / 'cube')
+
+# 构建时复制VSFilterMod标签文档到构建目录data/，确保dev运行时可找到
+vsmod_doc_src = meson.project_source_root() / 'docs' / 'AssRocket-VSFilterMod-使用文档.md'
+vsmod_doc_dst = meson.project_build_root() / 'data' / 'AssRocket-VSFilterMod-使用文档.md'
+run_command(powershell_exe, '-Command',
+  'New-Item -ItemType Directory -Force "' + meson.project_build_root() / 'data' + '" | Out-Null',
+  check: false)
+run_command(powershell_exe, '-Command',
+  'Copy-Item -Force "' + vsmod_doc_src + '" "' + vsmod_doc_dst + '"',
+  check: false)
+# 安装VSFilterMod标签文档，供MCP vsmod_syntax工具查询
+install_data('docs/AssRocket-VSFilterMod-使用文档.md',
+             install_dir : bindir / 'data')
