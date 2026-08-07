@@ -36,6 +36,7 @@
 #include <libaegisub/format_path.h>
 #include <libaegisub/fs.h>
 #include <libaegisub/path.h>
+
 #include <libaegisub/util.h>
 
 #include <wx/msgdlg.h>
@@ -232,7 +233,15 @@ void SubsController::Close() {
 	AssFile blank;
 	blank.swap(*context->ass);
 	context->ass->LoadDefault(true, OPT_GET("Subtitle Format/ASS/Default Style Catalog")->GetString());
+	// 先 Commit 让 BaseGrid 等监听器把行缓存（vis_index_line_map）重建到新文件，
+	// 再切换选中/活动行，若顺序颠倒，BaseGrid::OnActiveLineChanged 的
+	// MakeRowVisible 会用指向旧文件行的悬空缓存，且旧行已不在 Events 中，
+	// Commit 信号链访问 selection 时旧行对象仍存活（blank 作用域内），是安全的
 	context->ass->Commit("", AssFile::COMMIT_NEW);
+	if (!context->ass->Events.empty()) {
+		auto line = &*context->ass->Events.begin();
+		context->selectionController->SetSelectionAndActive({line}, line);
+	}
 	FileOpen(filename);
 }
 
@@ -313,7 +322,9 @@ void SubsController::OnCommit(AssFileCommit c) {
 	commit_id = next_commit_id++;
 	// Allow coalescing only if it's the last change and the file has not been
 	// saved since the last change
-	if (commit_id == *c.commit_id+1 && redo_stack.empty() && saved_commit_id+1 != commit_id) {
+	// 注意：Close()/Load() 清空 undo 栈后可能提交空 message 的 Commit，
+	// 此时栈为空，back()/pop_back() 是未定义行为，必须跳过合并
+	if (!undo_stack.empty() && commit_id == *c.commit_id+1 && redo_stack.empty() && saved_commit_id+1 != commit_id) {
 		// If only one line changed just modify it instead of copying the file
 		if (c.single_line && c.single_line->Group() == AssEntryGroup::DIALOGUE) {
 			for (auto& diag : undo_stack.back().events) {

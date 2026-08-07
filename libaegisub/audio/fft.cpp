@@ -34,9 +34,8 @@
 /// Most of this code was taken from http://www.codeproject.com/audio/waveInFFT.asp
 /// And rewritten by Rodrigo Braz Monteiro
 
-#include "fft.h"
+#include "libaegisub/audio/fft.h"
 
-#ifndef WITH_FFTW3
 #include <libaegisub/exception.h>
 
 #include <cmath>
@@ -168,4 +167,3 @@ float FFT::FrequencyAtIndex (unsigned int baseFreq, unsigned int n_samples, unsi
 		return (-(float)(n_samples-index) / (float)n_samples * baseFreq);
 	}
 }
-#endif

@@ -24,7 +24,10 @@ namespace agi {
 	class Path;
 }
 
+/// @brief 创建音频提供者
+/// @param interactive false 时（如 MCP 调用）首选 provider 失败不弹选择对话框，直接抛出异常
 std::unique_ptr<agi::AudioProvider> GetAudioProvider(agi::fs::path const& filename,
                                                      agi::Path const& path_helper,
-                                                     agi::BackgroundRunner *br);
+                                                     agi::BackgroundRunner *br,
+                                                     bool interactive = true);
 std::vector<std::string> GetAudioProviderNames();

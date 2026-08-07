@@ -91,7 +91,7 @@ int prompt(wxWindow *parent, bool ar_changed, int sx, int sy, int vx, int vy) {
 	return d.ShowModal();
 }
 
-bool update_video_properties(AssFile *file, const AsyncVideoProvider *new_provider, wxWindow *parent) {
+bool update_video_properties(AssFile *file, const AsyncVideoProvider *new_provider, wxWindow *parent, bool interactive) {
 	bool commit_subs = false;
 
 	// When opening dummy video only want to set the script properties if
@@ -130,6 +130,11 @@ bool update_video_properties(AssFile *file, const AsyncVideoProvider *new_provid
 	auto sar = double(sx) / sy;
 	auto var = double(vx) / vy;
 	bool ar_changed = std::abs(sar - var) / var > .01;
+
+	// 非交互模式（MCP 等）下不弹分辨率不匹配对话框，跳过修改，
+	// 由调用方自行决定如何处理（如提供 set_script_resolution 工具）
+	if (!interactive)
+		return commit_subs;
 
 	switch (OPT_GET("Video/Script Resolution Mismatch")->GetInt()) {
 	case MISMATCH_IGNORE: default:
@@ -176,7 +181,7 @@ bool update_video_properties(AssFile *file, const AsyncVideoProvider *new_provid
 }
 }
 
-void UpdateVideoProperties(AssFile *file, const AsyncVideoProvider *new_provider, wxWindow *parent) {
-	if (update_video_properties(file, new_provider, parent))
+void UpdateVideoProperties(AssFile *file, const AsyncVideoProvider *new_provider, wxWindow *parent, bool interactive) {
+	if (update_video_properties(file, new_provider, parent, interactive))
 		file->Commit(_("change script resolution"), AssFile::COMMIT_SCRIPTINFO);
 }

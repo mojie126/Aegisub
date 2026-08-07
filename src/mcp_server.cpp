@@ -19,7 +19,9 @@
 /// @ingroup mcp
 ///
 /// register_tool 注册的 handler 在 GUI 主线程上被调用，可以安全访问 agi::Context，
-/// 工具覆盖：工程信息，字幕读写，样式操作，时间轴调整，帧/时间转换，关键帧等
+/// 工具覆盖：工程信息，字幕读写，样式操作，时间轴调整，帧/时间转换，关键帧，
+/// 视频/音频的打开与关闭，视频帧截图（内存 base64 或保存文件），GIF 导出，
+/// 音频波形与频谱数据读取等
 
 #include "mcp_server.h"
 
@@ -30,20 +32,47 @@
 #include "async_video_provider.h"
 #include "audio_controller.h"
 #include "command/command.h"
+#include "compat.h"
 #include "frame_main.h"
 #include "include/aegisub/context.h"
+#include "options.h"
 #include "project.h"
 #include "selection_controller.h"
 #include "subs_controller.h"
 #include "time_range.h"
 #include "video_controller.h"
+#include "video_export_utils.h"
+#include "video_frame.h"
+#include "video_out_gl.h"
 #include "charset_detect.h"
 
+#include <libaegisub/ass/time.h>
+#include <libaegisub/audio/analysis.h>
+#include <libaegisub/audio/provider.h>
 #include <libaegisub/cajun/elements.h>
+#include <libaegisub/character_count.h>
+#include <libaegisub/charset.h>
+#include <libaegisub/fs.h>
+#include <libaegisub/keyframe.h>
 #include <libaegisub/mcp/server.h>
 #include <libaegisub/path.h>
+#include <libaegisub/util.h>
+#include <libaegisub/vfr.h>
+
+#include <wx/clipbrd.h>
+#include <wx/image.h>
+#include <wx/imagjpeg.h>
+#include <wx/imagpng.h>
+#include <wx/mstream.h>
+
+#include "gifski.h"
+
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 #include <algorithm>
+#include <cstdio>
+#include <cstring>
 #include <regex>
 #include <stdexcept>
 #include <string>
@@ -75,6 +104,211 @@ int64_t GetInt(Object const& obj, std::string_view key, int64_t def = 0) {
 	} catch (...) {
 		return def;
 	}
+}
+
+/// 取一个 JSON 对象布尔字段，缺省返回默认值
+bool GetBool(Object const& obj, std::string_view key, bool def = false) {
+	auto it = obj.find(key);
+	if (it == obj.end()) return def;
+	try {
+		return static_cast<bool const&>(it->second);
+	} catch (...) {
+		return def;
+	}
+}
+
+/// 取一个 JSON 对象浮点字段，缺省返回默认值
+double GetDouble(Object const& obj, std::string_view key, double def = 0.0) {
+	auto it = obj.find(key);
+	if (it == obj.end()) return def;
+	try {
+		return static_cast<double const&>(it->second);
+	} catch (...) {
+		try {
+			return static_cast<double>(static_cast<int64_t const&>(it->second));
+		} catch (...) {
+			return def;
+		}
+	}
+}
+
+/// 把一条 AssStyle 序列化为 JSON 对象（含完整样式字段）
+UnknownElement AssStyleToJson(AssStyle const& s) {
+	Object obj;
+	obj["name"] = s.name;
+	obj["font"] = s.font;
+	obj["fontsize"] = s.fontsize;
+	obj["primary"] = s.primary.GetAssStyleFormatted();
+	obj["secondary"] = s.secondary.GetAssStyleFormatted();
+	obj["outline"] = s.outline.GetAssStyleFormatted();
+	obj["shadow"] = s.shadow.GetAssStyleFormatted();
+	obj["bold"] = s.bold;
+	obj["italic"] = s.italic;
+	obj["underline"] = s.underline;
+	obj["strikeout"] = s.strikeout;
+	obj["scalex"] = s.scalex;
+	obj["scaley"] = s.scaley;
+	obj["spacing"] = s.spacing;
+	obj["angle"] = s.angle;
+	obj["borderstyle"] = static_cast<int64_t>(s.borderstyle);
+	obj["outline_w"] = s.outline_w;
+	obj["shadow_w"] = s.shadow_w;
+	obj["alignment"] = static_cast<int64_t>(s.alignment);
+	obj["margin_l"] = static_cast<int64_t>(s.Margin[0]);
+	obj["margin_r"] = static_cast<int64_t>(s.Margin[1]);
+	obj["margin_v"] = static_cast<int64_t>(s.Margin[2]);
+	obj["encoding"] = static_cast<int64_t>(s.encoding);
+	return obj;
+}
+
+/// 把 fields 对象应用到 AssStyle 上，返回实际被设置字段数；
+/// 颜色等解析失败时抛出 std::runtime_error
+int ApplyStyleFields(AssStyle& s, Object const& fields) {
+	int applied = 0;
+
+	auto set_str = [&](std::string_view key, std::string AssStyle::*field) {
+		auto it = fields.find(key);
+		if (it == fields.end()) return;
+		try { s.*field = static_cast<std::string const&>(it->second); ++applied; } catch (...) {}
+	};
+	auto set_double = [&](std::string_view key, double AssStyle::*field) {
+		auto it = fields.find(key);
+		if (it == fields.end()) return;
+		try { s.*field = static_cast<double const&>(it->second); ++applied; } catch (...) {
+			try { s.*field = static_cast<double>(static_cast<int64_t const&>(it->second)); ++applied; } catch (...) {}
+		}
+	};
+	auto set_int = [&](std::string_view key, int AssStyle::*field) {
+		auto it = fields.find(key);
+		if (it == fields.end()) return;
+		try { s.*field = static_cast<int>(static_cast<int64_t const&>(it->second)); ++applied; } catch (...) {}
+	};
+	auto set_bool = [&](std::string_view key, bool AssStyle::*field) {
+		auto it = fields.find(key);
+		if (it == fields.end()) return;
+		try { s.*field = static_cast<bool const&>(it->second); ++applied; } catch (...) {}
+	};
+	auto set_color = [&](std::string_view key, agi::Color AssStyle::*field) {
+		auto it = fields.find(key);
+		if (it == fields.end()) return;
+		std::string str;
+		try { str = static_cast<std::string const&>(it->second); } catch (...) { return; }
+		try {
+			s.*field = agi::Color(str);
+			++applied;
+		} catch (...) {
+			throw std::runtime_error("invalid color value for '" + std::string(key) + "': " + str);
+		}
+	};
+
+	set_str("name", &AssStyle::name);
+	set_str("font", &AssStyle::font);
+	set_double("fontsize", &AssStyle::fontsize);
+	set_color("primary", &AssStyle::primary);
+	set_color("secondary", &AssStyle::secondary);
+	set_color("outline", &AssStyle::outline);
+	set_color("shadow", &AssStyle::shadow);
+	set_bool("bold", &AssStyle::bold);
+	set_bool("italic", &AssStyle::italic);
+	set_bool("underline", &AssStyle::underline);
+	set_bool("strikeout", &AssStyle::strikeout);
+	set_double("scalex", &AssStyle::scalex);
+	set_double("scaley", &AssStyle::scaley);
+	set_double("spacing", &AssStyle::spacing);
+	set_double("angle", &AssStyle::angle);
+	set_int("borderstyle", &AssStyle::borderstyle);
+	set_double("outline_w", &AssStyle::outline_w);
+	set_double("shadow_w", &AssStyle::shadow_w);
+	set_int("alignment", &AssStyle::alignment);
+	for (int i = 0; i < 3; ++i) {
+		std::string key = i == 0 ? "margin_l" : (i == 1 ? "margin_r" : "margin_v");
+		auto it = fields.find(key);
+		if (it == fields.end()) continue;
+		try { s.Margin[i] = static_cast<int>(static_cast<int64_t const&>(it->second)); ++applied; } catch (...) {}
+	}
+	set_int("encoding", &AssStyle::encoding);
+
+	return applied;
+}
+
+/// 按名称查找样式（大小写不敏感），找不到抛出异常
+AssStyle& RequireStyle(agi::Context* ctx, std::string const& name) {
+	auto* s = ctx->ass->GetStyle(name);
+	if (!s)
+		throw std::runtime_error("style not found: " + name);
+	return *s;
+}
+
+/// 检查样式名唯一性（大小写不敏感），已存在则抛出异常
+void RequireStyleNameAvailable(agi::Context* ctx, std::string const& name) {
+	if (ctx->ass->GetStyle(name))
+		throw std::runtime_error("style already exists: " + name);
+}
+
+/// 预验证样式字段中会抛异常的部分（颜色解析），
+/// 避免 ApplyStyleFields 应用到活对象时中途失败导致部分修改且无撤销记录
+void ValidateStyleFields(Object const& fields) {
+	auto check_color = [&](std::string_view key) {
+		auto it = fields.find(key);
+		if (it == fields.end()) return;
+		std::string str;
+		try { str = static_cast<std::string const&>(it->second); } catch (...) { return; }
+		try {
+			agi::Color c(str);
+		} catch (...) {
+			throw std::runtime_error("invalid color value for '" + std::string(key) + "': " + str);
+		}
+	};
+	check_color("primary");
+	check_color("secondary");
+	check_color("outline");
+	check_color("shadow");
+}
+
+/// 对内存数据做 base64 编码
+std::string Base64Encode(void const* data, size_t len) {
+	static const char tbl[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	std::string out;
+	out.reserve((len + 2) / 3 * 4);
+	auto const* p = static_cast<unsigned char const*>(data);
+	for (size_t i = 0; i < len; i += 3) {
+		uint32_t v = static_cast<uint32_t>(p[i]) << 16;
+		if (i + 1 < len) v |= static_cast<uint32_t>(p[i + 1]) << 8;
+		if (i + 2 < len) v |= static_cast<uint32_t>(p[i + 2]);
+		out += tbl[(v >> 18) & 0x3F];
+		out += tbl[(v >> 12) & 0x3F];
+		out += (i + 1 < len) ? tbl[(v >> 6) & 0x3F] : '=';
+		out += (i + 2 < len) ? tbl[v & 0x3F] : '=';
+	}
+	return out;
+}
+
+/// 解析目标帧号：优先用 frame 参数，其次 ms 参数，缺省用当前帧
+int64_t ResolveTargetFrame(agi::Context* ctx, Object const& args) {
+	int64_t frame = GetInt(args, "frame", -1);
+	int64_t ms = GetInt(args, "ms", -1);
+	if (frame < 0 && ms >= 0)
+		frame = ctx->videoController->FrameAtTime(static_cast<int>(std::min<int64_t>(ms, 2147483647)), agi::vfr::START);
+	if (frame < 0)
+		frame = ctx->videoController->GetFrameN();
+	int total = ctx->project->VideoProvider()->GetFrameCount();
+	return std::clamp<int64_t>(frame, 0, total > 0 ? total - 1 : 0);
+}
+
+/// 解码指定帧并做 HDR 色调映射与黑边填充，返回可保存/编码的 wxImage
+wxImage GetVideoFrameImage(agi::Context* ctx, int64_t frame, bool raw) {
+	auto* provider = ctx->project->VideoProvider();
+	auto vf = provider->GetFrame(static_cast<int>(frame), ctx->project->Timecodes().TimeAtFrame(static_cast<int>(frame)), raw);
+	if (!vf)
+		throw std::runtime_error("failed to decode frame " + std::to_string(frame));
+	wxImage img = GetImage(*vf);
+	// HDR 色调映射与 GUI 截图/导出路径保持一致（字幕合成帧才做映射）
+	if (OPT_GET("Video/HDR/Tone Mapping")->GetBool() && !raw) {
+		VideoOutGL::ApplyHDRLutToImage(img, provider->GetHDRType(), provider->GetDVProfile());
+	}
+	if (vf->padding_top > 0 || vf->padding_bottom > 0)
+		img = AddPaddingToImage(img, vf->padding_top, vf->padding_bottom);
+	return img;
 }
 
 /// 构造一个最简单的 JSON Schema
@@ -172,10 +406,12 @@ UnknownElement HandleRunCommand(Object const& args) {
 	auto command = GetString(args, "command");
 	if (command.empty())
 		throw std::runtime_error("missing 'command'");
-	cmd::call(command, RequireContext());
+	bool executed = cmd::call(command, RequireContext());
 	Object result;
 	result["ok"] = true;
 	result["command"] = command;
+	// Validate 未通过（如缺少视频/音频/选中行）时命令不会执行，返回 false 便于调用方感知
+	result["executed"] = executed;
 	return result;
 }
 
@@ -209,20 +445,134 @@ UnknownElement HandleGetDialogueLines(Object const& args) {
 UnknownElement HandleGetStyles(Object const& /*args*/) {
 	auto* ctx = RequireContext();
 	Array styles;
-	for (auto& s : ctx->ass->Styles) {
-		Object obj;
-		obj["name"] = s.name;
-		obj["font"] = s.font;
-		obj["fontsize"] = s.fontsize;
-		obj["bold"] = s.bold;
-		obj["italic"] = s.italic;
-		obj["underline"] = s.underline;
-		obj["strikeout"] = s.strikeout;
-		obj["alignment"] = static_cast<int64_t>(s.alignment);
-		styles.emplace_back(std::move(obj));
-	}
+	for (auto& s : ctx->ass->Styles)
+		styles.emplace_back(AssStyleToJson(s));
 	Object result;
 	result["styles"] = std::move(styles);
+	return result;
+}
+
+/// 获取单个样式完整定义
+UnknownElement HandleGetStyle(Object const& args) {
+	auto* ctx = RequireContext();
+	std::string name = GetString(args, "name");
+	if (name.empty())
+		throw std::runtime_error("missing 'name'");
+	Object result;
+	result["style"] = AssStyleToJson(::RequireStyle(ctx, name));
+	return result;
+}
+
+/// 新建样式
+UnknownElement HandleAddStyle(Object const& args) {
+	auto* ctx = RequireContext();
+	auto fit = args.find("fields");
+	if (fit == args.end())
+		throw std::runtime_error("missing 'fields'");
+	Object const* fields = nullptr;
+	try {
+		fields = &static_cast<Object const&>(fit->second);
+	} catch (...) {
+		throw std::runtime_error("'fields' must be an object");
+	}
+
+	std::string name = GetString(*fields, "name");
+	if (name.empty())
+		throw std::runtime_error("'fields.name' is required");
+	::RequireStyleNameAvailable(ctx, name);
+
+	AssStyle style;
+	// 字段校验失败时不允许部分创建：先应用到临时样式上
+	::ApplyStyleFields(style, *fields);
+	style.name = name;
+	style.UpdateData();
+	// intrusive list 需要堆分配对象，局部对象会在离开作用域时被 auto_unlink 摘除
+	ctx->ass->Styles.push_back(*new AssStyle(style));
+
+	auto undo = GetString(args, "undo_point");
+	ctx->ass->Commit(!undo.empty() ? wxString::FromUTF8(undo) : _("style add"), AssFile::COMMIT_STYLES);
+
+	Object result;
+	result["ok"] = true;
+	result["style"] = AssStyleToJson(*ctx->ass->GetStyle(name));
+	return result;
+}
+
+/// 修改已有样式
+UnknownElement HandleUpdateStyle(Object const& args) {
+	auto* ctx = RequireContext();
+	std::string name = GetString(args, "name");
+	if (name.empty())
+		throw std::runtime_error("missing 'name'");
+
+	auto fit = args.find("fields");
+	if (fit == args.end())
+		throw std::runtime_error("missing 'fields'");
+	Object const* fields = nullptr;
+	try {
+		fields = &static_cast<Object const&>(fit->second);
+	} catch (...) {
+		throw std::runtime_error("'fields' must be an object");
+	}
+
+	// 先验证会抛异常的字段（颜色），再应用；
+	// 不能拷贝 AssStyle（intrusive hook 浅拷贝会破坏 Styles 链表），
+	// 也不能在应用到活对象中途失败（会导致部分修改且无撤销记录）
+	::ValidateStyleFields(*fields);
+	AssStyle& style = ::RequireStyle(ctx, name);
+	std::string new_name = GetString(*fields, "name");
+	if (!new_name.empty() && new_name != name) {
+		::RequireStyleNameAvailable(ctx, new_name);
+		style.name = new_name;
+	}
+	::ApplyStyleFields(style, *fields);
+	style.UpdateData();
+
+	auto undo = GetString(args, "undo_point");
+	ctx->ass->Commit(!undo.empty() ? wxString::FromUTF8(undo) : _("style edit"), AssFile::COMMIT_STYLES);
+
+	Object result;
+	result["ok"] = true;
+	result["style"] = AssStyleToJson(style);
+	return result;
+}
+
+/// 删除样式
+UnknownElement HandleDeleteStyle(Object const& args) {
+	auto* ctx = RequireContext();
+	std::string name = GetString(args, "name");
+	if (name.empty())
+		throw std::runtime_error("missing 'name'");
+	AssStyle& style = ::RequireStyle(ctx, name);
+	// erase 只摘除节点不释放对象，用 unique_ptr 接管所有权
+	std::unique_ptr<AssStyle> owner(&style);
+	ctx->ass->Styles.erase(ctx->ass->Styles.iterator_to(style));
+
+	// 将引用被删样式的行回退为 Default，避免渲染时找不到样式
+	if (ctx->ass->GetStyle("Default")) {
+		int updated = 0;
+		for (auto& diag : ctx->ass->Events) {
+			if (boost::iequals(diag.Style.get(), name)) {
+				diag.Style = "Default";
+				++updated;
+			}
+		}
+		if (updated > 0) {
+			Object result;
+			result["ok"] = true;
+			result["reassigned"] = static_cast<int64_t>(updated);
+			auto undo = GetString(args, "undo_point");
+			ctx->ass->Commit(!undo.empty() ? wxString::FromUTF8(undo) : _("style delete"), AssFile::COMMIT_DIAG_META | AssFile::COMMIT_STYLES);
+			return result;
+		}
+	}
+
+	auto undo = GetString(args, "undo_point");
+	ctx->ass->Commit(!undo.empty() ? wxString::FromUTF8(undo) : _("style delete"), AssFile::COMMIT_STYLES);
+
+	Object result;
+	result["ok"] = true;
+	result["reassigned"] = 0;
 	return result;
 }
 
@@ -319,15 +669,27 @@ UnknownElement HandleUpdateSubtitleFields(Object const& args) {
 		set_str("actor", &AssDialogue::Actor);
 		set_str("effect", &AssDialogue::Effect);
 
-		// 整数字段
+		// 整数字段（时间戳与图层做范围校验，避免异常值损坏数据）
 		if (auto f = fields->find("layer"); f != fields->end()) {
-			try { diag.Layer = static_cast<int>(static_cast<int64_t const&>(f->second)); } catch (...) {}
+			try {
+				int64_t v = static_cast<int64_t const&>(f->second);
+				if (v < -10000 || v > 10000) throw std::runtime_error("'layer' out of range (-10000..10000)");
+				diag.Layer = static_cast<int>(v);
+			} catch (std::runtime_error const&) { throw; } catch (...) {}
 		}
 		if (auto f = fields->find("start"); f != fields->end()) {
-			try { diag.Start = static_cast<int>(static_cast<int64_t const&>(f->second)); } catch (...) {}
+			try {
+				int64_t v = static_cast<int64_t const&>(f->second);
+				if (v < 0 || v > 2147483647) throw std::runtime_error("'start' out of range (0..2147483647 ms)");
+				diag.Start = static_cast<int>(v);
+			} catch (std::runtime_error const&) { throw; } catch (...) {}
 		}
 		if (auto f = fields->find("end"); f != fields->end()) {
-			try { diag.End = static_cast<int>(static_cast<int64_t const&>(f->second)); } catch (...) {}
+			try {
+				int64_t v = static_cast<int64_t const&>(f->second);
+				if (v < 0 || v > 2147483647) throw std::runtime_error("'end' out of range (0..2147483647 ms)");
+				diag.End = static_cast<int>(v);
+			} catch (std::runtime_error const&) { throw; } catch (...) {}
 		}
 
 		// 布尔字段
@@ -393,7 +755,8 @@ UnknownElement HandleInsertSubtitleLine(Object const& args) {
 		} catch (...) {}
 	}
 
-	ctx->ass->Events.push_back(diag);
+	// intrusive list 需要堆分配对象，局部对象会在离开作用域时被 auto_unlink 摘除
+	ctx->ass->Events.push_back(*new AssDialogue(diag));
 
 	auto undo = GetString(args, "undo_point");
 	ctx->ass->Commit(!undo.empty() ? wxString::FromUTF8(undo) : _("insert line"), AssFile::COMMIT_DIAG_ADDREM);
@@ -419,37 +782,56 @@ UnknownElement HandleDeleteSubtitleLine(Object const& args) {
 	} catch (...) {
 		throw std::runtime_error("'line_index' must be an array");
 	}
-
 	// 收集要删除的行(从大到小排序避免索引偏移)
-	std::vector<AssDialogue*> to_delete;
+	std::vector<std::unique_ptr<AssDialogue>> to_delete;
 	int line_num = 0;
 	for (auto& diag : ctx->ass->Events) {
 		++line_num;
 		for (auto const& idx_val : *indices) {
 			try {
 				if (static_cast<int64_t const&>(idx_val) == line_num) {
-					to_delete.push_back(&diag);
+					to_delete.emplace_back(&diag);
 					break;
 				}
 			} catch (...) {}
 		}
 	}
 
-	// 从大到小排序
-	std::sort(to_delete.begin(), to_delete.end(), [](AssDialogue* a, AssDialogue* b) {
+	// 从大到小排序（按内部指针指向的 Row 排序，需先取出裸指针）
+	std::vector<AssDialogue*> ptrs;
+	ptrs.reserve(to_delete.size());
+	for (auto& p : to_delete) ptrs.push_back(p.get());
+	std::sort(ptrs.begin(), ptrs.end(), [](AssDialogue* a, AssDialogue* b) {
 		return a->Row > b->Row;
 	});
 
-	for (auto* d : to_delete) {
+	for (auto* d : ptrs) {
+		// erase 只摘除节点不释放对象，unique_ptr 在函数结束时统一 delete
 		ctx->ass->Events.erase(ctx->ass->iterator_to(*d));
 	}
 
 	auto undo = GetString(args, "undo_point");
 	ctx->ass->Commit(!undo.empty() ? wxString::FromUTF8(undo) : _("delete lines"), AssFile::COMMIT_DIAG_ADDREM);
 
+	// 重建 selection：过滤掉已删除的行；若为空则选第一行；
+	// 否则 SelectionController 会持有指向已释放对象的悬空指针（与 Close 悬空问题同类）
+	if (!ctx->ass->Events.empty()) {
+		Selection new_sel;
+		AssDialogue* active = ctx->selectionController->GetActiveLine();
+		for (auto& diag : ctx->ass->Events) {
+			if (ctx->selectionController->GetSelectedSet().count(&diag))
+				new_sel.insert(&diag);
+		}
+		if (new_sel.empty())
+			new_sel.insert(&*ctx->ass->Events.begin());
+		if (!new_sel.count(active))
+			active = *new_sel.begin();
+		ctx->selectionController->SetSelectionAndActive(std::move(new_sel), active);
+	}
+
 	Object result;
 	result["ok"] = true;
-	result["deleted"] = static_cast<int64_t>(to_delete.size());
+	result["deleted"] = static_cast<int64_t>(ptrs.size());
 	return result;
 }
 
@@ -464,6 +846,10 @@ UnknownElement HandleShiftTimes(Object const& args) {
 		start_offset = offset;
 		end_offset = offset;
 	}
+	// 偏移量限制在合理范围，避免 int 溢出
+	constexpr int64_t MAX_OFFSET = 24 * 60 * 60 * 1000; // 24 小时
+	start_offset = std::clamp<int64_t>(start_offset, -MAX_OFFSET, MAX_OFFSET);
+	end_offset = std::clamp<int64_t>(end_offset, -MAX_OFFSET, MAX_OFFSET);
 
 	// 处理选定行范围: 若提供 line_indices 则只改这些行
 	Array const* indices = nullptr;
@@ -490,8 +876,9 @@ UnknownElement HandleShiftTimes(Object const& args) {
 			}
 			if (!matched) continue;
 		}
-		diag.Start = std::max(0, diag.Start + static_cast<int>(start_offset));
-		diag.End = std::max(0, diag.End + static_cast<int>(end_offset));
+		// 用 int64 计算再 clamp，避免 int 溢出
+		diag.Start = static_cast<int>(std::clamp<int64_t>(static_cast<int64_t>(diag.Start) + start_offset, 0, 2147483647));
+		diag.End = static_cast<int>(std::clamp<int64_t>(static_cast<int64_t>(diag.End) + end_offset, 0, 2147483647));
 		++shifted;
 	}
 
@@ -654,6 +1041,252 @@ UnknownElement HandleDecodePath(Object const& args) {
 	return result;
 }
 
+/// 把绝对路径编码为 Aegisub 路径令牌形式
+UnknownElement HandleEncodePath(Object const& args) {
+	std::string path = GetString(args, "path");
+	if (path.empty())
+		throw std::runtime_error("missing 'path'");
+	auto* ctx = agi::mcp::ActiveContext();
+	Object result;
+	if (ctx)
+		result["encoded"] = ctx->path->Encode(agi::fs::path(wxString::FromUTF8(path).ToStdWstring()));
+	else
+		result["encoded"] = path;
+	return result;
+}
+
+/// ASS 时间字符串转毫秒
+UnknownElement HandleTimeToMs(Object const& args) {
+	std::string time_str = GetString(args, "time");
+	if (time_str.empty())
+		throw std::runtime_error("missing 'time'");
+	// agi::Time 对非法字符静默跳过、不抛异常，这里先校验输入格式
+	// 允许：纯毫秒数字、"1:23.45"、"0:01:23.45"（数字、冒号、点、可选负号）
+	bool valid = !time_str.empty();
+	int digits = 0;
+	for (char ch : time_str) {
+		if (ch >= '0' && ch <= '9') { ++digits; continue; }
+		if (ch == ':' || ch == '.' || ch == '-') continue;
+		valid = false;
+		break;
+	}
+	if (!valid || digits == 0)
+		throw std::runtime_error("invalid time format: " + time_str);
+	Object result;
+	result["ms"] = static_cast<int64_t>(agi::Time(time_str));
+	return result;
+}
+
+/// 毫秒转 ASS 时间字符串
+UnknownElement HandleMsToTime(Object const& args) {
+	int64_t ms = GetInt(args, "ms", -1);
+	if (ms < 0)
+		throw std::runtime_error("missing or invalid 'ms'");
+	if (ms > 2147483647)
+		throw std::runtime_error("ms value out of range");
+	Object result;
+	result["time"] = agi::Time(static_cast<int>(ms)).GetAssFormatted();
+	result["ms"] = ms;
+	return result;
+}
+
+/// 读取系统剪贴板文本
+UnknownElement HandleClipboardGet(Object const& /*args*/) {
+	if (!wxTheClipboard->Open())
+		throw std::runtime_error("failed to open clipboard");
+	std::string text;
+	if (wxTheClipboard->IsSupported(wxDF_UNICODETEXT) || wxTheClipboard->IsSupported(wxDF_TEXT)) {
+		wxTextDataObject data;
+		if (wxTheClipboard->GetData(data))
+			text = data.GetText().ToUTF8().data();
+	}
+	wxTheClipboard->Close();
+	Object result;
+	result["text"] = text;
+	return result;
+}
+
+/// 写入系统剪贴板文本
+UnknownElement HandleClipboardSet(Object const& args) {
+	std::string text = GetString(args, "text");
+	if (!wxTheClipboard->Open())
+		throw std::runtime_error("failed to open clipboard");
+	bool ok = wxTheClipboard->SetData(new wxTextDataObject(wxString::FromUTF8(text)));
+	wxTheClipboard->Close();
+	if (!ok)
+		throw std::runtime_error("failed to write clipboard");
+	Object result;
+	result["ok"] = true;
+	return result;
+}
+
+/// 加载 timecodes 文件
+UnknownElement HandleLoadTimecodes(Object const& args) {
+	auto* ctx = RequireContext();
+	std::string path = GetString(args, "path");
+	if (path.empty())
+		throw std::runtime_error("missing 'path'");
+	agi::fs::path fs_path(wxString::FromUTF8(path).ToStdWstring());
+	// Project::LoadTimecodes 内部吞掉解析异常，先自行验证以便向调用方反馈错误
+	try {
+		agi::vfr::Framerate tc(fs_path);
+	} catch (agi::Exception const& e) {
+		throw std::runtime_error("failed to parse timecodes file: " + e.GetMessage());
+	}
+	ctx->project->LoadTimecodes(fs_path);
+	Object result;
+	result["ok"] = true;
+	result["is_loaded"] = ctx->project->Timecodes().IsLoaded();
+	return result;
+}
+
+/// 加载关键帧文件
+UnknownElement HandleLoadKeyframes(Object const& args) {
+	auto* ctx = RequireContext();
+	std::string path = GetString(args, "path");
+	if (path.empty())
+		throw std::runtime_error("missing 'path'");
+	agi::fs::path fs_path(wxString::FromUTF8(path).ToStdWstring());
+	try {
+		agi::keyframe::Load(fs_path);
+	} catch (agi::Exception const& e) {
+		throw std::runtime_error("failed to parse keyframes file: " + e.GetMessage());
+	}
+	ctx->project->LoadKeyframes(fs_path);
+	Object result;
+	result["ok"] = true;
+	result["count"] = static_cast<int64_t>(ctx->project->Keyframes().size());
+	return result;
+}
+
+/// 剥离 ASS override 标签，返回纯文本
+UnknownElement HandleStripTags(Object const& args) {
+	std::string text = GetString(args, "text");
+	agi::util::tagless_find_helper helper;
+	Object result;
+	result["text"] = helper.strip_tags(text, 0);
+	return result;
+}
+
+/// 统计字符数（可忽略空白/标点/块）
+UnknownElement HandleCharacterCount(Object const& args) {
+	std::string text = GetString(args, "text");
+	int ignore = 0;
+	if (GetBool(args, "ignore_whitespace", false)) ignore |= agi::IGNORE_WHITESPACE;
+	if (GetBool(args, "ignore_punctuation", false)) ignore |= agi::IGNORE_PUNCTUATION;
+	if (GetBool(args, "ignore_blocks", false)) ignore |= agi::IGNORE_BLOCKS;
+	Object result;
+	result["count"] = static_cast<int64_t>(agi::CharacterCount(text, ignore));
+	result["max_line_length"] = static_cast<int64_t>(agi::MaxLineLength(text, ignore));
+	return result;
+}
+
+/// 获取脚本分辨率
+UnknownElement HandleGetScriptResolution(Object const& /*args*/) {
+	auto* ctx = RequireContext();
+	int w = 0, h = 0;
+	ctx->ass->GetResolution(w, h);
+	Object result;
+	result["width"] = static_cast<int64_t>(w);
+	result["height"] = static_cast<int64_t>(h);
+	return result;
+}
+
+/// 设置脚本分辨率
+UnknownElement HandleSetScriptResolution(Object const& args) {
+	auto* ctx = RequireContext();
+	int64_t w = GetInt(args, "width", -1);
+	int64_t h = GetInt(args, "height", -1);
+	if (w <= 0 || w > 32767 || h <= 0 || h > 32767)
+		throw std::runtime_error("missing or invalid 'width'/'height' (1-32767)");
+	ctx->ass->SetScriptInfo("PlayResX", std::to_string(w));
+	ctx->ass->SetScriptInfo("PlayResY", std::to_string(h));
+	auto undo = GetString(args, "undo_point");
+	ctx->ass->Commit(!undo.empty() ? wxString::FromUTF8(undo) : _("set script resolution"), AssFile::COMMIT_SCRIPTINFO);
+	Object result;
+	result["ok"] = true;
+	result["width"] = w;
+	result["height"] = h;
+	return result;
+}
+
+/// 设置字幕网格选中行（可指定活动行）
+UnknownElement HandleSetSelection(Object const& args) {
+	auto* ctx = RequireContext();
+	auto it = args.find("line_indices");
+	if (it == args.end())
+		throw std::runtime_error("missing 'line_indices'");
+	Array const* indices = nullptr;
+	try {
+		indices = &static_cast<Array const&>(it->second);
+	} catch (...) {
+		throw std::runtime_error("'line_indices' must be an array");
+	}
+
+	Selection selection;
+	AssDialogue* active = nullptr;
+	int line_num = 0;
+	for (auto& diag : ctx->ass->Events) {
+		++line_num;
+		for (auto const& idx_val : *indices) {
+			try {
+				if (static_cast<int64_t const&>(idx_val) == line_num) {
+					selection.insert(&diag);
+					break;
+				}
+			} catch (...) {}
+		}
+	}
+	if (selection.empty())
+		throw std::runtime_error("no matching lines for the given indices");
+
+	// 活动行：优先取参数，缺省取选中的第一行
+	int64_t active_idx = GetInt(args, "active_line", -1);
+	if (active_idx > 0) {
+		int n = 0;
+		for (auto& diag : ctx->ass->Events) {
+			++n;
+			if (n == active_idx) {
+				active = &diag;
+				break;
+			}
+		}
+		if (!active) throw std::runtime_error("active_line index out of range");
+	} else {
+		active = *selection.begin();
+	}
+
+	size_t count = selection.size();
+	ctx->selectionController->SetSelectionAndActive(std::move(selection), active);
+	Object result;
+	result["ok"] = true;
+	result["count"] = static_cast<int64_t>(count);
+	return result;
+}
+
+/// 播放音频区间
+UnknownElement HandlePlayAudio(Object const& args) {
+	auto* ctx = RequireContext();
+	if (!ctx->project->AudioProvider() || !ctx->audioController)
+		throw std::runtime_error("no audio loaded");
+	int64_t start_ms = GetInt(args, "start_ms", -1);
+	int64_t end_ms = GetInt(args, "end_ms", -1);
+	if (start_ms < 0)
+		throw std::runtime_error("missing 'start_ms'");
+	int64_t total_ms = ctx->project->AudioProvider()->GetNumSamples() * 1000 / std::max(1, ctx->project->AudioProvider()->GetSampleRate());
+	if (start_ms > total_ms)
+		throw std::runtime_error("'start_ms' beyond audio duration (" + std::to_string(total_ms) + " ms)");
+	if (end_ms < 0 || end_ms > total_ms) end_ms = total_ms;
+	if (end_ms <= start_ms)
+		throw std::runtime_error("'end_ms' must be greater than 'start_ms'");
+	ctx->audioController->PlayRange(TimeRange(static_cast<int>(start_ms), static_cast<int>(end_ms)));
+	Object result;
+	result["ok"] = true;
+	result["start_ms"] = start_ms;
+	result["end_ms"] = end_ms;
+	return result;
+}
+
 /// 获取当前帧号
 UnknownElement HandleGetFrame(Object const& /*args*/) {
 	auto* ctx = RequireContext();
@@ -672,8 +1305,32 @@ UnknownElement HandleOpenFile(Object const& args) {
 	std::string path = GetString(args, "path");
 	if (path.empty())
 		throw std::runtime_error("missing 'path'");
-	std::string encoding = CharSetDetect::GetEncoding(path);
-	ctx->subsController->Load(agi::fs::path(path), encoding.c_str());
+	agi::fs::path fs_path(wxString::FromUTF8(path).ToStdWstring());
+
+	// 以下格式在读取时会弹出模态对话框（FPS 输入/文本导入选项），MCP 无法交互，直接拒绝
+	auto lower = boost::to_lower_copy(fs_path.string());
+	if (boost::iends_with(lower, ".txt"))
+		throw std::runtime_error("plain text (.txt) import requires an interactive dialog; convert the file to .ass first");
+	if (boost::iends_with(lower, ".sub"))
+		throw std::runtime_error("MicroDVD (.sub) import requires an interactive FPS prompt; convert the file to .ass first");
+
+	// 编码检测：无法确定时回退 UTF-8，不弹选择框
+	std::string encoding = agi::charset::Detect(fs_path);
+	if (encoding.empty())
+		encoding = "UTF-8";
+	ctx->subsController->Load(fs_path, encoding.c_str());
+
+	// 与 GUI 的 DoLoadSubtitles 一致：加载后更新选中/活动行，
+	// 否则 SubsEditBox 等组件的 line 缓存仍指向被 Load 内部 swap+析构释放的旧行
+	// （AssFile 析构 clear_and_dispose 会 delete 行对象），后续 Commit 信号链读取悬空指针崩溃
+	Selection sel;
+	AssDialogue* active_line = nullptr;
+	if (!ctx->ass->Events.empty()) {
+		active_line = &*ctx->ass->Events.begin();
+		sel.insert(active_line);
+	}
+	ctx->selectionController->SetSelectionAndActive(std::move(sel), active_line);
+
 	Object result;
 	result["ok"] = true;
 	result["filename"] = ctx->subsController->Filename().string();
@@ -688,7 +1345,14 @@ UnknownElement HandleSaveFile(Object const& args) {
 		path = ctx->subsController->Filename().string();
 	if (path.empty())
 		throw std::runtime_error("no filename to save to; specify 'path'");
-	ctx->subsController->Save(agi::fs::path(std::filesystem::path(wxString::FromUTF8(path).ToStdWstring())));
+	agi::fs::path fs_path(wxString::FromUTF8(path).ToStdWstring());
+
+	// 以下格式写入时会弹出模态 FPS 输入框，MCP 无法交互，直接拒绝
+	auto lower = boost::to_lower_copy(fs_path.string());
+	if (boost::iends_with(lower, ".sub") || boost::iends_with(lower, ".encore.txt") || boost::iends_with(lower, ".transtation.txt"))
+		throw std::runtime_error("this format requires an interactive FPS prompt on save; save as .ass or .srt instead");
+
+	ctx->subsController->Save(fs_path);
 	Object result;
 	result["ok"] = true;
 	result["filename"] = path;
@@ -698,10 +1362,376 @@ UnknownElement HandleSaveFile(Object const& args) {
 /// 新建字幕文件
 UnknownElement HandleNewFile(Object const& /*args*/) {
 	auto* ctx = RequireContext();
+	// 先卸载关联文件，避免 CloseSubtitles 内部按 "Load Linked Files" 选项弹确认框
+	ctx->project->CloseVideo();
+	ctx->project->CloseAudio();
+	ctx->project->CloseTimecodes();
+	ctx->project->CloseKeyframes();
 	ctx->project->CloseSubtitles();
 	Object result;
 	result["ok"] = true;
 	result["filename"] = ctx->subsController->Filename().string();
+	return result;
+}
+
+/// 打开视频文件
+UnknownElement HandleOpenVideo(Object const& args) {
+	auto* ctx = RequireContext();
+	std::string path = GetString(args, "path");
+	if (path.empty())
+		throw std::runtime_error("missing 'path'");
+	// 非交互模式：加载失败不弹 provider 选择对话框，异常直接抛出；
+	// 分辨率不匹配时不弹对话框、不自动修改字幕尺寸
+	ctx->project->LoadVideo(agi::fs::path(wxString::FromUTF8(path).ToStdWstring()), false);
+	if (!ctx->project->VideoProvider())
+		throw std::runtime_error("failed to load video: no video provider created");
+	auto* provider = ctx->project->VideoProvider();
+	Object result;
+	result["ok"] = true;
+	result["filename"] = ctx->project->VideoName().string();
+	// 返回视频尺寸与脚本分辨率，便于调用方判断是否尺寸不匹配
+	result["video_width"] = static_cast<int64_t>(provider->GetWidth());
+	result["video_height"] = static_cast<int64_t>(provider->GetHeight());
+	int sx = 0, sy = 0;
+	ctx->ass->GetResolution(sx, sy);
+	result["script_width"] = static_cast<int64_t>(sx);
+	result["script_height"] = static_cast<int64_t>(sy);
+	result["resolution_mismatch"] = (sx > 0 && sy > 0) && (sx != provider->GetWidth() || sy != provider->GetHeight());
+	return result;
+}
+
+/// 打开音频文件
+UnknownElement HandleOpenAudio(Object const& args) {
+	auto* ctx = RequireContext();
+	std::string path = GetString(args, "path");
+	if (path.empty())
+		throw std::runtime_error("missing 'path'");
+	ctx->project->LoadAudio(agi::fs::path(wxString::FromUTF8(path).ToStdWstring()), false);
+	if (!ctx->project->AudioProvider())
+		throw std::runtime_error("failed to load audio: no audio provider created");
+	Object result;
+	result["ok"] = true;
+	result["filename"] = ctx->project->AudioName().string();
+	return result;
+}
+
+/// 关闭视频
+UnknownElement HandleCloseVideo(Object const& /*args*/) {
+	auto* ctx = RequireContext();
+	ctx->project->CloseVideo();
+	Object result;
+	result["ok"] = true;
+	return result;
+}
+
+/// 关闭音频
+UnknownElement HandleCloseAudio(Object const& /*args*/) {
+	auto* ctx = RequireContext();
+	ctx->project->CloseAudio();
+	Object result;
+	result["ok"] = true;
+	return result;
+}
+
+/// 获取指定帧的截图，以 PNG base64 图片返回（同时附带帧信息文本）
+UnknownElement HandleGetVideoFrame(Object const& args) {
+	auto* ctx = RequireContext();
+	if (!ctx->project->VideoProvider() || !ctx->videoController)
+		throw std::runtime_error("no video loaded");
+	bool raw = GetBool(args, "raw", false);
+	int64_t frame = ::ResolveTargetFrame(ctx, args);
+	wxImage img = ::GetVideoFrameImage(ctx, frame, raw);
+	if (!img.IsOk())
+		throw std::runtime_error("failed to decode video frame");
+
+	// 编码为 PNG 并 base64
+	wxMemoryOutputStream os;
+	if (!img.SaveFile(os, wxBITMAP_TYPE_PNG))
+		throw std::runtime_error("failed to encode frame as PNG");
+	auto* stream_buf = os.GetOutputStreamBuffer();
+	std::string b64 = ::Base64Encode(stream_buf->GetBufferStart(), os.GetSize());
+
+	int64_t ms = ctx->videoController->TimeAtFrame(static_cast<int>(frame), agi::vfr::START);
+	Object frame_info;
+	frame_info["type"] = std::string("text");
+	frame_info["text"] = "frame=" + std::to_string(frame) + " ms=" + std::to_string(ms)
+		+ " " + std::to_string(img.GetWidth()) + "x" + std::to_string(img.GetHeight())
+		+ " raw=" + (raw ? "true" : "false");
+	Object image_item;
+	image_item["type"] = std::string("image");
+	image_item["data"] = b64;
+	image_item["mimeType"] = std::string("image/png");
+	Array content;
+	content.emplace_back(std::move(frame_info));
+	content.emplace_back(std::move(image_item));
+
+	Object result;
+	result["frame"] = frame;
+	result["ms"] = ms;
+	result["width"] = static_cast<int64_t>(img.GetWidth());
+	result["height"] = static_cast<int64_t>(img.GetHeight());
+	result["total_frames"] = static_cast<int64_t>(ctx->project->VideoProvider()->GetFrameCount());
+	result["content"] = std::move(content);
+	return result;
+}
+
+/// 保存指定帧的截图到文件
+UnknownElement HandleSaveVideoFrame(Object const& args) {
+	auto* ctx = RequireContext();
+	if (!ctx->project->VideoProvider() || !ctx->videoController)
+		throw std::runtime_error("no video loaded");
+	std::string path = GetString(args, "path");
+	if (path.empty())
+		throw std::runtime_error("missing 'path'");
+	bool raw = GetBool(args, "raw", false);
+	int64_t frame = ::ResolveTargetFrame(ctx, args);
+	wxImage img = ::GetVideoFrameImage(ctx, frame, raw);
+	if (!img.IsOk())
+		throw std::runtime_error("failed to decode video frame");
+
+	std::string format = GetString(args, "format");
+	if (format.empty()) format = "png";
+	wxBitmapType type;
+	if (format == "jpeg" || format == "jpg") {
+		if (!wxImage::FindHandler(wxBITMAP_TYPE_JPEG))
+			wxImage::AddHandler(new wxJPEGHandler);
+		type = wxBITMAP_TYPE_JPEG;
+	} else {
+		if (!wxImage::FindHandler(wxBITMAP_TYPE_PNG))
+			wxImage::AddHandler(new wxPNGHandler);
+		type = wxBITMAP_TYPE_PNG;
+	}
+	agi::fs::path out_path(wxString::FromUTF8(path).ToStdWstring());
+	if (!img.SaveFile(wxString(out_path.wstring()), type))
+		throw std::runtime_error("failed to save frame image to file");
+
+	int64_t ms = ctx->videoController->TimeAtFrame(static_cast<int>(frame), agi::vfr::START);
+	Object result;
+	result["ok"] = true;
+	result["path"] = path;
+	result["frame"] = frame;
+	result["ms"] = ms;
+	result["width"] = static_cast<int64_t>(img.GetWidth());
+	result["height"] = static_cast<int64_t>(img.GetHeight());
+	return result;
+}
+
+/// 导出视频区间为 GIF（无对话框版本，直接写入指定文件）
+UnknownElement HandleExportGif(Object const& args) {
+	auto* ctx = RequireContext();
+	if (!ctx->project->VideoProvider() || !ctx->videoController)
+		throw std::runtime_error("no video loaded");
+	std::string path = GetString(args, "path");
+	if (path.empty())
+		throw std::runtime_error("missing 'path'");
+
+	int64_t start_frame = GetInt(args, "start_frame", -1);
+	int64_t end_frame = GetInt(args, "end_frame", -1);
+	if (start_frame < 0 || end_frame < 0)
+		throw std::runtime_error("missing 'start_frame'/'end_frame'");
+	int64_t quality = GetInt(args, "quality", 100);
+	int64_t scale_factor = GetInt(args, "scale_factor", 1);
+
+	auto* provider = ctx->project->VideoProvider();
+	int total = provider->GetFrameCount();
+	start_frame = std::clamp<int64_t>(start_frame, 0, total - 1);
+	end_frame = std::clamp<int64_t>(end_frame, 0, total - 1);
+	if (end_frame <= start_frame)
+		throw std::runtime_error("'end_frame' must be greater than 'start_frame'");
+	const int start = static_cast<int>(start_frame);
+	const int end = static_cast<int>(end_frame);
+
+	const auto frame_pts = agi::BuildGifFramePresentationTimestamps(ctx->project->Timecodes(), start, end);
+	const int total_frame = end - start + 1;
+	if (frame_pts.size() != static_cast<size_t>(total_frame))
+		throw std::runtime_error("failed to build GIF frame timestamps");
+
+	// 首帧解码以确定输出尺寸（与 GUI 导出路径一致）
+	auto first_vf = provider->GetFrame(start, ctx->project->Timecodes().TimeAtFrame(start), false);
+	wxImage first_img = GetImage(*first_vf);
+	if (!first_img.IsOk() || !first_img.GetData())
+		throw std::runtime_error("failed to decode first frame for GIF export");
+	const bool gif_hdr_enabled = OPT_GET("Video/HDR/Tone Mapping")->GetBool();
+	if (gif_hdr_enabled)
+		VideoOutGL::ApplyHDRLutToImage(first_img, provider->GetHDRType(), provider->GetDVProfile());
+	const int gif_padding_top = first_vf->padding_top;
+	const int gif_padding_bottom = first_vf->padding_bottom;
+	if (gif_padding_top > 0 || gif_padding_bottom > 0)
+		first_img = AddPaddingToImage(first_img, gif_padding_top, gif_padding_bottom);
+
+	const int source_width = first_img.GetWidth();
+	const int source_height = first_img.GetHeight();
+
+	// 初始化 gifski（输出尺寸按 scale_factor 等比缩小）
+	GifskiSettings settings;
+	settings.quality = static_cast<uint8_t>(std::clamp<int64_t>(quality, 1, 100));
+	settings.width = std::max(1, (scale_factor > 1) ? (source_width / static_cast<int>(scale_factor)) : source_width);
+	settings.height = std::max(1, (scale_factor > 1) ? (source_height / static_cast<int>(scale_factor)) : source_height);
+	settings.fast = false;
+	settings.repeat = 0;
+	gifski* g = gifski_new(&settings);
+	if (!g)
+		throw std::runtime_error("failed to initialize gifski");
+	GifskiError error = {};
+
+	// RAII 清理：任何异常路径（含解码抛异常）都释放 gifski 与输出文件
+	struct GifskiGuard {
+		gifski* g = nullptr;
+		FILE* f = nullptr;
+		~GifskiGuard() {
+			if (g) gifski_finish(g);
+			if (f) fclose(f);
+		}
+	} guard;
+	guard.g = g;
+
+	// 确保父目录存在并打开输出文件
+	{
+		agi::fs::path out_path(wxString::FromUTF8(path).ToStdWstring());
+		agi::fs::path parent_dir = out_path.parent_path();
+		if (!parent_dir.empty()) {
+			std::error_code ec;
+			std::filesystem::create_directories(parent_dir, ec);
+			if (ec)
+				throw std::runtime_error("failed to create output directory: " + ec.message());
+		}
+	}
+	FILE* output_file = _wfopen(wxString::FromUTF8(path).wc_str(), L"wb");
+	if (!output_file)
+		throw std::runtime_error("failed to open output file for writing");
+	guard.f = output_file;
+
+	auto gifski_write_cb = [](size_t buf_len, const uint8_t* buf, void* user_data) -> int {
+		FILE* f = static_cast<FILE*>(user_data);
+		if (buf_len == 0) {
+			fflush(f);
+			return GIFSKI_OK;
+		}
+		return fwrite(buf, 1, buf_len, f) == buf_len ? GIFSKI_OK : 1;
+	};
+	error = gifski_set_write_callback(g, gifski_write_cb, output_file);
+	if (error != GIFSKI_OK)
+		throw std::runtime_error("failed to set gifski write callback");
+
+	// 逐帧喂给 gifski
+	uint32_t current_frame = 0;
+	for (int i = start; i <= end; ++i) {
+		const wxImage* img = nullptr;
+		wxImage decoded_img;
+		if (i == start) {
+			img = &first_img;
+		} else {
+			decoded_img = GetImage(*provider->GetFrame(i, ctx->project->Timecodes().TimeAtFrame(i), false));
+			if (gif_hdr_enabled)
+				VideoOutGL::ApplyHDRLutToImage(decoded_img, provider->GetHDRType(), provider->GetDVProfile());
+			if (gif_padding_top > 0 || gif_padding_bottom > 0)
+				decoded_img = AddPaddingToImage(decoded_img, gif_padding_top, gif_padding_bottom);
+			img = &decoded_img;
+		}
+		if (!img->IsOk() || !img->GetData() || img->GetWidth() != source_width || img->GetHeight() != source_height)
+			throw std::runtime_error("failed to decode frame " + std::to_string(i) + " for GIF export");
+
+		// BGRA 像素（无裁剪，全帧导出）
+		const size_t pixel_count = static_cast<size_t>(source_width) * static_cast<size_t>(source_height);
+		std::vector<uint8_t> pixels(pixel_count * 4);
+		const unsigned char* imgData = img->GetData();
+		for (size_t p = 0; p < pixel_count; ++p) {
+			pixels[p * 4 + 0] = imgData[p * 3 + 0];
+			pixels[p * 4 + 1] = imgData[p * 3 + 1];
+			pixels[p * 4 + 2] = imgData[p * 3 + 2];
+			pixels[p * 4 + 3] = 255;
+		}
+		error = gifski_add_frame_rgba(g, current_frame, source_width, source_height, pixels.data(), frame_pts[current_frame]);
+		if (error != GIFSKI_OK)
+			throw std::runtime_error("failed to add frame to GIF");
+		++current_frame;
+	}
+
+	error = gifski_finish(g);
+	guard.g = nullptr; // finish 已释放句柄，防止 RAII 重复释放
+	fclose(output_file);
+	guard.f = nullptr;
+	if (error != GIFSKI_OK)
+		throw std::runtime_error("failed to finish GIF export");
+
+	Object result;
+	result["ok"] = true;
+	result["path"] = path;
+	result["start_frame"] = start_frame;
+	result["end_frame"] = end_frame;
+	result["frames"] = static_cast<int64_t>(total_frame);
+	result["width"] = static_cast<int64_t>(source_width);
+	result["height"] = static_cast<int64_t>(source_height);
+	return result;
+}
+
+/// 读取音频波形聚合数据（峰值/均值）
+UnknownElement HandleGetAudioWaveform(Object const& args) {
+	auto* ctx = RequireContext();
+	auto* provider = ctx->project->AudioProvider();
+	if (!provider)
+		throw std::runtime_error("no audio loaded");
+
+	int64_t total_samples = provider->GetNumSamples();
+	int64_t total_ms = provider->GetSampleRate() > 0 ? total_samples * 1000 / provider->GetSampleRate() : 0;
+	int64_t start_ms = std::clamp<int64_t>(GetInt(args, "start_ms", 0), 0, total_ms);
+	int64_t end_ms = GetInt(args, "end_ms", -1);
+	if (end_ms < 0) end_ms = total_ms;
+	end_ms = std::clamp<int64_t>(end_ms, start_ms, total_ms);
+	int64_t points = std::clamp<int64_t>(GetInt(args, "points", 256), 1, 4096);
+
+	int64_t start_sample = start_ms * provider->GetSampleRate() / 1000;
+	int64_t end_sample = end_ms * provider->GetSampleRate() / 1000;
+	auto pts = agi::ComputeWaveform(*provider, start_sample, end_sample, static_cast<size_t>(points));
+
+	Array data;
+	data.reserve(pts.size());
+	for (auto const& p : pts) {
+		Object pt;
+		pt["peak_min"] = static_cast<int64_t>(p.peak_min);
+		pt["peak_max"] = static_cast<int64_t>(p.peak_max);
+		pt["avg_min"] = p.avg_min;
+		pt["avg_max"] = p.avg_max;
+		data.emplace_back(std::move(pt));
+	}
+
+	Object result;
+	result["has_audio"] = true;
+	result["sample_rate"] = static_cast<int64_t>(provider->GetSampleRate());
+	result["start_ms"] = start_ms;
+	result["end_ms"] = end_ms;
+	result["points"] = static_cast<int64_t>(data.size());
+	result["data"] = std::move(data);
+	return result;
+}
+
+/// 读取指定时刻的音频频谱功率数据（低频在前，范围 0~1）
+UnknownElement HandleGetAudioSpectrum(Object const& args) {
+	auto* ctx = RequireContext();
+	auto* provider = ctx->project->AudioProvider();
+	if (!provider)
+		throw std::runtime_error("no audio loaded");
+
+	int64_t total_samples = provider->GetNumSamples();
+	int64_t total_ms = provider->GetSampleRate() > 0 ? total_samples * 1000 / provider->GetSampleRate() : 0;
+	int64_t ms = std::clamp<int64_t>(GetInt(args, "ms", 0), 0, total_ms);
+	int64_t fft_size = GetInt(args, "fft_size", 1024);
+	fft_size = std::clamp<int64_t>(fft_size, 256, 32768);
+
+	int64_t start_sample = ms * provider->GetSampleRate() / 1000;
+	auto powers = agi::ComputeSpectrum(*provider, start_sample, static_cast<size_t>(fft_size));
+
+	Array data;
+	data.reserve(powers.size());
+	for (float v : powers)
+		data.emplace_back(static_cast<double>(v));
+
+	Object result;
+	result["has_audio"] = true;
+	result["sample_rate"] = static_cast<int64_t>(provider->GetSampleRate());
+	result["ms"] = ms;
+	result["fft_size"] = fft_size;
+	result["data"] = std::move(data);
 	return result;
 }
 
@@ -768,9 +1798,78 @@ void RegisterMcpTools() {
 	{
 		::agi::mcp::RegisterTool(
 			"get_styles",
-			"List all styles defined in the current subtitle file",
+			"List all styles defined in the current subtitle file with complete style fields (colors, outline, shadow, margins, etc.)",
 			::MakeObjectSchema(Object{}),
 			::HandleGetStyles);
+	}
+
+	{
+		Object props;
+		props["name"] = ::MakeStringProp("Style name to fetch (case-insensitive)");
+		Array required;
+		required.emplace_back(std::string("name"));
+		::agi::mcp::RegisterTool(
+			"get_style",
+			"Get a single style's complete definition by name.",
+			::MakeObjectSchema(std::move(props), std::move(required)),
+			::HandleGetStyle);
+	}
+
+	{
+		Object props;
+		{
+			Object field_prop;
+			field_prop["type"] = std::string("object");
+			field_prop["description"] = std::string(
+				"Style fields. name (required): unique style name; font: font face; fontsize; "
+				"primary/secondary/outline/shadow: ASS colors like '&H00FFFFFF'; "
+				"bold/italic/underline/strikeout: bool; scalex/scaley/spacing/angle/outline_w/shadow_w: numbers; "
+				"borderstyle/alignment/margin_l/margin_r/margin_v/encoding: ints");
+			props["fields"] = std::move(field_prop);
+		}
+		props["undo_point"] = ::MakeStringProp("Undo description (optional)");
+		Array required;
+		required.emplace_back(std::string("fields"));
+		::agi::mcp::RegisterTool(
+			"add_style",
+			"Add a new style to the current subtitle file. 'fields.name' is required and must be unique (case-insensitive).",
+			::MakeObjectSchema(std::move(props), std::move(required)),
+			::HandleAddStyle);
+	}
+
+	{
+		Object props;
+		props["name"] = ::MakeStringProp("Name of the style to update (case-insensitive)");
+		{
+			Object field_prop;
+			field_prop["type"] = std::string("object");
+			field_prop["description"] = std::string(
+				"Style fields to change. 'name' inside fields renames the style. "
+				"Colors accept ASS format like '&H00FFFFFF' or '#RRGGBB'.");
+			props["fields"] = std::move(field_prop);
+		}
+		props["undo_point"] = ::MakeStringProp("Undo description (optional)");
+		Array required;
+		required.emplace_back(std::string("name"));
+		required.emplace_back(std::string("fields"));
+		::agi::mcp::RegisterTool(
+			"update_style",
+			"Update fields of an existing style: font, fontsize, colors, bold/italic, outline, shadow, alignment, margins, etc.",
+			::MakeObjectSchema(std::move(props), std::move(required)),
+			::HandleUpdateStyle);
+	}
+
+	{
+		Object props;
+		props["name"] = ::MakeStringProp("Name of the style to delete (case-insensitive)");
+		props["undo_point"] = ::MakeStringProp("Undo description (optional)");
+		Array required;
+		required.emplace_back(std::string("name"));
+		::agi::mcp::RegisterTool(
+			"delete_style",
+			"Delete a style by name. Lines referencing the deleted style are reassigned to 'Default'.",
+			::MakeObjectSchema(std::move(props), std::move(required)),
+			::HandleDeleteStyle);
 	}
 
 	{
@@ -964,6 +2063,164 @@ void RegisterMcpTools() {
 
 	{
 		Object props;
+		props["path"] = ::MakeStringProp("Absolute path to encode, e.g. '?user/config.json' style token path");
+		Array required;
+		required.emplace_back(std::string("path"));
+		::agi::mcp::RegisterTool(
+			"encode_path",
+			"Encode an absolute filesystem path to an Aegisub path token (?user, ?script, ?video, ...). "
+			"Pair of decode_path.",
+			::MakeObjectSchema(std::move(props), std::move(required)),
+			::HandleEncodePath);
+	}
+
+	{
+		Object props;
+		props["time"] = ::MakeStringProp("ASS time string, e.g. '0:01:23.45' or '1:23.45'");
+		Array required;
+		required.emplace_back(std::string("time"));
+		::agi::mcp::RegisterTool(
+			"time_to_ms",
+			"Convert an ASS/SRT time string to milliseconds.",
+			::MakeObjectSchema(std::move(props), std::move(required)),
+			::HandleTimeToMs);
+	}
+
+	{
+		Object props;
+		props["ms"] = ::MakeIntProp("Time in milliseconds", 0);
+		Array required;
+		required.emplace_back(std::string("ms"));
+		::agi::mcp::RegisterTool(
+			"ms_to_time",
+			"Convert milliseconds to an ASS time string like '0:01:23.45'.",
+			::MakeObjectSchema(std::move(props), std::move(required)),
+			::HandleMsToTime);
+	}
+
+	{
+		::agi::mcp::RegisterTool(
+			"clipboard_get",
+			"Read the current system clipboard text.",
+			::MakeObjectSchema(Object{}),
+			::HandleClipboardGet);
+	}
+
+	{
+		Object props;
+		props["text"] = ::MakeStringProp("Text to write to the clipboard");
+		Array required;
+		required.emplace_back(std::string("text"));
+		::agi::mcp::RegisterTool(
+			"clipboard_set",
+			"Write text to the system clipboard.",
+			::MakeObjectSchema(std::move(props), std::move(required)),
+			::HandleClipboardSet);
+	}
+
+	{
+		Object props;
+		props["path"] = ::MakeStringProp("Absolute path to the timecodes file (v1/v2)");
+		Array required;
+		required.emplace_back(std::string("path"));
+		::agi::mcp::RegisterTool(
+			"load_timecodes",
+			"Load a timecodes file into the current project, overriding the video framerate.",
+			::MakeObjectSchema(std::move(props), std::move(required)),
+			::HandleLoadTimecodes);
+	}
+
+	{
+		Object props;
+		props["path"] = ::MakeStringProp("Absolute path to the keyframes file (x264 log, aegi, etc.)");
+		Array required;
+		required.emplace_back(std::string("path"));
+		::agi::mcp::RegisterTool(
+			"load_keyframes",
+			"Load a keyframes file into the current project.",
+			::MakeObjectSchema(std::move(props), std::move(required)),
+			::HandleLoadKeyframes);
+	}
+
+	{
+		Object props;
+		props["text"] = ::MakeStringProp("ASS dialogue text, possibly containing override tags like {\\an8\\pos(...)}");
+		Array required;
+		required.emplace_back(std::string("text"));
+		::agi::mcp::RegisterTool(
+			"strip_tags",
+			"Remove ASS override tags from dialogue text and return the plain visible text.",
+			::MakeObjectSchema(std::move(props), std::move(required)),
+			::HandleStripTags);
+	}
+
+	{
+		Object props;
+		props["text"] = ::MakeStringProp("Text to count characters in (override tags included if present)");
+		props["ignore_whitespace"] = ::MakeBoolProp("Ignore whitespace", false);
+		props["ignore_punctuation"] = ::MakeBoolProp("Ignore punctuation", false);
+		props["ignore_blocks"] = ::MakeBoolProp("Ignore non-Latin blocks", false);
+		Array required;
+		required.emplace_back(std::string("text"));
+		::agi::mcp::RegisterTool(
+			"character_count",
+			"Count characters and the longest line length in a string, with optional ignore flags.",
+			::MakeObjectSchema(std::move(props), std::move(required)),
+			::HandleCharacterCount);
+	}
+
+	{
+		::agi::mcp::RegisterTool(
+			"get_script_resolution",
+			"Get the script resolution (PlayResX/PlayResY) for coordinate calculations.",
+			::MakeObjectSchema(Object{}),
+			::HandleGetScriptResolution);
+	}
+
+	{
+		Object props;
+		props["width"] = ::MakeIntProp("New script width (PlayResX)", 0);
+		props["height"] = ::MakeIntProp("New script height (PlayResY)", 0);
+		props["undo_point"] = ::MakeStringProp("Undo description (optional)");
+		Array required;
+		required.emplace_back(std::string("width"));
+		required.emplace_back(std::string("height"));
+		::agi::mcp::RegisterTool(
+			"set_script_resolution",
+			"Change the script resolution (PlayResX/PlayResY). "
+			"Use when open_video reports resolution_mismatch=true and subtitles should be rescaled to the video size.",
+			::MakeObjectSchema(std::move(props), std::move(required)),
+			::HandleSetScriptResolution);
+	}
+
+	{
+		Object props;
+		props["line_indices"] = ::MakeIntArrayProp("1-based indices of lines to select");
+		props["active_line"] = ::MakeIntProp("1-based index of the active line (default: first selected)", -1);
+		Array required;
+		required.emplace_back(std::string("line_indices"));
+		::agi::mcp::RegisterTool(
+			"set_selection",
+			"Select subtitle lines in the grid. Pair of get_selected_lines.",
+			::MakeObjectSchema(std::move(props), std::move(required)),
+			::HandleSetSelection);
+	}
+
+	{
+		Object props;
+		props["start_ms"] = ::MakeIntProp("Playback start time in ms", 0);
+		props["end_ms"] = ::MakeIntProp("Playback end time in ms (default: end of audio)", -1);
+		Array required;
+		required.emplace_back(std::string("start_ms"));
+		::agi::mcp::RegisterTool(
+			"play_audio",
+			"Play a range of the loaded audio (and video if it is playing). Useful for AI to audition a subtitle line's timing.",
+			::MakeObjectSchema(std::move(props), std::move(required)),
+			::HandlePlayAudio);
+	}
+
+	{
+		Object props;
 		props["path"] = ::MakeStringProp("Absolute path to the .ass file to open");
 		Array required;
 		required.emplace_back(std::string("path"));
@@ -990,6 +2247,118 @@ void RegisterMcpTools() {
 			"Create a new blank subtitle file in the current Aegisub instance.",
 			::MakeObjectSchema(Object{}),
 			::HandleNewFile);
+	}
+
+	{
+		Object props;
+		props["path"] = ::MakeStringProp("Absolute path to the video file to open");
+		Array required;
+		required.emplace_back(std::string("path"));
+		::agi::mcp::RegisterTool(
+			"open_video",
+			"Open a video file in the current Aegisub instance. Blocks until the video is loaded.",
+			::MakeObjectSchema(std::move(props), std::move(required)),
+			::HandleOpenVideo);
+	}
+
+	{
+		Object props;
+		props["path"] = ::MakeStringProp("Absolute path to the audio file to open");
+		Array required;
+		required.emplace_back(std::string("path"));
+		::agi::mcp::RegisterTool(
+			"open_audio",
+			"Open an audio file in the current Aegisub instance. Blocks until the audio is loaded.",
+			::MakeObjectSchema(std::move(props), std::move(required)),
+			::HandleOpenAudio);
+	}
+
+	{
+		::agi::mcp::RegisterTool(
+			"close_video",
+			"Close the currently open video file.",
+			::MakeObjectSchema(Object{}),
+			::HandleCloseVideo);
+	}
+
+	{
+		::agi::mcp::RegisterTool(
+			"close_audio",
+			"Close the currently open audio file.",
+			::MakeObjectSchema(Object{}),
+			::HandleCloseAudio);
+	}
+
+	{
+		Object props;
+		props["frame"] = ::MakeIntProp("Frame number to capture (default: current frame)", -1);
+		props["ms"] = ::MakeIntProp("Time in milliseconds to capture (used when frame is not given)", -1);
+		props["raw"] = ::MakeBoolProp("Capture raw frame without subtitles", false);
+		::agi::mcp::RegisterTool(
+			"get_video_frame",
+			"Capture a video frame and return it as a PNG image (base64 data URI). "
+			"Returns frame info as text plus the image content.",
+			::MakeObjectSchema(std::move(props)),
+			::HandleGetVideoFrame);
+	}
+
+	{
+		Object props;
+		props["path"] = ::MakeStringProp("Output file path, e.g. C:/shots/frame.png or .jpg");
+		props["frame"] = ::MakeIntProp("Frame number to save (default: current frame)", -1);
+		props["ms"] = ::MakeIntProp("Time in milliseconds to save (used when frame is not given)", -1);
+		props["format"] = ::MakeStringProp("Output format: 'png' (default) or 'jpeg'", "png");
+		props["raw"] = ::MakeBoolProp("Save raw frame without subtitles", false);
+		Array required;
+		required.emplace_back(std::string("path"));
+		::agi::mcp::RegisterTool(
+			"save_video_frame",
+			"Save a video frame screenshot to a PNG or JPEG file.",
+			::MakeObjectSchema(std::move(props), std::move(required)),
+			::HandleSaveVideoFrame);
+	}
+
+	{
+		Object props;
+		props["path"] = ::MakeStringProp("Output GIF file path");
+		props["start_frame"] = ::MakeIntProp("First frame to export", 0);
+		props["end_frame"] = ::MakeIntProp("Last frame to export (exclusive of start)", 0);
+		props["quality"] = ::MakeIntProp("GIF quality 1-100", 100);
+		props["scale_factor"] = ::MakeIntProp("Integer downscale factor for output size (1 = original)", 1);
+		Array required;
+		required.emplace_back(std::string("path"));
+		required.emplace_back(std::string("start_frame"));
+		required.emplace_back(std::string("end_frame"));
+		::agi::mcp::RegisterTool(
+			"export_gif",
+			"Export a range of video frames (with rendered subtitles) as a GIF animation file.",
+			::MakeObjectSchema(std::move(props), std::move(required)),
+			::HandleExportGif);
+	}
+
+	{
+		Object props;
+		props["start_ms"] = ::MakeIntProp("Start time in milliseconds (default 0)", 0);
+		props["end_ms"] = ::MakeIntProp("End time in milliseconds (default: end of audio)", -1);
+		props["points"] = ::MakeIntProp("Number of waveform points to return (1-4096)", 256);
+		::agi::mcp::RegisterTool(
+			"get_audio_waveform",
+			"Get audio waveform data (per-point peak and average amplitude) for a time range. "
+			"Useful for detecting speech/pauses and aligning subtitles.",
+			::MakeObjectSchema(std::move(props)),
+			::HandleGetAudioWaveform);
+	}
+
+	{
+		Object props;
+		props["ms"] = ::MakeIntProp("Time in milliseconds to analyze (default 0)", 0);
+		props["fft_size"] = ::MakeIntProp("FFT size (power of two, 256-32768)", 1024);
+		::agi::mcp::RegisterTool(
+			"get_audio_spectrum",
+			"Get audio spectrum power data (low frequencies first; silence=0, full-scale peak about 1.9-2.9) at a given time. "
+			"Useful for speech/music discrimination and voice activity detection.",
+			::MakeObjectSchema(std::move(props)),
+			::HandleGetAudioSpectrum);
 	}
 }
 

@@ -17,6 +17,7 @@ tests_src = [
 
 	'tests/access.cpp',
 	'tests/audio.cpp',
+	'tests/audio_analysis.cpp',
 	'tests/auto4_lua.cpp',
 	'tests/cajun.cpp',
 	'tests/calltip_provider.cpp',

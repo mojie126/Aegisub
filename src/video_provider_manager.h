@@ -24,5 +24,7 @@ namespace agi { class BackgroundRunner; }
 
 struct VideoProviderFactory {
 	static std::vector<std::string> GetClasses();
-	static std::unique_ptr<VideoProvider> GetProvider(agi::fs::path const& video_file, std::string_view colormatrix, agi::BackgroundRunner *br);
+	/// @brief 尝试用各已注册 provider 打开视频
+	/// @param interactive 为 false 时（如 MCP 调用）失败不弹出选择对话框，直接抛出异常
+	static std::unique_ptr<VideoProvider> GetProvider(agi::fs::path const& video_file, std::string_view colormatrix, agi::BackgroundRunner *br, bool interactive = true);
 };

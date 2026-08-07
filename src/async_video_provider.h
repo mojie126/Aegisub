@@ -187,7 +187,8 @@ public:
 	/// @brief Constructor
 	/// @param video_filename File to open
 	/// @param parent Event handler to send FrameReady events to
-	AsyncVideoProvider(agi::fs::path const& video_filename, std::string_view colormatrix, wxEvtHandler *parent, agi::BackgroundRunner *br);
+	/// @param interactive false 时（如 MCP 调用）打开失败不弹 provider 选择对话框
+	AsyncVideoProvider(agi::fs::path const& video_filename, std::string_view colormatrix, wxEvtHandler *parent, agi::BackgroundRunner *br, bool interactive = true);
 	~AsyncVideoProvider();
 };
 

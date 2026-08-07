@@ -40,6 +40,7 @@
 #include <libaegisub/dispatch.h>
 
 #include <libaegisub/audio/provider.h>
+#include <libaegisub/background_runner.h>
 #include <libaegisub/format_path.h>
 #include <libaegisub/fs.h>
 #include <libaegisub/keyframe.h>
@@ -48,7 +49,49 @@
 
 #include <boost/algorithm/string/case_conv.hpp>
 #include <algorithm>
+#include <functional>
 #include <wx/msgdlg.h>
+
+namespace {
+/// 无 UI 的后台任务执行器：同步立即执行任务，供 MCP 等非交互场景使用
+struct NoOpBackgroundRunner final : agi::BackgroundRunner {
+	void Run(std::function<void(agi::ProgressSink*)> task) override {
+		struct NoOpSink final : agi::ProgressSink {
+			void SetIndeterminate() override {}
+			void SetTitle(std::string const&) override {}
+			void SetMessage(std::string const&) override {}
+			void SetProgress(int64_t, int64_t) override {}
+			void Log(std::string const&) override {}
+			void SetStayOpen(bool) override {}
+			bool IsCancelled() override { return false; }
+		};
+		NoOpSink sink;
+		task(&sink);
+	}
+};
+}
+
+/// 递归刷新窗口的所有子控件（定义见下方，此处前向声明供 FreezeGuard 使用）
+static void UpdateAllChildren(wxWindow* win);
+
+/// 主窗口冻结守卫：析构时无论是否抛异常都恢复重绘
+/// 避免加载失败（如非交互模式抛异常）时 WM_SETREDRAW 永久关闭导致界面冻结
+struct FreezeGuard {
+	wxWindow* win;
+	bool active;
+	explicit FreezeGuard(wxWindow* w)
+	: win(w), active(w && !w->IsFrozen()) {
+		if (active) win->Freeze();
+	}
+	~FreezeGuard() {
+		if (active) {
+			win->Thaw();
+			UpdateAllChildren(win);
+		}
+	}
+	FreezeGuard(FreezeGuard const&) = delete;
+	FreezeGuard& operator=(FreezeGuard const&) = delete;
+};
 
 Project::Project(agi::Context *c) : context(c) {
 	opt_connections = agi::signal::make_vector({
@@ -116,7 +159,7 @@ void Project::ReloadVideo() {
 		const bool shouldFreeze = context->parent && !context->parent->IsFrozen();
 		if (shouldFreeze) context->parent->Freeze();
 
-		DoLoadVideo(video_file);
+		DoLoadVideo(video_file, true);
 		// 视频维度变化时（如 ABB 改变），需要更新显示宽高比
 		if (video_provider && (video_provider->GetWidth() != old_w || video_provider->GetHeight() != old_h)) {
 			const double dar = video_provider->GetDAR();
@@ -245,8 +288,9 @@ void Project::LoadSubtitles(agi::fs::path path, std::string encoding, bool load_
 void Project::CloseSubtitles() {
 	context->subsController->Close();
 	context->path->SetToken("?script", "");
-	/// 在卸载关联文件之前更新选中与激活行，避免 LoadUnloadFiles 触发信号级联时，
-	/// SelectionController / SubsEditBox 等组件持有的旧 AssDialogue 指针已随 blank 销毁变为悬空指针
+	/// 在卸载关联文件之前更新选中与激活行，
+	/// 避免 LoadUnloadFiles 触发信号链时 SelectionController / SubsEditBox
+	/// 仍持有已销毁的旧 AssDialogue 指针（悬空指针）
 	auto line = &*context->ass->Events.begin();
 	context->selectionController->SetSelectionAndActive({line}, line);
 	SyncVideoSubtitleDirFromCurrentScript(false);
@@ -349,7 +393,7 @@ void Project::LoadUnloadFiles(ProjectProperties properties) {
 			const bool shouldFreeze = context->parent && !context->parent->IsFrozen();
 			if (shouldFreeze) context->parent->Freeze();
 
-			if ((loaded_video = DoLoadVideo(video))) {
+			if ((loaded_video = DoLoadVideo(video, true))) {
 				auto vc = context->videoController.get();
 				vc->JumpToFrame(properties.video_position);
 
@@ -375,10 +419,10 @@ void Project::LoadUnloadFiles(ProjectProperties properties) {
 		if (audio.empty())
 			CloseAudio();
 		else
-			DoLoadAudio(audio, false);
+			DoLoadAudio(audio, false, true);
 	}
 	else if (loaded_video && OPT_GET("Video/Open Audio")->GetBool() && audio_file != video_file && video_provider->HasAudio())
-		DoLoadAudio(video, true);
+		DoLoadAudio(video, true, true);
 
 	// 模态对话框事件循环可能吞掉 owner-drawn 控件的重绘，
 	// 延迟刷新所有子控件确保外观与当前状态一致
@@ -389,26 +433,38 @@ void Project::LoadUnloadFiles(ProjectProperties properties) {
 	}
 }
 
-void Project::DoLoadAudio(agi::fs::path const& path, bool quiet) {
-	if (!progress)
-		progress = new DialogProgress(context->parent);
+void Project::DoLoadAudio(agi::fs::path const& path, bool quiet, bool interactive) {
+	// 非交互模式（MCP 等）使用无 UI 的执行器，不创建进度对话框
+	NoOpBackgroundRunner noop_runner;
+	if (interactive) {
+		if (!progress)
+			progress = new DialogProgress(context->parent);
+	}
+
+	auto* runner = interactive ? progress : static_cast<agi::BackgroundRunner*>(&noop_runner);
 
 	try {
 		try {
-			auto new_provider = GetAudioProvider(path, *context->path, progress);
+			auto new_provider = GetAudioProvider(path, *context->path, runner, interactive);
 			// 先通知停止旧的播放器，再替换音频提供者 (TypesettingTools/Aegisub#24)
 			// 避免后台播放线程在旧提供者被销毁后仍尝试访问
 			if (audio_provider)
 				AnnounceAudioProviderModified(nullptr);
 			audio_provider = std::move(new_provider);
 		}
-		catch (agi::UserCancelException const&) { return; }
+		catch (agi::UserCancelException const&) {
+			// 非交互模式（MCP 等）下取消也视为失败抛出，
+			// 避免调用方误以为旧音频仍可用而返回成功
+			if (!interactive) throw;
+			return;
+		}
 		catch (...) {
 			config::mru->Remove("Audio", path);
 			throw;
 		}
 	}
 	catch (agi::fs::FileNotFound const& e) {
+		if (!interactive) throw;
 		return ShowError(_("The audio file was not found: ") + to_wx(e.GetMessage()));
 	}
 	catch (agi::AudioDataNotFound const& e) {
@@ -416,13 +472,15 @@ void Project::DoLoadAudio(agi::fs::path const& path, bool quiet) {
 			LOG_D("video/open/audio") << "File " << video_file << " has no audio data: " << e.GetMessage();
 			return;
 		}
-		else
-			return ShowError(_("None of the available audio providers recognised the selected file as containing audio data:\n\n") + to_wx(e.GetMessage()));
+		if (!interactive) throw;
+		return ShowError(_("None of the available audio providers recognised the selected file as containing audio data:\n\n") + to_wx(e.GetMessage()));
 	}
 	catch (agi::AudioProviderError const& e) {
+		if (!interactive) throw;
 		return ShowError(_("None of the available audio providers have a codec available to handle the selected file:\n\n") + to_wx(e.GetMessage()));
 	}
 	catch (agi::Exception const& e) {
+		if (!interactive) throw;
 		return ShowError(e.GetMessage());
 	}
 
@@ -430,8 +488,8 @@ void Project::DoLoadAudio(agi::fs::path const& path, bool quiet) {
 	AnnounceAudioProviderModified(audio_provider.get());
 }
 
-void Project::LoadAudio(agi::fs::path path) {
-	DoLoadAudio(path, false);
+void Project::LoadAudio(agi::fs::path path, bool interactive) {
+	DoLoadAudio(path, false, interactive);
 
 	// 模态对话框事件循环可能吞掉 owner-drawn 控件的重绘
 	if (context->parent) {
@@ -447,28 +505,40 @@ void Project::CloseAudio() {
 	SetPath(audio_file, "?audio", "", "");
 }
 
-bool Project::DoLoadVideo(agi::fs::path const& path) {
-	if (!progress)
-		progress = new DialogProgress(context->parent);
+bool Project::DoLoadVideo(agi::fs::path const& path, bool interactive) {
+	// 非交互模式（MCP 等）使用无 UI 的执行器，不创建进度对话框
+	NoOpBackgroundRunner noop_runner;
+	if (interactive) {
+		if (!progress)
+			progress = new DialogProgress(context->parent);
+	}
+	auto* runner = interactive ? progress : static_cast<agi::BackgroundRunner*>(&noop_runner);
 
 	// 暂存旧提供者，避免赋值时同步销毁阻塞主线程 (~34ms)
 	auto old_provider = std::move(video_provider);
 	try {
 		auto old_matrix = context->ass->GetScriptInfo("YCbCr Matrix");
-		video_provider = std::make_unique<AsyncVideoProvider>(path, old_matrix, context->videoController.get(), progress);
+		video_provider = std::make_unique<AsyncVideoProvider>(path, old_matrix, context->videoController.get(), runner, interactive);
 	}
 	catch (agi::UserCancelException const&) {
 		video_provider = std::move(old_provider);
+		// 非交互模式（MCP 等）下取消也视为失败抛出，
+		// 避免调用方误以为旧视频仍可用而返回成功
+		if (!interactive) throw;
 		return false;
 	}
 	catch (agi::fs::FileSystemError const& err) {
 		video_provider = std::move(old_provider);
+		// 与交互模式一致：失败均从 MRU 移除（非交互模式抛异常前同样处理）
 		config::mru->Remove("Video", path);
+		if (!interactive) throw;
 		ShowError(to_wx(err.GetMessage()));
 		return false;
 	}
 	catch (VideoProviderError const& err) {
 		video_provider = std::move(old_provider);
+		config::mru->Remove("Video", path);
+		if (!interactive) throw;
 		ShowError(to_wx(err.GetMessage()));
 		return false;
 	}
@@ -482,7 +552,7 @@ bool Project::DoLoadVideo(agi::fs::path const& path) {
 	LOG_D("provider/video/load") << "AnnounceVideoProviderModified";
 	AnnounceVideoProviderModified(video_provider.get());
 
-	UpdateVideoProperties(context->ass.get(), video_provider.get(), context->parent);
+	UpdateVideoProperties(context->ass.get(), video_provider.get(), context->parent, interactive);
 	SyncVideoSubtitleDirFromCurrentScript(false);
 	video_provider->LoadSubtitles(context->ass.get());
 
@@ -494,7 +564,7 @@ bool Project::DoLoadVideo(agi::fs::path const& path) {
 	SetPath(video_file, "?video", "Video", path);
 
 	std::string warning = video_provider->GetWarning();
-	if (!warning.empty())
+	if (!warning.empty() && interactive)
 		wxMessageBox(to_wx(warning), _("Warning"), wxICON_WARNING | wxOK);
 
 	video_has_subtitles = false;
@@ -506,23 +576,19 @@ bool Project::DoLoadVideo(agi::fs::path const& path) {
 	return true;
 }
 
-void Project::LoadVideo(agi::fs::path path) {
+void Project::LoadVideo(agi::fs::path path, bool interactive) {
 	if (path.empty()) return;
 
 	// 冻结主窗口，防止视频加载期间多次布局变更导致界面错乱；
-	// 进度对话框属于 owned window（非 child），不受 WM_SETREDRAW 影响
-	const bool shouldFreeze = context->parent && !context->parent->IsFrozen();
-	if (shouldFreeze) context->parent->Freeze();
+	// 进度对话框属于 owned window（非 child），不受 WM_SETREDRAW 影响，
+	// 用 RAII 守卫保证非交互模式抛异常时也能解冻，避免界面永久冻结
+	FreezeGuard freeze(context->parent);
 
-	if (!DoLoadVideo(path)) {
-		if (shouldFreeze) {
-			context->parent->Thaw();
-			UpdateAllChildren(context->parent);
-		}
+	if (!DoLoadVideo(path, interactive)) {
 		return;
 	}
 	if (OPT_GET("Video/Open Audio")->GetBool() && audio_file != video_file && video_provider->HasAudio())
-		DoLoadAudio(video_file, true);
+		DoLoadAudio(video_file, true, interactive);
 
 	double dar = video_provider->GetDAR();
 	if (dar > 0)
@@ -530,13 +596,6 @@ void Project::LoadVideo(agi::fs::path path) {
 	else
 		context->videoController->SetAspectRatio(AspectRatio::Default);
 	context->videoController->JumpToFrame(0);
-
-	// 解冻后立即强制重绘所有子窗口，
-	// Thaw 仅标记 RDW_INVALIDATE，需补充同步处理 WM_PAINT
-	if (shouldFreeze) {
-		context->parent->Thaw();
-		UpdateAllChildren(context->parent);
-	}
 
 	// 模态对话框事件循环可能吞掉 owner-drawn 控件的重绘
 	if (context->parent) {
@@ -722,7 +781,7 @@ void Project::LoadList(std::vector<agi::fs::path> const& files) {
 		const bool shouldFreeze = context->parent && !context->parent->IsFrozen();
 		if (shouldFreeze) context->parent->Freeze();
 
-		if (!video.empty() && DoLoadVideo(video)) {
+		if (!video.empty() && DoLoadVideo(video, true)) {
 			double dar = video_provider->GetDAR();
 			if (dar > 0)
 				context->videoController->SetAspectRatio(dar);
@@ -746,9 +805,9 @@ void Project::LoadList(std::vector<agi::fs::path> const& files) {
 	}
 
 	if (!audio.empty())
-		DoLoadAudio(audio, false);
+		DoLoadAudio(audio, false, true);
 	else if (OPT_GET("Video/Open Audio")->GetBool() && audio_file != video_file)
-		DoLoadAudio(video_file, true);
+		DoLoadAudio(video_file, true, true);
 
 	if (!subs.empty())
 		LoadUnloadFiles(properties);

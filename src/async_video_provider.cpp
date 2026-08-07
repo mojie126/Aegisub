@@ -278,10 +278,10 @@ static std::unique_ptr<SubtitlesProvider> get_subs_provider(wxEvtHandler *evt_ha
 	}
 }
 
-AsyncVideoProvider::AsyncVideoProvider(agi::fs::path const& video_filename, std::string_view colormatrix, wxEvtHandler *parent, agi::BackgroundRunner *br)
+AsyncVideoProvider::AsyncVideoProvider(agi::fs::path const& video_filename, std::string_view colormatrix, wxEvtHandler *parent, agi::BackgroundRunner *br, bool interactive)
 : worker(agi::dispatch::Create())
 , subs_provider(get_subs_provider(parent, br))
-, source_provider(VideoProviderFactory::GetProvider(video_filename, colormatrix, br))
+, source_provider(VideoProviderFactory::GetProvider(video_filename, colormatrix, br, interactive))
 , parent(parent)
 , provider_id(next_provider_id.fetch_add(1, std::memory_order_relaxed) + 1)
 {

@@ -24,6 +24,7 @@
 #include "libaegisub/cajun/reader.h"
 #include "libaegisub/cajun/writer.h"
 #include "libaegisub/dispatch.h"
+#include "libaegisub/exception.h"
 #include "libaegisub/log.h"
 
 #include <boost/asio/buffer.hpp>
@@ -47,6 +48,12 @@
 #include <string_view>
 #include <thread>
 #include <vector>
+
+// Windows 的 GetMessage 宏与 agi::Exception::GetMessage() 冲突，
+// 且 libaegisub 不依赖 wx 的 winundef.h，需在此显式取消宏
+#ifdef GetMessage
+#undef GetMessage
+#endif
 
 namespace {
 using json::Array;
@@ -232,6 +239,10 @@ UnknownElement HandleToolsCall(Object const& params) {
 		}
 		try {
 			result = it->second.handler(*arguments);
+		} catch (agi::Exception const& e) {
+			// agi::Exception 不继承 std::exception，需单独捕获
+			failed = true;
+			err_msg = e.GetMessage();
 		} catch (std::exception const& e) {
 			failed = true;
 			err_msg = e.what();
@@ -244,12 +255,30 @@ UnknownElement HandleToolsCall(Object const& params) {
 	if (failed)
 		throw std::runtime_error(err_msg);
 
-	// tools/call 标准返回结构: { content: [{type:text, text:...}], isError?:bool }
-	Object content_item;
-	content_item["type"] = std::string("text");
-	content_item["text"] = ::ToJsonString(result);
+	// tools/call 标准返回结构: { content: [...] , isError?:bool }
+	// handler 返回的对象若自带 "content" 数组(如同时含 text 与 image 项)则直接使用，
+	// 否则默认包装为单个 text 项
 	Array content;
-	content.emplace_back(std::move(content_item));
+	UnknownElement const* custom_content = nullptr;
+	try {
+		auto const& obj = static_cast<Object const&>(result);
+		custom_content = ::GetField(obj, "content");
+	} catch (...) {}
+	if (custom_content) {
+		try {
+			auto const& arr = static_cast<Array const&>(*custom_content);
+			for (auto const& item : arr)
+				content.emplace_back(::CloneValue(item));
+		} catch (...) {
+			custom_content = nullptr;
+		}
+	}
+	if (!custom_content) {
+		Object content_item;
+		content_item["type"] = std::string("text");
+		content_item["text"] = ::ToJsonString(result);
+		content.emplace_back(std::move(content_item));
+	}
 
 	Object call_result;
 	call_result["content"] = std::move(content);
@@ -312,6 +341,10 @@ std::string DispatchRequest(Object const& request) {
 		}
 		if (has_id)
 			return ::ToJsonString(::MakeResult(std::move(id_entry), std::move(result)));
+		return {};
+	} catch (agi::Exception const& e) {
+		if (has_id)
+			return ::ToJsonString(::MakeError(std::move(id_entry), ::EC(agi::mcp::ErrorCode::InternalError), e.GetMessage()));
 		return {};
 	} catch (std::exception const& e) {
 		if (has_id)
@@ -508,6 +541,10 @@ UnknownElement CallTool(std::string const& name, Object const& arguments) {
 		}
 		try {
 			result = it->second.handler(arguments);
+		} catch (agi::Exception const& e) {
+			// agi::Exception 不继承 std::exception，需单独捕获
+			failed = true;
+			err_msg = e.GetMessage();
 		} catch (std::exception const& e) {
 			failed = true;
 			err_msg = e.what();

@@ -36,7 +36,7 @@
 
 #include "audio_colorscheme.h"
 #ifndef WITH_FFTW3
-#include "fft.h"
+#include <libaegisub/audio/fft.h>
 #endif
 
 #include <libaegisub/audio/provider.h>

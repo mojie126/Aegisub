@@ -55,8 +55,9 @@ class Project {
 
 	bool DoLoadSubtitles(agi::fs::path const& path, std::string encoding, ProjectProperties &properties);
 	bool DoLoadSubtitlesWithVideoSync(agi::fs::path const& path, std::string encoding, ProjectProperties &properties);
-	void DoLoadAudio(agi::fs::path const& path, bool quiet);
-	bool DoLoadVideo(agi::fs::path const& path);
+	/// @param interactive false 时（如 MCP 调用）加载失败不弹错误对话框，直接抛出异常
+	void DoLoadAudio(agi::fs::path const& path, bool quiet, bool interactive);
+	bool DoLoadVideo(agi::fs::path const& path, bool interactive);
 	void DoLoadTimecodes(agi::fs::path const& path);
 	void DoLoadKeyframes(agi::fs::path const& path);
 
@@ -75,13 +76,13 @@ public:
 	void CloseSubtitles();
 	bool CanLoadSubtitlesFromVideo() const { return video_has_subtitles; }
 
-	void LoadAudio(agi::fs::path path);
+	void LoadAudio(agi::fs::path path, bool interactive = true);
 	void ReloadAudio();
 	void CloseAudio();
 	agi::AudioProvider *AudioProvider() const { return audio_provider.get(); }
 	agi::fs::path const& AudioName() const { return audio_file; }
 
-	void LoadVideo(agi::fs::path path);
+	void LoadVideo(agi::fs::path path, bool interactive = true);
 	void ReloadVideo();
 	void CloseVideo();
 	AsyncVideoProvider *VideoProvider() const { return video_provider.get(); }

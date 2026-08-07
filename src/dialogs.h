@@ -60,7 +60,8 @@ void PerformVersionCheck(bool interactive);
 bool PromptForResampleSettings(agi::Context *c, ResampleSettings &settings);
 
 /// Update the video properties for a newly opened video, possibly prompting the user about what to do
-void UpdateVideoProperties(AssFile *file, const AsyncVideoProvider *new_provider, wxWindow *parent);
+/// @param interactive false 时（如 MCP 调用）分辨率不匹配不弹对话框，跳过修改
+void UpdateVideoProperties(AssFile *file, const AsyncVideoProvider *new_provider, wxWindow *parent, bool interactive = true);
 
 int GetSelectedChoices(wxWindow *parent, wxArrayInt &selections, wxString const &message, wxString const &caption, wxArrayString const &choices);
 

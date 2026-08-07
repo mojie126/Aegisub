@@ -677,7 +677,12 @@ void BaseGrid::OnContextMenu(wxContextMenuEvent &evt) {
 }
 
 void BaseGrid::ScrollTo(int y) {
-	int nextY = std::clamp(y, 0, GetVisRows() - 1);
+	int max_row = GetVisRows() - 1;
+	// 网格尚未就绪（无可视行）时忽略滚动请求，
+	// 否则 std::clamp 在 lo(0) > hi(-1) 时是未定义行为
+	if (max_row < 0)
+		return;
+	int nextY = std::clamp(y, 0, max_row);
 	if (yPos != nextY) {
 		context->ass->Properties.scroll_position = yPos = nextY;
 		scrollBar->SetThumbPosition(yPos);

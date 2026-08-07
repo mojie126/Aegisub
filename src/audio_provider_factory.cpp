@@ -67,7 +67,8 @@ std::vector<std::string> GetAudioProviderNames() {
 
 std::unique_ptr<agi::AudioProvider> SelectAudioProvider(fs::path const& filename,
                                                         Path const&,
-                                                        BackgroundRunner *br) {
+                                                        BackgroundRunner *br,
+                                                        bool interactive) {
 	auto preferred = OPT_GET("Audio/Provider")->GetString();
 
 	if (!std::any_of(std::begin(providers), std::end(providers), [&](factory provider) { return provider.name == preferred; })) {
@@ -121,6 +122,13 @@ std::unique_ptr<agi::AudioProvider> SelectAudioProvider(fs::path const& filename
 		throw AudioProviderError(msg);
 	}
 
+	// 非交互模式（MCP 等）下不弹 provider 选择对话框，直接汇总错误抛出
+	if (!interactive) {
+		std::string msg = "Could not open " + filename.string() + ":\n" + errors;
+		if (!found_file) throw AudioDataNotFound(filename.string());
+		throw AudioProviderError(msg);
+	}
+
 	std::vector<std::string> names;
 	for (auto const& f : remaining_providers)
 		names.push_back(f->name);
@@ -140,8 +148,9 @@ std::unique_ptr<agi::AudioProvider> SelectAudioProvider(fs::path const& filename
 
 std::unique_ptr<agi::AudioProvider> GetAudioProvider(fs::path const& filename,
                                                      Path const& path_helper,
-                                                     BackgroundRunner *br) {
-	std::unique_ptr<agi::AudioProvider> provider = SelectAudioProvider(filename, path_helper, br);
+                                                     BackgroundRunner *br,
+                                                     bool interactive) {
+	std::unique_ptr<agi::AudioProvider> provider = SelectAudioProvider(filename, path_helper, br, interactive);
 
 	bool needs_cache = provider->NeedsCache();
 

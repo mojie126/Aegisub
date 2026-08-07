@@ -148,7 +148,7 @@ std::vector<std::string> VideoProviderFactory::GetClasses() {
 	return ::GetClasses(providers);
 }
 
-std::unique_ptr<VideoProvider> VideoProviderFactory::GetProvider(agi::fs::path const& filename, std::string_view colormatrix, agi::BackgroundRunner *br) {
+std::unique_ptr<VideoProvider> VideoProviderFactory::GetProvider(agi::fs::path const& filename, std::string_view colormatrix, agi::BackgroundRunner *br, bool interactive) {
 	auto preferred = OPT_GET("Video/Provider")->GetString();
 
 	if (!std::any_of(std::begin(providers), std::end(providers), [&](factory provider) { return provider.name == preferred; })) {
@@ -210,6 +210,14 @@ std::unique_ptr<VideoProvider> VideoProviderFactory::GetProvider(agi::fs::path c
 		LOG_E("manager/video/provider") << "Could not open " << filename;
 		std::string msg = "Could not open " + filename.string() + ":\n" + errors;
 
+		if (!found) throw agi::fs::FileNotFound(filename.string());
+		if (!supported) throw VideoNotSupported(msg);
+		throw VideoOpenError(msg);
+	}
+
+	// 非交互模式（MCP 等）下不弹 provider 选择对话框，直接汇总错误抛出
+	if (!interactive) {
+		std::string msg = "Could not open " + filename.string() + ":\n" + errors;
 		if (!found) throw agi::fs::FileNotFound(filename.string());
 		if (!supported) throw VideoNotSupported(msg);
 		throw VideoOpenError(msg);

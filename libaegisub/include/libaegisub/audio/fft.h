@@ -27,6 +27,12 @@
 //
 // Aegisub Project http://www.aegisub.org/
 
+/// @file libaegisub/include/libaegisub/audio/fft.h
+/// @brief Fast Fourier-transform 实现声明
+/// @ingroup audio
+
+#pragma once
+
 #include <cstdlib>
 
 class FFT {
