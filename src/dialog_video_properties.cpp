@@ -127,9 +127,16 @@ bool update_video_properties(AssFile *file, const AsyncVideoProvider *new_provid
 	if (sx % vx == 0 && sy % vy == 0)
 		return commit_subs;
 
-	auto sar = double(sx) / sy;
-	auto var = double(vx) / vy;
-	bool ar_changed = std::abs(sar - var) / var > .01;
+	bool ar_changed;
+	// sy 或 vy 为 0 时避免除零崩溃（上游 05e30f563），
+	// 有值的一侧视作 AR 已变
+	if (sy == 0 || vy == 0)
+		ar_changed = (sy == 0) != (vy == 0);
+	else {
+		auto sar = double(sx) / sy;
+		auto var = double(vx) / vy;
+		ar_changed = std::abs(sar - var) / var > .01;
+	}
 
 	// 非交互模式（MCP 等）下不弹分辨率不匹配对话框，跳过修改，
 	// 由调用方自行决定如何处理（如提供 set_script_resolution 工具）

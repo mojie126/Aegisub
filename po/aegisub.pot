@@ -5259,6 +5259,22 @@ msgstr ""
 msgid "Decoder:"
 msgstr ""
 
+#: ../src/dialog_video_details.cpp:88
+msgid "Actual color matrix:"
+msgstr ""
+
+#: ../src/dialog_video_details.cpp:89
+msgid "Forced color matrix:"
+msgstr ""
+
+#: ../src/dialog_video_details.cpp:90
+msgid "Actual color range:"
+msgstr ""
+
+#: ../src/dialog_video_details.cpp:91
+msgid "Forced color range:"
+msgstr ""
+
 #: ../src/dialog_video_details.cpp:66 ../src/preferences.cpp:166
 #: ../src/preferences.cpp:453
 msgid "Video"
@@ -5961,31 +5977,39 @@ msgstr ""
 msgid "Restrict Screen Picker to Window"
 msgstr ""
 
-#: ../src/preferences.cpp:251
+#: ../src/preferences.cpp:401
 msgid "Audio Display"
 msgstr ""
 
-#: ../src/preferences.cpp:252
+#: ../src/preferences.cpp:402
+msgid "Current frame range"
+msgstr ""
+
+#: ../src/preferences.cpp:403
+msgid "Previous frame range"
+msgstr ""
+
+#: ../src/preferences.cpp:404
 msgid "Play cursor"
 msgstr ""
 
-#: ../src/preferences.cpp:253
+#: ../src/preferences.cpp:405
 msgid "Line boundary start"
 msgstr ""
 
-#: ../src/preferences.cpp:254
+#: ../src/preferences.cpp:406
 msgid "Line boundary end"
 msgstr ""
 
-#: ../src/preferences.cpp:255
+#: ../src/preferences.cpp:407
 msgid "Line boundary inactive line"
 msgstr ""
 
-#: ../src/preferences.cpp:256
+#: ../src/preferences.cpp:408
 msgid "Syllable boundaries"
 msgstr ""
 
-#: ../src/preferences.cpp:259
+#: ../src/preferences.cpp:411
 msgid "Syntax Highlighting"
 msgstr ""
 

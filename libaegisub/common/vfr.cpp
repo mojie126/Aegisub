@@ -236,6 +236,10 @@ int Framerate::TimeAtFrame(int frame, Time type) const {
 		return cur + (next - cur + 1) / 2;
 	}
 
+	// 帧率未加载时 numerator 为 0，避免除零崩溃（上游 774ebb653）
+	if (numerator == 0)
+		return 0;
+
 	if (frame < 0)
 		return (int)(frame * denominator * 1000 / numerator) + timecodes.front();
 

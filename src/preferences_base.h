@@ -34,6 +34,14 @@ struct PageSection {
 	wxWindow *box;
 };
 
+/// @brief OptionAdd 可选参数，按需指定（上游 1e09361fd）
+struct OptionAddArgs {
+	double min = 0;
+	double max = INT_MAX;
+	double inc = 1;
+	bool alpha = false;	///< 颜色选项是否支持 alpha 通道（上游 d9cfd9e02）
+};
+
 class OptionPage : public wxScrolled<wxPanel> {
 	template<class T>
 	void Add(PageSection section, wxString const& label, T *control);
@@ -49,7 +57,7 @@ public:
 	PageSection PageSizer(wxString name);
 
 	void CellSkip(PageSection section);
-	wxControl *OptionAdd(PageSection section, const wxString &name, const char *opt_name, double min=0, double max=INT_MAX, double inc=1);
+	wxControl *OptionAdd(PageSection section, const wxString &name, const char *opt_name, OptionAddArgs kwargs = {});
 	wxTextCtrl *OptionAddMultiline(PageSection section, const char *opt_name);
 	void OptionChoice(PageSection section, const wxString &name, const wxArrayString &choices, const char *opt_name, bool translate = false);
 	void OptionBrowse(PageSection section, const wxString &name, const char *opt_name, wxControl *enabler = nullptr, bool do_enable = false);

@@ -5378,6 +5378,22 @@ msgstr "长度："
 msgid "Decoder:"
 msgstr "解码器："
 
+#: ../src/dialog_video_details.cpp:88
+msgid "Actual color matrix:"
+msgstr "实际色彩矩阵："
+
+#: ../src/dialog_video_details.cpp:89
+msgid "Forced color matrix:"
+msgstr "强制色彩矩阵："
+
+#: ../src/dialog_video_details.cpp:90
+msgid "Actual color range:"
+msgstr "实际色彩范围："
+
+#: ../src/dialog_video_details.cpp:91
+msgid "Forced color range:"
+msgstr "强制色彩范围："
+
 #: ../src/dialog_video_details.cpp:66 ../src/preferences.cpp:166
 #: ../src/preferences.cpp:453
 msgid "Video"
@@ -6109,31 +6125,39 @@ msgstr "取色器"
 msgid "Restrict Screen Picker to Window"
 msgstr "将取色范围限制在窗口\"界面\"下（适用于Linux）"
 
-#: ../src/preferences.cpp:251
+#: ../src/preferences.cpp:401
 msgid "Audio Display"
 msgstr "音频显示"
 
-#: ../src/preferences.cpp:252
+#: ../src/preferences.cpp:402
+msgid "Current frame range"
+msgstr "当前帧范围"
+
+#: ../src/preferences.cpp:403
+msgid "Previous frame range"
+msgstr "上一帧范围"
+
+#: ../src/preferences.cpp:404
 msgid "Play cursor"
 msgstr "播放游标"
 
-#: ../src/preferences.cpp:253
+#: ../src/preferences.cpp:405
 msgid "Line boundary start"
 msgstr "起始边线"
 
-#: ../src/preferences.cpp:254
+#: ../src/preferences.cpp:406
 msgid "Line boundary end"
 msgstr "结束边线"
 
-#: ../src/preferences.cpp:255
+#: ../src/preferences.cpp:407
 msgid "Line boundary inactive line"
 msgstr "非活动行边线"
 
-#: ../src/preferences.cpp:256
+#: ../src/preferences.cpp:408
 msgid "Syllable boundaries"
 msgstr "音节边线"
 
-#: ../src/preferences.cpp:259
+#: ../src/preferences.cpp:411
 msgid "Syntax Highlighting"
 msgstr "语法高亮"
 

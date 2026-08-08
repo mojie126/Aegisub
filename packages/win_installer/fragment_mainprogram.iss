@@ -26,6 +26,8 @@ DestDir: {app}; Source: "{#INSTALLER_DIR}\license.txt"; Flags: ignoreversion; Co
 DestDir: {app}\data\cube; Source: "{#SOURCE_ROOT}\src\cube\PQ2SDR.cube"; Flags: ignoreversion; Components: main
 DestDir: {app}\data\cube; Source: "{#SOURCE_ROOT}\src\cube\HLG2SDR.cube"; Flags: ignoreversion; Components: main
 DestDir: {app}\data\cube; Source: "{#SOURCE_ROOT}\src\cube\DV2SDR.cube"; Flags: ignoreversion; Components: main
+; VSFilterMod标签文档，供MCP vsmod_syntax工具查询
+DestDir: {app}\data; Source: "{#SOURCE_ROOT}\docs\AssRocket-VSFilterMod-使用文档.md"; Flags: ignoreversion; Components: main
 
 [Icons]
 Name: {commonprograms}\Aegisub; Filename: {app}\Aegisub.exe; WorkingDir: {app}; IconIndex: 0; Tasks: startmenuicon; Comment: Create and edit subtitle files

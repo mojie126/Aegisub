@@ -27,8 +27,9 @@
 class AudioMarkerKeyframe;
 class Pen;
 class Project;
-class VideoController;
 class VideoPositionMarker;
+class VideoPositionRange;
+class VideoPositionSnapPoint;
 class wxPen;
 
 namespace agi {
@@ -54,6 +55,10 @@ public:
 	/// @return The marker's position in milliseconds
 	virtual int GetPosition() const = 0;
 
+	/// @brief Get the marker's width
+	/// @return 矩形标记的宽度，线条标记返回 0（线宽由样式决定）（上游 d9cfd9e02）
+	virtual int GetWidth() const { return 0; }
+
 	/// @brief Get the marker's drawing style
 	/// @return A pen object describing the marker's drawing style
 	virtual wxPen GetStyle() const = 0;
@@ -73,8 +78,11 @@ protected:
 
 	~AudioMarkerProvider() = default;
 public:
-	/// @brief Return markers in a time range
+	/// @brief 返回时间范围内用于渲染的标记（上游 d9cfd9e02）
 	virtual void GetMarkers(const TimeRange &range, AudioMarkerVector &out) const = 0;
+
+	/// @brief 返回时间范围内用于吸附时间行的标记（上游 d9cfd9e02）
+	virtual void GetSnapMarkers(const TimeRange &range, AudioMarkerVector &out) const { GetMarkers(range, out); };
 
 	DEFINE_SIGNAL_ADDERS(AnnounceMarkerMoved, AddMarkerMovedListener)
 };
@@ -140,13 +148,18 @@ public:
 
 /// Marker provider for the current video playback position
 class VideoPositionMarkerProvider final : public AudioMarkerProvider {
-	VideoController *vc;
+	agi::Context *c;
 
+	std::unique_ptr<VideoPositionRange> range1;
+	std::unique_ptr<VideoPositionRange> range2;
 	std::unique_ptr<VideoPositionMarker> marker;
+	std::unique_ptr<VideoPositionSnapPoint> snap1;
+	std::unique_ptr<VideoPositionSnapPoint> snap2;
 
 	agi::signal::Connection video_seek_slot;
 	agi::signal::Connection enable_opt_changed_slot;
 
+	void SetPositions(int frame_number);
 	void Update(int frame_number);
 	void OptChanged(agi::OptionValue const& opt);
 
@@ -155,6 +168,7 @@ public:
 	~VideoPositionMarkerProvider();
 
 	void GetMarkers(const TimeRange &range, AudioMarkerVector &out) const override;
+	void GetSnapMarkers(const TimeRange &range, AudioMarkerVector &out) const override;
 };
 
 /// Marker provider for lines every second

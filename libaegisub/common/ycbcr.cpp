@@ -55,6 +55,12 @@ header_variant parse_ycbcr_header(std::string const& matrix) {
 			CM = ycbcr_matrix::FCC;
 		} else if (parts[1] == "240m") {
 			CM = ycbcr_matrix::SMPTE240M;
+		} else if (parts[1] == "2020ncl") {
+			// 本地 GetRealColorSpace() 返回字符串（如 TV.2020ncl），
+			// 补充 BT.2020 解析以便详情对话框准确显示（上游未处理此适配）
+			CM = ycbcr_matrix::BT2020_NCL;
+		} else if (parts[1] == "2020cl") {
+			CM = ycbcr_matrix::BT2020_CL;
 		}
 	}
 
@@ -64,6 +70,56 @@ header_variant parse_ycbcr_header(std::string const& matrix) {
 	return header_colorspace(CM, CR);
 }
 
+}
+
+const char *matrix_to_string(ycbcr_matrix matrix) {
+	using enum ycbcr_matrix;
+	switch (matrix) {
+		case RGB:
+			return "RGB";
+		case BT709:
+			return "BT.709";
+		case Unspecified:
+			return "Unspecified";
+		case FCC:
+			return "FCC";
+		case BT470BG:
+			return "BT.470-BG";
+		case SMPTE170M:
+			return "SMPTE ST 170M";
+		case SMPTE240M:
+			return "SMPTE ST 240M";
+		case YCoCg:
+			return "YCoCg";
+		case BT2020_NCL:
+			return "BT.2020 NCL";
+		case BT2020_CL:
+			return "BT.2020 CL";
+		case SMPTE2085:
+			return "SMPTE 2085";
+		case ChromaticityDerivedNCL:
+			return "Chromaticity-derived NCL";
+		case ChromaticityDerivedCL:
+			return "Chromaticity-derived CL";
+		case ICtCp:
+			return "ICtCp";
+		default:
+			return "<Unknown or invalid matrix>";
+	}
+}
+
+const char *range_to_string(ycbcr_range range) {
+	using enum ycbcr_range;
+	switch (range) {
+		case Unspecified:
+			return "Unspecified";
+		case MPEG:
+			return "Limited";
+		case JPEG:
+			return "Full";
+		default:
+			return "<Unknown or invalid range>";
+	}
 }
 
 Header::Header(header_variant v) : header_variant(v) {

@@ -50,6 +50,7 @@
 #include <algorithm>
 
 #include <wx/dcbuffer.h>
+#include <wx/dcgraph.h>
 #include <wx/mousestate.h>
 
 /// @class AudioDisplayInteractionObject
@@ -850,12 +851,13 @@ void AudioDisplay::OnPaint(wxPaintEvent&)
 
 		if (audio_bounds.Intersects(updrect))
 		{
+			wxGCDC gcdc(dc);	// 标记可能使用 alpha 通道，需要 GCDC（上游 d9cfd9e02）
 			TimeRange updtime(
 				std::max(0, TimeFromRelativeX(updrect.x - foot_size)),
 				std::max(0, TimeFromRelativeX(updrect.x + updrect.width + foot_size)));
 
 			PaintAudio(dc, updtime, updrect);
-			PaintMarkers(dc, updtime);
+			PaintMarkers(gcdc, updtime);
 			PaintLabels(dc, updtime);
 		}
 	}
@@ -900,8 +902,17 @@ void AudioDisplay::PaintMarkers(wxDC &dc, TimeRange updtime)
 	{
 		int marker_x = RelativeXFromTime(marker->GetPosition());
 
-		dc.SetPen(marker->GetStyle());
-		dc.DrawLine(marker_x, audio_top, marker_x, audio_top+audio_height);
+		if (marker->GetWidth() == 0) {
+			dc.SetPen(marker->GetStyle());
+			dc.DrawLine(marker_x, audio_top, marker_x, audio_top+audio_height);
+		} else {
+			int w = RelativeXFromTime(marker->GetPosition() + marker->GetWidth() - 1) - marker_x + 1;
+
+			dc.SetBrush(wxBrush(marker->GetStyle().GetColour()));
+			dc.SetPen(*wxTRANSPARENT_PEN);
+
+			dc.DrawRectangle(marker_x, audio_top, w, audio_height);
+		}
 
 		if (marker->GetFeet() == AudioMarker::Feet_None) continue;
 

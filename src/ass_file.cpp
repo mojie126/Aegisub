@@ -50,7 +50,7 @@ void AssFile::LoadDefault(bool include_dialogue_line, std::string const& style_c
 		Info.emplace_back("PlayResX", std::to_string(OPT_GET("Subtitle/Default Resolution/Width")->GetInt()));
 		Info.emplace_back("PlayResY", std::to_string(OPT_GET("Subtitle/Default Resolution/Height")->GetInt()));
 	}
-	Info.emplace_back("YCbCr Matrix", "None");
+	// 新文件不再预设 YCbCr Matrix: None，由打开视频时按需设置（上游 5613cffd8）
 
 	// Add default style
 	Styles.push_back(*new AssStyle);

@@ -63,6 +63,12 @@ TEST(lagi_ycbcr, parsing) {
 	EXPECT_EQ(ycbcr::Header("TV.2020"), ycbcr::Header(ycbcr::header_invalid{}));
 	EXPECT_EQ(ycbcr::Header("TV.P3"), ycbcr::Header(ycbcr::header_invalid{}));
 	EXPECT_EQ(ycbcr::Header("TV.RGB"), ycbcr::Header(ycbcr::header_invalid{}));
+
+	// 本地 GetRealColorSpace() 字符串接口的 BT.2020 解析（本地补充，上游未处理）
+	EXPECT_EQ(ycbcr::Header("tv.2020ncl"), ycbcr::Header(ycbcr_matrix::BT2020_NCL, ycbcr_range::MPEG));
+	EXPECT_EQ(ycbcr::Header("TV.2020ncl"), ycbcr::Header(ycbcr_matrix::BT2020_NCL, ycbcr_range::MPEG));
+	EXPECT_EQ(ycbcr::Header("pc.2020cl"), ycbcr::Header(ycbcr_matrix::BT2020_CL, ycbcr_range::JPEG));
+	EXPECT_EQ(ycbcr::Header("PC.2020cl"), ycbcr::Header(ycbcr_matrix::BT2020_CL, ycbcr_range::JPEG));
 }
 
 TEST(lagi_ycbcr, to_string_roundtrip) {
@@ -338,4 +344,28 @@ TEST(lagi_ycbcr, guess_colorspace) {
 			EXPECT_EQ(CR, range == ycbcr_range::Unspecified ? ycbcr_range::MPEG : range);
 		}
 	}
+}
+
+TEST(lagi_ycbcr, matrix_to_string) {
+	// 详情对话框显示用，覆盖全部 14 个枚举值（上游 ab40129bb）
+	EXPECT_STREQ(ycbcr::matrix_to_string(ycbcr_matrix::RGB), "RGB");
+	EXPECT_STREQ(ycbcr::matrix_to_string(ycbcr_matrix::BT709), "BT.709");
+	EXPECT_STREQ(ycbcr::matrix_to_string(ycbcr_matrix::Unspecified), "Unspecified");
+	EXPECT_STREQ(ycbcr::matrix_to_string(ycbcr_matrix::FCC), "FCC");
+	EXPECT_STREQ(ycbcr::matrix_to_string(ycbcr_matrix::BT470BG), "BT.470-BG");
+	EXPECT_STREQ(ycbcr::matrix_to_string(ycbcr_matrix::SMPTE170M), "SMPTE ST 170M");
+	EXPECT_STREQ(ycbcr::matrix_to_string(ycbcr_matrix::SMPTE240M), "SMPTE ST 240M");
+	EXPECT_STREQ(ycbcr::matrix_to_string(ycbcr_matrix::YCoCg), "YCoCg");
+	EXPECT_STREQ(ycbcr::matrix_to_string(ycbcr_matrix::BT2020_NCL), "BT.2020 NCL");
+	EXPECT_STREQ(ycbcr::matrix_to_string(ycbcr_matrix::BT2020_CL), "BT.2020 CL");
+	EXPECT_STREQ(ycbcr::matrix_to_string(ycbcr_matrix::SMPTE2085), "SMPTE 2085");
+	EXPECT_STREQ(ycbcr::matrix_to_string(ycbcr_matrix::ChromaticityDerivedNCL), "Chromaticity-derived NCL");
+	EXPECT_STREQ(ycbcr::matrix_to_string(ycbcr_matrix::ChromaticityDerivedCL), "Chromaticity-derived CL");
+	EXPECT_STREQ(ycbcr::matrix_to_string(ycbcr_matrix::ICtCp), "ICtCp");
+}
+
+TEST(lagi_ycbcr, range_to_string) {
+	EXPECT_STREQ(ycbcr::range_to_string(ycbcr_range::Unspecified), "Unspecified");
+	EXPECT_STREQ(ycbcr::range_to_string(ycbcr_range::MPEG), "Limited");
+	EXPECT_STREQ(ycbcr::range_to_string(ycbcr_range::JPEG), "Full");
 }

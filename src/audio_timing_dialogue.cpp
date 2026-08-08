@@ -448,8 +448,8 @@ void AudioTimingControllerDialogue::GetMarkers(const TimeRange &range, AudioMark
 		boost::upper_bound(markers, range.end(), marker_ptr_cmp()),
 		back_inserter(out_markers));
 
-	keyframes_provider.GetMarkers(range, out_markers);
 	video_position_provider.GetMarkers(range, out_markers);
+	keyframes_provider.GetMarkers(range, out_markers);
 }
 
 void AudioTimingControllerDialogue::OnSelectedSetChanged()
@@ -900,8 +900,8 @@ int AudioTimingControllerDialogue::SnapMarkers(int snap_range, std::vector<Audio
 
 		snap_markers.clear();
 		TimeRange range(pos - snap_range, pos + snap_range);
-		keyframes_provider.GetMarkers(range, snap_markers);
-		video_position_provider.GetMarkers(range, snap_markers);
+		keyframes_provider.GetSnapMarkers(range, snap_markers);
+		video_position_provider.GetSnapMarkers(range, snap_markers);
 
 		for (const auto marker : snap_markers)
 		{

@@ -47,6 +47,9 @@ std::string Color::GetHexFormatted(bool rgba) const {
 }
 
 std::string Color::GetRgbFormatted() const {
+	// 带 alpha 时输出 rgba 形式（上游 3b833e18e）
+	if (a)
+		return agi::format("rgba(%d, %d, %d, %d)", r, g, b, a);
 	return agi::format("rgb(%d, %d, %d)", r, g, b);
 }
 

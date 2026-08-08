@@ -35,8 +35,8 @@ enum class ycbcr_matrix : char {
 	BT2020_NCL = 9,
 	BT2020_CL = 10,
 	SMPTE2085 = 11,
-	ChromacityDerivedNCL = 12,
-	ChromacityDerivedCL = 13,
+	ChromaticityDerivedNCL = 12,
+	ChromaticityDerivedCL = 13,
 	ICtCp = 14,
 };
 
@@ -48,6 +48,9 @@ enum class ycbcr_range : char {
 };
 
 namespace ycbcr {
+
+const char *matrix_to_string(ycbcr_matrix matrix);
+const char *range_to_string(ycbcr_range range);
 
 #define EQOP(structname) bool operator==(const structname &) const = default
 

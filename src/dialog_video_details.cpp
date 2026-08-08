@@ -34,6 +34,7 @@
 #include "project.h"
 
 #include <libaegisub/ass/time.h>
+#include <libaegisub/ycbcr.h>
 
 #include <boost/rational.hpp>
 #include <wx/dialog.h>
@@ -66,6 +67,28 @@ void ShowVideoDetailsDialog(agi::Context *c) {
 	make_field(_("Length:"), fmt_plural(framecount, "%d frame (%s)", "%d frames (%s)",
 		framecount, agi::Time(fps.TimeAtFrame(framecount - 1)).GetAssFormatted(true)));
 	make_field(_("Decoder:"), to_wx(provider->GetDecoderName()));
+
+	// 本地接口返回字符串形式的色彩空间（如 TV.601），解析后分别显示矩阵与范围
+	agi::ycbcr::Header real_cs(provider->GetRealColorSpace());
+	agi::ycbcr::Header forced_cs(provider->GetColorSpace());
+	auto cs_matrix = [](agi::ycbcr::Header const& h) -> const char* {
+		if (auto *cs = std::get_if<agi::ycbcr::header_colorspace>(&h))
+			return agi::ycbcr::matrix_to_string(cs->matrix);
+		if (std::holds_alternative<agi::ycbcr::header_none>(h))
+			return "None";
+		return "Unspecified";
+	};
+	auto cs_range = [](agi::ycbcr::Header const& h) -> const char* {
+		if (auto *cs = std::get_if<agi::ycbcr::header_colorspace>(&h))
+			return agi::ycbcr::range_to_string(cs->range);
+		if (std::holds_alternative<agi::ycbcr::header_none>(h))
+			return "None";
+		return "Unspecified";
+	};
+	make_field(_("Actual color matrix:"), to_wx(cs_matrix(real_cs)));
+	make_field(_("Forced color matrix:"), to_wx(cs_matrix(forced_cs)));
+	make_field(_("Actual color range:"), to_wx(cs_range(real_cs)));
+	make_field(_("Forced color range:"), to_wx(cs_range(forced_cs)));
 
 	video_sizer->Add(fg);
 

@@ -128,7 +128,7 @@ void OptionPage::CellSkip(PageSection section) {
 	section.sizer->AddStretchSpacer();
 }
 
-wxControl *OptionPage::OptionAdd(PageSection section, const wxString &name, const char *opt_name, double min, double max, double inc) {
+wxControl *OptionPage::OptionAdd(PageSection section, const wxString &name, const char *opt_name, OptionAddArgs kwargs) {
 	const auto opt = OPT_GET(opt_name);
 
 	// 深色模式下颜色选项自动映射到对应深色配置路径，
@@ -137,7 +137,7 @@ wxControl *OptionPage::OptionAdd(PageSection section, const wxString &name, cons
 		const std::string resolved = ResolveThemeColourPath(opt_name);
 		const auto resolved_opt = OPT_GET(resolved.c_str());
 		parent->AddChangeableOption(resolved);
-		auto cb = new ColourButton(section.box, section.box->FromDIP(wxSize(40,10)), false, resolved_opt->GetColor());
+		auto cb = new ColourButton(section.box, section.box->FromDIP(wxSize(40,10)), kwargs.alpha, resolved_opt->GetColor());
 		cb->Bind(EVT_COLOR, ColourUpdater(resolved, parent));
 		Add(section, name, cb);
 		return cb;
@@ -155,14 +155,14 @@ wxControl *OptionPage::OptionAdd(PageSection section, const wxString &name, cons
 		}
 
 		case agi::OptionType::Int: {
-			auto sc = new wxSpinCtrl(section.box, -1, std::to_wstring((int)opt->GetInt()), wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, min, max, opt->GetInt());
+			auto sc = new wxSpinCtrl(section.box, -1, std::to_wstring((int)opt->GetInt()), wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, kwargs.min, kwargs.max, opt->GetInt());
 			sc->Bind(wxEVT_SPINCTRL, IntUpdater(opt_name, parent));
 			Add(section, name, sc);
 			return sc;
 		}
 
 		case agi::OptionType::Double: {
-			auto scd = new wxSpinCtrlDouble(section.box, -1, std::to_wstring(opt->GetDouble()), wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, min, max, opt->GetDouble(), inc);
+			auto scd = new wxSpinCtrlDouble(section.box, -1, std::to_wstring(opt->GetDouble()), wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, kwargs.min, kwargs.max, opt->GetDouble(), kwargs.inc);
 			scd->Bind(wxEVT_SPINCTRLDOUBLE, DoubleUpdater(opt_name, parent));
 			Add(section, name, scd);
 			return scd;
