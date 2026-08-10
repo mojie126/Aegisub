@@ -90,15 +90,19 @@ if (!(Test-Path (Join-Path $VsPluginDir "BestSource.dll"))) {
     Write-Host "Downloading BestSource..."
     $rel = Invoke-WebRequest "https://api.github.com/repos/vapoursynth/bestsource/releases/latest" `
         -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
-    $url = $rel.assets[0].browser_download_url
-    $archive = Join-Path $TempDir "bestsource.7z"
+    # R20 起有 clang/msvc 两个资产，优先 msvc 版
+    $asset = $rel.assets | Where-Object { $_.name -match "msvc" } | Select-Object -First 1
+    if (-not $asset) { $asset = $rel.assets[0] }
+    $url = $asset.browser_download_url
+    $archive = Join-Path $TempDir "bestsource.zip"
     Invoke-WebRequest $url -OutFile $archive -UseBasicParsing
     $extractDir = Join-Path $TempDir "bestsource"
     New-Item -ItemType Directory -Path $extractDir -Force | Out-Null
     7z x $archive -o"$extractDir" -y | Out-Null
-    $dll = Get-ChildItem -Path $extractDir -Recurse -Filter "BestSource.dll" | Select-Object -First 1
+    # R20 资产为带版本后缀的单文件 DLL，通配匹配并重命名
+    $dll = Get-ChildItem -Path $extractDir -Recurse -Filter "BestSource-*.dll" | Select-Object -First 1
     if ($dll) {
-        Copy-Item $dll.FullName $VsPluginDir -Force
+        Copy-Item $dll.FullName (Join-Path $VsPluginDir "BestSource.dll") -Force
         Write-Host "  -> BestSource.dll installed"
     } else {
         Write-Warning "BestSource.dll not found in archive"
@@ -110,10 +114,8 @@ if (!(Test-Path (Join-Path $VsPluginDir "BestSource.dll"))) {
 # SCXVid
 if (!(Test-Path (Join-Path $VsPluginDir "libscxvid.dll"))) {
     Write-Host "Downloading SCXVid..."
-    $rel = Invoke-WebRequest "https://api.github.com/repos/dubhater/vapoursynth-scxvid/releases/latest" `
-        -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
-    $url = "https://github.com/dubhater/vapoursynth-scxvid/releases/download/" +
-        $rel.tag_name + "/vapoursynth-scxvid-v1-win64.7z"
+    # latest release (v3) 无资产，固定使用带资产的 v1
+    $url = "https://github.com/dubhater/vapoursynth-scxvid/releases/download/v1/vapoursynth-scxvid-v1-win64.7z"
     $archive = Join-Path $TempDir "scxvid.7z"
     Invoke-WebRequest $url -OutFile $archive -UseBasicParsing
     $extractDir = Join-Path $TempDir "scxvid"

@@ -30,7 +30,7 @@ meson setup build -Dbuildtype=release -Ddefault_library=static `
     "-Dfribidi:tests=false" "-Dfribidi:docs=false" `
     "-Dlibass:fontconfig=disabled" "-Dffmpeg:libdav1d=enabled" `
     "-Davisynth=enabled" "-Dbestsource=enabled" "-Dvapoursynth=enabled" `
-    "-Dversion=3.4.2-RC2"
+    "-Dversion=3.5.3"
 
 # 4. 编译
 meson compile -C build

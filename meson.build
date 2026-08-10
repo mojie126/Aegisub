@@ -6,7 +6,7 @@ project('Aegisub', ['c', 'cpp'],
 			'buildtype=debugoptimized',
 			'luajit:lua52compat=true',
 		],
-		version : '3.4.1')
+		version : '3.5.3')
 
 cmake = import('cmake')
 
@@ -534,15 +534,16 @@ install_data('src/cube/HLG2SDR.cube',
 install_data('src/cube/DV2SDR.cube',
              install_dir : bindir / 'data' / 'cube')
 
-# 构建时复制VSFilterMod标签文档到构建根目录，确保dev运行时可找到
-# 注：custom_target 的 output 不允许含路径段，且 run_command 传中文参数
-# 在 Windows 上会被按 ANSI 码页错误编码，故用 python 复制到构建根目录
-# （MCP 查找兼容 ?data/ 即 exe 所在目录，见 FindVsmodDocPath）
+# 构建时复制VSFilterMod标签文档到构建 data 目录，确保dev运行时可找到
+# 注：custom_target/fs.copyfile 的 output 不允许含路径段，且命令行传中文参数
+# 在 Windows 上会被按 ANSI 码页错误编码，故用 stamp 输出 + python 经 @INPUT@
+# 复制到 data 子目录（与安装布局 bin/data/ 一致，MCP 查找 ?data/data/ 命中，
+# 见 FindVsmodDocPath；tests/setup.bat 清理 build/data 时保留 .md 文档）
 vsmod_py = import('python').find_installation()
 custom_target('copy-vsmod-doc',
   input : 'docs/AssRocket-VSFilterMod-使用文档.md',
-  output : 'AssRocket-VSFilterMod-使用文档.md',
-  command : [vsmod_py, '-c', 'import shutil, sys; shutil.copy(sys.argv[1], sys.argv[2])', '@INPUT@', '@OUTPUT@'],
+  output : 'vsmod-doc-stamp',
+  command : [vsmod_py, '-c', 'import shutil, sys, os; os.makedirs("data", exist_ok=True); shutil.copy(sys.argv[1], os.path.join("data", os.path.basename(sys.argv[1]))); open(sys.argv[2], "w").close()', '@INPUT@', '@OUTPUT@'],
   build_by_default : true)
 # 安装VSFilterMod标签文档，供MCP vsmod_syntax工具查询
 install_data('docs/AssRocket-VSFilterMod-使用文档.md',

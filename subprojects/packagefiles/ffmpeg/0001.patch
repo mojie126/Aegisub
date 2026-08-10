@@ -1,21 +1,45 @@
 diff --git a/meson.build b/meson.build
+index 10b26f1..020fff5 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -2208,8 +2208,14 @@
-       else
-         req = get_option(opt_name)
-         pkg_name = opts.get('pkg', name)
-         if opts.has_key('versions')
--          foreach version: opts['versions']
--            dep = dependency(pkg_name, required: false, version: version, static: conf.get('static').is_odd())
-+          _ver_found = false
-+          foreach version: opts['versions']
-+            if not _ver_found
-+              dep = dependency(pkg_name, required: false, version: version, static: conf.get('static').is_odd())
-+              if dep.found()
-+                _ver_found = true
-+              endif
-+            endif
-           endforeach
+@@ -3680,7 +3680,7 @@ foreach built_lib : built_libs
+     sources += get_variable('lib@0@_@1@_slib_sources'.format(built_lib[0], arch), [])
+   endif
  
-           if not dep.found() and req.enabled()
+-  if host_system == 'windows'
++  if host_system == 'windows' and get_option('default_library') != 'static'
+     # In subproject mode, the file that will be read (if present)
+     # is the config.h of the *root* project, instead of our config.h.
+     # This is because -I folder take effect *after* the .rc
+@@ -3856,7 +3856,7 @@ foreach built_lib : built_libs
+ 
+   special_files = []
+   special_includes = []
+-  special_objects = []
++  special_link_libs = []
+ 
+   foreach k, v : special_sources
+     foreach src : v
+@@ -3880,11 +3880,11 @@ foreach built_lib : built_libs
+       install: false,
+       override_options: global_overrides,
+     )
+-    special_objects = special_static_lib.extract_all_objects(recursive: true)
++    special_link_libs = [special_static_lib]
+   endif
+ 
+   static_lib = static_library('@0@-static'.format(built_lib[0]), sources + x86asm_sources + gen_objects + [config_h, config_components_h],
+-    objects: special_objects,
++    link_whole: special_link_libs,
+     dependencies: deps,
+     include_directories: common_incs,
+     link_with: link_with,
+@@ -3915,7 +3915,7 @@ foreach built_lib : built_libs
+   endif
+ 
+   lib = library(built_lib[0],
+-    objects: static_lib.extract_all_objects(recursive: true),
++    link_whole: [static_lib],
+     dependencies: deps,
+     soversion: version,
+     include_directories: common_incs,

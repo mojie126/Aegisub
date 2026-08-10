@@ -2,8 +2,8 @@ cd %1
 
 if not exist data mkdir data
 
-rem 清理data目录下除cube外的所有文件/子目录
-powershell -Command "Get-ChildItem -Path 'data\*' | Where-Object { $_.Name -ne 'cube' } | Remove-Item -Recurse -Force"
+rem 清理data目录下除cube和md文档外的所有文件/子目录
+powershell -Command "Get-ChildItem -Path 'data\*' | Where-Object { $_.Name -ne 'cube' -and $_.Extension -ne '.md' } | Remove-Item -Recurse -Force"
 
 copy nul data\file
 mkdir data\dir

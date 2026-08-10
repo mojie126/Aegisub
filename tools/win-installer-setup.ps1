@@ -142,10 +142,13 @@ if (!(Test-Path BestSource))
 	Set-Location $bsDir
 	# $basReleases = Invoke-WebRequest "https://api.github.com/repos/vapoursynth/bestsource/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
 	# $bsUrl = $basReleases.assets[0].browser_download_url
-	$bsUrl = "https://github.com/vapoursynth/bestsource/releases/download/R19/BestSource-R19.7z"
-	Invoke-WebRequest $bsUrl -OutFile bestsource.7z -UseBasicParsing
-	7z x bestsource.7z
-	Remove-Item bestsource.7z
+	# R20 起资产为带版本后缀的单文件 zip（R19 为 7z 且 DLL 名为 BestSource.dll）
+	$bsUrl = "https://github.com/vapoursynth/bestsource/releases/download/R20/BestSource-R20-win64-msvc.zip"
+	Invoke-WebRequest $bsUrl -OutFile bestsource.zip -UseBasicParsing
+	7z x bestsource.zip -y
+	Remove-Item bestsource.zip
+	# 重命名为 BestSource.dll 供安装包组件引用
+	Get-ChildItem -Filter "BestSource-*.dll" | Rename-Item -NewName "BestSource.dll" -Force
 	Set-Location $DepsDir
 }
 
@@ -154,9 +157,8 @@ if (!(Test-Path SCXVid))
 {
 	$scxDir = New-Item -ItemType Directory SCXVid
 	Set-Location $scxDir
-	# $scxReleases = Invoke-WebRequest "https://api.github.com/repos/dubhater/vapoursynth-scxvid/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
-	# $scxUrl = "https://github.com/dubhater/vapoursynth-scxvid/releases/download/" + $scxReleases.tag_name + "/vapoursynth-scxvid-v1-win64.7z"
-	$scxUrl = "https://github.com/dubhatervapoursynth/vapoursynth-scxvid/releases/download/v1/vapoursynth-scxvid-v1-win64.7z"
+	# latest release (v3) 无资产，固定使用带资产的 v1
+	$scxUrl = "https://github.com/dubhater/vapoursynth-scxvid/releases/download/v1/vapoursynth-scxvid-v1-win64.7z"
 	Invoke-WebRequest $scxUrl -OutFile vapoursynth-scxvid-v1-win64.7z -UseBasicParsing
 	7z x vapoursynth-scxvid-v1-win64.7z
 	Remove-Item vapoursynth-scxvid-v1-win64.7z
