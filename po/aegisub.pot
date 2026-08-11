@@ -1,4 +1,4 @@
-﻿# Aegisub 3.2
+# Aegisub 3.2
 # Copyright (C) 2005-2014 Rodrigo Braz Monteiro, Niels Martin Hansen, Thomas Goyne et. al.
 # This file is distributed under the same license as the Aegisub package.
 # Niels Martin Hansen <nielsm@aegisub.org>, 2005-2014.
@@ -8104,6 +8104,14 @@ msgstr ""
 
 #: ../src/project.cpp
 msgid "Keyframes file in unknown format:"
+msgstr ""
+
+#: ../src/project.cpp
+msgid "The following linked files could not be found:"
+msgstr ""
+
+#: ../src/project.cpp
+msgid "\n\nYou can disable automatic loading of linked files in Preferences -> General -> Automatically load linked files."
 msgstr ""
 
 #: ../src/subs_controller.cpp

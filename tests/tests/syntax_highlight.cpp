@@ -214,6 +214,81 @@ TEST(lagi_syntax, fn_space) {
 	);
 }
 
+/// VSFilterMod 扩展 \rnd 系列整体作为标签名高亮，不被 \r 拆分
+TEST(lagi_syntax, vsmod_rnd_tags) {
+	tok_str("{\\rnd5}", false,
+		expect_style(ss::OVERRIDE, 1u);
+		expect_style(ss::PUNCTUATION, 1u);
+		expect_style(ss::TAG, 4u);
+		expect_style(ss::OVERRIDE, 1u);
+	);
+
+	tok_str("{\\rndx5.5}", false,
+		expect_style(ss::OVERRIDE, 1u);
+		expect_style(ss::PUNCTUATION, 1u);
+		expect_style(ss::TAG, 7u);
+		expect_style(ss::OVERRIDE, 1u);
+	);
+
+	tok_str("{\\rnds&HFF&}", false,
+		expect_style(ss::OVERRIDE, 1u);
+		expect_style(ss::PUNCTUATION, 1u);
+		expect_style(ss::TAG, 6u);
+		expect_style(ss::PARAMETER, 3u);
+		expect_style(ss::OVERRIDE, 1u);
+	);
+}
+
+/// VSFilterMod 扩展 \moves3/\moves4 整体作为标签名高亮，尾数字不被拆分为参数
+TEST(lagi_syntax, vsmod_moves_tags) {
+	tok_str("{\\moves3(5,6,7)}", false,
+		expect_style(ss::OVERRIDE, 1u);
+		expect_style(ss::PUNCTUATION, 1u);
+		expect_style(ss::TAG, 6u);
+		expect_style(ss::PUNCTUATION, 1u);
+		expect_style(ss::PARAMETER, 1u);
+		expect_style(ss::PUNCTUATION, 1u);
+		expect_style(ss::PARAMETER, 1u);
+		expect_style(ss::PUNCTUATION, 1u);
+		expect_style(ss::PARAMETER, 1u);
+		expect_style(ss::PUNCTUATION, 1u);
+		expect_style(ss::OVERRIDE, 1u);
+	);
+
+	tok_str("{\\moves4(1,2,3)}", false,
+		expect_style(ss::OVERRIDE, 1u);
+		expect_style(ss::PUNCTUATION, 1u);
+		expect_style(ss::TAG, 6u);
+		expect_style(ss::PUNCTUATION, 1u);
+		expect_style(ss::PARAMETER, 1u);
+		expect_style(ss::PUNCTUATION, 1u);
+		expect_style(ss::PARAMETER, 1u);
+		expect_style(ss::PUNCTUATION, 1u);
+		expect_style(ss::PARAMETER, 1u);
+		expect_style(ss::PUNCTUATION, 1u);
+		expect_style(ss::OVERRIDE, 1u);
+	);
+}
+
+/// \r 后跟普通样式名（含 nd 开头但非 \rnd 系列参数形式）仍按样式名参数处理
+TEST(lagi_syntax, reset_with_style_name) {
+	tok_str("{\\rDefault}", false,
+		expect_style(ss::OVERRIDE, 1u);
+		expect_style(ss::PUNCTUATION, 1u);
+		expect_style(ss::TAG, 1u);
+		expect_style(ss::PARAMETER, 7u);
+		expect_style(ss::OVERRIDE, 1u);
+	);
+
+	tok_str("{\\rndstyle}", false,
+		expect_style(ss::OVERRIDE, 1u);
+		expect_style(ss::PUNCTUATION, 1u);
+		expect_style(ss::TAG, 1u);
+		expect_style(ss::PARAMETER, 7u);
+		expect_style(ss::OVERRIDE, 1u);
+	);
+}
+
 TEST(lagi_syntax, templater_variable_nontmpl) {
 	tok_str("{\\pos($x, $y)\\fs!10 + 10!}abc", false,
 		expect_style(ss::OVERRIDE, 1u);

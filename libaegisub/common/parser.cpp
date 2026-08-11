@@ -131,7 +131,13 @@ struct dialogue_tokens final : lex::lexer<Lexer> {
 			;
 
 		this->self("ARG")
-			= char_('{', ERROR)
+			// VSFilterMod 扩展 \rnd 系列 (patch m003)：\r 进入 ARG 后
+			// 以 nd[sxyz] 开头且参数为数字/小数/&H 时回补为标签名，
+			// 使 \rnd5、\rndx10、\rnds&H1234& 整体以 Tags 样式加粗高亮，
+			// 样式名以 nd 开头（如 \rndstyle）时则不匹配回退为普通参数，
+			// 与 motion_tags.cpp 中 \r 的双重防御语义一致
+			= string("nds&H|nd[sxyz]?[\\d.]+", TAG_NAME)
+			| char_('{', ERROR)
 			| char_('}', OVR_END)[_state = "INITIAL"]
 			| char_('(', OPEN_PAREN)[++ref(paren_depth)]
 			| char_(')', CLOSE_PAREN)[(--ref(paren_depth), if_(ref(paren_depth) == 0)[_state = "OVR"])]
@@ -145,6 +151,10 @@ struct dialogue_tokens final : lex::lexer<Lexer> {
 		this->self("TAGSTART")
 			= string("\\s+", WHITESPACE)
 			| string("r|fn", TAG_NAME)[_state = "ARG"]
+			// VSFilterMod 扩展 (patch m005) 字母+数字混合标签整体作为标签名，
+			// 否则 \moves3/\moves4 的尾数字会被 TAGNAME 的 [a-z]+ 规则
+			// 之后落入 ARG 而无法加粗
+			| string("moves3|moves4", TAG_NAME)[_state = "TAGNAME"]
 			| char_('\\', TAG_START)
 			| char_('}', OVR_END)[_state = "INITIAL"]
 			| string("[a-z0-9]", TAG_NAME)[_state = "TAGNAME"]

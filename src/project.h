@@ -73,6 +73,9 @@ public:
 	~Project();
 
 	void LoadSubtitles(agi::fs::path path, std::string encoding="", bool load_linked=true);
+	/// @brief 更新字幕文件路径并重算脚本内相对路径
+	/// @param path 新的字幕文件路径
+	void SetSubtitlesFilename(agi::fs::path path);
 	void CloseSubtitles();
 	bool CanLoadSubtitlesFromVideo() const { return video_has_subtitles; }
 

@@ -147,7 +147,7 @@ DialogProperties::DialogProperties(agi::Context *c)
 	res_sizer->Add(ResX, 1, wxRIGHT | wxALIGN_CENTER_VERTICAL | wxEXPAND, 2);
 	res_sizer->Add(new wxStaticText(res_box, -1, L"\u00D7"), 0, wxALIGN_CENTER | wxRIGHT, 2);	// U+00D7 乘号
 	res_sizer->Add(ResY, 1, wxRIGHT | wxALIGN_CENTER_VERTICAL | wxEXPAND, 2);
-	res_sizer->Add(FromVideo, 1, 0, 0);
+	res_sizer->Add(FromVideo, 1, wxALIGN_CENTER_VERTICAL, 0);
 
 	wxButton *LayoutResFromVideo = new wxButton(res_box,-1,_("From video"));
 	if (!c->project->VideoProvider())
@@ -159,7 +159,7 @@ DialogProperties::DialogProperties(agi::Context *c)
 	res_sizer->Add(LayoutResX, 1, wxRIGHT | wxALIGN_CENTER_VERTICAL | wxEXPAND, 2);
 	res_sizer->Add(new wxStaticText(res_box, -1, L"\u00D7"), 0, wxALIGN_CENTER | wxRIGHT, 2);	// U+00D7 乘号
 	res_sizer->Add(LayoutResY, 1, wxRIGHT | wxALIGN_CENTER_VERTICAL | wxEXPAND, 2);
-	res_sizer->Add(LayoutResFromVideo, 1, 0, 0);
+	res_sizer->Add(LayoutResFromVideo, 1, wxALIGN_CENTER_VERTICAL, 0);
 
 	YCbCrMatrix = new wxComboBox(res_box, -1, to_wx(c->ass->GetScriptInfo("YCbCr Matrix")),
 		 wxDefaultPosition, wxDefaultSize, to_wx(MatrixNames()), wxCB_READONLY);

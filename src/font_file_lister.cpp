@@ -72,33 +72,17 @@ void FontCollector::ProcessDialogueLine(const AssDialogue *line, int index) {
 	}
 
 	StyleInfo style = style_it->second;
-	StyleInfo initial = style;
+	StyleInfo reset = style;
 
 	bool overriden = false;
 
 	for (auto& block : line->ParseTags()) {
 		switch (block->GetType()) {
 		case AssBlockType::OVERRIDE:
-			for (auto const& tag : static_cast<AssDialogueBlockOverride&>(*block).Tags) {
-				if (tag.Name == "\\r") {
-					style = styles[tag.Params[0].Get(line->Style.get())];
-					overriden = false;
-				}
-				else if (tag.Name == "\\b") {
-					style.bold = tag.Params[0].Get(initial.bold);
-					overriden = true;
-				}
-				else if (tag.Name == "\\i") {
-					style.italic = tag.Params[0].Get(initial.italic);
-					overriden = true;
-				}
-				else if (tag.Name == "\\fn") {
-					auto name = tag.Params[0].Get(initial.facename);
-					// \fn0 在 libass/VSFilter 中等同于 \fn，重置为样式默认字体
-					style.facename = (name == "0") ? initial.facename : name;
-					overriden = true;
-				}
-			}
+			style.ApplyOverrideBlock(reset, overriden,
+				static_cast<AssDialogueBlockOverride&>(*block).Tags,
+				[&](std::string const& name) { return styles[name]; },
+				line->Style.get());
 			break;
 		case AssBlockType::PLAIN: {
 			auto text = block->GetText();
@@ -296,8 +280,4 @@ std::vector<agi::fs::path> FontCollector::GetFontPaths(const AssFile *file) {
 			missing_glyphs), 2);
 
 	return paths;
-}
-
-bool FontCollector::StyleInfo::operator<(StyleInfo const& rgt) const {
-	return std::tie(facename, bold, italic) < std::tie(rgt.facename, rgt.bold, rgt.italic);
 }

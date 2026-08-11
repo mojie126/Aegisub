@@ -3333,6 +3333,14 @@ msgstr "按照关键点对齐字幕与视频"
 msgid "%i"
 msgstr ""
 
+#: ../src/project.cpp:357
+msgid "The following linked files could not be found:"
+msgstr "找不到以下关联文件："
+
+#: ../src/project.cpp:358
+msgid "\n\nYou can disable automatic loading of linked files in Preferences -> General -> Automatically load linked files."
+msgstr "\n\n你可以在 偏好设置 -> 通用 -> 自动加载关联文件 中关闭自动加载。"
+
 #: ../src/dialog_align.cpp:108
 msgid "The key color to be followed"
 msgstr "应遵循的关键颜色"

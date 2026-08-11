@@ -20,6 +20,7 @@
 #include <functional>
 #include <map>
 #include <string>
+#include <tuple>
 #include <vector>
 #include <unordered_map>
 
@@ -27,6 +28,34 @@
 
 class AssDialogue;
 class AssFile;
+class AssOverrideTag;
+
+/// @brief 行内 override 标签作用后的字体样式状态
+/// @details 与 FontCollector 共用，\r 重置后 \b/\i/\fn/\fn0 以重置样式为回退基准 (上游 4d61325b0)
+struct LineStyleState {
+	/// 字体名
+	std::string facename;
+	/// ASS 字重
+	int bold;
+	/// 是否斜体
+	bool italic;
+
+	/// 按样式状态聚合使用信息的字典序比较
+	bool operator<(LineStyleState const& rgt) const {
+		return std::tie(facename, bold, italic) < std::tie(rgt.facename, rgt.bold, rgt.italic);
+	}
+
+	/// @brief 应用一个 override 块中的标签，更新当前样式与重置基准
+	/// @param reset 最近一次 \r 重置后的样式基准，遇到 \r 时更新
+	/// @param overriden 输出，本块是否设置了任意 override 标签
+	/// @param tags 块内的标签列表
+	/// @param resolve_style 按样式名解析样式定义的回调，\r 参数无效时以默认样式名调用
+	/// @param default_style 行默认样式名
+	void ApplyOverrideBlock(LineStyleState& reset, bool& overriden,
+		std::vector<AssOverrideTag> const& tags,
+		std::function<LineStyleState(std::string const&)> const& resolve_style,
+		std::string const& default_style);
+};
 
 typedef std::function<void (wxString, int)> FontCollectorStatusCallback;
 
@@ -118,12 +147,7 @@ using FontFileLister = FontConfigFontFileLister;
 /// @brief Class which collects the paths to all fonts used in a script
 class FontCollector {
 	/// All data needed to find the font file used to render text
-	struct StyleInfo {
-		std::string facename;
-		int bold;
-		bool italic;
-		bool operator<(StyleInfo const& rgt) const;
-	};
+	using StyleInfo = LineStyleState;
 
 	/// Data about where each style is used
 	struct UsageData {

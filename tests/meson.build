@@ -61,6 +61,7 @@ tests_src = [
 	'tests/audit_fixes.cpp',
 	'tests/style_rename.cpp',
 	'tests/font_chooser.cpp',
+	'tests/font_collector.cpp',
 	'tests/font_resource_probe.cpp',
 	'tests/option_liststring_probe.cpp',
 	'tests/ui_regression_audit.cpp',
@@ -71,6 +72,12 @@ tests_src = [
 # TextFileWriter 源文件（需要从主项目引入）
 text_file_writer_src = [
 	'../src/text_file_writer.cpp',
+]
+
+# 字体收集器状态机源文件（font_collector 测试需要）
+font_collector_src = [
+	'../src/font_tag_state.cpp',
+	'../src/ass_override.cpp',
 ]
 
 video_frame_src = [
@@ -127,7 +134,7 @@ tests_args += ['-DFONT_PROBE_SRC_ROOT="' + src_root + '"']
 
 runner = executable(
 	'gtest-main',
-	tests_src + mocha_src + text_file_writer_src + video_frame_src + video_provider_test_src + version_src, version_h,
+	tests_src + mocha_src + text_file_writer_src + font_collector_src + video_frame_src + video_provider_test_src + version_src, version_h,
 	include_directories : [tests_inc, libaegisub_inc, mocha_inc, persp_inc, aegisub_src_inc, aegisub_src_dir_inc, version_inc],
 	dependencies : [tests_deps, deps],
 	cpp_args : tests_args,

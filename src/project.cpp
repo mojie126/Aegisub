@@ -285,6 +285,11 @@ void Project::LoadSubtitles(agi::fs::path path, std::string encoding, bool load_
 	}
 }
 
+void Project::SetSubtitlesFilename(agi::fs::path path) {
+	context->path->SetToken("?script", path.parent_path());
+	UpdateRelativePaths();
+}
+
 void Project::CloseSubtitles() {
 	context->subsController->Close();
 	context->path->SetToken("?script", "");
@@ -328,24 +333,53 @@ void Project::LoadUnloadFiles(ProjectProperties properties) {
 	auto timecodes = context->path->MakeAbsolute(properties.timecodes_file, "?script");
 	auto keyframes = context->path->MakeAbsolute(properties.keyframes_file, "?script");
 
-	// 静默跳过不存在的关联文件，避免跨设备共享时弹出无意义的加载询问
-	// 存在 TOCTOU 竞态条件，但不会造成实际危害
-	if (!agi::fs::Exists(audio) && !context->path->IsDummyPath(audio))
-		audio = "";
-
-	if (!agi::fs::Exists(video) && !context->path->IsDummyPath(video))
-		video = "";
-
-	if (!agi::fs::Exists(timecodes))
-		timecodes = "";
-
-	if (!agi::fs::Exists(keyframes))
-		keyframes = "";
-
+	// 路径无变化时提前返回，避免无谓的文件存在性检查
 	if (video == video_file && audio == audio_file && keyframes == keyframes_file && timecodes == timecodes_file)
 		return;
 
-	if (load_linked == 2) {
+	if (load_linked == 1) {
+		// Always 模式总是尝试加载关联文件 (上游 fe0852d2c)，
+		// 但先检查存在性，缺失时给出带关闭引导的错误提示，
+		// 避免各加载函数分别弹出难以定位来源的错误
+		auto missing = [&](agi::fs::path const& p) {
+			return !p.empty() && !context->path->IsDummyPath(p) && !agi::fs::Exists(p);
+		};
+		const bool audio_missing     = missing(audio);
+		const bool video_missing     = missing(video);
+		const bool timecodes_missing = missing(timecodes);
+		const bool keyframes_missing = missing(keyframes);
+		if (audio_missing || video_missing || timecodes_missing || keyframes_missing) {
+			wxString missing_list;
+			if (audio_missing)     missing_list += "\n  " + to_wx(audio.string());
+			if (video_missing)     missing_list += "\n  " + to_wx(video.string());
+			if (timecodes_missing) missing_list += "\n  " + to_wx(timecodes.string());
+			if (keyframes_missing) missing_list += "\n  " + to_wx(keyframes.string());
+			ShowError(_("The following linked files could not be found:") + missing_list +
+				_("\n\nYou can disable automatic loading of linked files in Preferences -> General -> Automatically load linked files."));
+			if (audio_missing)     audio = "";
+			if (video_missing)     video = "";
+			if (timecodes_missing) timecodes = "";
+			if (keyframes_missing) keyframes = "";
+		}
+	}
+	else if (load_linked == 2) {
+		// 静默跳过不存在的关联文件，避免跨设备共享时弹出无意义的加载询问
+		// 存在 TOCTOU 竞态条件，但不会造成实际危害
+		if (!agi::fs::Exists(audio) && !context->path->IsDummyPath(audio))
+			audio = "";
+
+		if (!agi::fs::Exists(video) && !context->path->IsDummyPath(video))
+			video = "";
+
+		if (!agi::fs::Exists(timecodes))
+			timecodes = "";
+
+		if (!agi::fs::Exists(keyframes))
+			keyframes = "";
+
+		if (video == video_file && audio == audio_file && keyframes == keyframes_file && timecodes == timecodes_file)
+			return;
+
 		wxString str = _("Do you want to load/unload the associated files?");
 		str += "\n";
 
