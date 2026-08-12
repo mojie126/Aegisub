@@ -324,12 +324,19 @@ namespace mocha {
 	}
 
 	bool MotionLine::extract_metrics(const int style_align, const int style_margin_l, const int style_margin_r, const int style_margin_t, const int res_x, const int res_y) {
-		// 提取 \an 对齐标签
-		const std::regex align_re(R"(\\an([1-9]))");
-		std::smatch match;
-		const std::string search_text = text;
+		// \an/\pos/\move 在整行中只取第一个实例，对应上游 a-mo Line.moon 的约定：
+		// "\pos、\move、\org、\an 整行只能出现一次，以第一个实例为准"，
+		// 在整行只出现一次的约定下与 libass 渲染结果一致（标签跨 override 块
+		// 持续生效，与块位置无关，多次出现时 libass 保留首次出现的标签），
+		// 本函数在 tokenize_transforms 之后调用，\t(...) 已被占位符替换，
+		// 搜索不会误配 transform 内部的标签
+		const std::string &anchor_text = text;
 
-		if (std::regex_search(search_text, match, align_re)) {
+		// 提取 \an 对齐标签
+		static const std::regex align_re(R"(\\an([1-9]))");
+		std::smatch match;
+
+		if (std::regex_search(anchor_text, match, align_re)) {
 			if (align == 0) {
 				align = std::stoi(match[1].str());
 			}
@@ -340,9 +347,9 @@ namespace mocha {
 		}
 
 		// 提取 \pos 标签
-		const std::regex pos_re(R"(\\pos\(([.\d\-]+),([.\d\-]+)\))");
+		static const std::regex pos_re(R"(\\pos\(([.\d\-]+),([.\d\-]+)\))");
 		bool has_pos = false;
-		if (std::regex_search(search_text, match, pos_re)) {
+		if (std::regex_search(anchor_text, match, pos_re)) {
 			if (!move.has_value()) {
 				x_position = std::stod(match[1].str());
 				y_position = std::stod(match[2].str());
@@ -351,8 +358,8 @@ namespace mocha {
 		}
 
 		// 提取 \move 标签（6 参数完整形式）
-		const std::regex move_re(R"(\\move\(([.\d\-]+),([.\d\-]+),([.\d\-]+),([.\d\-]+),([.\d\-]+),([.\d\-]+)\))");
-		if (!has_pos && std::regex_search(search_text, match, move_re)) {
+		static const std::regex move_re(R"(\\move\(([.\d\-]+),([.\d\-]+),([.\d\-]+),([.\d\-]+),([.\d\-]+),([.\d\-]+)\))");
+		if (!has_pos && std::regex_search(anchor_text, match, move_re)) {
 			move = MoveData{
 				std::stod(match[1].str()), std::stod(match[2].str()),
 				std::stod(match[3].str()), std::stod(match[4].str()),
@@ -363,8 +370,8 @@ namespace mocha {
 		// 提取 \move 标签（4 参数省略形式，t1=0, t2=duration）
 		// ASS 规范允许 \move(x1,y1,x2,y2)，省略时间参数时默认全程移动
 		if (!has_pos && !move.has_value()) {
-			const std::regex move4_re(R"(\\move\(([.\d\-]+),([.\d\-]+),([.\d\-]+),([.\d\-]+)\))");
-			if (std::regex_search(search_text, match, move4_re)) {
+			static const std::regex move4_re(R"(\\move\(([.\d\-]+),([.\d\-]+),([.\d\-]+),([.\d\-]+)\))");
+			if (std::regex_search(anchor_text, match, move4_re)) {
 				move = MoveData{
 					std::stod(match[1].str()), std::stod(match[2].str()),
 					std::stod(match[3].str()), std::stod(match[4].str()),
@@ -418,16 +425,21 @@ namespace mocha {
 		transforms_tokenized = false;
 	}
 
-	std::string MotionLine::interpolate_transforms_copy(const int start, const int res_x, const int res_y, const std::optional<int> alpha_shifted_time, const std::optional<int> alpha_original_time) const {
+	std::string MotionLine::interpolate_transforms_copy(const int sample_time, const int res_x, const int res_y, const std::optional<int> alpha_shifted_time, const std::optional<int> alpha_original_time) const {
 		if (!transforms_tokenized) return text;
-		const auto prior_tags = collect_prior_inline_tags();
-		return transform_utils::interpolate_transforms_copy(
-			text, transforms, start - start_time, properties, prior_tags,
-			res_x, res_y, alpha_shifted_time, alpha_original_time
-		);
+		std::string result = text;
+		for (const auto &transform : transforms) {
+			const auto prior_tags = collect_prior_inline_tags(transform.token);
+			result = transform.interpolate(
+				result, transform.token, sample_time, properties, prior_tags,
+				res_x, res_y, alpha_shifted_time, alpha_original_time
+			);
+		}
+		return result;
 	}
 
-	std::map<std::string, Transform::EffectTagValue> MotionLine::collect_prior_inline_tags() const {
+	std::map<std::string, Transform::EffectTagValue> MotionLine::collect_prior_inline_tags(
+		const std::string &target_token) const {
 		// 对应 MoonScript Transform.moon: collectPriorState
 		// 遍历行文本中的所有 override 块（{...}），收集可变换标签的当前值
 		// 这些值用作 \t 插值的起始状态，优先于样式默认值
@@ -469,7 +481,7 @@ namespace mocha {
 				}
 				case TagType::MULTI: {
 					etv.type = Transform::EffectTagValue::MULTI;
-					std::regex coord_re(R"([.\d\-]+)");
+					static const std::regex coord_re(R"([.\d\-]+)");
 					auto cit = std::sregex_iterator(capture.begin(), capture.end(), coord_re);
 					auto cend = std::sregex_iterator();
 					while (cit != cend) {
@@ -495,13 +507,20 @@ namespace mocha {
 			return etv;
 		};
 
-		// 提取所有 override 块内容（不含变换占位符中的内容）
-		std::regex block_re(R"(\{([^}]*)\})");
+		// 提取目标 transform 之前的 override 块内容，避免后续块的标签污染当前状态
+		static const std::regex block_re(R"(\{([^}]*)\})");
 		auto it = std::sregex_iterator(text.begin(), text.end(), block_re);
 		auto end = std::sregex_iterator();
+		const size_t target_pos = target_token.empty() ? std::string::npos : text.find(target_token);
 
 		for (; it != end; ++it) {
 			std::string block = (*it)[1].str();
+			const size_t block_start = static_cast<size_t>(it->position());
+			const size_t block_end = block_start + static_cast<size_t>(it->length());
+			const bool target_in_block = target_pos != std::string::npos
+				&& target_pos >= block_start + 1 && target_pos + target_token.size() <= block_end - 1;
+			if (target_in_block)
+				block.resize(target_pos - block_start - 1);
 
 			// 记录每个标签在当前块内的最后出现位置和捕获值
 			struct TagMatch {
@@ -557,6 +576,9 @@ namespace mocha {
 					}
 				}
 			}
+
+			if (target_in_block)
+				break;
 		}
 
 		return result;
@@ -569,7 +591,8 @@ namespace mocha {
 		//   ... 处理 ...
 		//   text = text\gsub @splitChar, "}{"
 		static constexpr std::string split_char = "\x06";
-		text = std::regex_replace(text, std::regex(R"(\}\{)"), split_char);
+		static const std::regex split_re(R"(\}\{)");
+		text = std::regex_replace(text, split_re, split_char);
 
 		const auto &registry = TagRegistry::instance();
 

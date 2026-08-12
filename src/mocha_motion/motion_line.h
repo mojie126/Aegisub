@@ -67,6 +67,10 @@ namespace mocha {
 		bool selected = true;
 		bool retrack = false;
 
+		/// 透视追踪外平面描述（对应上游 includeextra 写入的
+		/// "_aegi_perspective_ambient_plane"，格式 "x1;y1|x2;y2|x3;y3|x4;y4"）
+		std::string ambient_plane;
+
 		/// 计算默认位置（基于对齐方式和边距）
 		/// @param style_align 样式对齐方式
 		/// @param style_margin_l 样式左边距
@@ -104,13 +108,13 @@ namespace mocha {
 		void dont_touch_transforms();
 
 		/// 插值变换标签并返回文本副本
-		/// @param start 当前帧的起始时间（毫秒）
+		/// @param sample_time 当前帧采样时间（相对原始行起始时间，由 FrameIntervalSampler 计算）
 		/// @param res_x 脚本水平分辨率
 		/// @param res_y 脚本垂直分辨率
-		/// @param alpha_shifted_time alpha 类标签的前移采样时间（相对于行起始时间）
-		/// @param alpha_original_time alpha 类标签的原始中点采样时间（相对于行起始时间）
+		/// @param alpha_shifted_time alpha 类标签的前移采样时间（相对于行起始时间，兼容回退）
+		/// @param alpha_original_time alpha 类标签的原始中点采样时间（相对于行起始时间，兼容回退）
 		/// @return 插值后的文本
-		[[nodiscard]] std::string interpolate_transforms_copy(int start, int res_x = 0, int res_y = 0,
+		[[nodiscard]] std::string interpolate_transforms_copy(int sample_time, int res_x = 0, int res_y = 0,
 															std::optional<int> alpha_shifted_time = std::nullopt,
 															std::optional<int> alpha_original_time = std::nullopt) const;
 
@@ -118,8 +122,10 @@ namespace mocha {
 		/// 对应 MoonScript Transform.moon: collectPriorState
 		/// 遍历行文本中的 override 块，提取每个可变换标签的当前值，
 		/// 用于作为 \t 插值的起始状态（优先于样式默认值）
+		/// @param target_token 目标 transform 占位符，限制状态扫描范围
 		/// @return 标签名 -> 先前状态值 的映射
-		[[nodiscard]] std::map<std::string, Transform::EffectTagValue> collect_prior_inline_tags() const;
+		[[nodiscard]] std::map<std::string, Transform::EffectTagValue> collect_prior_inline_tags(
+			const std::string &target_token = {}) const;
 
 		/// @brief 去除行文本中的重复标签
 		///

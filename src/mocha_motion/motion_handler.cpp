@@ -290,10 +290,10 @@ namespace mocha {
 			const double px = move.x1 + (move.x2 - move.x1) * progress;
 			const double py = move.y1 + (move.y2 - move.y1) * progress;
 
-			const std::regex move_re(R"(\\move\([^)]+\))");
-			char buf[64];
-			std::snprintf(buf, sizeof(buf), "\\pos(%g,%g)", math::round(px, 2), math::round(py, 2));
-			text = std::regex_replace(text, move_re, buf);
+			static const std::regex move_re(R"(\\move\([^)]+\))");
+			text = std::regex_replace(text, move_re,
+				"\\pos(" + format_compact_float(math::round(px, 2))
+				+ "," + format_compact_float(math::round(py, 2)) + ")");
 		}
 
 		// 对每个回调，计算首尾帧的值并生成 \t
@@ -339,7 +339,7 @@ namespace mocha {
 			int first_frame_ms = ms_from_frame(collection_start_frame + rel_start - 1);
 			int time_delta = new_start_time - static_cast<int>(std::floor(std::max(0, first_frame_ms) / 10.0)) * 10;
 
-			// 双时间基准 fade 采样
+			// 双时间基准 fade 采样（兼容回退）
 			int fade_td_original, fade_td_shifted;
 			fade_sampler.compute(
 				new_start_time, new_end_time,
@@ -347,14 +347,31 @@ namespace mocha {
 				fade_td_original, fade_td_shifted
 			);
 
+			// 帧内统一采样：帧区间 ∩ 行区间 的中点（使用精确帧时间，不经过 10ms 舍入）
+			int frame_sample_rel = 0;
+			int vis_rel_start = 0, vis_rel_end = 0;
+			const bool has_frame_sample = FrameIntervalSampler::compute(
+				collection_start_frame, frame, ms_from_frame,
+				line.start_time, line.end_time, frame_sample_rel,
+				&vis_rel_start, &vis_rel_end
+			);
+			if (has_frame_sample)
+				fade_td_shifted = fade_td_original = frame_sample_rel;
+
 			// 生成新文本（处理变换标签）
 			std::string new_text;
 			int new_line_duration = new_end_time - new_start_time;
 			if (options_.kill_trans) {
-				std::optional<int> alpha_shifted_time = fade_td_shifted;
-				std::optional<int> alpha_original_time = fade_td_original;
+				// 默认所有 transform（含 alpha）使用统一的帧内采样时间，
+				// 帧区间与行区间无交集或缺少精确帧时间时，退回双时间基准
+				std::optional<int> alpha_shifted_time;
+				std::optional<int> alpha_original_time;
+				if (!has_frame_sample) {
+					alpha_shifted_time = fade_td_shifted;
+					alpha_original_time = fade_td_original;
+				}
 				new_text = line.interpolate_transforms_copy(
-					new_start_time,
+					has_frame_sample ? frame_sample_rel : fade_td_original,
 					res_x_, res_y_, alpha_shifted_time, alpha_original_time
 				);
 			} else {
@@ -362,7 +379,10 @@ namespace mocha {
 				new_text = line.detokenize_transforms_copy(time_delta, new_line_duration);
 				if ((rect_clip_data_ || vect_clip_data_) && line.transforms_tokenized) {
 					const auto current_clip_tags = CollectEffectiveClipTags(
-						line.interpolate_transforms_copy(new_start_time, res_x_, res_y_, std::nullopt, std::nullopt)
+						line.interpolate_transforms_copy(
+							has_frame_sample ? frame_sample_rel : fade_td_original,
+							res_x_, res_y_, std::nullopt, std::nullopt
+						)
 					);
 					new_text = RebaseLeadingClipTags(new_text, current_clip_tags);
 					new_text = ClampActiveClipTransformStarts(new_text, new_line_duration);
@@ -396,8 +416,16 @@ namespace mocha {
 				);
 
 				if (fade.has_value()) {
+					// 帧内采样模式下，采样点恰好落在 fade 完全透明端点时
+					// 向可见区间内部取最小安全偏移（不跨帧、不引用前一帧）
+					int eval_shifted = fade_td_shifted, eval_original = fade_td_original;
+					if (has_frame_sample) {
+						const int nudged = FrameIntervalSampler::nudge_off_fade_endpoint(
+							fade.value(), frame_sample_rel, vis_rel_start, vis_rel_end);
+						eval_shifted = eval_original = nudged;
+					}
 					// 使用双时间基准计算淡入淡出因子
-					double fade_factor = FadeSampler::evaluate_fade(fade.value(), fade_td_shifted, fade_td_original);
+					double fade_factor = FadeSampler::evaluate_fade(fade.value(), eval_shifted, eval_original);
 					// 不透明度因子 (0-1)
 					double opacity = (255.0 - fade_factor) / 255.0;
 
@@ -478,17 +506,18 @@ namespace mocha {
 			// 处理 \move（插值为 \pos）
 			if (line.move.has_value()) {
 				const auto &move = line.move.value();
+				const int move_sample_time = has_frame_sample ? frame_sample_rel : time_delta;
 				double progress = 0;
 				if (move.t2 != move.t1)
-					progress = static_cast<double>(time_delta - move.t1) / (move.t2 - move.t1);
+					progress = static_cast<double>(move_sample_time - move.t1) / (move.t2 - move.t1);
 				progress = std::max(0.0, std::min(1.0, progress));
 				double px = move.x1 + (move.x2 - move.x1) * progress;
 				double py = move.y1 + (move.y2 - move.y1) * progress;
 
 				static const std::regex move_re(R"(\\move\([^)]+\))");
-				char buf[64];
-				std::snprintf(buf, sizeof(buf), "\\pos(%g,%g)", math::round(px, 2), math::round(py, 2));
-				new_text = std::regex_replace(new_text, move_re, buf);
+				new_text = std::regex_replace(new_text, move_re,
+					"\\pos(" + format_compact_float(math::round(px, 2))
+					+ "," + format_compact_float(math::round(py, 2)) + ")");
 			}
 
 			// 计算当前帧的追踪状态
@@ -502,6 +531,7 @@ namespace mocha {
 			new_line.text = new_text;
 			new_line.start_time = new_start_time;
 			new_line.end_time = new_end_time;
+			new_line.duration = new_end_time - new_start_time;
 			new_line.transforms_tokenized = false;
 			new_line.karaoke_shift = (new_start_time - line.start_time) * 0.1;
 			result.push_back(std::move(new_line));

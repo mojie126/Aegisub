@@ -250,4 +250,67 @@ struct FadeSampler {
 	}
 };
 
+/// 帧区间采样器
+///
+/// 基于视频帧与字幕行可见区间的交集，计算淡入淡出和 transform 的统一采样时间
+/// 淡入淡出的使用场景为：字幕行开始时间取可见淡入的第一帧，结束时间取完全消失前一帧
+/// 因此每个输出帧的采样点取帧区间 ∩ 行区间的中点，淡入和淡出使用同一对称规则
+struct FrameIntervalSampler {
+	/// 计算指定帧的采样时间
+	/// @param collection_start_frame 追踪集合起始绝对帧号
+	/// @param frame_idx 当前帧在追踪数据中的相对索引（1-based）
+	/// @param ms_from_frame 帧号→精确毫秒转换函数（不允许 10ms 舍入）
+	/// @param line_start_time 字幕行起始时间（精确毫秒）
+	/// @param line_end_time 字幕行结束时间（精确毫秒）
+	/// @param[out] sample_time 采样时间（相对字幕行起始，精确毫秒）
+	/// @param[out] visible_rel_start 可见区间起点（相对字幕行起始，可为 nullptr）
+	/// @param[out] visible_rel_end 可见区间终点（相对字幕行起始，半开区间，可为 nullptr）
+	/// @return 帧区间与行区间是否存在有效交集
+	static bool compute(int collection_start_frame, int frame_idx,
+						const std::function<int(int)> &ms_from_frame,
+						int line_start_time, int line_end_time,
+						int &sample_time,
+						int *visible_rel_start = nullptr, int *visible_rel_end = nullptr) {
+		if (!ms_from_frame || line_end_time <= line_start_time)
+			return false;
+		const int frame_start = ms_from_frame(collection_start_frame + frame_idx - 1);
+		const int frame_end = ms_from_frame(collection_start_frame + frame_idx);
+		if (frame_end <= frame_start)
+			return false;
+		const int visible_start = std::max(frame_start, line_start_time);
+		const int visible_end = std::min(frame_end, line_end_time);
+		if (visible_end <= visible_start)
+			return false;
+		sample_time = visible_start + (visible_end - visible_start) / 2 - line_start_time;
+		if (visible_rel_start)
+			*visible_rel_start = visible_start - line_start_time;
+		if (visible_rel_end)
+			*visible_rel_end = visible_end - line_start_time;
+		return true;
+	}
+
+	/// 采样点恰好落在 fade 完全透明端点时的最小安全偏移
+	///
+	/// 整数中点通常严格位于可见区间内部，但当可见区间极短（整数截断）或
+	/// fade 边界恰好等于中点时，采样点会取到完全透明端点值（fade-in 的 t1
+	/// 或 fade-out 的 t4），把本该可见的帧判成完全透明，此时向可见区间
+	/// 内部移动 1ms，偏移不跨越帧边界，也不引用前一帧时间
+	///
+	/// @param f fade 完整参数
+	/// @param sample_rel 帧内采样时间（相对字幕行起始）
+	/// @param visible_rel_start 可见区间起点（相对字幕行起始）
+	/// @param visible_rel_end 可见区间终点（相对字幕行起始，半开区间）
+	/// @return 调整后的采样时间
+	static int nudge_off_fade_endpoint(const FullFadeData &f, int sample_rel,
+									   int visible_rel_start, int visible_rel_end) {
+		// fade-in 端点：采样点恰好等于 t1 且起始完全透明
+		if (f.a1 == 255 && sample_rel == f.t1 && sample_rel + 1 < visible_rel_end)
+			return sample_rel + 1;
+		// fade-out 端点：采样点恰好等于 t4 且结束完全透明
+		if (f.a3 == 255 && sample_rel == f.t4 && sample_rel - 1 >= visible_rel_start)
+			return sample_rel - 1;
+		return sample_rel;
+	}
+};
+
 } // namespace mocha

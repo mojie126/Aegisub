@@ -12,6 +12,7 @@
 #include "motion_processor.h"
 
 #include <algorithm>
+#include <limits>
 #include <regex>
 
 using namespace mocha;
@@ -201,6 +202,53 @@ TEST(MochaTags, FormatColor) {
 	EXPECT_EQ(result.back(), '&');
 }
 
+TEST(MochaTags, FormatFloatCompact) {
+	// 对应上游 #76：formatFloat 用 %.15f + 去尾零，避免 %g 的指数计数法
+	const auto *tag = TagRegistry::instance().get("xscale");
+	ASSERT_NE(tag, nullptr);
+
+	// 整数值不保留尾零
+	EXPECT_EQ(tag->format_float(150.0), "\\fscx150");
+	// 小数保留有效精度
+	EXPECT_EQ(tag->format_float(3.5), "\\fscx3.5");
+	// 极小值不输出指数形式（%g 会输出 1e-07 这种）
+	EXPECT_EQ(tag->format_float(0.0000001), "\\fscx0.0000001");
+	// 极大值不输出指数形式（%g 会输出 1e+06 这种）
+	EXPECT_EQ(tag->format_float(1000000.0), "\\fscx1000000");
+	// 负值
+	EXPECT_EQ(tag->format_float(-1.25), "\\fscx-1.25");
+	// 零
+	EXPECT_EQ(tag->format_float(0.0), "\\fscx0");
+	// 非有限值不得进入 ASS 标签
+	EXPECT_EQ(tag->format_float(std::numeric_limits<double>::quiet_NaN()), "\\fscx0");
+}
+
+TEST(MochaTags, FormatMultiCompact) {
+	// 对应上游 #76：formatMulti 各分量同样使用紧凑浮点格式，
+	// 避免 %g 的指数计数法和无意义的尾零
+	const auto *tag = TagRegistry::instance().get("pos");
+	ASSERT_NE(tag, nullptr);
+
+	// 整数坐标不保留尾零
+	EXPECT_EQ(tag->format_multi({100.0, 200.0}), "\\pos(100,200)");
+	// 小数坐标保持精度
+	EXPECT_EQ(tag->format_multi({1.5, 2.25}), "\\pos(1.5,2.25)");
+	// 极小值不输出指数
+	EXPECT_EQ(tag->format_multi({0.0000001, 3.0}), "\\pos(0.0000001,3)");
+}
+
+TEST(MochaTags, FormatFloatNoExponential) {
+	// 明确断言输出字符串中不含指数计数法标记（e/E）
+	const auto *tag = TagRegistry::instance().get("xscale");
+	ASSERT_NE(tag, nullptr);
+
+	auto r1 = tag->format_float(1000000000.0);
+	auto r2 = tag->format_float(0.000000001);
+	EXPECT_EQ(r1.find_first_of("eE"), std::string::npos);
+	EXPECT_EQ(r2.find_first_of("eE"), std::string::npos);
+}
+
+
 TEST(MochaTags, ConvertClipToFP) {
 	std::string clip = R"(\clip(2,m 100 200 l 300 400))";
 	auto result = tag_utils::convert_clip_to_fp(clip);
@@ -372,6 +420,13 @@ TEST(MochaTransform, FromStringNoTiming) {
 	EXPECT_EQ(t.effect, "\\fscx200");
 }
 
+TEST(MochaTransform, EffectRepeatedTagsDedup) {
+	// 对应上游 #78：\t 内部是独立作用域，可重复标签单独去重（保留最后一个），
+	// 避免行级去重把 \t 内部标签与外部同名标签混为一谈（Issue #69）
+	auto t = Transform::from_string("(0,1000,\\fscx100\\fscx200)", 5000, 0);
+	EXPECT_EQ(t.effect, "\\fscx200");
+}
+
 TEST(MochaTransform, FromStringAccelOnly) {
 	auto t = Transform::from_string("(1.5,\\fscx200)", 5000, 0);
 	EXPECT_DOUBLE_EQ(t.accel, 1.5);
@@ -537,6 +592,21 @@ TEST(MochaLine, TokenizeTransforms) {
 	EXPECT_TRUE(line.transforms_tokenized);
 	// \t 标签应被替换为占位符
 	EXPECT_EQ(line.text.find("\\t("), std::string::npos);
+}
+
+TEST(MochaLine, InterpolateTransformsUsesTheCurrentBlockState) {
+	MotionLine line;
+	line.text = R"({\fscx100\t(0,1000,\fscx200)}first{\fscx300\t(0,1000,\fscx400)}second)";
+	line.start_time = 0;
+	line.end_time = 1000;
+	line.duration = 1000;
+	line.tokenize_transforms();
+
+	const auto result = line.interpolate_transforms_copy(500);
+	EXPECT_NE(result.find(R"(\fscx150)"), std::string::npos)
+		<< "The first block should interpolate from its own \\fscx100 state: " << result;
+	EXPECT_NE(result.find(R"(\fscx350)"), std::string::npos)
+		<< "The second block should interpolate from its own \\fscx300 state: " << result;
 }
 
 TEST(MochaLine, DeduplicateTags) {
@@ -1299,8 +1369,9 @@ TEST(MochaHandler, ApplyMotionClipTransformUsesScriptResolutionDefault) {
 	);
 
 	ASSERT_EQ(result.size(), 1u);
-	EXPECT_NE(result[0].text.find(R"(\clip(0,0,640,360))"), std::string::npos)
-		<< "Expected script-resolution rect clip default, got: " << result[0].text;
+	// 帧内中点采样：行 0-1000ms 对应 1 帧，采样点为帧中点 500ms，progress 0.5
+	EXPECT_NE(result[0].text.find(R"(\clip(5,10,375,240))"), std::string::npos)
+		<< "Expected script-resolution rect clip default interpolated at frame midpoint, got: " << result[0].text;
 }
 
 TEST(MochaHandler, ApplyMotionClipTransformWithoutKillTransRebasesCurrentRectClip) {
@@ -1341,7 +1412,8 @@ TEST(MochaHandler, ApplyMotionClipTransformWithoutKillTransRebasesCurrentRectCli
 	ASSERT_NE(mid_it, result.end());
 
 	const std::string tracked_initial = "\\clip" + handler.cb_rect_clip("10,20,110,120", 2);
-	const std::string tracked_mid = "\\clip" + handler.cb_rect_clip("15,30,115,130", 2);
+	// 帧内中点采样：帧2 的采样点为 1500ms，progress 0.75
+	const std::string tracked_mid = "\\clip" + handler.cb_rect_clip("17.5,35,117.5,135", 2);
 
 	EXPECT_NE(mid_it->text.find(tracked_mid), std::string::npos)
 		<< "Expected current clip state rebased at line start, got: " << mid_it->text;
@@ -1391,7 +1463,8 @@ TEST(MochaHandler, ApplyMotionInverseClipTransformWithoutKillTransRebasesCurrent
 	ASSERT_NE(mid_it, result.end());
 
 	const std::string tracked_initial = "\\iclip" + handler.cb_rect_clip("10,20,110,120", 2);
-	const std::string tracked_mid = "\\iclip" + handler.cb_rect_clip("15,30,115,130", 2);
+	// 帧内中点采样：帧2 的采样点为 1500ms，progress 0.75
+	const std::string tracked_mid = "\\iclip" + handler.cb_rect_clip("17.5,35,117.5,135", 2);
 
 	EXPECT_NE(mid_it->text.find(tracked_mid), std::string::npos)
 		<< "Expected current inverse clip state rebased at line start, got: " << mid_it->text;
@@ -1436,6 +1509,72 @@ TEST(MochaHandler, ApplyMotionFadeKillTransFirstVisibleFrameShouldNotBeFullyTran
 	ASSERT_GE(first_alpha, 0);
 	// 首帧不应全透明（采样原点已前移到前一帧，fade-in 有可见进度）
 	EXPECT_LT(first_alpha, 255);
+}
+
+TEST(MochaHandler, ApplyMotionFadeUsesFrameIntervalSample) {
+	auto dh = make_test_data_handler();
+
+	MotionOptions opts;
+	opts.kill_trans = true;
+	MotionHandler handler(opts, &dh, nullptr, nullptr);
+
+	MotionLine line;
+	line.text = R"({\fade(255,0,255,0,200,400,600)\alpha&H00&}hello)";
+	line.start_time = 150;
+	line.end_time = 450;
+	line.duration = line.end_time - line.start_time;
+
+	std::vector<MotionLine> lines = {line};
+	auto result = handler.apply_motion(
+		lines,
+		1,
+		[](int ms) { return ms / 100; },
+		[](int frame) { return frame * 100; }
+	);
+
+	std::sort(
+		result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+			return a.start_time < b.start_time;
+		}
+	);
+
+	ASSERT_EQ(result.size(), 3u);
+	// 首帧可见交集为 [150,200)，精确中点相对行首为 25ms，alpha 约为 223
+	EXPECT_EQ(extract_alpha_value(result[0].text), 223);
+}
+
+TEST(MochaHandler, ApplyMotionMoveUsesFrameIntervalSample) {
+	auto dh = make_test_data_handler();
+
+	MotionOptions opts;
+	opts.x_position = false;
+	opts.y_position = false;
+	MotionHandler handler(opts, &dh, nullptr, nullptr);
+
+	MotionLine line;
+	line.text = R"({\move(0,0,100,0,0,200)}hello)";
+	line.start_time = 150;
+	line.end_time = 450;
+	line.duration = line.end_time - line.start_time;
+	line.move = MoveData{0, 0, 100, 0, 0, 200};
+
+	std::vector<MotionLine> lines = {line};
+	auto result = handler.apply_motion(
+		lines,
+		1,
+		[](int ms) { return ms / 100; },
+		[](int frame) { return frame * 100; }
+	);
+
+	std::sort(
+		result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+			return a.start_time < b.start_time;
+		}
+	);
+
+	ASSERT_EQ(result.size(), 3u);
+	EXPECT_NE(result[0].text.find(R"(\pos(12.5,0))"), std::string::npos)
+		<< "Move should use the visible frame midpoint, got: " << result[0].text;
 }
 
 TEST(MochaHandler, ApplyMotionFadeKillTransLastVisibleFrameShouldNotBeFullyTransparent) {
@@ -1840,6 +1979,25 @@ TEST(MochaProcessor, PostprocessRemovesEmptyClipInLinear) {
 	EXPECT_EQ(lines[0].text, "hello");
 }
 
+TEST(MochaProcessor, PostprocessDeduplicatesTransformEffectInLinear) {
+	MotionOptions opts;
+	MotionProcessor processor(opts, 640, 360);
+
+	MotionLine line;
+	line.text = R"({\t(0,1000,\fscx100\fscx200)}hello)";
+	line.duration = 1000;
+	line.was_linear = true;
+	line.tokenize_transforms();
+
+	std::vector<MotionLine> lines = {line};
+	processor.postprocess_lines(lines);
+
+	ASSERT_EQ(lines.size(), 1u);
+	EXPECT_NE(lines[0].text.find(R"(\t(0,1000,\fscx200))"), std::string::npos)
+		<< "Linear postprocessing should restore the deduplicated transform: " << lines[0].text;
+	EXPECT_EQ(lines[0].text.find(R"(\fscx100\fscx200)"), std::string::npos);
+}
+
 TEST(MochaProcessor, PostprocessShiftsTypingKaraokeAndCleansEmptyBlocks) {
 	MotionOptions opts;
 	MotionProcessor processor(opts, 640, 360);
@@ -1924,4 +2082,229 @@ TEST(MochaProcessor, PrepareLinesShortFadBeforeFullFadeKeepsNormalizedFirstFade)
 		<< "Short fad should not survive preprocessing once normalized";
 	EXPECT_EQ(lines[0].text.find(R"(\fade(255,0,255,0,300,400,500))"), std::string::npos)
 		<< "Later conflicting full fade should be removed after normalization, got: " << lines[0].text;
+}
+
+// ============================================================================
+// FrameIntervalSampler 单元测试
+// ============================================================================
+
+TEST(FrameIntervalSampler, FullFrameInsideLineSamplesFrameMidpoint) {
+	// 帧区间 [100,200)，行区间 [0,1000)：采样点应为 150
+	int sample = -1;
+	bool ok = FrameIntervalSampler::compute(
+		0, 2,
+		[](int f) { return f * 100; },
+		0, 1000, sample
+	);
+	EXPECT_TRUE(ok);
+	EXPECT_EQ(sample, 150);
+}
+
+TEST(FrameIntervalSampler, PartialFirstFrameSamplesVisibleMidpoint) {
+	// 行从 150ms 开始，帧区间 [100,200)：可见区间 [150,200)，采样点 175
+	int sample = -1;
+	bool ok = FrameIntervalSampler::compute(
+		1, 1,
+		[](int f) { return f * 100; },
+		150, 1000, sample
+	);
+	EXPECT_TRUE(ok);
+	EXPECT_EQ(sample, 25); // (150+200)/2 - 150 = 25
+}
+
+TEST(FrameIntervalSampler, PartialLastFrameSamplesVisibleMidpoint) {
+	// 行到 950ms 结束，帧区间 [900,1000)：可见区间 [900,950)，采样点 925
+	int sample = -1;
+	bool ok = FrameIntervalSampler::compute(
+		0, 10,
+		[](int f) { return f * 100; },
+		0, 950, sample
+	);
+	EXPECT_TRUE(ok);
+	EXPECT_EQ(sample, 925);
+}
+
+TEST(FrameIntervalSampler, NoIntersectionReturnsFalse) {
+	int sample = -1;
+	bool ok = FrameIntervalSampler::compute(
+		0, 2,
+		[](int f) { return f * 100; },
+		500, 600, sample
+	);
+	EXPECT_FALSE(ok);
+}
+
+// ============================================================================
+// 帧内中点采样：普通非 alpha transform 不应只取帧首值
+// ============================================================================
+
+TEST(MochaHandler, ApplyMotionSamplesNonAlphaTransformAtFrameMidpoint) {
+	// 每帧 100ms，\t(0,100,\fscx200)：首帧采样点应为帧中点 50ms，fscx=150
+	auto dh = make_test_data_handler();
+
+	MotionOptions opts;
+	opts.kill_trans = true;
+	// 关闭追踪回调，仅验证 transform 帧内中点采样
+	opts.x_position = false;
+	opts.y_position = false;
+	opts.origin = false;
+	opts.abs_pos = false;
+	opts.x_scale = false;
+	opts.border = false;
+	opts.shadow = false;
+	opts.blur = false;
+	opts.z_rotation = false;
+	opts.rect_clip = false;
+	opts.vect_clip = false;
+	MotionHandler handler(opts, &dh, nullptr, nullptr, 640, 360);
+
+	MotionLine line;
+	line.text = R"({\fscx100\t(0,100,\fscx200)}hello)";
+	line.start_time = 0;
+	line.end_time = 300;
+	line.duration = 300;
+	line.tokenize_transforms();
+
+	std::vector<MotionLine> lines = {line};
+	auto result = handler.apply_motion(
+		lines,
+		0,
+		[](int ms) { return ms / 100; },
+		[](int frame) { return frame * 100; }
+	);
+
+	std::sort(
+		result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+			return a.start_time < b.start_time;
+		}
+	);
+
+	ASSERT_EQ(result.size(), 3u);
+	// 帧1 [0,100)：帧中点 50，progress 0.5 → fscx150
+	EXPECT_NE(result[0].text.find(R"(\fscx150)"), std::string::npos)
+		<< "First frame should sample at frame midpoint, got: " << result[0].text;
+	// 帧3 [200,300)：progress 1 → fscx200
+	EXPECT_NE(result[2].text.find(R"(\fscx200)"), std::string::npos)
+		<< "Last frame should reach transform end value, got: " << result[2].text;
+}
+
+TEST(MochaHandler, ApplyMotionSetsOutputLineDuration) {
+	auto dh = make_test_data_handler();
+
+	MotionOptions opts;
+	opts.kill_trans = true;
+	MotionHandler handler(opts, &dh, nullptr, nullptr, 640, 360);
+
+	MotionLine line;
+	line.text = R"({\pos(0,0)}hello)";
+	line.start_time = 0;
+	line.end_time = 300;
+	line.duration = 300;
+	line.tokenize_transforms();
+
+	std::vector<MotionLine> lines = {line};
+	auto result = handler.apply_motion(
+		lines,
+		0,
+		[](int ms) { return ms / 100; },
+		[](int frame) { return frame * 100; }
+	);
+
+	ASSERT_FALSE(result.empty());
+	for (const auto &ml : result) {
+		EXPECT_EQ(ml.duration, ml.end_time - ml.start_time)
+			<< "Output line duration must be kept in sync with its time range";
+	}
+}
+
+// FrameIntervalSampler 端点安全偏移测试（实施计划 2.2.1-6 与 7.1-14）
+
+TEST(FrameIntervalSampler, ComputeOutputsVisibleBounds) {
+	// 帧 [100,200)，行 [150,1000)：可见区间 [150,200)，中点 175（相对行起始 25）
+	int sample = 0, vis_start = -1, vis_end = -1;
+	auto ms_from_frame = [](int frame) { return frame * 100; };
+	ASSERT_TRUE(FrameIntervalSampler::compute(
+		1, 1, ms_from_frame, 150, 1000, sample, &vis_start, &vis_end));
+	EXPECT_EQ(vis_start, 0);
+	EXPECT_EQ(vis_end, 50);
+	EXPECT_EQ(sample, 25);
+}
+
+TEST(FrameIntervalSampler, NudgeOffFadeInEndpoint) {
+	// 采样点恰好等于 fade-in 起点 t1（完全透明端点）：向可见区间内部移动 1ms
+	FullFadeData f{255, 0, 255, 0, 500, 500, 1000};
+	EXPECT_EQ(FrameIntervalSampler::nudge_off_fade_endpoint(f, 0, 0, 40), 1);
+	// 区间只剩 1ms 时无法偏移（不允许跨帧或引用前一帧）
+	EXPECT_EQ(FrameIntervalSampler::nudge_off_fade_endpoint(f, 0, 0, 1), 0);
+	// 采样点在区间内部时不偏移
+	EXPECT_EQ(FrameIntervalSampler::nudge_off_fade_endpoint(f, 20, 0, 40), 20);
+}
+
+TEST(FrameIntervalSampler, NudgeOffFadeOutEndpoint) {
+	// 采样点恰好等于 fade-out 终点 t4（完全透明端点）：向可见区间内部回退 1ms
+	FullFadeData f{255, 0, 255, 0, 500, 500, 1000};
+	EXPECT_EQ(FrameIntervalSampler::nudge_off_fade_endpoint(f, 1000, 960, 1001), 999);
+	// 已贴到区间起点时无法继续回退
+	EXPECT_EQ(FrameIntervalSampler::nudge_off_fade_endpoint(f, 1000, 1000, 1001), 1000);
+}
+
+TEST(FrameIntervalSampler, NudgeSkippedWhenEndpointNotTransparent) {
+	// a1 非完全透明（如 \fade(128,0,255,...)）时端点不是完全透明端点，不偏移
+	FullFadeData f{128, 0, 255, 0, 500, 500, 1000};
+	EXPECT_EQ(FrameIntervalSampler::nudge_off_fade_endpoint(f, 0, 0, 40), 0);
+}
+
+// extract_metrics 整行首个标签语义测试
+// 对应上游 a-mo Line.moon 约定：\pos、\move、\org、\an 整行只能出现一次，
+// 以整行第一个实例为准（libass 事件级标签语义，与所在 override 块位置无关）
+
+TEST(MotionLineMetrics, PosInLaterBlockAnchorsLine) {
+	// 首块无定位标签、后续块有 \pos：行锚点取整行第一个 \pos（(500,300)），
+	// 而不是回退样式默认位置，与 libass 事件级标签语义一致
+	MotionLine line;
+	line.text = "{\\i1}first{\\pos(500,300)}second";
+	const bool has_pos = line.extract_metrics(2, 10, 10, 20, 640, 360);
+	EXPECT_TRUE(has_pos);
+	EXPECT_DOUBLE_EQ(line.x_position, 500.0);
+	EXPECT_DOUBLE_EQ(line.y_position, 300.0);
+}
+
+TEST(MotionLineMetrics, PosInFirstBlockAnchorsLine) {
+	// 首块与后续块都有 \pos：取整行第一个实例 (500,300)
+	MotionLine line;
+	line.text = "{\\pos(500,300)\\i1}first{\\pos(50,30)}second";
+	const bool has_pos = line.extract_metrics(2, 10, 10, 20, 640, 360);
+	EXPECT_TRUE(has_pos);
+	EXPECT_DOUBLE_EQ(line.x_position, 500.0);
+	EXPECT_DOUBLE_EQ(line.y_position, 300.0);
+}
+
+TEST(MotionLineMetrics, MoveInLaterBlockAnchorsLine) {
+	// 首块无标签、后续块有 \move：行锚点取整行第一个 \move 的起始坐标
+	MotionLine line;
+	line.text = "{\\i1}first{\\move(100,200,300,400)}second";
+	line.duration = 1000;
+	const bool has_pos = line.extract_metrics(2, 10, 10, 20, 640, 360);
+	EXPECT_TRUE(has_pos);
+	ASSERT_TRUE(line.move.has_value());
+	EXPECT_DOUBLE_EQ(line.move->x1, 100.0);
+	EXPECT_DOUBLE_EQ(line.move->y1, 200.0);
+	EXPECT_DOUBLE_EQ(line.move->x2, 300.0);
+	EXPECT_DOUBLE_EQ(line.move->y2, 400.0);
+}
+
+TEST(MotionLineMetrics, AlignInLaterBlockAnchorsLine) {
+	// \an 与 \pos/\move 同源：整行第一个 \an 生效，
+	// 首块无 \an 时行对齐取后续块的 \an 值（2），而不是样式默认值（5）
+	MotionLine line;
+	line.text = "{\\i1}first{\\an2}second";
+	line.extract_metrics(5, 10, 10, 20, 640, 360);
+	EXPECT_EQ(line.align, 2);
+}
+
+TEST(MotionLineMetrics, AlignInFirstBlockAnchorsLine) {
+	MotionLine line;
+	line.text = "{\\an8\\i1}first";
+	line.extract_metrics(5, 10, 10, 20, 640, 360);
+	EXPECT_EQ(line.align, 8);
 }
