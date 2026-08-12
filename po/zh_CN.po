@@ -9094,3 +9094,22 @@ msgstr "MCP 服务监听地址，默认 127.0.0.1 仅本机可访问"
 #: ../src/preferences.cpp:571
 msgid "MCP server listen port, default 7878"
 msgstr "MCP 服务监听端口，默认 7878"
+
+#: ../src/perspective_motion/perspective_dialog.cpp:235
+msgid "Add quad to extradata"
+msgstr "写入四边形到扩展数据"
+
+#: ../src/perspective_motion/perspective_dialog.cpp:237
+msgid ""
+"Write the tracked quad of each output line to its extradata (key \"_aegi_perspective_ambient_plane\"). The perspective visual tool can then restore the ambient plane when refining the result."
+msgstr ""
+"将每个输出行的追踪四边形写入其扩展数据\n（键为 \"_aegi_perspective_ambient_plane\"），\n透视视觉工具可在精调结果时恢复该环境平面。"
+
+#: ../src/command/subtitle.cpp:670
+msgid "Some subtitle fade tags are malformed and were left unchanged."
+msgstr "部分字幕淡入淡出标签格式错误，已保持原样。"
+
+#: ../src/command/subtitle.cpp:375
+#: ../src/command/subtitle.cpp:664
+msgid "Some subtitle lines reference styles that do not exist:"
+msgstr "部分字幕行引用了不存在的样式："

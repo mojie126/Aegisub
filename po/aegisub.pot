@@ -8666,3 +8666,21 @@ msgstr ""
 #: ../src/preferences.cpp:571
 msgid "MCP server listen port, default 7878"
 msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp:235
+msgid "Add quad to extradata"
+msgstr ""
+
+#: ../src/perspective_motion/perspective_dialog.cpp:237
+msgid ""
+"Write the tracked quad of each output line to its extradata (key \"_aegi_perspective_ambient_plane\"). The perspective visual tool can then restore the ambient plane when refining the result."
+msgstr ""
+
+#: ../src/command/subtitle.cpp:670
+msgid "Some subtitle fade tags are malformed and were left unchanged."
+msgstr ""
+
+#: ../src/command/subtitle.cpp:375
+#: ../src/command/subtitle.cpp:664
+msgid "Some subtitle lines reference styles that do not exist:"
+msgstr ""
