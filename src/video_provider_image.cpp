@@ -174,7 +174,7 @@ std::vector<agi::fs::path> ImageVideoProvider::ScanImageSequence(agi::fs::path c
 	// 使用前缀以非数字结尾的约束，确保数字组完整捕获
 	// 例如 "img_0042.png" → prefix="img_", digits="0042", suffix=".png"
 	// 如果文件名以数字开头无前缀如 "0042.png" → prefix="", digits="0042", suffix=".png"
-	std::regex digit_regex("^(.*\\D)?(\\d+)(\\.[^.]+)$");
+	static const std::regex digit_regex("^(.*\\D)?(\\d+)(\\.[^.]+)$");
 	std::smatch match;
 
 	if (!std::regex_match(filename, match, digit_regex)) {

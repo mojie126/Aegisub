@@ -93,7 +93,12 @@ VapourSynthWrapper::VapourSynthWrapper() {
 		}
 
 		if (vsscriptDLLpath.length()) {
+			#ifdef LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR
+			// 仅从 DLL 所在目录加载，缓解注册表可控路径导致的 DLL 搜索序劫持/种植
+			hLib = LoadLibraryExW(vsscriptDLLpath.c_str(), nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR);
+			#else
 			hLib = LoadLibraryW(vsscriptDLLpath.c_str());
+			#endif
 		}
 
 		if (!hLib) {

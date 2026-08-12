@@ -61,7 +61,10 @@ struct tool_assdraw final : public Command {
 	STR_HELP("Launch the ASSDraw3 tool for vector drawing")
 
 	void operator()(agi::Context *) override {
-		wxExecute("\"" + config::path->Decode("?data/ASSDraw3.exe").string() + "\"");
+		// 以 argv 数组形式执行，避免路径含空格/特殊字符时的命令行解析问题
+		const wxString assdraw_path = config::path->Decode("?data/ASSDraw3.exe").string();
+		const wxChar *assdraw_argv[] = { assdraw_path.t_str(), nullptr };
+		wxExecute(assdraw_argv);
 	}
 };
 

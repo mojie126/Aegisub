@@ -110,8 +110,25 @@ std::string ProcessInlineMarkdown(const std::string& line, const std::string& co
 	// 图片: ![alt](url) — wxHtmlWindow 不支持加载外部图片，直接移除
 	result = std::regex_replace(result, std::regex(R"(!\[([^\]]*)\]\(([^)]+)\))"), "");
 
-	// 链接: [text](url)
-	result = std::regex_replace(result, std::regex(R"(\[([^\]]+)\]\(([^)]+)\))"), "<a href=\"$2\">$1</a>");
+	// 链接: [text](url) — 转义 URL 并仅允许 http/https，防止属性注入/钓鱼
+	{
+		static const std::regex link_re(R"(\[([^\]]+)\]\(([^)]+)\))");
+		std::string link_out;
+		std::string::const_iterator pos = result.cbegin();
+		std::smatch lm;
+		while (std::regex_search(pos, result.cend(), lm, link_re)) {
+			link_out.append(lm.prefix().first, lm.prefix().second);
+			const std::string link_text = lm[1].str();
+			const std::string link_url = lm[2].str();
+			if (link_url.rfind("http://", 0) == 0 || link_url.rfind("https://", 0) == 0)
+				link_out += "<a href=\"" + HtmlEscape(link_url) + "\">" + HtmlEscape(link_text) + "</a>";
+			else
+				link_out += HtmlEscape(link_text);
+			pos = lm.suffix().first;
+		}
+		link_out.append(pos, result.cend());
+		result = std::move(link_out);
+	}
 
 	return result;
 }
@@ -227,7 +244,10 @@ class HtmlWindowWithLinks : public wxHtmlWindow {
 public:
 	using wxHtmlWindow::wxHtmlWindow;
 	void OnLinkClicked(const wxHtmlLinkInfo& link) override {
-		wxLaunchDefaultBrowser(link.GetHref());
+		const wxString href = link.GetHref();
+		// 仅允许 http/https，避免 javascript:/data: 等危险 scheme 被交给浏览器
+		if (href.StartsWith("http://") || href.StartsWith("https://"))
+			wxLaunchDefaultBrowser(href);
 	}
 };
 

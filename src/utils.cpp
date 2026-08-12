@@ -145,12 +145,10 @@ bool IsCharRTL(wxChar character) {
 #ifndef __WXMAC__
 void RestartAegisub() {
 	config::opt->Flush();
-
-#if defined(__WXMSW__)
-	wxExecute("\"" + wxStandardPaths::Get().GetExecutablePath() + "\"");
-#else
-	wxExecute(wxStandardPaths::Get().GetExecutablePath());
-#endif
+	// 以 argv 数组形式执行，避免路径含空格/特殊字符时的命令行解析问题
+	const wxString exe_path = wxStandardPaths::Get().GetExecutablePath();
+	const wxChar *restart_argv[] = { exe_path.t_str(), nullptr };
+	wxExecute(restart_argv);
 }
 #endif
 

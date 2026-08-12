@@ -680,15 +680,15 @@ namespace octoon::image {
 
 				std::ostringstream stream;
 
-				stream << "TITLE " << name << std::endl;
-				stream << std::endl;
+				stream << "TITLE " << name << '\n';
+				stream << '\n';
 
-				stream << "LUT_3D_SIZE " << this->height << std::endl;
-				stream << std::endl;
+				stream << "LUT_3D_SIZE " << this->height << '\n';
+				stream << '\n';
 
-				stream << "DOMAIN_MIN 0.0 0.0 0.0" << std::endl;
-				stream << "DOMAIN_MAX 1.0 1.0 1.0" << std::endl;
-				stream << std::endl;
+				stream << "DOMAIN_MIN 0.0 0.0 0.0" << '\n';
+				stream << "DOMAIN_MAX 1.0 1.0 1.0" << '\n';
+				stream << '\n';
 
 				auto size = this->height;
 				for (std::size_t r = 0; r < size; r++) {
@@ -700,7 +700,7 @@ namespace octoon::image {
 							auto val_g = cast<float>(data[src_idx + 1]);
 							auto val_b = cast<float>(data[src_idx + 2]);
 
-							stream << val_r << " " << val_g << " " << val_b << std::endl;
+							stream << val_r << " " << val_g << " " << val_b << '\n';
 						}
 					}
 				}

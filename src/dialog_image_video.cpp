@@ -147,7 +147,7 @@ void DialogImageVideo::UpdateInfo() {
 		// 尝试以紧凑的范围格式显示：prefix[first~last].ext
 		std::string first_name = files.front().filename().string();
 		std::string last_name = files.back().filename().string();
-		std::regex digit_regex(R"(^(.*\D)?(\d+)(\.[^.]+)$)");
+		static const std::regex digit_regex(R"(^(.*\D)?(\d+)(\.[^.]+)$)");
 		std::smatch first_match, last_match;
 
 		if (std::regex_match(first_name, first_match, digit_regex) &&

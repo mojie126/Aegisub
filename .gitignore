@@ -22,6 +22,7 @@ ru*.db
 build*/
 /subprojects/*
 !/subprojects/*.wrap
+/subprojects/libp2p.wrap
 !/subprojects/packagefiles
 !/subprojects/csri
 !/subprojects/iconv
@@ -36,6 +37,7 @@ build*/
 .kiro
 .codegraph
 .reasonix
+.workbuddy
 
 # Documentation (generated/temporary)
 docs/*.md

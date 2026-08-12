@@ -758,6 +758,13 @@ UnknownElement HandleSearchDialogue(Object const& args) {
 		try { regex = static_cast<bool const&>(it->second); } catch (...) {}
 	}
 
+	// 外部传入的正则仅编译一次，避免逐行重复编译并放大 ReDoS 风险
+	std::regex compiled;
+	if (regex) {
+		try { compiled = std::regex(pattern); }
+		catch (...) { throw std::runtime_error("invalid regex pattern"); }
+	}
+
 	Array matches;
 	int64_t idx = 0;
 	for (auto& diag : ctx->ass->Events) {
@@ -765,11 +772,7 @@ UnknownElement HandleSearchDialogue(Object const& args) {
 		auto text = diag.Text.get();
 		bool hit;
 		if (regex) {
-			try {
-				hit = std::regex_search(text, std::regex(pattern));
-			} catch (...) {
-				throw std::runtime_error("invalid regex pattern");
-			}
+			hit = std::regex_search(text, compiled);
 		} else {
 			hit = text.find(pattern) != std::string::npos;
 		}
