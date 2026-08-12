@@ -39,6 +39,7 @@ namespace mocha {
 		bool track_bord_shad = true; ///< 缩放 \bord 和 \shad
 		int org_mode = 2; ///< \org 选择模式: 1=保持, 2=中心, 3=尝试\fax=0
 		int selection_start_frame = 0; ///< 选中行的起始绝对帧号
+		bool include_extra = true; ///< 把每帧四边形写入行 extradata（对应上游 includeextra）
 
 		// 帧号与处理模式
 		bool relative = true; ///< 相对帧号模式
@@ -88,6 +89,15 @@ namespace mocha {
 									const std::vector<Quad> &quads,
 									int video_width, int video_height);
 
+		/// @brief 是否发现未能解析的 fade 标签
+		[[nodiscard]] bool HasMalformedFade() const { return malformed_fade_; }
+
+		/// @brief 预处理中发现的不存在样式引用（对应上游 #75 明确报错）
+		/// 元素为可定位的描述文本（含样式名和行号），供命令层向用户展示
+		[[nodiscard]] const std::vector<std::string> &MissingStyleWarnings() const {
+			return missing_style_warnings_;
+		}
+
 		/// 从 ASS 样式提取属性映射
 		static std::map<std::string, double> ExtractStyleProperties(const AssStyle *style);
 
@@ -118,10 +128,29 @@ namespace mocha {
 		FrameFromMs frame_from_ms_;
 		MsFromFrame ms_from_frame_;
 		std::function<const AssStyle*(const std::string &)> style_lookup_;
+		bool malformed_fade_ = false;
+		std::vector<std::string> missing_style_warnings_;
 	};
 
 	/// @brief 解析 ASS 绘图指令的坐标范围以计算尺寸
 	/// 对应 MoonScript DrawingBase:getExtremePoints()
 	bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 								 double &width, double &height);
+
+	/// @brief 计算透视处理器的正序输出起始帧（1-based 相对帧号）
+	///
+	/// 帧号换算集中在命令层调用此函数一次（对应实施计划 5.1：禁止二次换算），
+	/// PerspectiveProcessor 的 start_frame 是正序输出下限，反向追踪不翻转
+	/// 追踪数据数组，仅将末帧参考号换算为对应的正序起始帧
+	///
+	/// @param start_frame 界面起始帧（relative 时为相对帧号，否则为绝对帧号）
+	/// @param relative 起始帧是否为相对帧号
+	/// @param reverse_tracking 是否反向追踪
+	/// @param relframe 参考帧号（1-based 相对帧号）
+	/// @param total_frames 选中范围总帧数
+	/// @param collection_start_frame 选中范围起始绝对帧号
+	/// @return 正序输出下限（1-based 相对帧号）
+	int ComputeEffectiveStartFrame(int start_frame, bool relative,
+								   bool reverse_tracking, int relframe,
+								   int total_frames, int collection_start_frame);
 } // namespace mocha

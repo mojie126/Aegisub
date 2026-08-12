@@ -6,41 +6,96 @@
 
 #include <cmath>
 #include <algorithm>
+#include <limits>
 
 namespace mocha {
 // ============================================================================
 // 基础数学工具
 // ============================================================================
 
-	void PerspectiveMath::Solve2x2(double a11, double a12, double a21, double a22,
-									double b1, double b2, double &x1, double &x2) {
+	namespace {
+		/// @brief 生成无效向量（全 NaN），用于标记未解析成功的四边形
+		Vector2D InvalidVector() {
+			const auto invalid = std::numeric_limits<float>::quiet_NaN();
+			return Vector2D(invalid, invalid);
+		}
+
+		/// @brief 检查四边形四点坐标是否全部有限
+		/// 尺寸不足或任一坐标含 NaN/Inf 时返回 false
+		bool IsFiniteQuad(const Quad &quad) {
+			if (quad.size() != 4)
+				return false;
+			for (const auto &point : quad) {
+				if (!std::isfinite(point.X()) || !std::isfinite(point.Y()))
+					return false;
+			}
+			return true;
+		}
+	}
+
+	bool PerspectiveMath::Solve2x2(double a11, double a12, double a21, double a22,
+								double b1, double b2, double &x1, double &x2) {
+		if (!std::isfinite(a11) || !std::isfinite(a12) ||
+			!std::isfinite(a21) || !std::isfinite(a22) ||
+			!std::isfinite(b1) || !std::isfinite(b2)) {
+			x1 = 0;
+			x2 = 0;
+			return false;
+		}
+		// 行列式近零：退化方程组（共线/重合点四边形），拒绝求解避免 NaN
+		const double det = a11 * a22 - a12 * a21;
+		if (!std::isfinite(det) || std::abs(det) < 1e-12) {
+			x1 = 0;
+			x2 = 0;
+			return false;
+		}
 		// 简单主元选择
 		if (std::abs(a11) < std::abs(a21)) {
 			std::swap(b1, b2);
 			std::swap(a11, a21);
 			std::swap(a12, a22);
 		}
+		if (std::abs(a11) < 1e-12) {
+			x1 = 0;
+			x2 = 0;
+			return false;
+		}
 		// LU 分解 i=1
 		a21 = a21 / a11;
 		// i=2
 		a22 = a22 - a21 * a12;
+		if (!std::isfinite(a22) || std::abs(a22) < 1e-12) {
+			x1 = 0;
+			x2 = 0;
+			return false;
+		}
 		// 前向代入
 		double z1 = b1;
 		double z2 = b2 - a21 * z1;
 		// 后向代入
 		x2 = z2 / a22;
 		x1 = (z1 - a12 * x2) / a11;
+		if (!std::isfinite(x1) || !std::isfinite(x2)) {
+			x1 = 0;
+			x2 = 0;
+			return false;
+		}
+		return true;
 	}
 
 	Vector2D PerspectiveMath::QuadMidpoint(const Quad &quad) {
+		if (!IsFiniteQuad(quad))
+			return Vector2D(0, 0);
 		Vector2D diag1 = quad[2] - quad[0];
 		Vector2D diag2 = quad[1] - quad[3];
 		Vector2D b = quad[3] - quad[0];
 		double center_la1, center_la2;
-		Solve2x2(
-			diag1.X(), diag2.X(), diag1.Y(), diag2.Y(),
-			b.X(), b.Y(), center_la1, center_la2
-		);
+		if (!Solve2x2(
+				diag1.X(), diag2.X(), diag1.Y(), diag2.Y(),
+				b.X(), b.Y(), center_la1, center_la2
+			))
+			// 退化四边形：对角线平行，回退到第一个角点
+			return quad[0];
 		return quad[0] + center_la1 * diag1;
 	}
 
@@ -71,30 +126,53 @@ namespace mocha {
 // ============================================================================
 
 	Vector2D PerspectiveMath::XYToUV(const Quad &quad, Vector2D xy) {
+		if (!IsFiniteQuad(quad) || !std::isfinite(xy.X()) || !std::isfinite(xy.Y()))
+			return InvalidVector();
+
 		double x1, x2, x3, x4, y1, y2, y3, y4;
 		UnwrapQuadRel(quad, x1, x2, x3, x4, y1, y2, y3, y4);
 		double x = xy.X() - x1;
 		double y = xy.Y() - y1;
 
 		// Mathematica 推导的闭式分式
-		double u = -(((x3 * y2 - x2 * y3) * (x4 * y - x * y4) * (x4 * (-y2 + y3) + x3 * (y2 - y4) + x2 * (-y3 + y4))) /
-					(x3 * x3 * (x4 * y2 * y2 * (-y + y4) + y4 * (x * y2 * (y2 - y4) + x2 * (y - y2) * y4)) +
-					x3 * (x4 * x4 * y2 * y2 * (y - y3) + 2 * x4 * (x2 * y * y3 * (y2 - y4) + x * y2 * (-y2 + y3) * y4) +
-						x2 * y4 * (x2 * (-y + y3) * y4 + 2 * x * y2 * (-y3 + y4))) +
-					y3 * (x * x4 * x4 * y2 * (y2 - y3) + x2 * x4 * x4 * (y2 * y3 + y * (-2 * y2 + y3)) -
-						x2 * x2 * (x4 * y * (y3 - 2 * y4) + x4 * y3 * y4 + x * y4 * (-y3 + y4)))));
+		double u_num = -((x3 * y2 - x2 * y3) * (x4 * y - x * y4) *
+				(x4 * (-y2 + y3) + x3 * (y2 - y4) + x2 * (-y3 + y4)));
+		double u_den =
+			x3 * x3 * (x4 * y2 * y2 * (-y + y4) +
+				y4 * (x * y2 * (y2 - y4) + x2 * (y - y2) * y4)) +
+			x3 * (x4 * x4 * y2 * y2 * (y - y3) +
+				2 * x4 * (x2 * y * y3 * (y2 - y4) + x * y2 * (-y2 + y3) * y4) +
+				x2 * y4 * (x2 * (-y + y3) * y4 + 2 * x * y2 * (-y3 + y4))) +
+			y3 * (x * x4 * x4 * y2 * (y2 - y3) +
+				x2 * x4 * x4 * (y2 * y3 + y * (-2 * y2 + y3)) -
+				x2 * x2 * (x4 * y * (y3 - 2 * y4) + x4 * y3 * y4 + x * y4 * (-y3 + y4)));
 
-		double v = ((x2 * y - x * y2) * (x4 * y3 - x3 * y4) * (x4 * (y2 - y3) + x2 * (y3 - y4) + x3 * (-y2 + y4))) /
-					(x3 * (x4 * x4 * y2 * y2 * (-y + y3) + x2 * y4 * (2 * x * y2 * (y3 - y4) + x2 * (y - y3) * y4) -
-							2 * x4 * (x2 * y * y3 * (y2 - y4) + x * y2 * (-y2 + y3) * y4)) +
-					x3 * x3 * (x4 * y2 * y2 * (y - y4) + y4 * (x2 * (-y + y2) * y4 + x * y2 * (-y2 + y4))) +
-					y3 * (x * x4 * x4 * y2 * (-y2 + y3) + x2 * x4 * x4 * (2 * y * y2 - y * y3 - y2 * y3) +
-						x2 * x2 * (x4 * y * (y3 - 2 * y4) + x4 * y3 * y4 + x * y4 * (-y3 + y4))));
+		double v_num = (x2 * y - x * y2) * (x4 * y3 - x3 * y4) *
+				(x4 * (y2 - y3) + x2 * (y3 - y4) + x3 * (-y2 + y4));
+		double v_den =
+			x3 * (x4 * x4 * y2 * y2 * (-y + y3) +
+				x2 * y4 * (2 * x * y2 * (y3 - y4) + x2 * (y - y3) * y4) -
+				2 * x4 * (x2 * y * y3 * (y2 - y4) + x * y2 * (-y2 + y3) * y4)) +
+			x3 * x3 * (x4 * y2 * y2 * (y - y4) +
+				y4 * (x2 * (-y + y2) * y4 + x * y2 * (-y2 + y4))) +
+			y3 * (x * x4 * x4 * y2 * (-y2 + y3) +
+				x2 * x4 * x4 * (2 * y * y2 - y * y3 - y2 * y3) +
+				x2 * x2 * (x4 * y * (y3 - 2 * y4) + x4 * y3 * y4 + x * y4 * (-y3 + y4)));
 
+		if (!std::isfinite(u_den) || !std::isfinite(v_den) ||
+			std::abs(u_den) < 1e-12 || std::abs(v_den) < 1e-12)
+			return InvalidVector();
+
+		double u = u_num / u_den;
+		double v = v_num / v_den;
+		if (!std::isfinite(u) || !std::isfinite(v))
+			return InvalidVector();
 		return Vector2D(static_cast<float>(u), static_cast<float>(v));
 	}
 
 	Vector2D PerspectiveMath::UVToXY(const Quad &quad, Vector2D uv) {
+		if (!IsFiniteQuad(quad) || !std::isfinite(uv.X()) || !std::isfinite(uv.Y()))
+			return InvalidVector();
 		double x1, x2, x3, x4, y1, y2, y3, y4;
 		UnwrapQuadRel(quad, x1, x2, x3, x4, y1, y2, y3, y4);
 		double u = uv.X();
@@ -104,15 +182,23 @@ namespace mocha {
 		double d = (x4 * ((-1 + u + v) * y2 + y3 - v * y3) +
 					x3 * (y2 - u * y2 + (-1 + v) * y4) +
 					x2 * ((-1 + u) * y3 - (-1 + u + v) * y4));
+		if (!std::isfinite(d) || std::abs(d) < 1e-12)
+			return InvalidVector();
 		double x = (v * x4 * (x3 * y2 - x2 * y3) + u * x2 * (x4 * y3 - x3 * y4)) / d;
 		double y = (v * y4 * (x3 * y2 - x2 * y3) + u * y2 * (x4 * y3 - x3 * y4)) / d;
 
+		if (!std::isfinite(x) || !std::isfinite(y))
+			return InvalidVector();
 		return Vector2D(static_cast<float>(x + x1), static_cast<float>(y + y1));
 	}
 
 	void PerspectiveMath::DUVToXY(const Quad &quad, Vector2D uv,
 								double &dxdu, double &dxdv,
 								double &dydu, double &dydv) {
+		if (!IsFiniteQuad(quad) || !std::isfinite(uv.X()) || !std::isfinite(uv.Y())) {
+			dxdu = dxdv = dydu = dydv = 0;
+			return;
+		}
 		double x1, x2, x3, x4, y1, y2, y3, y4;
 		UnwrapQuadRel(quad, x1, x2, x3, x4, y1, y2, y3, y4);
 		double u = uv.X();
@@ -122,6 +208,10 @@ namespace mocha {
 					x3 * (y2 - u * y2 + (-1 + v) * y4) +
 					x2 * ((-1 + u) * y3 - (-1 + u + v) * y4));
 		double d2 = d * d;
+		if (!std::isfinite(d) || !std::isfinite(d2) || std::abs(d) < 1e-12) {
+			dxdu = dxdv = dydu = dydv = 0;
+			return;
+		}
 
 		// 解析雅可比（对应 MoonScript d_uv_to_xy）
 		double num_x = v * x4 * (x3 * y2 - x2 * y3) + u * x2 * (x4 * y3 - x3 * y4);
@@ -137,6 +227,9 @@ namespace mocha {
 		dydv = ((x3 * y2 - x2 * y3) * y4 * (-(x4 * y2) - x2 * y3 + x4 * y3 + x3 * (y2 - y4) + x2 * y4) +
 				u * (x4 * x4 * y2 * y3 * (-y2 + y3) + 2 * x3 * x4 * y2 * (y2 - y3) * y4 +
 					y4 * (2 * x2 * x3 * y2 * (y3 - y4) + x3 * x3 * y2 * (-y2 + y4) + x2 * x2 * y3 * (-y3 + y4)))) / d2;
+		if (!std::isfinite(dxdu) || !std::isfinite(dxdv) ||
+			!std::isfinite(dydu) || !std::isfinite(dydv))
+			dxdu = dxdv = dydu = dydv = 0;
 	}
 
 // ============================================================================
@@ -144,8 +237,21 @@ namespace mocha {
 // ============================================================================
 
 	std::optional<Quad> PerspectiveMath::TransformPoints(const PerspectiveTagVals &tags,
-														double width, double height,
-														double layout_scale) {
+															double width, double height,
+															double layout_scale) {
+		if (!std::isfinite(width) || !std::isfinite(height) ||
+			width <= 0 || height <= 0 || !std::isfinite(layout_scale) || layout_scale <= 0)
+			return std::nullopt;
+		const double tag_values[] = {
+			tags.pos_x, tags.pos_y, tags.org_x, tags.org_y,
+			tags.angle, tags.angle_x, tags.angle_y,
+			tags.scale_x, tags.scale_y, tags.shear_x, tags.shear_y
+		};
+		for (double value : tag_values) {
+			if (!std::isfinite(value))
+				return std::nullopt;
+		}
+
 		double scaled_screen_z = kScreenZ * layout_scale;
 
 		// 构造矩形点
@@ -203,7 +309,12 @@ namespace mocha {
 			p = p.RotateY(static_cast<float>(tags.angle_y * M_PI / 180.0));
 
 			// 透视投影
-			double proj_factor = scaled_screen_z / (p.Z() + scaled_screen_z);
+			double projection_denominator = p.Z() + scaled_screen_z;
+			if (!std::isfinite(projection_denominator) || std::abs(projection_denominator) < 1e-12)
+				return std::nullopt;
+			double proj_factor = scaled_screen_z / projection_denominator;
+			if (!std::isfinite(proj_factor))
+				return std::nullopt;
 			p = Vector3D(p.XY() * static_cast<float>(proj_factor), 0);
 
 			// 回加 org
@@ -214,7 +325,7 @@ namespace mocha {
 		for (const auto &p : points)
 			result.push_back(p.XY());
 
-		return result;
+		return IsFiniteQuad(result) ? std::optional<Quad>(std::move(result)) : std::nullopt;
 	}
 
 // ============================================================================
@@ -276,6 +387,13 @@ namespace mocha {
 										double width, double height,
 										int org_mode, double layout_scale,
 										std::vector<std::string> *warnings) {
+		if (!IsFiniteQuad(quad) || !std::isfinite(width) || !std::isfinite(height) ||
+			width <= 0 || height <= 0 || !std::isfinite(layout_scale) || layout_scale <= 0) {
+			if (warnings)
+				warnings->push_back("Invalid input in TagsFromQuad");
+			return false;
+		}
+		PerspectiveTagVals result_tags = out_tags;
 		double scaled_screen_z = kScreenZ * layout_scale;
 
 		Vector2D q0 = quad[0];
@@ -289,10 +407,14 @@ namespace mocha {
 			Vector2D diag = q2 - q0;
 			Vector2D side2 = q1 - q2;
 			Vector2D side3 = q3 - q2;
-			Solve2x2(
-				side2.X(), side3.X(), side2.Y(), side3.Y(),
-				-diag.X(), -diag.Y(), z1, z3
-			);
+			if (!Solve2x2(
+					side2.X(), side3.X(), side2.Y(), side3.Y(),
+					-diag.X(), -diag.Y(), z1, z3
+				)) {
+				if (warnings)
+					warnings->push_back("Degenerate quad in TagsFromQuad (step 1)");
+				return false;
+			}
 		}
 
 		// 步骤2：确定 \org
@@ -310,8 +432,8 @@ namespace mocha {
 		} else {
 			// org_mode == 1: 保持原有 \org，不修改
 			org = Vector2D(
-				static_cast<float>(out_tags.org_x),
-				static_cast<float>(out_tags.org_y)
+				static_cast<float>(result_tags.org_x),
+				static_cast<float>(result_tags.org_y)
 			);
 		}
 
@@ -330,15 +452,29 @@ namespace mocha {
 		double orgla0, orgla1; {
 			Vector3D side0 = r1 - r0;
 			Vector3D side1 = r3 - r0;
-			Solve2x2(
-				side0.X(), side1.X(), side0.Y(), side1.Y(),
-				-r0.X(), -r0.Y(), orgla0, orgla1
-			);
+			if (!Solve2x2(
+					side0.X(), side1.X(), side0.Y(), side1.Y(),
+					-r0.X(), -r0.Y(), orgla0, orgla1
+				)) {
+				if (warnings)
+					warnings->push_back("Degenerate quad in TagsFromQuad (unproject)");
+				return false;
+			}
 		}
 		double orgz = (r0 + static_cast<float>(orgla0) * (r1 - r0) + static_cast<float>(orgla1) * (r3 - r0)).Z();
+		if (!std::isfinite(orgz) || std::abs(orgz) < 1e-9) {
+			if (warnings)
+				warnings->push_back("Degenerate quad in TagsFromQuad (orgz)");
+			return false;
+		}
 
 		// 归一化使原点处 z=screenZ，并将屏幕平面移至 z=0
 		float scale_factor = static_cast<float>(scaled_screen_z / orgz);
+		if (!std::isfinite(scale_factor)) {
+			if (warnings)
+				warnings->push_back("Non-finite scale in TagsFromQuad");
+			return false;
+		}
 		r0 = r0 * scale_factor - Vector3D(0, 0, static_cast<float>(scaled_screen_z));
 		r1 = r1 * scale_factor - Vector3D(0, 0, static_cast<float>(scaled_screen_z));
 		r2 = r2 * scale_factor - Vector3D(0, 0, static_cast<float>(scaled_screen_z));
@@ -373,6 +509,11 @@ namespace mocha {
 		// 步骤5：在水平平行四边形中求解 scale 和 shear
 		ab = r1 - r0;
 		Vector3D ad = r3 - r0;
+		if (!std::isfinite(ad.X()) || !std::isfinite(ad.Y()) || std::abs(ad.Y()) < 1e-12) {
+			if (warnings)
+				warnings->push_back("Degenerate quad in TagsFromQuad (shear)");
+			return false;
+		}
 		double rawfax = ad.X() / ad.Y();
 
 		double quadwidth = ab.Len();
@@ -380,12 +521,18 @@ namespace mocha {
 
 		width = std::max(width, 0.01);
 		height = std::max(height, 0.01);
+		if (!std::isfinite(quadwidth) || !std::isfinite(quadheight) ||
+			quadwidth <= 1e-12 || quadheight <= 1e-12) {
+			if (warnings)
+				warnings->push_back("Degenerate quad in TagsFromQuad (scale)");
+			return false;
+		}
 		double scalex = quadwidth / width;
 		double scaley = quadheight / height;
 
 		// 步骤6：计算 \pos（对应 MoonScript tagsFromQuad 中 quad[1]\project(2) + alignment）
-		double shiftv = (out_tags.align <= 3) ? 1.0 : ((out_tags.align <= 6) ? 0.5 : 0.0);
-		double shifth = (out_tags.align % 3 == 0) ? 1.0 : ((out_tags.align % 3 == 2) ? 0.5 : 0.0);
+		double shiftv = (result_tags.align <= 3) ? 1.0 : ((result_tags.align <= 6) ? 0.5 : 0.0);
+		double shifth = (result_tags.align % 3 == 0) ? 1.0 : ((result_tags.align % 3 == 2) ? 0.5 : 0.0);
 
 		Vector2D pos = org + r0.XY() +
 						Vector2D(
@@ -398,24 +545,24 @@ namespace mocha {
 		double angle_y_deg = -roty * 180.0 / M_PI;
 		double angle_z_deg = -rotz * 180.0 / M_PI;
 
-		out_tags.pos_x = pos.X();
-		out_tags.pos_y = pos.Y();
-		out_tags.org_x = org.X();
-		out_tags.org_y = org.Y();
-		out_tags.angle = angle_z_deg;
-		out_tags.angle_x = angle_x_deg;
-		out_tags.angle_y = angle_y_deg;
-		out_tags.scale_x = 100.0 * scalex;
-		out_tags.scale_y = 100.0 * scaley;
-		out_tags.shear_x = rawfax * scaley / scalex;
-		out_tags.shear_y = 0;
+		result_tags.pos_x = pos.X();
+		result_tags.pos_y = pos.Y();
+		result_tags.org_x = org.X();
+		result_tags.org_y = org.Y();
+		result_tags.angle = angle_z_deg;
+		result_tags.angle_x = angle_x_deg;
+		result_tags.angle_y = angle_y_deg;
+		result_tags.scale_x = 100.0 * scalex;
+		result_tags.scale_y = 100.0 * scaley;
+		result_tags.shear_x = rawfax * scaley / scalex;
+		result_tags.shear_y = 0;
 
 		// 步骤8：数值验证
 		std::vector<double> allvalues = {
-			out_tags.shear_x, out_tags.scale_x, out_tags.scale_y,
-			out_tags.angle, out_tags.angle_x, out_tags.angle_y,
-			out_tags.org_x, out_tags.org_y,
-			out_tags.pos_x, out_tags.pos_y
+			result_tags.shear_x, result_tags.scale_x, result_tags.scale_y,
+			result_tags.angle, result_tags.angle_x, result_tags.angle_y,
+			result_tags.org_x, result_tags.org_y,
+			result_tags.pos_x, result_tags.pos_y
 		};
 		for (double v : allvalues) {
 			if (!std::isfinite(v)) {
@@ -425,6 +572,7 @@ namespace mocha {
 			}
 		}
 
+		out_tags = result_tags;
 		return true;
 	}
 } // namespace mocha

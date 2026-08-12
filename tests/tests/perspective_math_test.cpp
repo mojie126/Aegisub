@@ -22,7 +22,8 @@ TEST(PerspectiveMathTest, Solve2x2Simple) {
 	// 2*x1 + 3*x2 = 8
 	// 1*x1 + 1*x2 = 3
 	// 解：x1=1, x2=2
-	PerspectiveMath::Solve2x2(2, 3, 1, 1, 8, 3, x1, x2);
+	bool ok = PerspectiveMath::Solve2x2(2, 3, 1, 1, 8, 3, x1, x2);
+	EXPECT_TRUE(ok);
 	EXPECT_NEAR(x1, 1.0, 1e-9);
 	EXPECT_NEAR(x2, 2.0, 1e-9);
 }
@@ -32,9 +33,19 @@ TEST(PerspectiveMathTest, Solve2x2Pivot) {
 	// 需要主元选择的场景
 	// 1*x1 + 1*x2 = 5
 	// 3*x1 + 2*x2 = 12
-	PerspectiveMath::Solve2x2(1, 1, 3, 2, 5, 12, x1, x2);
+	bool ok = PerspectiveMath::Solve2x2(1, 1, 3, 2, 5, 12, x1, x2);
+	EXPECT_TRUE(ok);
 	EXPECT_NEAR(x1, 2.0, 1e-9);
 	EXPECT_NEAR(x2, 3.0, 1e-9);
+}
+
+TEST(PerspectiveMathTest, Solve2x2DegenerateReturnsFalse) {
+	// 近零行列式（共线方程组）必须返回 false，而不是产生 NaN
+	double x1 = 1, x2 = 1;
+	bool ok = PerspectiveMath::Solve2x2(1, 2, 2, 4, 5, 6, x1, x2);
+	EXPECT_FALSE(ok);
+	EXPECT_TRUE(std::isfinite(x1));
+	EXPECT_TRUE(std::isfinite(x2));
 }
 
 // ============================================================================
@@ -134,6 +145,18 @@ TEST(PerspectiveMathTest, XYToUV_RoundtripPerspective) {
 	}
 }
 
+TEST(PerspectiveMathTest, InvalidQuadMappingReturnsNonFiniteMarker) {
+	Quad quad = {
+		Vector2D(0, 0),
+		Vector2D(100, 0),
+		Vector2D(200, 0),
+		Vector2D(300, 0),
+	};
+	const auto uv = PerspectiveMath::XYToUV(quad, Vector2D(10, 10));
+	EXPECT_FALSE(std::isfinite(uv.X()));
+	EXPECT_FALSE(std::isfinite(uv.Y()));
+}
+
 TEST(PerspectiveMathTest, UVToXY_Corners) {
 	// 四边形四角映射到单位方块四角
 	Quad quad = {
@@ -224,6 +247,12 @@ TEST(PerspectiveMathTest, TransformPointsIdentity) {
 	EXPECT_NEAR(quad[0].Y(), 0, 1e-4);
 	EXPECT_NEAR(quad[2].X(), 100, 1e-4);
 	EXPECT_NEAR(quad[2].Y(), 50, 1e-4);
+}
+
+TEST(PerspectiveMathTest, TransformPointsRejectsNonFiniteTags) {
+	PerspectiveTagVals tags;
+	tags.scale_x = std::numeric_limits<double>::infinity();
+	EXPECT_FALSE(PerspectiveMath::TransformPoints(tags, 100, 50).has_value());
 }
 
 TEST(PerspectiveMathTest, TransformPointsTranslation) {
@@ -502,4 +531,24 @@ TEST(PerspectiveMathTest, DegenerateQuadZeroArea) {
 		EXPECT_TRUE(std::isfinite(tags.pos_x));
 		EXPECT_TRUE(std::isfinite(tags.pos_y));
 	}
+}
+
+TEST(PerspectiveMathTest, TagsFromQuadFailureDoesNotMutateOutput) {
+	Quad quad = {
+		Vector2D(100, 100),
+		Vector2D(100, 100),
+		Vector2D(100, 100),
+		Vector2D(100, 100),
+	};
+	PerspectiveTagVals tags;
+	tags.pos_x = 42;
+	tags.pos_y = 24;
+	tags.org_x = 12;
+	tags.org_y = 34;
+
+	EXPECT_FALSE(PerspectiveMath::TagsFromQuad(tags, quad, 100, 50, 2, 1.0));
+	EXPECT_DOUBLE_EQ(tags.pos_x, 42);
+	EXPECT_DOUBLE_EQ(tags.pos_y, 24);
+	EXPECT_DOUBLE_EQ(tags.org_x, 12);
+	EXPECT_DOUBLE_EQ(tags.org_y, 34);
 }

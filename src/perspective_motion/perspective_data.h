@@ -56,10 +56,13 @@ namespace mocha {
 		/// @param lines 所有文本行
 		/// @param marker 标记号（如 "0002"）
 		/// @param[out] coords 坐标值列表（X 或 Y）
+		/// @param coord_index 数据列索引（0=Frame, 1=X, 2=Y）
+		/// @param[out] frames 可选：Frame 列值列表，用于跨 pin 一致性校验
 		static bool ParseSinglePin(const std::vector<std::string> &lines,
 									const std::string &marker,
 									std::vector<double> &coords,
-									int coord_index);
+									int coord_index,
+									std::vector<int> *frames = nullptr);
 
 		std::vector<std::vector<Vector2D>> quads_;
 	};

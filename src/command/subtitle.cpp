@@ -322,6 +322,18 @@ namespace {
 				// 从 AssDialogue 构建模块内部使用的 MotionLine 数据结构
 				mocha::MotionLine motion_line = mocha::MotionProcessor::build_line(active_line);
 
+				// 记录事件行号（用于缺失样式等诊断信息）
+				{
+					size_t ei = 0;
+					for (auto &event : c->ass->Events) {
+						if (&event == active_line) {
+							motion_line.number = static_cast<int>(ei) + 1;
+							break;
+						}
+						++ei;
+					}
+				}
+
 				// 构建行集合
 				std::vector<mocha::MotionLine> lines = {motion_line};
 
@@ -351,6 +363,19 @@ namespace {
 				if (!group.empty()) { has_any_results = true; break; }
 			}
 			if (cancelled || !has_any_results) return;
+
+			// 对应上游 #75：行引用不存在的样式时向用户明确提示
+			if (!processor.missing_style_warnings().empty()) {
+				wxString details;
+				for (const auto &warning : processor.missing_style_warnings()) {
+					if (!details.empty()) details += "\n";
+					details += wxString::FromUTF8(warning);
+				}
+				wxMessageBox(
+					_("Some subtitle lines reference styles that do not exist:") + "\n" + details,
+					_("Warning"), wxICON_WARNING
+				);
+			}
 
 			// 阶段 2：记录选中行之后的插入位置
 			// selected_lines 已按反序排列（最晚行在前），最后一个元素是正序中最早的行
@@ -536,8 +561,9 @@ namespace {
 				}
 			}
 
+			// 支持对话框已校验过的文件路径输入：统一使用 BestEffortParse
 			mocha::PerspectiveDataHandler data_handler;
-			if (!data_handler.ParsePowerPin(result.raw_data)) {
+			if (!data_handler.BestEffortParse(result.raw_data)) {
 				wxMessageBox(_("Failed to parse Power-Pin tracking data."), _("Error"), wxICON_ERROR);
 				return;
 			}
@@ -551,22 +577,23 @@ namespace {
 				return;
 			}
 
-			// 反向追踪和相对/绝对帧号转换
-			if (result.options.reverse_tracking) {
-				result.options.start_frame = total_frames - result.options.relframe + 1;
-			}
-
-			if (!result.options.relative) {
-				result.options.start_frame = result.options.start_frame - collection_start_frame + 1;
-				result.options.relative = true;
-			}
+			// 相对/绝对帧号转换只在此处执行一次
+			// PerspectiveProcessor 的 start_frame 是正序输出下限，反向追踪仍输出完整正序数据，
+			// 仅将末帧参考号换算为对应的正序起始帧
+			result.options.start_frame = mocha::ComputeEffectiveStartFrame(
+				result.options.start_frame, result.options.relative,
+				result.options.reverse_tracking, result.options.relframe,
+				total_frames, collection_start_frame
+			);
+			result.options.relative = true;
 
 			result.options.selection_start_frame = collection_start_frame;
 			result.options.layout_res_y = c->ass->GetScriptInfoAsInt("LayoutResY");
 
-			mocha::PerspectiveProcessor processor(result.options,
-				c->ass->GetScriptInfoAsInt("PlayResX"),
-				c->ass->GetScriptInfoAsInt("PlayResY"));
+			int res_x = 0, res_y = 0;
+			c->ass->GetResolution(res_x, res_y);
+
+			mocha::PerspectiveProcessor processor(result.options, res_x, res_y);
 
 			processor.SetTimingFunctions(
 				[c](int ms) { return c->videoController->FrameAtTime(ms, agi::vfr::START); },
@@ -581,17 +608,43 @@ namespace {
 			int video_w = c->project->VideoProvider()->GetWidth();
 			int video_h = c->project->VideoProvider()->GetHeight();
 
-			// 阶段 1：逐行处理，按组收集结果（与选中行顺序一致）
-			std::vector<std::vector<mocha::MotionLine>> grouped_results;
+			// 阶段 1：统一预处理和追踪所有选中行，保留原版多行参考绑定语义
+			std::vector<mocha::MotionLine> all_lines;
+			std::vector<int> source_numbers;
+			all_lines.reserve(selected_lines.size());
+			source_numbers.reserve(selected_lines.size());
 			for (AssDialogue *active_line : selected_lines) {
 				auto motion_line = mocha::PerspectiveProcessor::BuildLine(active_line);
-				std::vector<mocha::MotionLine> lines = {motion_line};
-				processor.PrepareLines(lines);
+				// 记录事件行号（用于缺失样式等诊断信息）
+				{
+					size_t ei = 0;
+					for (auto &event : c->ass->Events) {
+						if (&event == active_line) {
+							motion_line.number = static_cast<int>(ei) + 1;
+							break;
+						}
+						++ei;
+					}
+				}
+				source_numbers.push_back(motion_line.number);
+				all_lines.push_back(std::move(motion_line));
+			}
+			processor.PrepareLines(all_lines);
+			auto processed = processor.Apply(all_lines, data_handler.Quads(), video_w, video_h);
+			mocha::PerspectiveProcessor::PostprocessLines(processed);
 
-				auto processed = processor.Apply(lines, data_handler.Quads(), video_w, video_h);
-				mocha::PerspectiveProcessor::PostprocessLines(processed);
+			std::map<int, std::vector<mocha::MotionLine>> results_by_source;
+			for (auto &processed_line : processed)
+				results_by_source[processed_line.number].push_back(std::move(processed_line));
 
-				grouped_results.push_back(std::move(processed));
+			std::vector<std::vector<mocha::MotionLine>> grouped_results;
+			grouped_results.reserve(source_numbers.size());
+			for (const int source_number : source_numbers) {
+				auto it = results_by_source.find(source_number);
+				if (it == results_by_source.end())
+					grouped_results.emplace_back();
+				else
+					grouped_results.push_back(std::move(it->second));
 			}
 
 			// 检查是否有任何结果
@@ -600,6 +653,24 @@ namespace {
 				if (!group.empty()) { has_any_results = true; break; }
 			}
 			if (!has_any_results) return;
+			// 对应上游 #75：行引用不存在的样式时向用户明确提示
+			if (!processor.MissingStyleWarnings().empty()) {
+				wxString details;
+				for (const auto &warning : processor.MissingStyleWarnings()) {
+					if (!details.empty()) details += "\n";
+					details += wxString::FromUTF8(warning);
+				}
+				wxMessageBox(
+					_("Some subtitle lines reference styles that do not exist:") + "\n" + details,
+					_("Warning"), wxICON_WARNING
+				);
+			}
+			if (processor.HasMalformedFade()) {
+				wxMessageBox(
+					_("Some subtitle fade tags are malformed and were left unchanged."),
+					_("Warning"), wxICON_WARNING
+				);
+			}
 
 			// 阶段 2-4：逐行处理插入（各自在对应行位置插入逐帧行）
 			// selected_lines 已反转（最晚行在前），grouped_results 对应相同顺序
@@ -636,6 +707,9 @@ namespace {
 						diag->Margin[0] = pl.margin_l;
 						diag->Margin[1] = pl.margin_r;
 						diag->Margin[2] = pl.margin_t;
+						// 追踪四边形写入 extradata，供视觉工具 TextToPersp 读回恢复原平面精调
+						if (result.options.include_extra && !pl.ambient_plane.empty())
+							c->ass->SetExtradataValue(*diag, "_aegi_perspective_ambient_plane", pl.ambient_plane);
 						c->ass->Events.insert(insert_before, *diag);
 					}
 				} else {
@@ -654,6 +728,9 @@ namespace {
 						diag->Margin[0] = pl.margin_l;
 						diag->Margin[1] = pl.margin_r;
 						diag->Margin[2] = pl.margin_t;
+						// 追踪四边形写入 extradata，供视觉工具 TextToPersp 读回恢复原平面精调
+						if (result.options.include_extra && !pl.ambient_plane.empty())
+							c->ass->SetExtradataValue(*diag, "_aegi_perspective_ambient_plane", pl.ambient_plane);
 						c->ass->Events.insert(insert_before, *diag);
 					}
 				}

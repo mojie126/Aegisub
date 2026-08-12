@@ -71,6 +71,7 @@ namespace mocha {
 			wxCheckBox *chk_preview = nullptr;
 			wxCheckBox *chk_reverse = nullptr;
 			wxCheckBox *chk_write_conf = nullptr;
+			wxCheckBox *chk_include_extra = nullptr;
 
 			// 结果
 			PerspectiveDialogResult result;
@@ -231,9 +232,15 @@ namespace mocha {
 			chk_write_conf = new wxCheckBox(&d, wxID_ANY, _("Save config"));
 			chk_write_conf->SetValue(true);
 			chk_write_conf->SetToolTip(_("Save current options to configuration file for next use."));
+			chk_include_extra = new wxCheckBox(&d, wxID_ANY, _("Add quad to extradata"));
+			chk_include_extra->SetValue(true);
+			chk_include_extra->SetToolTip(
+				_("Write the tracked quad of each output line to its extradata (key \"_aegi_perspective_ambient_plane\"). The perspective visual tool can then restore the ambient plane when refining the result.")
+			);
 			cfg_row2->Add(chk_preview, 0, wxALL, inner_pad);
 			cfg_row2->Add(chk_reverse, 0, wxALL, inner_pad);
 			cfg_row2->Add(chk_write_conf, 0, wxALL, inner_pad);
+			cfg_row2->Add(chk_include_extra, 0, wxALL, inner_pad);
 			config_sizer->Add(cfg_row2, 0, wxEXPAND);
 
 			// ====== 按钮 ======
@@ -265,6 +272,7 @@ namespace mocha {
 			chk_preview->SetValue(result.options.preview);
 			chk_reverse->SetValue(result.options.reverse_tracking);
 			chk_write_conf->SetValue(result.options.write_conf);
+			chk_include_extra->SetValue(result.options.include_extra);
 
 			// 初始化参考帧号控件：范围 1..选中行帧数，值由当前视频帧自动计算
 			spin_relframe->SetRange(1, std::max(1, selection_frames));
@@ -472,6 +480,7 @@ namespace mocha {
 				opts.track_clip = chk_track_clip->GetValue();
 				opts.track_bord_shad = chk_track_bord_shad->GetValue();
 				opts.apply_perspective = chk_apply_perspective->GetValue();
+				opts.include_extra = chk_include_extra->GetValue();
 				opts.relframe = spin_relframe->GetValue();
 				opts.org_mode = radio_org_mode->GetSelection() + 1;
 				opts.relative = chk_relative->GetValue();
@@ -495,6 +504,7 @@ namespace mocha {
 			result.options.preview = chk_preview->GetValue();
 			result.options.reverse_tracking = chk_reverse->GetValue();
 			result.options.write_conf = chk_write_conf->GetValue();
+			result.options.include_extra = chk_include_extra->GetValue();
 			result.raw_data = data_text->GetValue().ToStdString();
 
 			// 验证追踪数据是否存在且可解析

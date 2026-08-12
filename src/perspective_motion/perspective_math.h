@@ -41,6 +41,8 @@ namespace mocha {
 		double shadow_x = 0; // \xshad
 		double shadow_y = 0; // \yshad
 		int align = 7; // \an (默认 7: 左上)
+		double font_size = 48; // \fs，用于跨 override 块继承绘制尺寸
+		int drawing_scale = 0; // \p，用于跨 override 块继承绘图模式
 	};
 
 	/// 透视追踪数学工具类
@@ -63,7 +65,8 @@ namespace mocha {
 		/// a11*x1 + a12*x2 = b1
 		/// a21*x1 + a22*x2 = b2
 		/// 使用带简单主元选择的 LU 分解
-		static void Solve2x2(double a11, double a12, double a21, double a22,
+		/// @return 行列式近零（退化）时返回 false，输出参数置为 0
+		static bool Solve2x2(double a11, double a12, double a21, double a22,
 							double b1, double b2, double &x1, double &x2);
 
 		/// @brief 计算四边形对角线交点
@@ -87,10 +90,12 @@ namespace mocha {
 		/// @brief 将屏幕坐标点映射到单位方块 (uv) 空间
 		/// 对应 MoonScript Quad:xy_to_uv()
 		/// 使用 Mathematica 推导的闭式分式表达式
+		/// 退化四边形或分母无效时返回非有限标记值
 		static Vector2D XYToUV(const Quad &quad, Vector2D xy);
 
 		/// @brief 将单位方块坐标点映射回屏幕坐标
 		/// 对应 MoonScript Quad:uv_to_xy()
+		/// 退化四边形或分母无效时返回非有限标记值
 		static Vector2D UVToXY(const Quad &quad, Vector2D uv);
 
 		/// @brief uv_to_xy 的雅可比矩阵（2x2 解析形式）

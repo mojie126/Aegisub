@@ -55,6 +55,7 @@ namespace mocha {
 			read_bool("trackClip", opts.track_clip);
 			read_bool("trackBordShad", opts.track_bord_shad);
 			read_bool("applyPersp", opts.apply_perspective);
+			read_bool("includeextra", opts.include_extra);
 			read_int("orgMode", opts.org_mode);
 			read_bool("relative", opts.relative);
 			read_int("startFrame", opts.start_frame);
@@ -87,6 +88,7 @@ namespace mocha {
 			persp_obj["trackClip"] = json::UnknownElement(opts.track_clip);
 			persp_obj["trackBordShad"] = json::UnknownElement(opts.track_bord_shad);
 			persp_obj["applyPersp"] = json::UnknownElement(opts.apply_perspective);
+			persp_obj["includeextra"] = json::UnknownElement(opts.include_extra);
 			persp_obj["orgMode"] = json::UnknownElement(static_cast<int64_t>(opts.org_mode));
 			persp_obj["relative"] = json::UnknownElement(opts.relative);
 			persp_obj["startFrame"] = json::UnknownElement(static_cast<int64_t>(opts.start_frame));
