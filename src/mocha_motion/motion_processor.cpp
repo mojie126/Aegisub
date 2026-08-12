@@ -157,7 +157,6 @@ namespace mocha {
 		struct ImportantTag {
 			std::string key; // 标签注册名
 			std::string pattern; // 正则检查模式
-			std::string format; // 格式化字符串
 			bool check_option; // 对应的选项是否启用
 			double skip_value; // 当属性为此值时跳过
 		};
@@ -169,16 +168,16 @@ namespace mocha {
 
 		// 对应 MoonScript importantTags：仅包含 xscale/yscale/border/shadow/zrot
 		// xrot/yrot/zdepth 为 C++ 扩展字段，不在此预填充（由回调按需处理）
+		// 序列化统一走 TagDef::format_float（固定小数，禁止 %g 科学计数法，对应上游 #76）
 		std::vector<ImportantTag> important_tags = {
-			{"xscale", R"(\\fscx[\d.]+)", "\\fscx%g", options_.x_scale, 0},
-			{"yscale", R"(\\fscy[\d.]+)", "\\fscy%g", options_.x_scale, 0},
-			{"border", R"(\\bord[\d.]+)", "\\bord%g", options_.border, 0},
-			{"shadow", R"(\\shad[-.0-9]+)", "\\shad%g", options_.shadow, 0},
-			{"zrot", R"(\\frz[-.0-9]+|\\fr[-.0-9]+)", "\\frz%g", options_.z_rotation, -1e9}, // 无 skip 值
+			{"xscale", R"(\\fscx[\d.]+)", options_.x_scale, 0},
+			{"yscale", R"(\\fscy[\d.]+)", options_.x_scale, 0},
+			{"border", R"(\\bord[\d.]+)", options_.border, 0},
+			{"shadow", R"(\\shad[-.0-9]+)", options_.shadow, 0},
+			{"zrot", R"(\\frz[-.0-9]+|\\fr[-.0-9]+)", options_.z_rotation, -1e9}, // 无 skip 值
 		};
 
 		std::string result;
-		char buf[64];
 
 		// 预编译各标签的正则表达式（热路径优化）
 		static const auto compiled_tags = [&]() {
@@ -188,6 +187,8 @@ namespace mocha {
 				v.emplace_back(tag.pattern);
 			return v;
 		}();
+
+		const auto &registry = TagRegistry::instance();
 
 		for (size_t i = 0; i < important_tags.size(); ++i) {
 			const auto &tag = important_tags[i];
@@ -200,8 +201,9 @@ namespace mocha {
 			// 如果属性值等于 skip 值，跳过
 			if (tag.skip_value > -1e8 && std::abs(value - tag.skip_value) < 0.001) continue;
 
-			std::snprintf(buf, sizeof(buf), tag.format.c_str(), value);
-			result += buf;
+			const TagDef *td = registry.get(tag.key);
+			if (td)
+				result += td->format_float(value);
 		}
 
 		return result;
@@ -243,6 +245,14 @@ namespace mocha {
 			const AssStyle *style = nullptr;
 			if (style_lookup_) {
 				style = style_lookup_(line.style);
+			}
+			if (style_lookup_ && !style && !line.style.empty()) {
+				// 对应上游 #75：行引用不存在的样式时明确提示，避免静默回退默认值
+				LOG_D("mocha/processor") << "Line " << line.number
+					<< " uses the nonexistent style \"" << line.style << "\"";
+				missing_style_warnings_.push_back(
+					"Line " + std::to_string(line.number)
+					+ " uses the nonexistent style \"" + line.style + "\"");
 			}
 			auto props = extract_style_properties(style);
 			line.get_properties_from_style(props);

@@ -36,6 +36,12 @@ namespace mocha {
 		/// 设置样式查询函数
 		void set_style_lookup(std::function<const AssStyle*(const std::string &)> lookup);
 
+		/// @brief 预处理中发现的不存在样式引用（对应上游 #75 明确报错）
+		/// 元素为可定位的描述文本（含样式名和行号），供命令层向用户展示
+		[[nodiscard]] const std::vector<std::string> &missing_style_warnings() const {
+			return missing_style_warnings_;
+		}
+
 		/// 从 AssDialogue 构建 MotionLine
 		static MotionLine build_line(const AssDialogue *diag);
 
@@ -89,5 +95,6 @@ namespace mocha {
 		FrameFromMs frame_from_ms_;
 		MsFromFrame ms_from_frame_;
 		std::function<const AssStyle*(const std::string &)> style_lookup_;
+		std::vector<std::string> missing_style_warnings_;
 	};
 } // namespace mocha

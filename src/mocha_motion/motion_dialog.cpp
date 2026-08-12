@@ -1272,11 +1272,9 @@ namespace mocha {
 	} // namespace
 
 	MotionDialogResult ShowMotionDialog(agi::Context *c) {
-		// 获取脚本分辨率
-		int res_x = c->ass->GetScriptInfoAsInt("PlayResX");
-		int res_y = c->ass->GetScriptInfoAsInt("PlayResY");
-		if (res_x <= 0) res_x = 1920;
-		if (res_y <= 0) res_y = 1080;
+		// 获取脚本分辨率（缺失时按 Aegisub 规则回退，对应上游 #77）
+		int res_x = 0, res_y = 0;
+		c->ass->GetResolution(res_x, res_y);
 
 		MotionDialogImpl dlg(c, res_x, res_y);
 		dlg.d.ShowModal();

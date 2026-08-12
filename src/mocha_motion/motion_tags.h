@@ -13,6 +13,9 @@
 #include <map>
 
 namespace mocha {
+	/// 紧凑浮点序列化：%.15f 去尾零，避免 %g 的指数计数法（对应上游 #76）
+	[[nodiscard]] std::string format_compact_float(double value);
+
 	/// ASS 标签类型
 	enum class TagType {
 		NUMBER, // 数值类型（大多数标签）

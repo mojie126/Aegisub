@@ -34,7 +34,7 @@ namespace mocha {
 		t.index = tag_index;
 
 		// 解析 (t1,t2,accel,effect) 或 (t1,t2,effect) 或 (accel,effect) 或 (effect)
-		std::regex re4(R"(^\(([\-\d]*),?([\-\d]*),?([\d.]*),?(.+)\)$)");
+		static const std::regex re4(R"(^\(([\-\d]*),?([\-\d]*),?([\d.]*),?(.+)\)$)");
 		std::smatch match;
 		const std::string &content = transform_string;
 
@@ -82,6 +82,21 @@ namespace mocha {
 			}
 
 			t.effect = s_effect;
+
+			// 对应上游 #78：\t 内部是独立作用域，可重复标签单独去重（保留最后一个），
+			// 避免行级去重把 \t 内部标签与外部同名标签混为一谈（Issue #69）
+			{
+				const auto &tag_registry = TagRegistry::instance();
+				for (const auto *tag_def : tag_registry.repeat_tags()) {
+					t.effect = tag_utils::deduplicate_tag(t.effect, tag_def->compiled_pattern);
+				}
+			}
+			// 线性模式通过 raw_string 直接还原 transform，原始 effect 也必须同步去重
+			if (t.effect != s_effect && s_effect.size() + 1 <= content.size()) {
+				const size_t effect_start = content.size() - 1 - s_effect.size();
+				t.raw_string = content.substr(0, effect_start) + t.effect
+					+ content.substr(effect_start + s_effect.size());
+			}
 		}
 
 		t.gather_tags_in_effect();
@@ -150,7 +165,7 @@ namespace mocha {
 						// 多值标签：逗号分隔的坐标值
 						// 对应 MoonScript: convertMultiValue
 						etv.type = EffectTagValue::MULTI;
-						std::regex coord_re(R"([.\d\-]+)");
+						static const std::regex coord_re(R"([.\d\-]+)");
 						std::sregex_iterator cit(captured.begin(), captured.end(), coord_re);
 						std::sregex_iterator cend;
 						while (cit != cend) {
@@ -456,7 +471,7 @@ namespace mocha {
 
 			// 匹配 \t 标签（需处理嵌套括号）
 			// 对应 MoonScript: tags.allTags.transform.pattern = "\\t(%(.-%))"
-			std::regex t_re(R"(\\t(\([^()]*(?:\([^()]*\)[^()]*)*\)))");
+			static const std::regex t_re(R"(\\t(\([^()]*(?:\([^()]*\)[^()]*)*\)))");
 			std::smatch match;
 			int count = 0;
 

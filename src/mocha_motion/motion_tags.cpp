@@ -6,9 +6,12 @@
 #include "motion_math.h"
 
 #include <algorithm>
+#include <cmath>
+#include <iomanip>
 #include <regex>
 #include <cstdio>
 #include <ranges>
+#include <sstream>
 
 namespace mocha {
 // ============================================================
@@ -21,10 +24,26 @@ namespace mocha {
 		return buf;
 	}
 
+	/// @brief 紧凑固定格式输出浮点数
+	/// 对应 MoonScript formatFloat()：%.15f + 去尾零，避免 %g 的指数计数法
+	std::string format_compact_float(double value) {
+		if (!std::isfinite(value))
+			value = 0;
+		std::ostringstream stream;
+		stream << std::fixed << std::setprecision(15) << value;
+		std::string s = stream.str();
+		if (s.find('.') != std::string::npos) {
+			s.erase(s.find_last_not_of('0') + 1, std::string::npos);
+			if (!s.empty() && s.back() == '.')
+				s.pop_back();
+			if (s.empty() || s == "-" || s == "-0")
+				s = "0";
+		}
+		return s;
+	}
+
 	std::string TagDef::format_float(const double value) const {
-		char buf[64];
-		std::snprintf(buf, sizeof(buf), "%s%g", tag.c_str(), value);
-		return buf;
+		return tag + format_compact_float(value);
 	}
 
 	std::string TagDef::format_alpha(const int value) const {
@@ -41,13 +60,11 @@ namespace mocha {
 
 	std::string TagDef::format_multi(const std::vector<double> &values) const {
 		// 对应 MoonScript: table.concat value, ','
-		// 使用 %g 格式以匹配 MoonScript 的数值输出精度
+		// 各分量使用紧凑浮点格式（%.15f + 去尾零），与 format_float 保持一致
 		std::string result = tag + "(";
-		char buf[64];
 		for (size_t i = 0; i < values.size(); ++i) {
 			if (i > 0) result += ",";
-			std::snprintf(buf, sizeof(buf), "%g", values[i]);
-			result += buf;
+			result += format_compact_float(values[i]);
 		}
 		result += ")";
 		return result;
@@ -338,10 +355,10 @@ namespace mocha {
 
 			// 匹配 \t(t1,t2,accel,effect) 或 \t(t1,t2,effect)
 			// 使用精确的正则表达式处理嵌套括号（对应 issue_69 修复）
-			const std::regex t_regex_4(
+			static const std::regex t_regex_4(
 				R"(\\t\(((?:[^,()]|\([^)]*\))+?),((?:[^,()]|\([^)]*\))+?),((?:[^,()]|\([^)]*\))+?),((?:[^()]|\([^)]*\))*)\))"
 			);
-			const std::regex t_regex_3(
+			static const std::regex t_regex_3(
 				R"(\\t\(((?:[^,()]|\([^)]*\))+?),((?:[^,()]|\([^)]*\))+?),((?:[^()]|\([^)]*\))*)\))"
 			);
 
@@ -482,7 +499,7 @@ namespace mocha {
 		std::string run_callback_on_overrides(const std::string &text, const std::function<std::string(const std::string &, int)> &callback) {
 			// 匹配所有标签块 {xxx}
 			std::string result;
-			std::regex override_re(R"(\{[^}]*\})");
+			static const std::regex override_re(R"(\{[^}]*\})");
 			int major = 0;
 			std::sregex_iterator it(text.begin(), text.end(), override_re);
 			std::sregex_iterator end;
@@ -509,7 +526,7 @@ namespace mocha {
 
 		std::string run_callback_on_first_override(const std::string &text, const std::function<std::string(const std::string &)> &callback) {
 			// 仅处理第一个标签块
-			const std::regex first_re(R"(^\{[^}]*\})");
+			static const std::regex first_re(R"(^\{[^}]*\})");
 			std::smatch match;
 			if (std::regex_search(text, match, first_re)) {
 				const std::string processed = callback(match.str());
