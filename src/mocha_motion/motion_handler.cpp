@@ -291,9 +291,11 @@ namespace mocha {
 			const double py = move.y1 + (move.y2 - move.y1) * progress;
 
 			static const std::regex move_re(R"(\\move\([^)]+\))");
-			text = std::regex_replace(text, move_re,
+			text = std::regex_replace(
+				text, move_re,
 				"\\pos(" + format_compact_float(math::round(px, 2))
-				+ "," + format_compact_float(math::round(py, 2)) + ")");
+				+ "," + format_compact_float(math::round(py, 2)) + ")"
+			);
 		}
 
 		// 对每个回调，计算首尾帧的值并生成 \t
@@ -328,16 +330,16 @@ namespace mocha {
 		FadeSampler fade_sampler = FadeSampler::create(collection_start_frame, rel_start, ms_from_frame);
 
 		for (int frame = rel_end; frame >= rel_start; --frame) {
-			// 计算新行的起止时间（10ms 对齐）
+			// 计算新行的起止时间（10ms 对齐，四舍五入对应 ASS 百分秒精度，上游 #87）
 			int raw_start_ms = ms_from_frame(collection_start_frame + frame - 1);
 			int raw_end_ms = ms_from_frame(collection_start_frame + frame);
 
-			int new_start_time = static_cast<int>(std::floor(std::max(0, raw_start_ms) / 10.0)) * 10;
-			int new_end_time = static_cast<int>(std::floor(std::max(0, raw_end_ms) / 10.0)) * 10;
+			int new_start_time = (std::max(0, raw_start_ms) + 5) / 10 * 10;
+			int new_end_time = (std::max(0, raw_end_ms) + 5) / 10 * 10;
 
 			// 当前帧相对于行首帧的时间偏移
 			int first_frame_ms = ms_from_frame(collection_start_frame + rel_start - 1);
-			int time_delta = new_start_time - static_cast<int>(std::floor(std::max(0, first_frame_ms) / 10.0)) * 10;
+			int time_delta = new_start_time - (std::max(0, first_frame_ms) + 5) / 10 * 10;
 
 			// 双时间基准 fade 采样（兼容回退）
 			int fade_td_original, fade_td_shifted;
@@ -421,7 +423,8 @@ namespace mocha {
 					int eval_shifted = fade_td_shifted, eval_original = fade_td_original;
 					if (has_frame_sample) {
 						const int nudged = FrameIntervalSampler::nudge_off_fade_endpoint(
-							fade.value(), frame_sample_rel, vis_rel_start, vis_rel_end);
+							fade.value(), frame_sample_rel, vis_rel_start, vis_rel_end
+						);
 						eval_shifted = eval_original = nudged;
 					}
 					// 使用双时间基准计算淡入淡出因子
@@ -515,9 +518,11 @@ namespace mocha {
 				double py = move.y1 + (move.y2 - move.y1) * progress;
 
 				static const std::regex move_re(R"(\\move\([^)]+\))");
-				new_text = std::regex_replace(new_text, move_re,
+				new_text = std::regex_replace(
+					new_text, move_re,
 					"\\pos(" + format_compact_float(math::round(px, 2))
-					+ "," + format_compact_float(math::round(py, 2)) + ")");
+					+ "," + format_compact_float(math::round(py, 2)) + ")"
+				);
 			}
 
 			// 计算当前帧的追踪状态

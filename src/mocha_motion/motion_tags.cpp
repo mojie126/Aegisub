@@ -265,11 +265,14 @@ namespace mocha {
 		all_tags_["fade"] = {"fade", R"(\\fade\((\d+,\d+,\d+,[\d\-]+,[\d\-]+,[\d\-]+,[\d\-]+)\))", "\\fade", false, true, "", TagType::MULTI, {}, {"a1", "a2", "a3", "t1", "t2", "t3", "t4"}};
 
 		// --- Clip ---
-		// rectClip 是可变换的多值标签
-		all_tags_["rectClip"] = {"rectClip", R"(\\clip\(([\-\d.]+,[\-\d.]+,[\-\d.]+,[\-\d.]+)\))", "\\clip", true, true, "", TagType::MULTI, {}, {"xLeft", "yTop", "xRight", "yBottom"}};
-		all_tags_["rectiClip"] = {"rectiClip", R"(\\iclip\(([\-\d.]+,[\-\d.]+,[\-\d.]+,[\-\d.]+)\))", "\\iclip", true, true, "", TagType::MULTI, {}, {"xLeft", "yTop", "xRight", "yBottom"}};
-		all_tags_["vectClip"] = {"vectClip", R"(\\clip\((\d+,)?([^,]*?)\))", "\\clip", false, true, "", TagType::MULTI, {}, {"scale", "shape"}};
-		all_tags_["vectiClip"] = {"vectiClip", R"(\\iclip\((\d+,)?([^,]*?)\))", "\\iclip", false, true, "", TagType::MULTI, {}, {"scale", "shape"}};
+		// rectClip 是可变换的多值标签，渲染器顺序应用矩形 clip（后出现覆盖前），
+		// 不参与整行 one-time 去重（对应上游 #89）
+		all_tags_["rectClip"] = {"rectClip", R"(\\clip\(([\-\d.]+,[\-\d.]+,[\-\d.]+,[\-\d.]+)\))", "\\clip", true, false, "", TagType::MULTI, {}, {"xLeft", "yTop", "xRight", "yBottom"}};
+		all_tags_["rectiClip"] = {"rectiClip", R"(\\iclip\(([\-\d.]+,[\-\d.]+,[\-\d.]+,[\-\d.]+)\))", "\\iclip", true, false, "", TagType::MULTI, {}, {"xLeft", "yTop", "xRight", "yBottom"}};
+		// 矢量 clip 模式要求可选 scale 后跟绘图命令字母，避免误匹配矩形 clip 内容，
+		// 支持 scale 与命令间空格（对应上游 #89）
+		all_tags_["vectClip"] = {"vectClip", R"(\\clip\((\d*,?\s*[mnlbspc][^,]*)\))", "\\clip", false, true, "", TagType::MULTI, {}, {"scale", "shape"}};
+		all_tags_["vectiClip"] = {"vectiClip", R"(\\iclip\((\d*,?\s*[mnlbspc][^,]*)\))", "\\iclip", false, true, "", TagType::MULTI, {}, {"scale", "shape"}};
 
 		// 分类标签
 		for (auto &tag_def : all_tags_ | std::views::values) {

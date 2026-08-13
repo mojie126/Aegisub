@@ -75,8 +75,8 @@ namespace {
 	};
 
 	[[nodiscard]] std::string trim_copy(const std::string &value) {
-		const auto first = std::find_if_not(
-			value.begin(), value.end(),
+		const auto first = std::ranges::find_if_not(
+			value,
 			[](const unsigned char ch) { return std::isspace(ch) != 0; }
 		);
 		if (first == value.end()) return "";
@@ -631,13 +631,12 @@ namespace mocha {
 		);
 
 		// 处理冲突标签对
-		// 对应 MoonScript: { "move", "pos" }, { "fade", "fad" },
-		//                  { "rectClip", "rectiClip" }, { "vectClip", "vectiClip" }
+		// 对应 MoonScript: { "move", "pos" }, { "fade", "fad" }, { "vectClip", "vectiClip" }
 		// 当两者共存时，保留先出现的，移除后出现的
+		// 矩形 clip 不参与冲突移除：渲染器顺序应用（后出现覆盖前，上游 #89）
 		static const std::vector<std::pair<std::string, std::string>> conflicting_pairs = {
 			{"move", "pos"},
 			{"fade", "fad"},
-			{"rectClip", "rectiClip"},
 			{"vectClip", "vectiClip"},
 		};
 		for (const auto &[tag_a, tag_b] : conflicting_pairs) {
