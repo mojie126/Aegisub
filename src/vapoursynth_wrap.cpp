@@ -94,8 +94,9 @@ VapourSynthWrapper::VapourSynthWrapper() {
 
 		if (vsscriptDLLpath.length()) {
 			#ifdef LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR
-			// 仅从 DLL 所在目录加载，缓解注册表可控路径导致的 DLL 搜索序劫持/种植
-			hLib = LoadLibraryExW(vsscriptDLLpath.c_str(), nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR);
+			// 从 DLL 所在目录及系统目录加载，缓解注册表可控路径导致的 DLL 搜索序劫持/种植，
+			// 系统目录用于解析 vsscript.dll 依赖的 VC 运行库（MSVCP140/VCRUNTIME140 等）
+			hLib = LoadLibraryExW(vsscriptDLLpath.c_str(), nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
 			#else
 			hLib = LoadLibraryW(vsscriptDLLpath.c_str());
 			#endif
