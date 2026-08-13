@@ -1,6 +1,6 @@
 project('Aegisub', ['c', 'cpp'],
 		license : 'BSD-3-Clause',
-		meson_version : '>=1.0.0',
+		meson_version : '>=1.8.0',
 		default_options : [
 			'cpp_std=c++20',
 			'buildtype=debugoptimized',
@@ -490,7 +490,7 @@ link_args = []
 link_depends = []
 if host_machine.system() == 'windows'
 	manifest_file = configure_file(copy : true, input : 'src/res/Aegisub.exe.manifest', output : 'Aegisub.exe.manifest')
-	link_args += ['/MANIFEST:EMBED', '/MANIFESTINPUT:@0@'.format(manifest_file)]
+	link_args += ['/MANIFEST:EMBED', '/MANIFESTINPUT:@0@'.format(manifest_file.full_path())]
 	link_depends += manifest_file
 endif
 

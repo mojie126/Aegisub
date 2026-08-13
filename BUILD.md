@@ -14,14 +14,14 @@
 ```powershell
 # 1. 删除所有下载/解压的子项目（保留项目自有的 csri、iconv、packagefiles 和 .wrap 文件）
 Get-ChildItem subprojects -Directory |
-    Where-Object { $_.Name -notin @('csri', 'iconv', 'packagefiles') } |
-    ForEach-Object { Remove-Item -Recurse -Force $_.FullName }
+		Where-Object { $_.Name -notin @('csri', 'iconv', 'packagefiles') } |
+		ForEach-Object { Remove-Item -Recurse -Force $_.FullName }
 
 # 2. 删除构建目录
 Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
 
-# 3. 配置（所有子项目将自动下载）
-meson setup build -Dbuildtype=release -Ddefault_library=static `
+# 3. Debug 配置（所有子项目将自动下载），如果构建 Release，使用 -Dbuildtype=release
+meson setup build -Dbuildtype=debug -Ddefault_library=static `
     "-Dforce_fallback_for=zlib,harfbuzz,freetype2,fribidi,libpng" `
     "-Dfreetype2:harfbuzz=disabled" "-Dharfbuzz:freetype=disabled" `
     "-Dharfbuzz:cairo=disabled" "-Dharfbuzz:glib=disabled" `
@@ -30,7 +30,7 @@ meson setup build -Dbuildtype=release -Ddefault_library=static `
     "-Dfribidi:tests=false" "-Dfribidi:docs=false" `
     "-Dlibass:fontconfig=disabled" "-Dffmpeg:libdav1d=enabled" `
     "-Davisynth=enabled" "-Dbestsource=enabled" "-Dvapoursynth=enabled" `
-    "-Dversion=3.5.3"
+    "-Dversion=3.5.2"
 
 # 4. 编译
 meson compile -C build
@@ -82,10 +82,10 @@ meson test -C build --verbose "Aegisub:gtest main"
 
 项目通过 Meson 的 `patch_directory` 机制对以下子项目应用补丁：
 
-| 子项目 | 补丁目录 | 用途 |
-|--------|---------|------|
+| 子项目       | 补丁目录                                  | 用途                                                     |
+|-----------|---------------------------------------|--------------------------------------------------------|
 | wxWidgets | `subprojects/packagefiles/wxWidgets/` | pngprefix.h — 解决 wxpng 与 libpng16 双 libpng SIMD 函数符号冲突 |
-| ICU | `subprojects/packagefiles/icu/` | 修复 MSVC 下 icudata 构建排除问题；调整 stubdata 链接依赖 |
+| ICU       | `subprojects/packagefiles/icu/`       | 修复 MSVC 下 icudata 构建排除问题；调整 stubdata 链接依赖              |
 
 补丁文件在 `meson setup` 时自动覆盖到子项目目录。`diff_files` 补丁（ffmpeg、x264、dav1d）在子项目下载时自动应用。
 
