@@ -81,7 +81,7 @@ namespace mocha {
 
 	namespace {
 		/// 提取行文本中的 override 标签块（花括号内容）
-		std::string ExtractOverrideText(const std::string &line_text) {
+		[[maybe_unused]] std::string ExtractOverrideText(const std::string &line_text) {
 			std::string result;
 			static const std::regex override_re(R"(\{([^}]*)\})");
 			auto begin = std::sregex_iterator(line_text.begin(), line_text.end(), override_re);
@@ -92,27 +92,27 @@ namespace mocha {
 			return result;
 		}
 
-			/// @brief 检查 override 文本中指定标签的出现次数
-			int CountTagOccurrences(const TagRegistry &registry,
-			                        const std::string &ovr_text,
-			                        const std::string &tag_name) {
-				const TagDef *td = registry.get(tag_name);
-				if (!td) return 0;
-				int count = 0;
-				std::string search_str = ovr_text;
-				std::smatch m;
-				while (std::regex_search(search_str, m, td->compiled_pattern)) {
-					++count;
-					search_str = m.suffix().str();
-				}
-				return count;
+		/// @brief 检查 override 文本中指定标签的出现次数
+		int CountTagOccurrences(const TagRegistry &registry,
+								const std::string &ovr_text,
+								const std::string &tag_name) {
+			const TagDef *td = registry.get(tag_name);
+			if (!td) return 0;
+			int count = 0;
+			std::string search_str = ovr_text;
+			std::smatch m;
+			while (std::regex_search(search_str, m, td->compiled_pattern)) {
+				++count;
+				search_str = m.suffix().str();
 			}
+			return count;
+		}
 
 		/// @brief 通过 TagRegistry 从 override 文本中提取 double 标签值
-		double GetTagDouble(const TagRegistry &registry,
-							const std::string &ovr_text,
-							const std::string &tag_name,
-							double default_val = 0) {
+		[[maybe_unused]] double GetTagDouble(const TagRegistry &registry,
+											const std::string &ovr_text,
+											const std::string &tag_name,
+											double default_val = 0) {
 			const TagDef *td = registry.get(tag_name);
 			if (!td) return default_val;
 			std::string val = tag_utils::find_tag_value(ovr_text, td->pattern);
@@ -155,8 +155,10 @@ namespace mocha {
 			AlphaChannels result{0, 0, 0, 0};
 			if (style_lookup) {
 				if (auto *style = style_lookup(style_name)) {
-					result = {style->primary.a, style->secondary.a,
-						style->outline.a, style->shadow.a};
+					result = {
+						style->primary.a, style->secondary.a,
+						style->outline.a, style->shadow.a
+					};
 				}
 			}
 			return result;
@@ -169,7 +171,7 @@ namespace mocha {
 				R"(\\(?:alpha|1a|2a|3a|4a)&H([0-9A-Fa-f]{2})&)"
 			);
 			for (std::sregex_iterator it(content.begin(), content.end(), alpha_re),
-				end; it != end; ++it) {
+					end; it != end; ++it) {
 				int value = 0;
 				try {
 					value = std::stoi((*it)[1].str(), nullptr, 16);
@@ -195,9 +197,9 @@ namespace mocha {
 
 		/// 逐块段：前缀文本 + override 块内容 + 块后可见文本
 		struct OverrideSegment {
-			std::string prefix;   ///< 位于该块之前的文本（仅首个块可为非空）
-			std::string block;    ///< override 块内容（不含花括号）
-			std::string visible;  ///< 该块之后、下一个块之前的可见文本
+			std::string prefix; ///< 位于该块之前的文本（仅首个块可为非空）
+			std::string block; ///< override 块内容（不含花括号）
+			std::string visible; ///< 该块之后、下一个块之前的可见文本
 		};
 
 		/// @brief 将行文本分割为逐块段（前缀文本 + override 块 + 后续可见文本）
@@ -219,8 +221,8 @@ namespace mocha {
 				// 提取块后面的文本直到下一个 override 块
 				auto next = std::next(it);
 				size_t text_end = (next != end)
-					? static_cast<size_t>(next->position())
-					: text.size();
+									? static_cast<size_t>(next->position())
+									: text.size();
 				if (block_end < text_end)
 					seg.visible = text.substr(block_end, text_end - block_end);
 				segments.push_back(std::move(seg));
@@ -275,7 +277,6 @@ namespace mocha {
 			double fallback_pos_x = 0, double fallback_pos_y = 0,
 			const PerspectiveTagVals *inherited = nullptr,
 			const std::string *line_text = nullptr) {
-
 			PerspectiveTagVals tags = inherited ? *inherited : PerspectiveTagVals{};
 			const auto &registry = TagRegistry::instance();
 
@@ -420,8 +421,8 @@ namespace mocha {
 				bord = inherited ? inherited->outline_x : style.border;
 			tags.outline_x = has_xbord ? get_val("xborder", bord) : bord;
 			tags.outline_y = has_ybord
-				? get_val("yborder", bord)
-				: (has_bord ? bord : (inherited ? inherited->outline_y : bord));
+								? get_val("yborder", bord)
+								: (has_bord ? bord : (inherited ? inherited->outline_y : bord));
 
 			const bool has_shad = has_tag("shadow");
 			const bool has_xshad = has_tag("xshadow");
@@ -431,8 +432,8 @@ namespace mocha {
 				shad = inherited ? inherited->shadow_x : style.shadow;
 			tags.shadow_x = has_xshad ? get_val("xshadow", shad) : shad;
 			tags.shadow_y = has_yshad
-				? get_val("yshadow", shad)
-				: (has_shad ? shad : (inherited ? inherited->shadow_y : shad));
+								? get_val("yshadow", shad)
+								: (has_shad ? shad : (inherited ? inherited->shadow_y : shad));
 
 			// 字号
 			double font_size = get_val("fontSize", inherited ? inherited->font_size : style.fontsize);
@@ -488,32 +489,34 @@ namespace mocha {
 				draw_text = std::move(filtered);
 			}
 
-		bool extents_ok = false;
-		// 文本测量得到的宽高内含有效 \fscx/\fscy，需要在还原为未缩放基准时除以 scale
-		bool text_extents_scaled = false;
-		const bool is_drawing_block = (p_scale >= 1 && !draw_text.empty());
-		if (is_drawing_block) {
-			extents_ok = CalculateDrawingExtents(draw_text, p_scale, width, height);
-		}
-		if (!extents_ok && style_lookup && font_size > 0 && !visible_text.empty()) {
-			auto *s = style_lookup(style_name);
-			if (s) {
-				AssStyle temp_style = *s;
-				temp_style.fontsize = static_cast<int>(font_size + 0.5);
-				// 用与透视标签一致的有效缩放覆盖样式默认值（行内 \fscx/\fscy 优先，
-				// 否则回退样式值），保证测量结果与除回基准的 scale 一致
-				temp_style.scalex = tags.scale_x;
-				temp_style.scaley = tags.scale_y;
-				double descent, extlead;
-				if (Automation4::CalculateTextExtents(&temp_style, visible_text,
-					width, height, descent, extlead)) {
-					extents_ok = true;
-					// 绘图块的测量兜底不应除回缩放（对应上游 981ce33：
-					// 绘图的 \fscx/\fscy 不重复缩放），仅文本块标记
-					text_extents_scaled = !is_drawing_block;
+			bool extents_ok = false;
+			// 文本测量得到的宽高内含有效 \fscx/\fscy，需要在还原为未缩放基准时除以 scale
+			bool text_extents_scaled = false;
+			const bool is_drawing_block = (p_scale >= 1 && !draw_text.empty());
+			if (is_drawing_block) {
+				extents_ok = CalculateDrawingExtents(draw_text, p_scale, width, height);
+			}
+			if (!extents_ok && style_lookup && font_size > 0 && !visible_text.empty()) {
+				auto *s = style_lookup(style_name);
+				if (s) {
+					AssStyle temp_style = *s;
+					temp_style.fontsize = static_cast<int>(font_size + 0.5);
+					// 用与透视标签一致的有效缩放覆盖样式默认值（行内 \fscx/\fscy 优先，
+					// 否则回退样式值），保证测量结果与除回基准的 scale 一致
+					temp_style.scalex = tags.scale_x;
+					temp_style.scaley = tags.scale_y;
+					double descent, extlead;
+					if (Automation4::CalculateTextExtents(
+						&temp_style, visible_text,
+						width, height, descent, extlead
+					)) {
+						extents_ok = true;
+						// 绘图块的测量兜底不应除回缩放（对应上游 981ce33：
+						// 绘图的 \fscx/\fscy 不重复缩放），仅文本块标记
+						text_extents_scaled = !is_drawing_block;
+					}
 				}
 			}
-		}
 
 			if (!extents_ok) {
 				if (font_size <= 0) font_size = 48;
@@ -522,11 +525,14 @@ namespace mocha {
 					unsigned char c = static_cast<unsigned char>(*it);
 					int cp = 0, len = 1;
 					if ((c & 0x80) == 0) { cp = c; } else if ((c & 0xE0) == 0xC0) {
-						cp = c & 0x1F; len = 2;
+						cp = c & 0x1F;
+						len = 2;
 					} else if ((c & 0xF0) == 0xE0) {
-						cp = c & 0x0F; len = 3;
+						cp = c & 0x0F;
+						len = 3;
 					} else if ((c & 0xF8) == 0xF0) {
-						cp = c & 0x07; len = 4;
+						cp = c & 0x07;
+						len = 4;
 					}
 					for (int k = 1; k < len && (it + k) != visible_text.end(); ++k)
 						cp = (cp << 6) | (static_cast<unsigned char>(*(it + k)) & 0x3F);
@@ -554,10 +560,12 @@ namespace mocha {
 
 			// 标签验证警告
 			{
-				const char* relevant[] = {"pos", "org", "xscale", "yscale", "zrot",
+				const char *relevant[] = {
+					"pos", "org", "xscale", "yscale", "zrot",
 					"xrot", "yrot", "xshear", "yshear", "border", "xborder", "yborder",
-					"shadow", "xshadow", "yshadow", "fontSize"};
-				for (const auto* tn : relevant) {
+					"shadow", "xshadow", "yshadow", "fontSize"
+				};
+				for (const auto *tn : relevant) {
 					if (CountTagOccurrences(registry, block_content, tn) >= 2)
 						LOG_D("perspective_motion") << "Multiple " << tn << " tags in block";
 				}
@@ -658,7 +666,7 @@ namespace mocha {
 			double py = move.y1 + (move.y2 - move.y1) * progress;
 
 			const std::string pos_tag = "\\pos(" + format_compact_float(px)
-				+ "," + format_compact_float(py) + ")";
+										+ "," + format_compact_float(py) + ")";
 
 			stripped = restore_t_blocks(stripped, saved_t);
 			return stripped + pos_tag;
@@ -666,7 +674,7 @@ namespace mocha {
 
 		/// @brief 在参考帧文本中逐块静态化 \move
 		std::string InterpolateMovesInText(const std::string &text,
-										  int sample_time, int line_duration) {
+											int sample_time, int line_duration) {
 			if (text.find("\\move") == std::string::npos)
 				return text;
 
@@ -698,7 +706,7 @@ namespace mocha {
 					std::string content = block.substr(1, block.size() - 2);
 					static const std::vector<std::pair<const char *, const char *>> conflicts = {
 						{"move", "pos"}, {"fade", "fad"},
-						{"rectClip", "rectiClip"}, {"vectClip", "vectiClip"}
+						{"vectClip", "vectiClip"}
 					};
 					for (const auto &[first_name, second_name] : conflicts) {
 						const auto *first = registry.get(first_name);
@@ -716,7 +724,8 @@ namespace mocha {
 							content = tag_utils::remove_tag(
 								content,
 								first_match.position() < second_match.position()
-									? second->pattern : first->pattern
+									? second->pattern
+									: first->pattern
 							);
 						}
 					}
@@ -764,7 +773,7 @@ namespace mocha {
 		/// @param[in,out] channels 继承通道值，函数内覆盖通道被调制并整体回写
 		/// @return 是否存在被调制的显式覆盖
 		bool ApplyLineFadeToOverrides(const std::string &content, double line_opacity,
-									  AlphaChannels &channels) {
+									AlphaChannels &channels) {
 			if (line_opacity >= 1.0 - 1e-9)
 				return false;
 			AlphaChannels raw_override = UpdateAlphaChannels(
@@ -797,13 +806,15 @@ namespace mocha {
 		std::string RewriteAlphaTags(const std::string &content, const AlphaChannels &values) {
 			std::string adjusted = std::regex_replace(content, alpha_remove_re, "");
 			bool uniform = values[0] == values[1]
-				&& values[0] == values[2] && values[0] == values[3];
+							&& values[0] == values[2] && values[0] == values[3];
 			char buf[64];
 			if (uniform) {
 				std::snprintf(buf, sizeof(buf), "\\alpha&H%02X&", values[0]);
 			} else {
-				std::snprintf(buf, sizeof(buf), "\\1a&H%02X&\\2a&H%02X&\\3a&H%02X&\\4a&H%02X&",
-							values[0], values[1], values[2], values[3]);
+				std::snprintf(
+					buf, sizeof(buf), "\\1a&H%02X&\\2a&H%02X&\\3a&H%02X&\\4a&H%02X&",
+					values[0], values[1], values[2], values[3]
+				);
 			}
 			adjusted += buf;
 			return adjusted;
@@ -823,10 +834,10 @@ namespace mocha {
 		/// @param vis_rel_end 帧内可见区间终点（相对行起始，半开区间）
 		/// @return 调整后的块内容（淡入淡出标签被替换为静态 alpha 标签）
 		std::string AdjustFadeInBlock(const std::string &block_content,
-										int line_duration, int td_shifted, int td_original,
-										AlphaChannels &inherited_alpha,
-										double &line_opacity,
-										int vis_rel_start = -1, int vis_rel_end = -1) {
+									int line_duration, int td_shifted, int td_original,
+									AlphaChannels &inherited_alpha,
+									double &line_opacity,
+									int vis_rel_start = -1, int vis_rel_end = -1) {
 			// 先保护 \t(...) 块，防止 extract_fade 错误匹配内部的 \fad/\fade
 			std::vector<std::string> saved_t;
 			std::string protected_content = protect_t_blocks(block_content, saved_t);
@@ -868,7 +879,8 @@ namespace mocha {
 				int eval_original = td_original;
 				if (vis_rel_start >= 0 && vis_rel_end > vis_rel_start) {
 					const int nudged = FrameIntervalSampler::nudge_off_fade_endpoint(
-						f, td_original, vis_rel_start, vis_rel_end);
+						f, td_original, vis_rel_start, vis_rel_end
+					);
 					eval_shifted = eval_original = nudged;
 				}
 
@@ -933,34 +945,34 @@ namespace mocha {
 
 /// @brief 解析 ASS 绘图指令的坐标范围以计算尺寸
 /// 对应 MoonScript DrawingBase:getExtremePoints()
-bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
-                             double &width, double &height) {
-	std::vector<double> values;
-	static const std::regex num_re(R"([-+]?[0-9]*\.?[0-9]+)");
-	auto begin = std::sregex_iterator(draw_text.begin(), draw_text.end(), num_re);
-	auto end = std::sregex_iterator();
-	for (auto it = begin; it != end; ++it) {
-		try { values.push_back(std::stod((*it)[0].str())); } catch (...) {}
-	}
-	if (values.size() < 4) return false;
+	bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
+								double &width, double &height) {
+		std::vector<double> values;
+		static const std::regex num_re(R"([-+]?[0-9]*\.?[0-9]+)");
+		auto begin = std::sregex_iterator(draw_text.begin(), draw_text.end(), num_re);
+		auto end = std::sregex_iterator();
+		for (auto it = begin; it != end; ++it) {
+			try { values.push_back(std::stod((*it)[0].str())); } catch (...) {}
+		}
+		if (values.size() < 4) return false;
 
-	double min_x = values[0], max_x = values[0];
-	double min_y = values[1], max_y = values[1];
-	for (size_t j = 0; j + 1 < values.size(); j += 2) {
-		double x = values[j], y = values[j + 1];
-		if (x < min_x) min_x = x;
-		if (x > max_x) max_x = x;
-		if (y < min_y) min_y = y;
-		if (y > max_y) max_y = y;
-	}
+		double min_x = values[0], max_x = values[0];
+		double min_y = values[1], max_y = values[1];
+		for (size_t j = 0; j + 1 < values.size(); j += 2) {
+			double x = values[j], y = values[j + 1];
+			if (x < min_x) min_x = x;
+			if (x > max_x) max_x = x;
+			if (y < min_y) min_y = y;
+			if (y > max_y) max_y = y;
+		}
 
-	double raw_w = std::max(0.01, max_x - min_x);
-	double raw_h = std::max(0.01, max_y - min_y);
-	double scale_div = std::pow(2.0, std::max(0, p_scale - 1));
-	width = raw_w / scale_div;
-	height = raw_h / scale_div;
-	return true;
-}
+		double raw_w = std::max(0.01, max_x - min_x);
+		double raw_h = std::max(0.01, max_y - min_y);
+		double scale_div = std::pow(2.0, std::max(0, p_scale - 1));
+		width = raw_w / scale_div;
+		height = raw_h / scale_div;
+		return true;
+	}
 
 // ============================================================================
 // 从行文本中提取标签值
@@ -968,66 +980,67 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 
 	PerspectiveTagVals PerspectiveProcessor::PrepareForPerspective(
 		const MotionLine &line, double &width, double &height) {
+		// 委托 ExtractBlockTags：利用 ExtractOverrideSegments 合并所有块内容
+		// 消除与 ExtractBlockTags 的代码重复（B4 修复）
+		auto segments = ExtractOverrideSegments(line.text);
+		std::string combined_block;
+		std::string combined_visible;
+		for (const auto &seg : segments) {
+			combined_block += seg.block;
+			// 前缀文本同样属于可见文本，参与宽度测量
+			combined_visible += seg.prefix;
+			combined_visible += seg.visible;
+		}
 
-	// 委托 ExtractBlockTags：利用 ExtractOverrideSegments 合并所有块内容
-	// 消除与 ExtractBlockTags 的代码重复（B4 修复）
-	auto segments = ExtractOverrideSegments(line.text);
-	std::string combined_block;
-	std::string combined_visible;
-	for (const auto &seg : segments) {
-		combined_block += seg.block;
-		// 前缀文本同样属于可见文本，参与宽度测量
-		combined_visible += seg.prefix;
-		combined_visible += seg.visible;
-	}
+		PerspectiveTagVals tags = ExtractBlockTags(
+			combined_block, combined_visible,
+			style_lookup_, line.style, width, height,
+			0, 0, nullptr, &line.text
+		);
 
-	PerspectiveTagVals tags = ExtractBlockTags(combined_block, combined_visible,
-		style_lookup_, line.style, width, height,
-		0, 0, nullptr, &line.text);
-
-	// 全局标签按 libass 事件级语义统一为整行首次出现值，
-	// \pos/\org/\an 均只取整行首次出现，无 \pos 时回退行级默认位置，
-	// 无 \org 时等于 \pos，无 \an 时使用样式对齐
-	const auto &registry = TagRegistry::instance();
-	{
-		const std::string val = ExtractFirstTagValue(line.text, registry.get("pos"));
-		if (!val.empty()) {
-			auto comma = val.find(',');
-			if (comma != std::string::npos) {
-				try {
-					tags.pos_x = std::stod(val.substr(0, comma));
-					tags.pos_y = std::stod(val.substr(comma + 1));
-				} catch (...) {}
+		// 全局标签按 libass 事件级语义统一为整行首次出现值，
+		// \pos/\org/\an 均只取整行首次出现，无 \pos 时回退行级默认位置，
+		// 无 \org 时等于 \pos，无 \an 时使用样式对齐
+		const auto &registry = TagRegistry::instance();
+		{
+			const std::string val = ExtractFirstTagValue(line.text, registry.get("pos"));
+			if (!val.empty()) {
+				auto comma = val.find(',');
+				if (comma != std::string::npos) {
+					try {
+						tags.pos_x = std::stod(val.substr(0, comma));
+						tags.pos_y = std::stod(val.substr(comma + 1));
+					} catch (...) {}
+				}
+			} else {
+				tags.pos_x = line.x_position;
+				tags.pos_y = line.y_position;
 			}
-		} else {
-			tags.pos_x = line.x_position;
-			tags.pos_y = line.y_position;
 		}
-	}
-	{
-		const std::string val = ExtractFirstTagValue(line.text, registry.get("org"));
-		if (!val.empty()) {
-			auto comma = val.find(',');
-			if (comma != std::string::npos) {
-				try {
-					tags.org_x = std::stod(val.substr(0, comma));
-					tags.org_y = std::stod(val.substr(comma + 1));
-				} catch (...) {}
+		{
+			const std::string val = ExtractFirstTagValue(line.text, registry.get("org"));
+			if (!val.empty()) {
+				auto comma = val.find(',');
+				if (comma != std::string::npos) {
+					try {
+						tags.org_x = std::stod(val.substr(0, comma));
+						tags.org_y = std::stod(val.substr(comma + 1));
+					} catch (...) {}
+				}
+			} else {
+				tags.org_x = tags.pos_x;
+				tags.org_y = tags.pos_y;
 			}
-		} else {
-			tags.org_x = tags.pos_x;
-			tags.org_y = tags.pos_y;
 		}
-	}
-	{
-		const std::string val = ExtractFirstTagValue(line.text, registry.get("align"));
-		if (!val.empty()) {
-			try { tags.align = std::stoi(val); } catch (...) {}
-		} else if (style_lookup_) {
-			if (auto *s = style_lookup_(line.style))
-				tags.align = s->alignment;
+		{
+			const std::string val = ExtractFirstTagValue(line.text, registry.get("align"));
+			if (!val.empty()) {
+				try { tags.align = std::stoi(val); } catch (...) {}
+			} else if (style_lookup_) {
+				if (auto *s = style_lookup_(line.style))
+					tags.align = s->alignment;
+			}
 		}
-	}
 
 		return tags;
 	}
@@ -1085,7 +1098,7 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 		}
 
 		// 需要移除的透视标签列表
-		const std::vector<const char*> remove_tag_names = {
+		const std::vector<const char *> remove_tag_names = {
 			"pos", "org", "xscale", "yscale",
 			"zrot", "xrot", "yrot",
 			"xshear", "yshear",
@@ -1096,34 +1109,36 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 
 		// 逐块处理：每个块移除旧透视标签，写入对应的新标签
 		// 注意：run_callback_on_overrides 传递的 block_idx 是 1-based
-		std::string text = tag_utils::run_callback_on_overrides(line.text, [&](const std::string &block, int block_idx) {
-			std::string content = block.substr(1, block.size() - 2);
-			int tag_idx = block_idx - 1; // 转为 0-based
+		std::string text = tag_utils::run_callback_on_overrides(
+			line.text, [&](const std::string &block, int block_idx) {
+				std::string content = block.substr(1, block.size() - 2);
+				int tag_idx = block_idx - 1; // 转为 0-based
 
-			// 保护 \t(...) 内部标签不被旧标签移除误伤
-			std::vector<std::string> saved_t;
-			std::string protected_content = protect_t_blocks(content, saved_t);
-			// 在受保护的内容上移除旧透视标签
-			for (const auto &name : remove_tag_names) {
-				const TagDef *td = registry.get(name);
-				if (td)
-					protected_content = tag_utils::remove_tag(protected_content, td->pattern);
+				// 保护 \t(...) 内部标签不被旧标签移除误伤
+				std::vector<std::string> saved_t;
+				std::string protected_content = protect_t_blocks(content, saved_t);
+				// 在受保护的内容上移除旧透视标签
+				for (const auto &name : remove_tag_names) {
+					const TagDef *td = registry.get(name);
+					if (td)
+						protected_content = tag_utils::remove_tag(protected_content, td->pattern);
+				}
+				// 安全网：移除 4 参数 \move(x1,y1,x2,y2)（TagDef 只匹配 6 参）
+				static const std::regex move4_rem(R"(\\move\(\s*[.\d\-]+\s*,\s*[.\d\-]+\s*,\s*[.\d\-]+\s*,\s*[.\d\-]+\s*\))");
+				protected_content = std::regex_replace(protected_content, move4_rem, "");
+				// 恢复 \t(...)
+				content = restore_t_blocks(protected_content, saved_t);
+
+				// 写入对应块的新标签（如果存在）
+				if (tag_idx >= 0 && tag_idx < static_cast<int>(block_tag_strings.size())
+					&& !block_tag_strings[tag_idx].empty()) {
+					content = block_tag_strings[tag_idx] + content;
+				}
+
+				if (content.empty()) return std::string();
+				return "{" + content + "}";
 			}
-			// 安全网：移除 4 参数 \move(x1,y1,x2,y2)（TagDef 只匹配 6 参）
-			static const std::regex move4_rem(R"(\\move\(\s*[.\d\-]+\s*,\s*[.\d\-]+\s*,\s*[.\d\-]+\s*,\s*[.\d\-]+\s*\))");
-			protected_content = std::regex_replace(protected_content, move4_rem, "");
-			// 恢复 \t(...)
-			content = restore_t_blocks(protected_content, saved_t);
-
-			// 写入对应块的新标签（如果存在）
-			if (tag_idx >= 0 && tag_idx < static_cast<int>(block_tag_strings.size())
-				&& !block_tag_strings[tag_idx].empty()) {
-				content = block_tag_strings[tag_idx] + content;
-			}
-
-			if (content.empty()) return std::string();
-			return "{" + content + "}";
-		});
+		);
 
 		// 清理空标签块
 		text = tag_utils::clean_empty_blocks(text);
@@ -1142,8 +1157,8 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 // ============================================================================
 
 	void PerspectiveProcessor::PerspectiveMapClip(MotionLine &line,
-														const Quad &rel_quad,
-														const Quad &frame_quad) {
+												const Quad &rel_quad,
+												const Quad &frame_quad) {
 		if (!IsFiniteQuad(rel_quad) || !IsFiniteQuad(frame_quad))
 			return;
 
@@ -1202,7 +1217,10 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 						}
 						oss << format_compact_float(q.X()) << " " << format_compact_float(q.Y()) << " ";
 					};
-					mp(x1, y1); mp(x2, y1); mp(x2, y2); mp(x1, y2);
+					mp(x1, y1);
+					mp(x2, y1);
+					mp(x2, y2);
+					mp(x1, y2);
 					if (!valid)
 						return clip;
 					std::string result = oss.str();
@@ -1304,7 +1322,8 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 						<< " uses the nonexistent style \"" << line.style << "\"";
 					missing_style_warnings_.push_back(
 						"Line " + std::to_string(line.number)
-						+ " uses the nonexistent style \"" + line.style + "\"");
+						+ " uses the nonexistent style \"" + line.style + "\""
+					);
 				}
 			}
 
@@ -1371,14 +1390,16 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 		// layout_scale != 1 告警（对应 MoonScript complained_about_layout_res）
 		if (layout_scale != 1.0) {
 			static std::once_flag layout_warned;
-			std::call_once(layout_warned, [&]() {
-				if (options_.layout_res_y > 0)
-					LOG_D("perspective_motion") << "LayoutResY (" << options_.layout_res_y
-						<< ") != PlayResY (" << res_y_ << "); tracking may be off";
-				else
-					LOG_D("perspective_motion") << "No LayoutResY set, PlayResY (" << res_y_
-						<< ") != video height (" << video_height << ")";
-			});
+			std::call_once(
+				layout_warned, [&]() {
+					if (options_.layout_res_y > 0)
+						LOG_D("perspective_motion") << "LayoutResY (" << options_.layout_res_y
+							<< ") != PlayResY (" << res_y_ << "); tracking may be off";
+					else
+						LOG_D("perspective_motion") << "No LayoutResY set, PlayResY (" << res_y_
+							<< ") != video height (" << video_height << ")";
+				}
+			);
 		}
 
 		int collection_start = options_.selection_start_frame;
@@ -1400,7 +1421,7 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 				const int candidate_start = frame_from_ms_(candidate.start_time);
 				const int candidate_end = frame_from_ms_(candidate.end_time);
 				const bool contains_reference = candidate_start <= absolute_reference_frame
-					&& absolute_reference_frame < candidate_end;
+												&& absolute_reference_frame < candidate_end;
 				all_lines_contain_reference = all_lines_contain_reference && contains_reference;
 				if (contains_reference && !shared_reference_line)
 					shared_reference_line = &candidate;
@@ -1410,7 +1431,8 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 		for (auto &line : lines) {
 			const MotionLine &reference_line =
 				(!all_lines_contain_reference && shared_reference_line)
-					? *shared_reference_line : line;
+					? *shared_reference_line
+					: line;
 			int line_frame_start = frame_from_ms_ ? frame_from_ms_(line.start_time) : 0;
 			int line_frame_end = frame_from_ms_ ? frame_from_ms_(line.end_time) : 0;
 
@@ -1429,9 +1451,11 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 			// 参考帧采样时间：帧区间 ∩ 行区间 的中点（FrameIntervalSampler）
 			int ref_sample_rel = 0;
 			const bool has_ref_sample = ms_from_frame_
-				? FrameIntervalSampler::compute(collection_start, relframe, ms_from_frame_,
-															reference_line.start_time, reference_line.end_time, ref_sample_rel)
-				: false;
+											? FrameIntervalSampler::compute(
+												collection_start, relframe, ms_from_frame_,
+												reference_line.start_time, reference_line.end_time, ref_sample_rel
+											)
+											: false;
 			if (!has_ref_sample)
 				ref_sample_rel = ref_time_delta;
 
@@ -1451,15 +1475,17 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 				const auto &block_content = seg.block;
 				// 首个块之前的前缀文本并入可见文本，参与尺寸估算
 				const auto &visible_text = (si == 0 && !seg.prefix.empty())
-					? seg.prefix + seg.visible
-					: seg.visible;
+												? seg.prefix + seg.visible
+												: seg.visible;
 
 				BlockData bd;
-			bd.tagvals = ExtractBlockTags(block_content, visible_text,
-				style_lookup_, reference_line.style, bd.width, bd.height,
-				reference_line.x_position, reference_line.y_position,
-				previous_ref_tags ? &*previous_ref_tags : nullptr,
-				&ref_text);
+				bd.tagvals = ExtractBlockTags(
+					block_content, visible_text,
+					style_lookup_, reference_line.style, bd.width, bd.height,
+					reference_line.x_position, reference_line.y_position,
+					previous_ref_tags ? &*previous_ref_tags : nullptr,
+					&ref_text
+				);
 				previous_ref_tags = bd.tagvals;
 
 				auto seg_quad_opt = PerspectiveMath::TransformPoints(
@@ -1532,9 +1558,9 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 
 					Quad normalized_quad = rect_at_pos(1, 1);
 					if (!PerspectiveMath::TagsFromQuad(
-							persp_tagvals, normalized_quad,
-							bd.width, bd.height, options_.org_mode, layout_scale
-						)) {
+						persp_tagvals, normalized_quad,
+						bd.width, bd.height, options_.org_mode, layout_scale
+					)) {
 						bd.valid = false;
 						continue;
 					}
@@ -1570,17 +1596,19 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 					double base_w = bd.width * bd.tagvals.scale_x / 100.0;
 					double base_h = bd.height * bd.tagvals.scale_y / 100.0;
 					Quad untransformed_source =
-						PerspectiveMath::MakeRect(Vector2D(0, 0),
-							Vector2D(static_cast<float>(base_w), static_cast<float>(base_h)));
+						PerspectiveMath::MakeRect(
+							Vector2D(0, 0),
+							Vector2D(static_cast<float>(base_w), static_cast<float>(base_h))
+						);
 					for (auto &p : untransformed_source) {
 						p = Vector2D(
 							p.X() - static_cast<float>(an_xshift[an_idx] * base_w),
 							p.Y() - static_cast<float>(an_yshift[an_idx] * base_h)
 						);
 						p = p + Vector2D(
-							static_cast<float>(bd.tagvals.pos_x),
-							static_cast<float>(bd.tagvals.pos_y)
-						);
+								static_cast<float>(bd.tagvals.pos_x),
+								static_cast<float>(bd.tagvals.pos_y)
+							);
 					}
 
 					// 将已有标签的变换效果经 UV 空间映射到目标四边形
@@ -1599,9 +1627,9 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 					}
 
 					if (!PerspectiveMath::TagsFromQuad(
-							persp_tagvals, transformed_target,
-							bd.width, bd.height, options_.org_mode, layout_scale
-						)) {
+						persp_tagvals, transformed_target,
+						bd.width, bd.height, options_.org_mode, layout_scale
+					)) {
 						bd.valid = false;
 						continue;
 					}
@@ -1626,14 +1654,16 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 				for (size_t si = 0; si < new_segments.size() && si < ref_blocks.size(); ++si) {
 					const auto &seg = new_segments[si];
 					const auto &visible_text = (si == 0 && !seg.prefix.empty())
-						? seg.prefix + seg.visible
-						: seg.visible;
+													? seg.prefix + seg.visible
+													: seg.visible;
 					BlockData bd;
-				bd.tagvals = ExtractBlockTags(seg.block, visible_text,
-					style_lookup_, reference_line.style, bd.width, bd.height,
-					reference_line.x_position, reference_line.y_position,
-					previous_new_ref_tags ? &*previous_new_ref_tags : nullptr,
-					&new_ref_text);
+					bd.tagvals = ExtractBlockTags(
+						seg.block, visible_text,
+						style_lookup_, reference_line.style, bd.width, bd.height,
+						reference_line.x_position, reference_line.y_position,
+						previous_new_ref_tags ? &*previous_new_ref_tags : nullptr,
+						&new_ref_text
+					);
 					previous_new_ref_tags = bd.tagvals;
 
 					auto seg_quad_opt = PerspectiveMath::TransformPoints(
@@ -1671,8 +1701,9 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 			for (int frame_idx = rel_start; frame_idx <= rel_end; ++frame_idx) {
 				int raw_start_ms = ms_from_frame_ ? ms_from_frame_(collection_start + frame_idx - 1) : line.start_time;
 				int raw_end_ms = ms_from_frame_ ? ms_from_frame_(collection_start + frame_idx) : line.end_time;
-				int new_start = (std::max(0, raw_start_ms) / 10) * 10;
-				int new_end = (std::max(0, raw_end_ms) / 10) * 10;
+				// 输出时间按 ASS 百分秒精度四舍五入到 10ms（对应上游 #87）
+				int new_start = (std::max(0, raw_start_ms) + 5) / 10 * 10;
+				int new_end = (std::max(0, raw_end_ms) + 5) / 10 * 10;
 
 				int time_delta = new_start - line.start_time;
 				int frame_duration = new_end - new_start;
@@ -1681,10 +1712,12 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 				int frame_sample_rel = 0;
 				int vis_rel_start = 0, vis_rel_end = 0;
 				const bool has_frame_sample = ms_from_frame_
-					? FrameIntervalSampler::compute(collection_start, frame_idx, ms_from_frame_,
-															line.start_time, line.end_time, frame_sample_rel,
-															&vis_rel_start, &vis_rel_end)
-					: false;
+												? FrameIntervalSampler::compute(
+													collection_start, frame_idx, ms_from_frame_,
+													line.start_time, line.end_time, frame_sample_rel,
+													&vis_rel_start, &vis_rel_end
+												)
+												: false;
 				if (!has_frame_sample)
 					frame_sample_rel = time_delta;
 
@@ -1692,9 +1725,11 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 				int fade_td_shifted = time_delta;
 				int fade_td_original = time_delta;
 				if (ms_from_frame_) {
-					fade_sampler.compute(new_start, new_end,
+					fade_sampler.compute(
+						new_start, new_end,
 						line.start_time, line.end_time,
-						fade_td_original, fade_td_shifted);
+						fade_td_original, fade_td_shifted
+					);
 				}
 				if (has_frame_sample)
 					fade_td_shifted = fade_td_original = frame_sample_rel;
@@ -1730,16 +1765,18 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 					std::string block_content = seg.block;
 					// 首个块之前的前缀文本并入可见文本，参与尺寸估算
 					const std::string &visible_text = (seg_i == 0 && !seg.prefix.empty())
-						? seg.prefix + seg.visible
-						: seg.visible;
+														? seg.prefix + seg.visible
+														: seg.visible;
 					if (HasMalformedFadeTag(block_content))
 						malformed_fade_ = true;
 					// \fad/\fade 逐帧静态化为 alpha（与已有 alpha 通道逐通道组合）
-					block_content = AdjustFadeInBlock(block_content, line.duration,
-															fade_td_shifted, fade_td_original,
-															alpha_state, line_opacity,
-															has_frame_sample ? vis_rel_start : -1,
-															has_frame_sample ? vis_rel_end : -1);
+					block_content = AdjustFadeInBlock(
+						block_content, line.duration,
+						fade_td_shifted, fade_td_original,
+						alpha_state, line_opacity,
+						has_frame_sample ? vis_rel_start : -1,
+						has_frame_sample ? vis_rel_end : -1
+					);
 					// \move 插值替换为 \pos
 					block_content = InterpolateMoveInBlock(block_content, frame_sample_rel, line.duration);
 
@@ -1747,11 +1784,13 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 
 					// 当前块的标签值和文本尺寸
 					double block_width, block_height;
-				PerspectiveTagVals block_tags = ExtractBlockTags(block_content, visible_text,
-					style_lookup_, line.style, block_width, block_height,
-					line.x_position, line.y_position,
-					previous_frame_tags ? &*previous_frame_tags : nullptr,
-					&frame_line.text);
+					PerspectiveTagVals block_tags = ExtractBlockTags(
+						block_content, visible_text,
+						style_lookup_, line.style, block_width, block_height,
+						line.x_position, line.y_position,
+						previous_frame_tags ? &*previous_frame_tags : nullptr,
+						&frame_line.text
+					);
 					previous_frame_tags = block_tags;
 
 					double old_scale_x = block_tags.scale_x;
@@ -1811,23 +1850,27 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 					std::string block_content = seg.block;
 					if (HasMalformedFadeTag(block_content))
 						malformed_fade_ = true;
-					block_content = AdjustFadeInBlock(block_content, line.duration,
-															fade_td_shifted, fade_td_original,
-															alpha_state, line_opacity,
-															has_frame_sample ? vis_rel_start : -1,
-															has_frame_sample ? vis_rel_end : -1);
+					block_content = AdjustFadeInBlock(
+						block_content, line.duration,
+						fade_td_shifted, fade_td_original,
+						alpha_state, line_opacity,
+						has_frame_sample ? vis_rel_start : -1,
+						has_frame_sample ? vis_rel_end : -1
+					);
 					block_content = InterpolateMoveInBlock(block_content, frame_sample_rel, line.duration);
 					adjusted_blocks.push_back(block_content);
 
 					double bw, bh;
 					const auto &visible_text = (seg_i == 0 && !seg.prefix.empty())
-						? seg.prefix + seg.visible
-						: seg.visible;
-				PerspectiveTagVals bt = ExtractBlockTags(block_content, visible_text,
-					style_lookup_, line.style, bw, bh,
-					line.x_position, line.y_position,
-					previous_frame_tags ? &*previous_frame_tags : nullptr,
-					&frame_line.text);
+													? seg.prefix + seg.visible
+													: seg.visible;
+					PerspectiveTagVals bt = ExtractBlockTags(
+						block_content, visible_text,
+						style_lookup_, line.style, bw, bh,
+						line.x_position, line.y_position,
+						previous_frame_tags ? &*previous_frame_tags : nullptr,
+						&frame_line.text
+					);
 					previous_frame_tags = bt;
 					per_block_tags.push_back(bt);
 				}
@@ -1859,8 +1902,10 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 					for (size_t vi = 0; vi < frame_quad.size() && vi < 4; ++vi) {
 						if (vi > 0) desc += "|";
 						char buf[64];
-						std::snprintf(buf, sizeof(buf), "%.15g;%.15g",
-							frame_quad[vi].X(), frame_quad[vi].Y());
+						std::snprintf(
+							buf, sizeof(buf), "%.15g;%.15g",
+							frame_quad[vi].X(), frame_quad[vi].Y()
+						);
 						desc += buf;
 					}
 					frame_line.ambient_plane = desc;
@@ -1874,8 +1919,8 @@ bool CalculateDrawingExtents(const std::string &draw_text, int p_scale,
 	}
 
 	int ComputeEffectiveStartFrame(int start_frame, bool relative,
-								   bool reverse_tracking, int relframe,
-								   int total_frames, int collection_start_frame) {
+									bool reverse_tracking, int relframe,
+									int total_frames, int collection_start_frame) {
 		// start_frame 需要正序 1-based 帧号，
 		// 旧命令层实现先执行 reverse 换算、再对非相对帧号做相对换算，
 		// collection_start_frame > 1 时会对正序帧号重复施加偏移得到错误值，
