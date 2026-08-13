@@ -108,11 +108,13 @@ endif
 deps = []
 deps_inc = []
 dep_avail = []
-add_project_arguments('-DMI_MALLOC=1', language : ['cpp', 'c'])
+# mimalloc 已停用：不再向全局注入 MI_MALLOC 宏（相关 wrap/packagefiles/源码仍保留）
+# add_project_arguments('-DMI_MALLOC=1', language : ['cpp', 'c'])
 
 deps += dependency('libcurl', allow_fallback: true, default_options: curl_options)
 
-deps += dependency('mimalloc_static')
+# mimalloc 已停用：项目不再依赖或使用 mimalloc（相关配置保留，可取消注释恢复）
+# deps += dependency('mimalloc_static')
 deps += dependency('ffnvcodec')
 #deps += dependency('vpl')
 

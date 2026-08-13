@@ -1,7 +1,7 @@
 subdir('libresrc')
 
 aegisub_src = files(
-    'mimalloc_override.cpp',
+    # 'mimalloc_override.cpp',  # mimalloc 已停用：不再编译该覆盖文件（源码文件保留）
     'MatroskaParser.c',
     'mcp_server.cpp',
     'aegisublocale.cpp',
