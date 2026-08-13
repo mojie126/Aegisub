@@ -8,7 +8,6 @@
 #include <regex>
 #include <algorithm>
 #include <cctype>
-#include <cmath>
 
 namespace {
 	/**
@@ -517,8 +516,7 @@ namespace mocha {
 			std::string block = (*it)[1].str();
 			const size_t block_start = static_cast<size_t>(it->position());
 			const size_t block_end = block_start + static_cast<size_t>(it->length());
-			const bool target_in_block = target_pos != std::string::npos
-				&& target_pos >= block_start + 1 && target_pos + target_token.size() <= block_end - 1;
+			const bool target_in_block = target_pos != std::string::npos && target_pos >= block_start + 1 && target_pos + target_token.size() <= block_end - 1;
 			if (target_in_block)
 				block.resize(target_pos - block_start - 1);
 
@@ -590,7 +588,9 @@ namespace mocha {
 		//   text = text\gsub "}{", @splitChar
 		//   ... 处理 ...
 		//   text = text\gsub @splitChar, "}{"
-		static constexpr std::string split_char = "\x06";
+		// MSVC debug 库（/MDd）下 constexpr std::string 不可用（C2131），
+		// 使用运行时初始化的局部静态对象代替
+		static const std::string split_char("\x06");
 		static const std::regex split_re(R"(\}\{)");
 		text = std::regex_replace(text, split_re, split_char);
 

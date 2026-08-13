@@ -43,7 +43,6 @@
 #include <boost/range/adaptor/filtered.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 #include <charconv>
-#include <functional>
 
 using namespace boost::adaptors;
 
@@ -74,7 +73,8 @@ template<> int AssOverrideParameter::Get<int>() const {
 		std::from_chars(start, value.c_str() + value.size(), result, 16);
 		return std::clamp<int>(result, 0, 255);
 	}
-	const std::string_view str{Get<std::string>()};
+	// 拷贝到局部变量，string_view 绑定临时字符串会悬垂（release 下碰巧可用，debug 构建下必现）
+	const std::string str{Get<std::string>()};
 	int result = 0;
 	std::from_chars(str.data(), str.data() + str.size(), result);
 	return result;
