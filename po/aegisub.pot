@@ -903,6 +903,36 @@ msgid ""
 "autoload folder and reload all automation scripts"
 msgstr ""
 
+#: ../src/command/automation.cpp:108
+msgid "&Reset Configuration..."
+msgstr ""
+
+#: ../src/command/automation.cpp:109 ../src/command/automation.cpp:118
+msgid "Reset Configuration"
+msgstr ""
+
+#: ../src/command/automation.cpp:110
+msgid "Delete the DependencyControl configuration file and restore defaults"
+msgstr ""
+
+#: ../src/command/automation.cpp:115
+msgid "DependencyControl configuration file does not exist"
+msgstr ""
+
+#: ../src/command/automation.cpp:118
+msgid ""
+"Reset the DependencyControl configuration to defaults? The configuration file "
+"will be deleted, and the change will take effect after Aegisub restarts."
+msgstr ""
+
+#: ../src/command/automation.cpp:122
+msgid "DependencyControl configuration has been reset, restart Aegisub for the change to take effect"
+msgstr ""
+
+#: ../src/command/automation.cpp:124
+msgid "Failed to delete DependencyControl configuration file"
+msgstr ""
+
 #: ../src/command/command.cpp:34
 #, c-format
 msgid "'%s' is not a valid command name"
@@ -8683,4 +8713,44 @@ msgstr ""
 #: ../src/command/subtitle.cpp:375
 #: ../src/command/subtitle.cpp:664
 msgid "Some subtitle lines reference styles that do not exist:"
+msgstr ""
+
+#: ../src/preferences.cpp:617
+msgid "Proxy"
+msgstr ""
+
+#: ../src/preferences.cpp:620
+msgid "No proxy"
+msgstr ""
+
+#: ../src/preferences.cpp:622
+msgid "Manual proxy configuration"
+msgstr ""
+
+#: ../src/preferences.cpp:640
+msgid "HTTP proxy host"
+msgstr ""
+
+#: ../src/preferences.cpp:641
+msgid "HTTP proxy host name or IP address, e.g. 127.0.0.1"
+msgstr ""
+
+#: ../src/preferences.cpp:645
+msgid "HTTP proxy port, e.g. 7890"
+msgstr ""
+
+#: ../src/preferences.cpp:658
+msgid "HTTP proxy port"
+msgstr ""
+
+#: ../src/preferences.cpp:621
+msgid "System proxy settings"
+msgstr ""
+
+#: ../src/preferences.cpp:623
+msgid "System proxy settings uses the operating system configuration, including auto-detect and PAC"
+msgstr ""
+
+#: ../src/preferences.cpp:637
+msgid "Connection"
 msgstr ""

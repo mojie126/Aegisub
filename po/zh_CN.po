@@ -1077,6 +1077,34 @@ msgstr "打开自动化脚本管理器"
 msgid "Open automation manager. Ctrl: Rescan autoload folder. Ctrl+Shift: Rescan autoload folder and reload all automation scripts"
 msgstr "打开自动化脚本管理器。按住 Ctrl：重新扫描自动加载文件夹。按住 Ctrl+Shift：重新扫描自动加载文件夹，并重新加载所有自动化脚本。"
 
+#: ../src/command/automation.cpp:108
+msgid "&Reset Configuration..."
+msgstr "重置配置(&R)…"
+
+#: ../src/command/automation.cpp:109 ../src/command/automation.cpp:118
+msgid "Reset Configuration"
+msgstr "重置配置"
+
+#: ../src/command/automation.cpp:110
+msgid "Delete the DependencyControl configuration file and restore defaults"
+msgstr "删除 DependencyControl 配置文件并恢复默认设置"
+
+#: ../src/command/automation.cpp:115
+msgid "DependencyControl configuration file does not exist"
+msgstr "DependencyControl 配置文件不存在"
+
+#: ../src/command/automation.cpp:118
+msgid "Reset the DependencyControl configuration to defaults? The configuration file will be deleted, and the change will take effect after Aegisub restarts."
+msgstr "重置 DependencyControl 配置为默认值？配置文件将被删除，重启 Aegisub 后生效。"
+
+#: ../src/command/automation.cpp:122
+msgid "DependencyControl configuration has been reset, restart Aegisub for the change to take effect"
+msgstr "DependencyControl 配置已重置，重启 Aegisub 后生效"
+
+#: ../src/command/automation.cpp:124
+msgid "Failed to delete DependencyControl configuration file"
+msgstr "删除 DependencyControl 配置文件失败"
+
 #: ../src/command/command.cpp:34
 #, c-format
 msgid "'%s' is not a valid command name"
@@ -9113,3 +9141,43 @@ msgstr "部分字幕淡入淡出标签格式错误，已保持原样。"
 #: ../src/command/subtitle.cpp:664
 msgid "Some subtitle lines reference styles that do not exist:"
 msgstr "部分字幕行引用了不存在的样式："
+
+#: ../src/preferences.cpp:617
+msgid "Proxy"
+msgstr "代理设置"
+
+#: ../src/preferences.cpp:620
+msgid "No proxy"
+msgstr "无代理"
+
+#: ../src/preferences.cpp:622
+msgid "Manual proxy configuration"
+msgstr "手动代理配置"
+
+#: ../src/preferences.cpp:640
+msgid "HTTP proxy host"
+msgstr "HTTP 代理主机"
+
+#: ../src/preferences.cpp:641
+msgid "HTTP proxy host name or IP address, e.g. 127.0.0.1"
+msgstr "HTTP 代理主机名或 IP 地址，例如 127.0.0.1"
+
+#: ../src/preferences.cpp:645
+msgid "HTTP proxy port, e.g. 7890"
+msgstr "HTTP 代理端口，例如 7890"
+
+#: ../src/preferences.cpp:658
+msgid "HTTP proxy port"
+msgstr "HTTP 代理端口"
+
+#: ../src/preferences.cpp:621
+msgid "System proxy settings"
+msgstr "系统代理设置"
+
+#: ../src/preferences.cpp:623
+msgid "System proxy settings uses the operating system configuration, including auto-detect and PAC"
+msgstr "使用操作系统代理设置，包括自动检测与 PAC 配置"
+
+#: ../src/preferences.cpp:637
+msgid "Connection"
+msgstr "连接"
