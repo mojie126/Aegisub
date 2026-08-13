@@ -5,6 +5,7 @@ aegisub_src = files(
     'MatroskaParser.c',
     'mcp_server.cpp',
     'aegisublocale.cpp',
+    'proxy.cpp',
     'ass_attachment.cpp',
     'ass_dialogue.cpp',
     'ass_entry.cpp',
@@ -34,6 +35,7 @@ aegisub_src = files(
     'auto4_lua.cpp',
     'auto4_lua_assfile.cpp',
     'auto4_lua_dialog.cpp',
+    'auto4_lua_http.cpp',
     'auto4_lua_progresssink.cpp',
     'base_grid.cpp',
     'charset_detect.cpp',
@@ -209,6 +211,11 @@ elif host_machine.system() == 'windows'
         deps += cc.find_library('dwrite', required: true)
     else
         error('Missing Windows SDK DirectWrite Library (dwrite.h / dwrite.lib)')
+    endif
+    if cc.has_header('wininet.h')
+        deps += cc.find_library('wininet', required: true)
+    else
+        error('Missing Windows SDK WinINet Library (wininet.h / wininet.lib)')
     endif
 
     res_inc = include_directories('bitmaps/windows')

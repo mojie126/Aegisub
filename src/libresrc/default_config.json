@@ -25,6 +25,11 @@
 			"Enabled" : false,
 			"Host" : "127.0.0.1",
 			"Port" : 7878
+		},
+		"Proxy" : {
+			"Mode" : 2,
+			"Http Host" : "127.0.0.1",
+			"Http Port" : 7890
 		}
 	},
 

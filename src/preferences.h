@@ -16,6 +16,7 @@
 /// @brief Preferences dialogue
 /// @see preferences.cpp
 /// @ingroup configuration_ui
+#pragma once
 
 #include <functional>
 #include <map>
@@ -35,7 +36,7 @@ public:
 	typedef std::function<void ()> Thunk;
 private:
 	wxTreebook *book;
-	wxButton *applyButton;
+	wxButton *applyButton = nullptr;
 	agi::Context *context = nullptr;
 
 	std::map<std::string, std::unique_ptr<agi::OptionValue>> pending_changes;

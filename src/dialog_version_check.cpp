@@ -32,6 +32,7 @@
 #include "compat.h"
 #include "format.h"
 #include "options.h"
+#include "proxy.h"
 #include "theme.h"
 #include "version.h"
 
@@ -524,6 +525,8 @@ void DoCheck(bool interactive) {
 	curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
 	curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, 30L);
 	curl_easy_setopt(curl, CURLOPT_USERAGENT, agi::format("Aegisub %s", GetAegisubLongVersionString()).c_str());
+	// 应用偏好设置中的代理
+	proxy::ApplyToCurl(curl);
 
 	// 设置 GitHub API 请求头
 	struct curl_slist *headers = nullptr;

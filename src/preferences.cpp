@@ -34,6 +34,7 @@
 #include "options.h"
 #include "preferences_base.h"
 #include "project.h"
+#include "proxy.h"
 #include "video_frame.h"
 #include "video_provider_manager.h"
 
@@ -62,12 +63,14 @@
 #include <wx/filename.h>
 #include <wx/listctrl.h>
 #include <wx/msgdlg.h>
+#include <wx/radiobut.h>
 #include <wx/settings.h>
 #include <wx/srchctrl.h>
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
 #include <wx/statbox.h>
 #include <wx/stattext.h>
+#include <wx/textctrl.h>
 #include <wx/treebook.h>
 
 namespace {
@@ -604,6 +607,80 @@ void Advanced(wxTreebook *book, Preferences *parent) {
 		);
 		options.sizer->Add(new wxStaticText(options.box, -1, _("MCP listen port")), 1, wxALIGN_CENTRE_VERTICAL);
 		options.sizer->Add(port_txt, 1, wxEXPAND);
+
+		p->SetSizerAndFit(p->sizer);
+	}
+
+	/// 代理设置偏好设置页面，供自动化脚本（DependencyControl 等）安装/更新使用
+	void Proxy(wxTreebook *book, Preferences *parent) {
+		const auto p = new OptionPage(book, parent, _("Proxy"));
+
+		// 代理模式单选，平铺排列，参考 Firefox 代理设置布局
+		const auto rb_none = new wxRadioButton(p, -1, _("No proxy"), wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
+		const auto rb_system = new wxRadioButton(p, -1, _("System proxy settings"));
+		auto rb_manual = new wxRadioButton(p, -1, _("Manual proxy configuration"));
+		rb_system->SetToolTip(_("System proxy settings uses the operating system configuration, including auto-detect and PAC"));
+		p->sizer->Add(rb_none, 0, wxALL, 8);
+		p->sizer->Add(rb_system, 0, wxALL, 8);
+		p->sizer->Add(rb_manual, 0, wxALL, 8);
+		p->sizer->AddSpacer(12);
+		parent->AddChangeableOption("App/Proxy/Mode");
+
+		// 按当前模式初始化选中项
+		const int cur_mode = OPT_GET("App/Proxy/Mode")->GetInt();
+		rb_none->SetValue(cur_mode == static_cast<int>(proxy::Mode::None));
+		rb_system->SetValue(cur_mode == static_cast<int>(proxy::Mode::System));
+		rb_manual->SetValue(cur_mode == static_cast<int>(proxy::Mode::Manual));
+
+		// HTTP 代理主机与端口，MCP 监听地址/端口同款两列表单布局
+		const auto options = p->PageSizer(_("Connection"));
+
+		parent->AddChangeableOption("App/Proxy/Http Host");
+		auto host_ctrl = p->OptionAdd(options, _("HTTP proxy host"), "App/Proxy/Http Host");
+		host_ctrl->SetToolTip(_("HTTP proxy host name or IP address, e.g. 127.0.0.1"));
+
+		parent->AddChangeableOption("App/Proxy/Http Port");
+		auto port_txt = new wxTextCtrl(options.box, -1, std::to_wstring(OPT_GET("App/Proxy/Http Port")->GetInt()));
+		port_txt->SetToolTip(_("HTTP proxy port, e.g. 7890"));
+		port_txt->Bind(
+			wxEVT_TEXT, [parent, port_txt](wxCommandEvent &) {
+				try {
+					int val = std::stoi(port_txt->GetValue().ToStdString());
+					if (val <= 0 || val > 65535) {
+						wxBell();
+						return;
+					}
+					parent->SetOption(std::make_unique<agi::OptionValueInt>("App/Proxy/Http Port", val));
+				} catch (...) {
+					wxBell();
+				}
+			}
+		);
+		options.sizer->Add(new wxStaticText(options.box, -1, _("HTTP proxy port")), 1, wxALIGN_CENTRE_VERTICAL);
+		options.sizer->Add(port_txt, 1, wxEXPAND);
+
+		// 仅手动模式才允许编辑主机与端口
+		auto update_enabled = [rb_manual, host_ctrl, port_txt]() {
+			const bool manual = rb_manual->GetValue();
+			host_ctrl->Enable(manual);
+			port_txt->Enable(manual);
+		};
+		auto bind_mode = [parent, update_enabled](wxRadioButton *rb, int mode) {
+			rb->Bind(
+				wxEVT_RADIOBUTTON, [parent, rb, mode, update_enabled](wxCommandEvent &evt) {
+					if (!rb->GetValue()) return;
+					parent->SetOption(std::make_unique<agi::OptionValueInt>("App/Proxy/Mode", mode));
+					update_enabled();
+				}
+			);
+		};
+		bind_mode(rb_none, static_cast<int>(proxy::Mode::None));
+		bind_mode(rb_system, static_cast<int>(proxy::Mode::System));
+		bind_mode(rb_manual, static_cast<int>(proxy::Mode::Manual));
+		update_enabled();
+
+		// 应用/确定时立即生效，无需重启
+		parent->AddPendingChange([] { proxy::ApplyProcessProxy(); });
 
 		p->SetSizerAndFit(p->sizer);
 	}
@@ -1483,7 +1560,9 @@ void Preferences::SetOption(std::unique_ptr<agi::OptionValue> new_value) {
 
 void Preferences::AddPendingChange(Thunk const& callback) {
 	pending_callbacks.push_back(callback);
-	applyButton->Enable(true);
+	// 构造页面期间 applyButton 尚未初始化，此时仅登记回调
+	if (applyButton)
+		applyButton->Enable(true);
 }
 
 void Preferences::AddChangeableOption(std::string const& name) {
@@ -1553,6 +1632,7 @@ Preferences::Preferences(wxWindow *parent, agi::Context *context)
 	Backup(book, this);
 	Automation(book, this);
 	MCP(book, this);
+	Proxy(book, this);
 	Advanced(book, this);
 	Advanced_Audio(book, this);
 	Advanced_Video(book, this);

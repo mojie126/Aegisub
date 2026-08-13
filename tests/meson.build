@@ -39,6 +39,7 @@ tests_src = [
 	'tests/mru.cpp',
 	'tests/option.cpp',
 	'tests/path.cpp',
+	'tests/proxy.cpp',
 	'tests/signals.cpp',
 	'tests/split.cpp',
 	'tests/syntax_highlight.cpp',

@@ -52,6 +52,7 @@
 #include "mcp_server.h"
 #include "options.h"
 #include "project.h"
+#include "proxy.h"
 #include "subs_controller.h"
 #include "subtitles_provider_libass.h"
 #include "theme.h"
@@ -445,6 +446,10 @@ bool AegisubApp::OnInit() {
 		StartupLog("Parse command line");
 		if (!abs_args.empty())
 			OpenFiles(abs_args);
+
+		// 启动时应用代理设置，供自动化脚本（DependencyControl 等）下载安装使用
+		StartupLog("Apply proxy settings");
+		proxy::ApplyProcessProxy();
 
 		// 启动内嵌 MCP HTTP server（如果配置启用）
 		// 用户和 AI 操作同一个 Aegisub 实例，AI 的修改在 GUI 中实时可见

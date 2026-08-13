@@ -37,6 +37,7 @@
 #include "include/aegisub/context.h"
 #include "options.h"
 #include "project.h"
+#include "proxy.h"
 #include "selection_controller.h"
 #include "subs_controller.h"
 #include "time_range.h"
@@ -1374,6 +1375,8 @@ std::string FetchVsmodDocOnline() {
 	curl_easy_setopt(curl, CURLOPT_USERAGENT, "Aegisub-MCP");
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, VsmodCurlWriteCb);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &result);
+	// 应用偏好设置中的代理
+	proxy::ApplyToCurl(curl);
 
 	CURLcode res = curl_easy_perform(curl);
 	curl_easy_cleanup(curl);
