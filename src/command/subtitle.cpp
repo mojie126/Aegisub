@@ -81,6 +81,13 @@ namespace {
 		}
 	};
 
+	/// 选中集合中是否存在至少一条未注释的 dialogue 行（对应上游 Aegisub-Motion canRun）
+	bool has_uncommented_dialogue(const agi::Context *c) {
+		for (const auto *line : c->selectionController->GetSelectedSet())
+			if (!line->Comment) return true;
+		return false;
+	}
+
 	struct validate_nonempty_selection_video_loaded : public Command {
 		CMD_TYPE(COMMAND_VALIDATE)
 
@@ -202,9 +209,9 @@ namespace {
 		STR_HELP("Apply mocha tracking data to the current subtitle entry")
 		CMD_TYPE(COMMAND_VALIDATE)
 
-		/// 验证条件：视频已加载且有选中行
+		/// 验证条件：视频已加载且选中行中至少有一条未注释的 dialogue 行
 		bool Validate(const agi::Context *c) override {
-			return c->project->VideoProvider() && !c->selectionController->GetSelectedSet().empty();
+			return c->project->VideoProvider() && has_uncommented_dialogue(c);
 		}
 
 		void operator()(agi::Context *c) override {
@@ -498,8 +505,9 @@ namespace {
 		STR_HELP("Apply perspective tracking data (CC Power Pin) to the current subtitle entry")
 		CMD_TYPE(COMMAND_VALIDATE)
 
+		/// 验证条件：视频已加载且选中行中至少有一条未注释的 dialogue 行
 		bool Validate(const agi::Context *c) override {
-			return c->project->VideoProvider() && !c->selectionController->GetSelectedSet().empty();
+			return c->project->VideoProvider() && has_uncommented_dialogue(c);
 		}
 
 		void operator()(agi::Context *c) override {

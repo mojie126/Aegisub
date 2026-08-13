@@ -758,6 +758,46 @@ TEST(PerspectiveProcessorTest, ApplyWithIdentityQuads) {
 	EXPECT_NE(result[0].text.find("hello world"), std::string::npos);
 }
 
+TEST(PerspectiveProcessorTest, ApplyRoundsOutputTimesToCentisecond) {
+	// 对应上游 #87：输出时间四舍五入到 10ms，
+	// 16ms 帧时第二帧起点应为 20ms 而非截断的 10ms
+	PerspectiveOptions opts;
+	opts.relframe = 1;
+	opts.start_frame = 1;
+	opts.selection_start_frame = 0;
+	opts.apply_perspective = false;
+	opts.track_pos = true;
+	opts.track_clip = false;
+	opts.track_bord_shad = false;
+	opts.preview = false;
+
+	PerspectiveProcessor processor(opts, 1920, 1080);
+	processor.SetTimingFunctions(
+		[](int ms) { return ms / 16; },
+		[](int frame) { return frame * 16; }
+	);
+
+	MotionLine line;
+	line.text = "{\\pos(960,540)}text";
+	line.style = "Default";
+	line.x_position = 960;
+	line.y_position = 540;
+	line.start_time = 0;
+	line.end_time = 32;
+	line.duration = 32;
+	line.tokenize_transforms();
+
+	std::vector<Quad> quads(2,
+		PerspectiveMath::MakeRect(Vector2D(0, 0), Vector2D(1920, 1080)));
+	std::vector<MotionLine> lines = {line};
+	auto result = processor.Apply(lines, quads, 1920, 1080);
+
+	ASSERT_EQ(result.size(), 2u);
+	EXPECT_EQ(result[0].start_time, 0);
+	EXPECT_EQ(result[1].start_time, 20)
+		<< "Frame boundary 16ms should round to 20ms, got: " << result[1].start_time;
+}
+
 TEST(PerspectiveProcessorTest, ApplyAlignInLaterBlockAffectsFirstBlock) {
 	// \an 是事件级标签，libass 渲染时整行首次出现的 \an 生效，
 	// 首块无 \an、后续块有 \an8 时，首块的透视锚点也应使用 8 而非样式默认，

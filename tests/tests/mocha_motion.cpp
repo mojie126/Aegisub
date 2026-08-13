@@ -120,6 +120,21 @@ TEST(MochaTags, CompiledPatternMatches) {
 	EXPECT_EQ(compiled_result, manual_result);
 }
 
+TEST(MochaTags, VectorClipPatternMatchesDrawingCommands) {
+	// 对应上游 #89：矢量 clip 模式要求可选 scale 后跟绘图命令字母，
+	// 支持 scale 与命令间空格，不匹配矩形 clip 内容
+	const auto *tag = TagRegistry::instance().get("vectClip");
+	ASSERT_NE(tag, nullptr);
+	// 无 scale 矢量 clip
+	EXPECT_TRUE(std::regex_search(R"(\clip(m 100 200 l 300 400))", tag->compiled_pattern));
+	// 带 scale 且无空格
+	EXPECT_TRUE(std::regex_search(R"(\clip(2,m 100 200))", tag->compiled_pattern));
+	// 带 scale 且命令前有空格
+	EXPECT_TRUE(std::regex_search(R"(\clip(2, m 100 200))", tag->compiled_pattern));
+	// 矩形 clip 不应被矢量模式匹配
+	EXPECT_FALSE(std::regex_search(R"(\clip(10,20,30,40))", tag->compiled_pattern));
+}
+
 TEST(MochaTags, FindTagValue) {
 	std::string block = R"({\pos(320,240)\fscx150})";
 	auto val = tag_utils::find_tag_value(block, R"(\\fscx([\d.]+))");
@@ -626,6 +641,19 @@ TEST(MochaLine, DeduplicateOneTimeTagsKeepsFirstInstance) {
 	EXPECT_NE(line.text.find(R"(\pos(10,20))"), std::string::npos);
 	EXPECT_EQ(line.text.find(R"(\pos(30,40))"), std::string::npos);
 	EXPECT_EQ(line.text.find(R"(\move(1,2,3,4,0,100))"), std::string::npos);
+}
+
+TEST(MochaLine, DeduplicateKeepsConflictingRectClips) {
+	// 对应上游 #89：渲染器顺序应用矩形 clip（后出现覆盖前），
+	// \clip 与 \iclip 矩形共存时不应按冲突对移除
+	MotionLine line;
+	line.text = R"({\clip(10,20,110,120)\iclip(30,40,130,140)}hello)";
+	line.deduplicate_tags();
+
+	EXPECT_NE(line.text.find(R"(\clip(10,20,110,120))"), std::string::npos)
+		<< "Rect clip should be kept, got: " << line.text;
+	EXPECT_NE(line.text.find(R"(\iclip(30,40,130,140))"), std::string::npos)
+		<< "Inverse rect clip should be kept, got: " << line.text;
 }
 
 TEST(MochaLine, ExtractMetricsWithPos) {
@@ -2215,6 +2243,42 @@ TEST(MochaHandler, ApplyMotionSetsOutputLineDuration) {
 		EXPECT_EQ(ml.duration, ml.end_time - ml.start_time)
 			<< "Output line duration must be kept in sync with its time range";
 	}
+}
+
+TEST(MochaHandler, ApplyMotionRoundsOutputTimesToCentisecond) {
+	// 对应上游 #87：ASS 时间戳为百分秒精度，高帧率时输出时间四舍五入到 10ms，
+	// 而非向下截断（16ms 帧：第二帧起点 16ms → 20ms，旧实现为 10ms）
+	auto dh = make_test_data_handler();
+
+	MotionOptions opts;
+	opts.kill_trans = true;
+	MotionHandler handler(opts, &dh, nullptr, nullptr);
+
+	MotionLine line;
+	line.text = R"({\pos(0,0)}hello)";
+	line.start_time = 0;
+	line.end_time = 32;
+	line.duration = 32;
+	line.tokenize_transforms();
+
+	std::vector<MotionLine> lines = {line};
+	auto result = handler.apply_motion(
+		lines,
+		0,
+		[](int ms) { return ms / 16; },
+		[](int frame) { return frame * 16; }
+	);
+
+	std::sort(
+		result.begin(), result.end(), [](const MotionLine &a, const MotionLine &b) {
+			return a.start_time < b.start_time;
+		}
+	);
+
+	ASSERT_EQ(result.size(), 2u);
+	EXPECT_EQ(result[0].start_time, 0);
+	EXPECT_EQ(result[1].start_time, 20)
+		<< "Frame boundary 16ms should round to 20ms, got: " << result[1].start_time;
 }
 
 // FrameIntervalSampler 端点安全偏移测试（实施计划 2.2.1-6 与 7.1-14）
