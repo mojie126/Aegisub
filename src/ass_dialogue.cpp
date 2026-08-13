@@ -122,7 +122,10 @@ void AssDialogue::Parse(std::string const& raw) {
 	}
 	Effect = tkn.next_str_trim();
 
-	std::string text{tkn.next_tok().begin(), str.end()};
+	// 文本字段可含逗号，从第 10 个字段（Text）起点取到行尾，
+	// 用 data() 指针构造避免跨视图迭代器（MSVC debug 下 _Verify_range 断言）
+	auto text_tok = tkn.next_tok();
+	std::string text{text_tok.data(), str.data() + str.size()};
 
 	if (text.size() > 1 && text[0] == '{' && text[1] == '=') {
 		static const boost::regex extradata_test("^\\{(=\\d+)+\\}");
