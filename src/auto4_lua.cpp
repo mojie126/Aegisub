@@ -34,6 +34,7 @@
 
 #include "auto4_lua.h"
 
+#include "auto4_lua_http.h"
 #include "ass_dialogue.h"
 #include "ass_file.h"
 #include "ass_info.h"
@@ -72,7 +73,6 @@
 #include <mutex>
 #include <wx/clipbrd.h>
 #include <wx/log.h>
-#include <wx/msgdlg.h>
 
 using namespace agi::lua;
 using namespace Automation4;
@@ -690,6 +690,11 @@ namespace {
 		set_field<lua_get_audio_selection>(L, "get_audio_selection");
 		set_field<lua_set_status_text>(L, "set_status_text");
 		set_field<get_frame>(L, "get_frame");
+		lua_createtable(L, 0, 3);
+		set_field<http_get>(L, "get");
+		set_field<http_post>(L, "post");
+		set_field<http_download>(L, "download");
+		lua_setfield(L, -2, "http");
 		lua_createtable(L, 0, 5);
 		set_field<lua_get_text_cursor>(L, "get_cursor");
 		set_field<lua_set_text_cursor>(L, "set_cursor");
