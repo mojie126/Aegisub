@@ -36,6 +36,40 @@ meson setup build -Dbuildtype=debug -Ddefault_library=static `
 meson compile -C build
 ```
 
+## 项目级配置脚本 (tools/setup-aegisub.ps1)
+
+`tools/setup-aegisub.ps1` 是对 `meson setup` 的项目级封装：自动定位仓库根目录，按 版本 + 环境 生成唯一构建目录，并执行配置。`-b` 可自定义构建目录，`-x` 用于仅清理子项目未追踪文件。
+
+```powershell
+# 默认：3.5.2 / debug / --reconfigure，构建目录 build-3.5.2-debug
+.\tools\setup-aegisub.ps1
+
+# release 环境
+.\tools\setup-aegisub.ps1 -e release
+
+# 清除旧构建目录内容后重新配置
+.\tools\setup-aegisub.ps1 -c --wipe
+
+# 自定义构建目录
+.\tools\setup-aegisub.ps1 -b build
+
+# 仅清理子项目未追踪文件/文件夹（不执行 meson setup）
+.\tools\setup-aegisub.ps1 -x
+```
+
+| 参数              | 别名   | 说明                                                              | 默认值             |
+|-----------------|------|-----------------------------------------------------------------|-----------------|
+| `-Version`      | `-v` | 构建版本标识，用于构建目录命名                                                 | `3.5.2`         |
+| `-BuildEnv`     | `-e` | 构建环境：`debug` 或 `release`                                        | `debug`         |
+| `-ConfigMethod` | `-c` | 配置方式：`--wipe` 或 `--reconfigure`                                 | `--reconfigure` |
+| `-BuildDir`     | `-b` | 自定义构建目录名称（覆盖默认的 `build-<版本>-<环境>`）                              | 按版本+环境生成        |
+| `-Clean`        | `-x` | 仅清理模式：对 `subprojects/` 执行 `git clean -ffdx` 后退出，不执行 meson setup | 关闭              |
+| `-Help`         | `-h` | 显示帮助并退出                                                         | 关闭              |
+
+> 注意：`-x`（clean）会对 `subprojects/` 执行 `git clean -ffdx`，移除所有未追踪文件与目录（含嵌套 git 仓库），操作不可恢复，请谨慎使用。
+
+> 该脚本已固化上方手动命令的全部 `-D` 项目配置（含 `default_library`、`force_fallback_for`、各子项目开关），无需额外传参，等价于手动 `meson setup`。其中动态项由入参决定：构建目录由 `-b` 控制、`-Dbuildtype` 由 `-e` 控制、`-Dversion` 由 `-v` 控制；`--wipe`/`--reconfigure`（方式）由 `-c` 控制。
+
 ## 增量构建
 
 配置已存在时直接编译：
@@ -75,7 +109,7 @@ meson test -C build --verbose "Aegisub:gtest main"
 ## CLion Meson 配置选项
 
 ```
--Ddefault_library=static -Dforce_fallback_for=zlib,harfbuzz,freetype2,fribidi,libpng -Dfreetype2:harfbuzz=disabled -Dharfbuzz:freetype=disabled -Dharfbuzz:cairo=disabled -Dharfbuzz:glib=disabled -Dharfbuzz:gobject=disabled -Dharfbuzz:tests=disabled -Dharfbuzz:docs=disabled -Dharfbuzz:icu=disabled -Dfribidi:tests=false -Dfribidi:docs=false -Dlibass:fontconfig=disabled -Dffmpeg:libdav1d=enabled -Davisynth=enabled -Dbestsource=enabled -Dvapoursynth=enabled
+-Dbuildtype=debug -Ddefault_library=static --force-fallback-for=zlib,harfbuzz,freetype2,fribidi,libpng -Dfreetype2:harfbuzz=disabled -Dharfbuzz:freetype=disabled -Dharfbuzz:cairo=disabled -Dharfbuzz:glib=disabled -Dharfbuzz:gobject=disabled -Dharfbuzz:tests=disabled -Dharfbuzz:docs=disabled -Dharfbuzz:icu=disabled -Dfribidi:tests=false -Dfribidi:docs=false -Dlibass:fontconfig=disabled -Dffmpeg:libdav1d=enabled -Davisynth=enabled -Dbestsource=enabled -Dvapoursynth=enabled -Dversion=3.5.2
 ```
 
 ## 子项目补丁说明

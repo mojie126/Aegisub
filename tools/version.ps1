@@ -16,7 +16,8 @@ $defineStringMatch = [regex]"^#define\s+(\w+)\s+[`"']?(.+?)[`"']?$"
 $semVerMatch = [regex]'v?(\d+)\.(\d+).(\d+)(?:-(\w+))?'
 
 $repositoryRootPath = Join-Path $PSScriptRoot .. | Resolve-Path
-if (!(git -C $repositoryRootPath rev-parse --is-inside-work-tree 2> $null))
+$isInsideWorkTree = git -C $repositoryRootPath rev-parse --is-inside-work-tree 2> $null
+if (!$isInsideWorkTree)
 {
 	throw "$repositoryRootPath is not a git repository"
 }
