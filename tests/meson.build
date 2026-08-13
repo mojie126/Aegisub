@@ -15,6 +15,7 @@ tests_src = [
 	'support/main.cpp',
 	'support/util.cpp',
 
+	'tests/ass_dialogue.cpp',
 	'tests/access.cpp',
 	'tests/audio.cpp',
 	'tests/audio_analysis.cpp',
@@ -81,6 +82,12 @@ font_collector_src = [
 	'../src/ass_override.cpp',
 ]
 
+# AssDialogue 解析源文件（ass_dialogue 测试需要）
+ass_dialogue_src = [
+	'../src/ass_dialogue.cpp',
+	'../src/ass_entry.cpp',
+]
+
 video_frame_src = [
 	'../src/video_frame.cpp',
 ]
@@ -135,7 +142,7 @@ tests_args += ['-DFONT_PROBE_SRC_ROOT="' + src_root + '"']
 
 runner = executable(
 	'gtest-main',
-	tests_src + mocha_src + text_file_writer_src + font_collector_src + video_frame_src + video_provider_test_src + version_src, version_h,
+	tests_src + mocha_src + text_file_writer_src + font_collector_src + video_frame_src + video_provider_test_src + version_src + ass_dialogue_src, version_h,
 	include_directories : [tests_inc, libaegisub_inc, mocha_inc, persp_inc, aegisub_src_inc, aegisub_src_dir_inc, version_inc],
 	dependencies : [tests_deps, deps],
 	cpp_args : tests_args,
