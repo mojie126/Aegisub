@@ -1,0 +1,20 @@
+diff --git a/meson.build b/meson.build
+index bf3b9a21da..b1d38e2f4a 100644
+--- a/meson.build
++++ b/meson.build
+@@ -768,7 +768,11 @@ int main(void) {
+ '''
+ 
+ # Treat unrecognized flags as errors on MSVC
+-if cc.compiles(cpp_cond.format('windows.h', '_MSC_FULL_VER >= 193030705'))
+-  project_c_args += cc.get_supported_arguments(['/options:strict'])
+-endif
++# 注：/options:strict 与 meson 链接器固定参数 /release 冲突，
++# MSVC 检测（has_function 等）时链接参数混入 cl 命令行导致 D8043 错误，
++# 进而使 dxva2 依赖的 ole32/user32 组件检测失败，dxva2 被误禁用。
++# 移除该参数与 ffmpeg 6.1（无此参数）行为一致。
++# if cc.compiles(cpp_cond.format('windows.h', '_MSC_FULL_VER >= 193030705'))
++#   project_c_args += cc.get_supported_arguments(['/options:strict'])
++# endif
+ 
+ libc_type = ''
