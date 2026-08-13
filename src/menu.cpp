@@ -456,8 +456,8 @@ class AutomationMenu final : public wxMenu {
 			cm->Remove(item);
 
 		wxMenuItemList &items = GetMenuItems();
-		// Remove everything but automation manager and the separator
-		for (size_t i = items.size() - 1; i >= 2; --i)
+		// Remove everything but automation manager, reset configuration and the separator
+		for (size_t i = items.size() - 1; i >= 3; --i)
 			Delete(items[i]);
 
 		auto macros = config::global_scripts->GetMacros();
@@ -470,11 +470,14 @@ class AutomationMenu final : public wxMenu {
 		WorkItem top("");
 		for (auto macro : macros) {
 			const auto name = from_wx(macro->StrMenu(c));
+			const std::string_view name_view(name);
 			WorkItem *parent = &top;
-			for (auto section : agi::Split(name, wxS('/'))) {
+			for (auto section : agi::Split(name_view, wxS('/'))) {
 				std::string sectionname(section.begin(), section.end());
 
-				if (section.end() == std::string_view(name).end()) {
+				// 判断是否最后一段：section 结束位置是否到达 name 末尾，
+				// 不同 string_view 的迭代器不能直接比较（MSVC debug 断言）
+				if (section.data() + section.size() == name_view.data() + name_view.size()) {
 					parent->subitems.emplace_back(sectionname, macro);
 				}
 				else {
@@ -493,6 +496,7 @@ public:
 	, local_slot(c->local_scripts->AddScriptChangeListener(&AutomationMenu::Regenerate, this))
 	{
 		cm->AddCommand(cmd::get("am/meta"), this);
+		cm->AddCommand(cmd::get("am/reset_config"), this);
 		AppendSeparator();
 		Regenerate();
 	}

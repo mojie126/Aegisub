@@ -29,7 +29,13 @@
 //
 // Aegisub Project http://www.aegisub.org/
 
+#include <wx/msgdlg.h>
+
 #include "command.h"
+
+#include <libaegisub/fs.h>
+#include <libaegisub/log.h>
+#include <libaegisub/path.h>
 
 #include "../auto4_base.h"
 #include "../dialogs.h"
@@ -98,6 +104,32 @@ struct meta final : public Command {
 	}
 };
 
+struct reset_config final : public Command {
+	CMD_NAME("am/reset_config")
+	STR_MENU("&Reset Configuration...")
+	STR_DISP("Reset Configuration")
+	STR_HELP("Delete the DependencyControl configuration file and restore defaults")
+
+	void operator()(agi::Context *c) override {
+		const auto depctrl_path = config::path->Decode("?user/config/l0.DependencyControl.json");
+		if (!agi::fs::FileExists(depctrl_path)) {
+			c->frame->StatusTimeout(_("DependencyControl configuration file does not exist"));
+			return;
+		}
+		if (wxMessageBox(_("Reset the DependencyControl configuration to defaults? The configuration file will be deleted, and the change will take effect after Aegisub restarts."), _("Reset Configuration"), wxYES_NO | wxICON_QUESTION, c->parent) != wxYES)
+			return;
+		try {
+			if (agi::fs::Remove(depctrl_path))
+				c->frame->StatusTimeout(_("DependencyControl configuration has been reset, restart Aegisub for the change to take effect"));
+			else
+				wxLogError(_("Failed to delete DependencyControl configuration file"));
+		}
+		catch (agi::Exception const& e) {
+			LOG_E("am/reset_config") << "Failed to delete DependencyControl config: " << e.GetMessage();
+		}
+	}
+};
+
 }
 
 namespace cmd {
@@ -106,5 +138,6 @@ namespace cmd {
 		reg(std::make_unique<open_manager>());
 		reg(std::make_unique<reload_all>());
 		reg(std::make_unique<reload_autoload>());
+		reg(std::make_unique<reset_config>());
 	}
 }
