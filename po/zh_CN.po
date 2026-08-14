@@ -9148,11 +9148,11 @@ msgstr "代理设置"
 
 #: ../src/preferences.cpp:620
 msgid "No proxy"
-msgstr "无代理"
+msgstr "不使用代理"
 
 #: ../src/preferences.cpp:622
 msgid "Manual proxy configuration"
-msgstr "手动代理配置"
+msgstr "手动配置代理"
 
 #: ../src/preferences.cpp:640
 msgid "HTTP proxy host"
@@ -9172,7 +9172,7 @@ msgstr "HTTP 代理端口"
 
 #: ../src/preferences.cpp:621
 msgid "System proxy settings"
-msgstr "系统代理设置"
+msgstr "使用系统代理"
 
 #: ../src/preferences.cpp:623
 msgid "System proxy settings uses the operating system configuration, including auto-detect and PAC"
