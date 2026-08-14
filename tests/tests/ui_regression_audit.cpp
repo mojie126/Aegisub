@@ -4,6 +4,7 @@
 #include <main.h>
 
 #include "font_list_load_mode.h"
+#include "visual_feature.h"
 #include "visual_tool_drag.h"
 
 #include <algorithm>
@@ -150,6 +151,16 @@ TEST(UIRegressionAuditTest, VisualToolDragDoesNotRegroupWhenClickedLineIsNotSele
 
 	const auto grouped = CollectGroupedDragSelection(features, {2}, 1, false);
 	EXPECT_TRUE(grouped.empty());
+}
+
+TEST(UIRegressionAuditTest, VisualToolAnchorMarginFollowsHandleSize) {
+	EXPECT_EQ(GetAnchorMargin(DRAG_BIG_SQUARE, 3), 6);
+	EXPECT_EQ(GetAnchorMargin(DRAG_BIG_CIRCLE, 5), 10);
+	EXPECT_EQ(GetAnchorMargin(DRAG_BIG_TRIANGLE, 6), 16);
+	EXPECT_EQ(GetAnchorMargin(DRAG_BIG_TRIANGLE, 3), 8);
+	EXPECT_EQ(GetAnchorMargin(DRAG_SMALL_SQUARE, 7), 7);
+	EXPECT_EQ(GetAnchorMargin(DRAG_SMALL_CIRCLE, 4), 4);
+	EXPECT_EQ(GetAnchorMargin(DRAG_NONE, 9), 0);
 }
 
 TEST(UIRegressionAuditTest, ShowOriginalToggleMustClearPreviousMinHeightBeforeCollapsing) {

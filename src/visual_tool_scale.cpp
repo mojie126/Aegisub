@@ -69,10 +69,11 @@ void VisualToolScale::Draw() {
 	// Fake features at the end of the lines
 	gl.SetLineColour(line_color_secondary, 1.f, 1);
 	gl.SetFillColour(highlight_color, 0.3f);
-	gl.DrawCircle(x_p1, 4);
-	gl.DrawCircle(x_p2, 4);
-	gl.DrawCircle(y_p1, 4);
-	gl.DrawCircle(y_p2, 4);
+	const float dot_radius = OPT_GET("Tool/Visual/Shape Handle Size")->GetInt() * 4.f / 3.f;
+	gl.DrawCircle(x_p1, dot_radius);
+	gl.DrawCircle(x_p2, dot_radius);
+	gl.DrawCircle(y_p1, dot_radius);
+	gl.DrawCircle(y_p2, dot_radius);
 
 	// Draw the guides
 	int half_len = base_len / 2;

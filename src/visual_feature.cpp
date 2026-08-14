@@ -43,26 +43,27 @@ VisualDraggableFeature::VisualDraggableFeature()
 bool VisualDraggableFeature::IsMouseOver(Vector2D mouse_pos) const {
 	if (!pos) return false;
 
+	size = OPT_GET("Tool/Visual/Shape Handle Size")->GetInt();
 	Vector2D delta = mouse_pos - pos;
 
 	switch (type) {
 		case DRAG_BIG_SQUARE:
-			return fabs(delta.X()) < 6 && fabs(delta.Y()) < 6;
+			return fabs(delta.X()) < size && fabs(delta.Y()) < size;
 
 		case DRAG_BIG_CIRCLE:
-			return delta.SquareLen() < 36;
+			return delta.SquareLen() < size * size;
 
 		case DRAG_BIG_TRIANGLE: {
-			if (delta.Y() < -10 || delta.Y() > 6) return false;
-			float dy = delta.Y() - 6;
-			return 16 * delta.X() + 9 * dy < 0 && 16 * delta.X() - 9 * dy > 0;
+			if (delta.Y() < -size * 5.f / 3.f || delta.Y() > size) return false;
+			float dy = delta.Y() - size;
+			return 8.f / 3.f * delta.X() + 1.5f * dy < 0 && 8.f / 3.f * delta.X() - 1.5f * dy > 0;
 		}
 
 		case DRAG_SMALL_SQUARE:
 			return fabs(delta.X()) < size && fabs(delta.Y()) < size;
 
 		case DRAG_SMALL_CIRCLE:
-			return delta.SquareLen() < 3 * size;
+			return delta.SquareLen() < size * size;
 
 		default:
 			return false;
@@ -72,24 +73,26 @@ bool VisualDraggableFeature::IsMouseOver(Vector2D mouse_pos) const {
 void VisualDraggableFeature::Draw(OpenGLWrapper const& gl) const {
 	if (!pos) return;
 
+	size = OPT_GET("Tool/Visual/Shape Handle Size")->GetInt();
+
 	switch (type) {
 		case DRAG_BIG_SQUARE:
-			gl.DrawRectangle(pos - 6, pos + 6);
-			gl.DrawLine(pos - Vector2D(0, 12), pos + Vector2D(0, 12));
-			gl.DrawLine(pos - Vector2D(12, 0), pos + Vector2D(12, 0));
+			gl.DrawRectangle(pos - Vector2D(size, size), pos + Vector2D(size, size));
+			gl.DrawLine(pos - Vector2D(0, 2 * size), pos + Vector2D(0, 2 * size));
+			gl.DrawLine(pos - Vector2D(2 * size, 0), pos + Vector2D(2 * size, 0));
 			break;
 
 		case DRAG_BIG_CIRCLE:
-			gl.DrawCircle(pos, 6);
-			gl.DrawLine(pos - Vector2D(0, 12), pos + Vector2D(0, 12));
-			gl.DrawLine(pos - Vector2D(12, 0), pos + Vector2D(12, 0));
+			gl.DrawCircle(pos, size);
+			gl.DrawLine(pos - Vector2D(0, 2 * size), pos + Vector2D(0, 2 * size));
+			gl.DrawLine(pos - Vector2D(2 * size, 0), pos + Vector2D(2 * size, 0));
 			break;
 
 		case DRAG_BIG_TRIANGLE:
-			gl.DrawTriangle(pos - Vector2D(9, 6), pos + Vector2D(9, -6), pos + Vector2D(0, 10));
-			gl.DrawLine(pos, pos + Vector2D(0, -16));
-			gl.DrawLine(pos, pos + Vector2D(-14, 8));
-			gl.DrawLine(pos, pos + Vector2D(14, 8));
+			gl.DrawTriangle(pos - Vector2D(1.5f * size, size), pos + Vector2D(1.5f * size, -size), pos + Vector2D(0, size * 5.f / 3.f));
+			gl.DrawLine(pos, pos + Vector2D(0, -size * 8.f / 3.f));
+			gl.DrawLine(pos, pos + Vector2D(-size * 7.f / 3.f, size * 4.f / 3.f));
+			gl.DrawLine(pos, pos + Vector2D(size * 7.f / 3.f, size * 4.f / 3.f));
 			break;
 
 		case DRAG_SMALL_SQUARE:

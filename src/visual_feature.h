@@ -57,9 +57,9 @@ inline int GetAnchorMargin(DraggableFeatureType type, int size) {
 	switch (type) {
 		case DRAG_BIG_SQUARE:
 		case DRAG_BIG_CIRCLE:
-			return 12; // 十字线延伸到 ±12
+			return 2 * size; // 十字线延伸到 ±2*size
 		case DRAG_BIG_TRIANGLE:
-			return 16; // 线条延伸到 16
+			return size * 8 / 3; // 线条延伸到 8/3*size
 		case DRAG_SMALL_SQUARE:
 		case DRAG_SMALL_CIRCLE:
 			return size;
@@ -78,7 +78,7 @@ class VisualDraggableFeature : public boost::intrusive::make_list_base_hook<boos
 
 public:
 	DraggableFeatureType type = DRAG_NONE; ///< Shape of feature
-	int size = 0;
+	mutable int size = 0;                  ///< 控制点大小，绘制/命中检测时按配置刷新
 	Vector2D pos;                          ///< Position of this feature
 	int layer = 0;                         ///< Layer; Higher = above
 	AssDialogue* line = nullptr;           ///< The dialogue line this feature is for; may be nullptr

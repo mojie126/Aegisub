@@ -53,8 +53,10 @@ VisualToolBase::VisualToolBase(VideoDisplay *parent, agi::Context *context)
 {
 	SetResolutions();
 	active_line = GetActiveDialogueLine();
-	connections.push_back(c->selectionController->AddActiveLineListener(&VisualToolBase::OnActiveLineChanged, this));
-	connections.push_back(c->videoController->AddSeekListener(&VisualToolBase::OnSeek, this));
+	connections.emplace_back(c->selectionController->AddActiveLineListener(&VisualToolBase::OnActiveLineChanged, this));
+	connections.emplace_back(c->videoController->AddSeekListener(&VisualToolBase::OnSeek, this));
+	// 控制点大小配置变更时立即重绘，使所有可视化工具的控制点即时生效
+	connections.emplace_back(OPT_SUB("Tool/Visual/Shape Handle Size", [this](agi::OptionValue const&) { this->parent->Render(); }));
 	parent->Bind(wxEVT_MOUSE_CAPTURE_LOST, &VisualToolBase::OnMouseCaptureLost, this);
 }
 

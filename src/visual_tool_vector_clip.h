@@ -51,7 +51,6 @@ class VisualToolVectorClip final : public VisualTool<VisualToolVectorClipDraggab
 	wxToolBar *toolBar = nullptr; /// The subtoolbar
 	int mode = VCLIP_DRAG; /// 0-7
 	bool inverse = false; /// is iclip?
-	int featureSize = 0;
 
 	int down_press_count = 0; /// 连续按下方向键计数
 	long long last_down_ms = 0; /// 上次按下方向键的时间戳

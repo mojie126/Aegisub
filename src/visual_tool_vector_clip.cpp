@@ -35,7 +35,6 @@ int BUTTON_ID_BASE = 1300;
 VisualToolVectorClip::VisualToolVectorClip(VideoDisplay *parent, agi::Context *context)
 : VisualTool<VisualToolVectorClipDraggableFeature>(parent, context)
 , spline(this)
-, featureSize(OPT_GET("Tool/Visual/Shape Handle Size")->GetInt())
 {
 	// 从选项恢复上次使用的辅助工具模式
 	int saved_mode = OPT_GET("Tool/Visual/Vector Clip/Mode")->GetInt();
@@ -157,6 +156,7 @@ void VisualToolVectorClip::Draw() {
 	}
 
 	// Draw features
+	const int featureSize = OPT_GET("Tool/Visual/Shape Handle Size")->GetInt();
 	for (auto& feature : features) {
 		wxColour feature_color = line_color;
 		if (&feature == active_feature)
@@ -165,7 +165,7 @@ void VisualToolVectorClip::Draw() {
 			feature_color = highlight_color_secondary;
 		gl.SetFillColour(feature_color, .6f);
 
-		ScopedClamp clamp(feature, ClampToVideo(feature.pos, GetAnchorMargin(feature.type, feature.size)));
+		ScopedClamp clamp(feature, ClampToVideo(feature.pos, GetAnchorMargin(feature.type, featureSize)));
 		if (feature.type == DRAG_SMALL_SQUARE) {
 			gl.SetLineColour(line_color, .5f, 1);
 			gl.DrawRectangle(feature.pos - featureSize, feature.pos + featureSize);
