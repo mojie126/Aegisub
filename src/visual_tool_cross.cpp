@@ -34,8 +34,9 @@ VisualToolCross::VisualToolCross(VideoDisplay *parent, agi::Context *context)
 , gl_text(std::make_unique<OpenGLText>())
 {
 	parent->SetCursor(wxCursor(wxCURSOR_BLANK));
-	connections.push_back(OPT_SUB("Tool/Visual/Font Face", &VisualToolCross::SetFont, this));
-	connections.push_back(OPT_SUB("Tool/Visual/Font Size", &VisualToolCross::SetFont, this));
+	// 字体/字号配置变更时立即重绘，使十字准星文本即时生效
+	connections.emplace_back(OPT_SUB("Tool/Visual/Font Face", [this](agi::OptionValue const&) { this->parent->Render(); }));
+	connections.emplace_back(OPT_SUB("Tool/Visual/Font Size", [this](agi::OptionValue const&) { this->parent->Render(); }));
 }
 
 VisualToolCross::~VisualToolCross() {
