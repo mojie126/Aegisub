@@ -541,9 +541,10 @@ void Advanced(wxTreebook *book, Preferences *parent) {
 				_(
 					"Enable MCP to allow AI clients (Claude Desktop, Cursor, etc.) to connect via HTTP.\n"
 					"AI and user operate the same Aegisub instance, changes visible in GUI in real-time.\n\n"
-					"Client config: AI side fill in http://%s:%d/mcp"
+					"Client config: fill in http://%s:%d/mcp (stateless POST)\n"
+					"or http://%s:%d/sse (HTTP+SSE)"
 				),
-				host.c_str(), port
+				host.c_str(), port, host.c_str(), port
 			)
 		);
 		p->sizer->Add(hint, 0, wxALL | wxEXPAND, 5);
@@ -557,9 +558,10 @@ void Advanced(wxTreebook *book, Preferences *parent) {
 					_(
 						"Enable MCP to allow AI clients (Claude Desktop, Cursor, etc.) to connect via HTTP.\n"
 						"AI and user operate the same Aegisub instance, changes visible in GUI in real-time.\n\n"
-						"Client config: AI side fill in http://%s:%d/mcp"
+						"Client config: fill in http://%s:%d/mcp (stateless POST)\n"
+						"or http://%s:%d/sse (HTTP+SSE)"
 					),
-					h.c_str(), pt
+					h.c_str(), pt, h.c_str(), pt
 				)
 			);
 			hint->Wrap(book->FromDIP(480));

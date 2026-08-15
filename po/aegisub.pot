@@ -8682,7 +8682,8 @@ msgstr ""
 msgid ""
 "Enable MCP to allow AI clients (Claude Desktop, Cursor, etc.) to connect via HTTP.\n"
 "AI and user operate the same Aegisub instance, changes visible in GUI in real-time.\n\n"
-"Client config: AI side fill in http://%s:%d/mcp"
+"Client config: fill in http://%s:%d/mcp (stateless POST)\n"
+"or http://%s:%d/sse (HTTP+SSE)"
 msgstr ""
 
 #: ../src/preferences.cpp:556
