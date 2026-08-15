@@ -22,20 +22,21 @@
 
 #include <vector>
 
-namespace agi { struct Context; }
+namespace agi {
+	struct Context;
+}
+
 class FrameMain;
 
 namespace agi::mcp {
+	/// 注册所有由 Aegisub 主工程提供的 MCP 工具，
+	/// 应在 agi::Context 创建好之后调用一次
+	void RegisterMcpTools();
 
-/// 注册所有由 Aegisub 主工程提供的 MCP 工具，
-/// 应在 agi::Context 创建好之后调用一次
-void RegisterMcpTools();
+	/// 设置 Aegisub 窗口容器指针，ActiveContext() 动态从中获取当前活动 Context
+	/// @param frames AegisubApp::frames 向量地址，在 AegisubApp::OnExit 中设为 nullptr
+	void SetFrames(std::vector<FrameMain *> *frames);
 
-/// 设置 Aegisub 窗口容器指针，ActiveContext() 动态从中获取当前活动 Context
-/// @param frames AegisubApp::frames 向量地址，在 AegisubApp::OnExit 中设为 nullptr
-void SetFrames(std::vector<FrameMain*>* frames);
-
-/// 取当前活动 agi::Context，从 frames 首窗口动态获取，可能为空
-agi::Context* ActiveContext();
-
+	/// 取当前活动 agi::Context，从 frames 首窗口动态获取，可能为空
+	Context *ActiveContext();
 } // namespace agi::mcp
