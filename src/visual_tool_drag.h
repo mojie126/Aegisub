@@ -102,7 +102,7 @@ class VisualToolDrag final : public VisualTool<VisualToolDragDraggableFeature> {
 	bool IsLineSelected(AssDialogue *line) const;
 	void SetSelectedFeaturesForClickedFeature(Feature *feature);
 
-	void OnSelectedSetChanged();
+	void OnSelectionChanged() override;
 
 	void OnFrameChanged() override;
 	void OnFileChanged() override;

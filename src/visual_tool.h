@@ -23,7 +23,11 @@
 #include <libaegisub/owning_intrusive_list.h>
 #include <libaegisub/signal.h>
 
+#include <algorithm>
+#include <cmath>
+#include <map>
 #include <set>
+#include <vector>
 
 #include <wx/event.h>
 
@@ -88,6 +92,18 @@ protected:
 	/// @brief 鼠标捕获丢失时清理拖拽状态（由 OnMouseCaptureLost 调用）
 	/// 派生类应在此清理 active_feature、sel_features 等拖拽相关状态
 	virtual void OnDragCleanup() { }
+
+	/// @brief 获取指定对话行特征使用的填充基色，多行同时显示时用于区分不同行
+	/// @param line 特征所属对话行，可能为 nullptr
+	virtual wxColour GetPerLineBaseColor(AssDialogue *line) const;
+
+	/// @brief 获取指定对话行特征使用的线条色（轮廓/十字线），多行同时显示时用于区分不同行
+	/// @param line 特征所属对话行，可能为 nullptr
+	virtual wxColour GetPerLineOutlineColor(AssDialogue *line) const;
+
+	/// @brief 获取指定对话行特征使用的连接线颜色，多行同时显示时用于区分不同行
+	/// @param line 特征所属对话行，可能为 nullptr
+	virtual wxColour GetPerLineColor(AssDialogue *line) const;
 
 	/// @brief 将 point 限制在视频可见区域内（基于 Draw 坐标系）
 	/// @param margin 从边缘内缩的像素数，用于确保锚点完整可见
@@ -185,8 +201,65 @@ public:
 	virtual int GetSubTool() { return 0; }
 	/// @brief 由 VideoDisplay 转发键盘事件，返回 true 表示事件已被工具消费
 	virtual bool OnKeyDown(wxKeyEvent &event) { return false; }
+
+	/// @brief 选中集变化时由基类调用，默认不处理，派生类可重写以重建多行特征
+	virtual void OnSelectionChanged() { }
+
 	virtual ~VisualToolBase() = default;
 };
+
+/// @brief 计算与已分配色相的最小环上色相差（0..255 域，0 与 255 相邻）
+inline int HueRingDistance(int a, int b) {
+	int d = std::abs(a - b);
+	return std::min(d, 256 - d);
+}
+
+/// @brief 为指定行选择色相，近邻行在色环上错开、反差尽量大
+/// @param line_pos 当前行锚点位置（视频像素坐标）
+/// @param assigned_pos 已分配行的锚点位置列表
+/// @param assigned_hues 已分配行的色相列表（0..255，与 assigned_pos 一一对应）
+/// @return 色相值 0..255
+inline int SelectPerLineHue(Vector2D line_pos, std::vector<Vector2D> const& assigned_pos, std::vector<int> const& assigned_hues) {
+	// 近邻判定距离（像素），超过该距离的行不参与色差约束
+	static const float near_threshold = 250.f;
+	// 孤立行使用的最小色相差，保证错开且不过度消耗色相
+	static const int min_spread = 32;
+
+	// 近邻行参与最大最小化：最大化与所有近邻的最小色差
+	int best_hue = 0;
+	int best_score = -1;
+	bool has_near = false;
+	for (int h = 0; h < 256; h += 4) {
+		int score = 256;
+		bool constrained = false;
+		for (size_t j = 0; j < assigned_hues.size(); ++j) {
+			float d = (line_pos - assigned_pos[j]).Len();
+			if (d > near_threshold) continue;
+			constrained = true;
+			score = std::min(score, HueRingDistance(h, assigned_hues[j]));
+		}
+		if (!constrained) continue;
+		has_near = true;
+		if (score > best_score) {
+			best_score = score;
+			best_hue = h;
+		}
+	}
+	if (has_near) return best_hue;
+
+	// 无近邻（孤立行）：取与所有已分配行色差足够大的最小未用色相
+	for (int h = 0; h < 256; h += 4) {
+		bool ok = true;
+		for (int hue : assigned_hues) {
+			if (HueRingDistance(h, hue) < min_spread) {
+				ok = false;
+				break;
+			}
+		}
+		if (ok) return h;
+	}
+	return 0;
+}
 
 /// Visual tool base class containing all common feature-related functionality
 template<class FeatureType>
@@ -225,6 +298,25 @@ protected:
 	/// List of features which are drawn and can be clicked on
 	/// List is used here for the iterator invalidation properties
 	feature_list features;
+
+	/// 特征所属对话行到色相的映射，多行同屏时按空间位置贪心分配
+	std::map<AssDialogue*, int> line_hue_map;
+
+	/// 上次计算色相时的特征行集合，用于跳过无变化的重复计算
+	std::set<AssDialogue*> line_hue_lines;
+
+	/// @brief 重建按行色相映射，每行取第一个特征的位置为锚点，近邻行色差大
+	/// 仅当特征行集合变化时重算，拖动中位置变化不改变颜色分配
+	void UpdateLineHueMap();
+
+	/// @brief 获取指定行的特征填充色，多行时返回按行分配的互补纯色
+	wxColour GetPerLineBaseColor(AssDialogue *line) const override;
+
+	/// @brief 获取指定行的特征轮廓色，多行时返回按行分配的互补纯色
+	wxColour GetPerLineOutlineColor(AssDialogue *line) const override;
+
+	/// @brief 获取指定行的连接线颜色，多行时返回按行分配的互补纯色
+	wxColour GetPerLineColor(AssDialogue *line) const override;
 
 	/// Draw all of the features in the list
 	void DrawAllFeatures();

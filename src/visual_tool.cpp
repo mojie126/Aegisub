@@ -20,6 +20,7 @@
 #include "ass_file.h"
 #include "ass_style.h"
 #include "auto4_base.h"
+#include "colorspace.h"
 #include "compat.h"
 #include "include/aegisub/context.h"
 #include "options.h"
@@ -54,6 +55,12 @@ VisualToolBase::VisualToolBase(VideoDisplay *parent, agi::Context *context)
 	SetResolutions();
 	active_line = GetActiveDialogueLine();
 	connections.emplace_back(c->selectionController->AddActiveLineListener(&VisualToolBase::OnActiveLineChanged, this));
+	// 选中集变化前先清理拖拽状态，避免重建特征时销毁正在拖拽的特征对象
+	connections.emplace_back(c->selectionController->AddSelectionListener([this] {
+		dragging = false;
+		holding = false;
+		OnSelectionChanged();
+	}));
 	connections.emplace_back(c->videoController->AddSeekListener(&VisualToolBase::OnSeek, this));
 	// 控制点大小配置变更时立即重绘，使所有可视化工具的控制点即时生效
 	connections.emplace_back(OPT_SUB("Tool/Visual/Shape Handle Size", [this](agi::OptionValue const&) { this->parent->Render(); }));
@@ -131,11 +138,12 @@ void VisualToolBase::Commit(wxString message) {
 	if (message.empty())
 		message = _("visual typesetting");
 
-	// 仅修改单行时传递 single_line，使异步渲染走 UpdateSubtitles 快速路径
-	AssDialogue *single_line = modified_lines.size() == 1 ? *modified_lines.begin() : nullptr;
+	// 逐行提交，使撤销快照与监听器（网格/字幕渲染）均走单行快速路径，
+	// 避免多行提交触发的全量复制、全量刷新与字幕轨道重载
+	for (auto line : modified_lines)
+		commit_id = c->ass->Commit(message, AssFile::COMMIT_DIAG_TEXT, commit_id, line);
 	modified_lines.clear();
 
-	commit_id = c->ass->Commit(message, AssFile::COMMIT_DIAG_TEXT, commit_id, single_line);
 	file_changed_connection.Unblock();
 }
 
@@ -180,6 +188,9 @@ VisualTool<FeatureType>::VisualTool(VideoDisplay *parent, agi::Context *context)
 template<class FeatureType>
 void VisualTool<FeatureType>::OnDragCleanup() {
 	if (dragging) {
+		// 最后帧可能未提交，捕获丢失时确保提交一次
+		if (!modified_lines.empty())
+			Commit();
 		for (auto sel : sel_features)
 			EndDrag(sel);
 		sel_features.clear();
@@ -222,7 +233,9 @@ void VisualTool<FeatureType>::OnMouseEvent(wxMouseEvent &event) {
 		// 并重新进行特征检测让本次点击也能正常开始新拖拽
 		if (left_click) {
 			dragging = false;
-			for (auto sel : sel_features)
+			// 使用副本遍历，EndDrag 内可能重建特征并清空 sel_features
+			auto sels = std::vector<FeatureType*>(sel_features.begin(), sel_features.end());
+			for (auto sel : sels)
 				EndDrag(sel);
 			sel_features.clear();
 			active_feature = nullptr;
@@ -241,15 +254,22 @@ void VisualTool<FeatureType>::OnMouseEvent(wxMouseEvent &event) {
 		}
 		// continue drag
 		else if (event.LeftIsDown()) {
-			for (auto sel : sel_features)
+			// 使用副本遍历，防止拖拽中特征重建导致迭代器失效
+			auto sels = std::vector<FeatureType*>(sel_features.begin(), sel_features.end());
+			for (auto sel : sels)
 				sel->UpdateDrag(mouse_pos - drag_start, shift_down);
-			for (auto sel : sel_features)
+			for (auto sel : sels)
 				UpdateDrag(sel);
+			// 每帧提交使字幕画面实时跟随，逐行提交走单行快速路径避免全量刷新
 			Commit();
 		}
 		// end drag
 		else {
 			dragging = false;
+
+			// 最后帧可能未提交，结束时确保提交一次
+			if (!modified_lines.empty())
+				Commit();
 
 			// mouse didn't move, fiddle with selection
 			if (active_feature && !active_feature->HasMoved()) {
@@ -261,7 +281,9 @@ void VisualTool<FeatureType>::OnMouseEvent(wxMouseEvent &event) {
 						SetSelection(active_feature, true);
 				}
 			} else {
-				for (auto sel : sel_features)
+				// 使用副本遍历，EndDrag 内可能重建特征并清空 sel_features
+				auto sels = std::vector<FeatureType*>(sel_features.begin(), sel_features.end());
+				for (auto sel : sels)
 					EndDrag(sel);
 			}
 
@@ -275,11 +297,16 @@ void VisualTool<FeatureType>::OnMouseEvent(wxMouseEvent &event) {
 			holding = false;
 			EndHold();
 
+			// 最后帧可能未提交，结束时确保提交一次
+			if (!modified_lines.empty())
+				Commit();
+
 			parent->ReleaseMouse();
 			parent->SetFocus();
 		}
 
 		UpdateHold();
+		// 每帧提交使字幕画面实时跟随，逐行提交走单行快速路径避免全量刷新
 		Commit();
 
 	}
@@ -294,6 +321,22 @@ void VisualTool<FeatureType>::OnMouseEvent(wxMouseEvent &event) {
 			}
 			else
 				sel_changed = false;
+
+			// 选中集变化可能触发特征重建（OnSelectionChanged），
+			// 重建后 active_feature 已被置空，重新命中点击位置的特征并恢复选择
+			if (!active_feature) {
+				int max_layer = INT_MIN;
+				for (auto& feature : features) {
+					ScopedClamp clamp(feature, ClampToVideo(feature.pos, GetAnchorMargin(feature.type, feature.size)));
+					bool over = feature.IsMouseOver(mouse_pos);
+					if (over && feature.layer >= max_layer) {
+						active_feature = &feature;
+						max_layer = feature.layer;
+					}
+				}
+				if (active_feature)
+					sel_features.insert(active_feature);
+			}
 
 			if (active_feature->line)
 				c->selectionController->SetActiveLine(active_feature->line);
@@ -326,19 +369,75 @@ void VisualTool<FeatureType>::OnMouseEvent(wxMouseEvent &event) {
 		commit_id = -1;
 }
 
+wxColour VisualToolBase::GetPerLineBaseColor(AssDialogue *) const {
+	return to_wx(highlight_color_primary_opt->GetColor());
+}
+
+wxColour VisualToolBase::GetPerLineOutlineColor(AssDialogue *) const {
+	return to_wx(line_color_secondary_opt->GetColor());
+}
+
+wxColour VisualToolBase::GetPerLineColor(AssDialogue *) const {
+	return to_wx(line_color_primary_opt->GetColor());
+}
+
+template<class FeatureType>
+void VisualTool<FeatureType>::UpdateLineHueMap() {
+	// 特征行集合未变化时跳过重算，避免拖动中位置变化导致颜色闪烁
+	std::set<AssDialogue*> current;
+	for (auto& feature : features) {
+		if (feature.line) current.insert(feature.line);
+	}
+	if (current == line_hue_lines) return;
+	line_hue_lines = std::move(current);
+
+	line_hue_map.clear();
+	std::vector<Vector2D> assigned_pos;
+	std::vector<int> assigned_hues;
+	for (auto& feature : features) {
+		// 每行取第一个特征的位置为锚点，按空间距离贪心分配色相
+		if (!feature.line || line_hue_map.count(feature.line)) continue;
+		int hue = SelectPerLineHue(feature.pos, assigned_pos, assigned_hues);
+		line_hue_map[feature.line] = hue;
+		assigned_pos.push_back(feature.pos);
+		assigned_hues.push_back(hue);
+	}
+}
+
+template<class FeatureType>
+wxColour VisualTool<FeatureType>::GetPerLineColor(AssDialogue *line) const {
+	auto it = line_hue_map.find(line);
+	if (it == line_hue_map.end() || line_hue_map.size() < 2)
+		return VisualToolBase::GetPerLineColor(line);
+
+	// 高饱和高亮度的纯色，近邻行色相在色环上错开、反差最大
+	unsigned char r, g, b;
+	hsv_to_rgb(it->second, 230, 255, &r, &g, &b);
+	return wxColour(r, g, b);
+}
+
+template<class FeatureType>
+wxColour VisualTool<FeatureType>::GetPerLineBaseColor(AssDialogue *line) const {
+	return GetPerLineColor(line);
+}
+
+template<class FeatureType>
+wxColour VisualTool<FeatureType>::GetPerLineOutlineColor(AssDialogue *line) const {
+	return GetPerLineColor(line);
+}
+
 template<class FeatureType>
 void VisualTool<FeatureType>::DrawAllFeatures() {
-	wxColour grid_color = to_wx(line_color_secondary_opt->GetColor());
-	gl.SetLineColour(grid_color, 1.0f, 1);
-	wxColour base_fill = to_wx(highlight_color_primary_opt->GetColor());
+	UpdateLineHueMap();
 	wxColour active_fill = to_wx(highlight_color_secondary_opt->GetColor());
-	wxColour alt_fill = to_wx(line_color_primary_opt->GetColor());
 	for (auto& feature : features) {
-		wxColour fill = base_fill;
+		wxColour fill = GetPerLineBaseColor(feature.line);
 		if (&feature == active_feature)
 			fill = active_fill;
 		else if (sel_features.count(&feature))
-			fill = alt_fill;
+			fill = to_wx(line_color_primary_opt->GetColor());
+		// 轮廓/十字线按行着色，普通控制点填充同色，激活/选中控制点使用统一高亮色
+		gl.SetLineColour(GetPerLineOutlineColor(feature.line), 1.0f, 1);
 		gl.SetFillColour(fill, 0.3f);
 		ScopedClamp clamp(feature, ClampToVideo(feature.pos, GetAnchorMargin(feature.type, feature.size)));
 		feature.Draw(gl);

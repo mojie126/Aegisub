@@ -54,7 +54,6 @@ VisualToolDrag::VisualToolDrag(VideoDisplay *parent, agi::Context *context)
 {
 	// 从选项恢复辅助工具（\move/\pos 转换）状态
 	button_is_move = OPT_GET("Tool/Visual/Drag/Convert To Move")->GetBool();
-	connections.push_back(c->selectionController->AddSelectionListener(&VisualToolDrag::OnSelectedSetChanged, this));
 	auto const& sel_set = c->selectionController->GetSelectedSet();
 	selection.insert(begin(sel_set), end(sel_set));
 }
@@ -201,7 +200,7 @@ void VisualToolDrag::OnFrameChanged() {
 	}
 }
 
-void VisualToolDrag::OnSelectedSetChanged() {
+void VisualToolDrag::OnSelectionChanged() {
 	auto const& new_sel_set = c->selectionController->GetSelectedSet();
 	selection = new_sel_set;
 
@@ -217,12 +216,12 @@ void VisualToolDrag::OnSelectedSetChanged() {
 void VisualToolDrag::Draw() {
 	DrawAllFeatures();
 
-	// Load colors from options
-	wxColour line_color = to_wx(line_color_primary_opt->GetColor());
-
 	// Draw connecting lines
 	for (auto& feature : features) {
 		if (feature.type == DRAG_START) continue;
+
+		// 多行同屏时连接线使用按行区分的颜色
+		wxColour line_color = GetPerLineColor(feature.line);
 
 		Feature *p2 = &feature;
 		Feature *p1 = feature.parent;
