@@ -68,7 +68,13 @@ tests_src = [
 	'tests/option_liststring_probe.cpp',
 	'tests/ui_regression_audit.cpp',
 	'tests/image_video.cpp',
+	'tests/apng_encoder.cpp',
 	'tests/version_check.cpp',
+]
+
+# APNG 编码器源文件（apng_encoder 测试需要）
+apng_encoder_src = [
+	'../src/apng_encoder.cpp',
 ]
 
 # TextFileWriter 源文件（需要从主项目引入）
@@ -142,7 +148,7 @@ tests_args += ['-DFONT_PROBE_SRC_ROOT="' + src_root + '"']
 
 runner = executable(
 	'gtest-main',
-	tests_src + mocha_src + text_file_writer_src + font_collector_src + video_frame_src + video_provider_test_src + version_src + ass_dialogue_src, version_h,
+	tests_src + mocha_src + apng_encoder_src + text_file_writer_src + font_collector_src + video_frame_src + video_provider_test_src + version_src + ass_dialogue_src, version_h,
 	include_directories : [tests_inc, libaegisub_inc, mocha_inc, persp_inc, aegisub_src_inc, aegisub_src_dir_inc, version_inc],
 	dependencies : [tests_deps, deps],
 	cpp_args : tests_args,

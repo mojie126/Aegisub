@@ -5,6 +5,7 @@ aegisub_src = files(
     'MatroskaParser.c',
     'mcp_server.cpp',
     'aegisublocale.cpp',
+    'apng_encoder.cpp',
     'proxy.cpp',
     'ass_attachment.cpp',
     'ass_dialogue.cpp',

@@ -681,6 +681,88 @@ TEST(lagi_image_video, gif_path_preserves_unicode_prefix_and_speed_suffix) {
 	EXPECT_EQ(expected.wstring(), path.wstring());
 }
 
+/// @brief 模拟 APNG 导出文件路径生成逻辑
+static std::filesystem::path MakeApngExportPath(const std::filesystem::path &output_dir, const std::wstring &image_name,
+	long start_frame, long end_frame, int scale_factor) {
+	std::wostringstream filename;
+	filename << image_name << L"_[" << start_frame << L"-" << end_frame << L"]";
+	if (scale_factor > 1)
+		filename << L"_s" << scale_factor;
+	filename << L".apng";
+	return output_dir / std::filesystem::path(filename.str());
+}
+
+TEST(lagi_image_video, apng_path_preserves_unicode_prefix_and_speed_suffix) {
+	const std::filesystem::path output_dir = std::filesystem::path(std::wstring(L"\u5BFC\u51FA")) / std::filesystem::path(std::wstring(L"\u52A8\u753B"));
+	auto path = MakeApngExportPath(output_dir, std::wstring(L"\u573A\u666F01"), 100, 200, 3);
+	const auto expected = output_dir / std::filesystem::path(std::wstring(L"\u573A\u666F01_[100-200]_s3.apng"));
+	EXPECT_EQ(expected.wstring(), path.wstring());
+}
+
+TEST(lagi_image_video, apng_path_without_scale_omits_suffix) {
+	auto path = MakeApngExportPath(L"D:\\out", L"clip", 10, 20, 1);
+	EXPECT_EQ(L"D:\\out\\clip_[10-20].apng", path.wstring());
+}
+
+/// @brief 模拟 WebP 导出文件路径生成逻辑
+static std::filesystem::path MakeWebpExportPath(const std::filesystem::path &output_dir, const std::wstring &image_name,
+	long start_frame, long end_frame, int scale_factor, bool lossless) {
+	std::wostringstream filename;
+	filename << image_name << L"_[" << start_frame << L"-" << end_frame << L"]";
+	if (scale_factor > 1)
+		filename << L"_s" << scale_factor;
+	filename << L"_" << (lossless ? L"lossless" : L"lossy") << L".webp";
+	return output_dir / std::filesystem::path(filename.str());
+}
+
+TEST(lagi_image_video, webp_path_lossy_and_lossless_suffix) {
+	auto lossy = MakeWebpExportPath(L"D:\\out", L"clip", 10, 20, 2, false);
+	EXPECT_EQ(L"D:\\out\\clip_[10-20]_s2_lossy.webp", lossy.wstring());
+
+	auto lossless = MakeWebpExportPath(L"D:\\out", L"clip", 10, 20, 1, true);
+	EXPECT_EQ(L"D:\\out\\clip_[10-20]_lossless.webp", lossless.wstring());
+
+	auto both = MakeWebpExportPath(L"D:\\out", L"clip", 10, 20, 4, true);
+	EXPECT_EQ(L"D:\\out\\clip_[10-20]_s4_lossless.webp", both.wstring());
+}
+
+TEST(lagi_image_video, apng_delays_follow_cfr_intervals) {
+	// 24fps CFR 相邻帧间隔约 42 毫秒
+	const std::vector<double> pts = {0.0, 0.041, 0.083, 0.125};
+	const auto delays = agi::BuildAnimationFrameDelaysMs(pts);
+	ASSERT_EQ(4u, delays.size());
+	EXPECT_EQ(41u, delays[0]);
+	EXPECT_EQ(42u, delays[1]);
+	EXPECT_EQ(42u, delays[2]);
+	// 末帧复用前一帧时长
+	EXPECT_EQ(42u, delays[3]);
+}
+
+TEST(lagi_image_video, apng_delays_follow_vfr_intervals) {
+	const std::vector<double> pts = {0.0, 0.03, 0.08, 0.11};
+	const auto delays = agi::BuildAnimationFrameDelaysMs(pts);
+	ASSERT_EQ(4u, delays.size());
+	EXPECT_EQ(30u, delays[0]);
+	EXPECT_EQ(50u, delays[1]);
+	EXPECT_EQ(30u, delays[2]);
+	EXPECT_EQ(30u, delays[3]);
+}
+
+TEST(lagi_image_video, apng_delays_clamp_to_minimum_one_ms) {
+	// PTS 差值为零时钳制为 1 毫秒，避免零延迟帧
+	const std::vector<double> pts = {0.0, 0.0, 0.002};
+	const auto delays = agi::BuildAnimationFrameDelaysMs(pts);
+	ASSERT_EQ(3u, delays.size());
+	EXPECT_EQ(1u, delays[0]);
+	EXPECT_EQ(2u, delays[1]);
+	EXPECT_EQ(2u, delays[2]);
+}
+
+TEST(lagi_image_video, apng_delays_empty_pts) {
+	const auto delays = agi::BuildAnimationFrameDelaysMs({});
+	EXPECT_TRUE(delays.empty());
+}
+
 TEST(lagi_image_video, export_duration_frame_count) {
 	// 导出帧范围的帧数计算：end - start + 1
 	long start = 100, end_frame = 200;
