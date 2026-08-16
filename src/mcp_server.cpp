@@ -29,6 +29,7 @@
 #include "ass_file.h"
 #include "ass_info.h"
 #include "ass_style.h"
+#include "apng_encoder.h"
 #include "async_video_provider.h"
 #include "audio_controller.h"
 #include "command/command.h"
@@ -67,6 +68,9 @@
 #include <wx/mstream.h>
 
 #include "gifski.h"
+
+#include <webp/encode.h>
+#include <webp/mux.h>
 
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/join.hpp>
@@ -547,7 +551,7 @@ namespace {
 		"video/open/dummy",
 		"video/open/image",
 		"video/save/clip",
-		"video/save/gif",
+		"video/save/animation",
 	};
 
 	/// 已提供专用 MCP 工具的命令 -> 工具名，AI 应优先使用专用工具而非 run_command
@@ -568,7 +572,6 @@ namespace {
 		{"video/close", "close_video"},
 		{"video/frame/save", "save_video_frame"},
 		{"video/open", "open_video"},
-		{"video/save/gif", "export_gif"},
 	};
 
 	/// 判断命令是否在阻塞名单中，
@@ -576,12 +579,10 @@ namespace {
 	bool IsBlockingCommand(const std::string_view name) {
 		if (blocking_commands.contains(name))
 			return true;
-		for (auto const &prefix : blocking_commands) {
-			if (prefix.size() > 1 && prefix.back() == '/' &&
-				name.size() > prefix.size() && name.compare(0, prefix.size(), prefix) == 0)
-				return true;
-		}
-		return false;
+		return std::ranges::any_of(blocking_commands, [&](auto const &prefix) {
+			return prefix.size() > 1 && prefix.back() == '/' &&
+				name.size() > prefix.size() && name.compare(0, prefix.size(), prefix) == 0;
+		});
 	}
 
 	/// 列出所有已注册命令名，附阻塞与专用工具信息
@@ -1462,7 +1463,7 @@ namespace {
 			tags.emplace_back(std::move(item));
 		}
 		Object result;
-		const int64_t count = static_cast<int64_t>(tags.size());
+		const auto count = static_cast<int64_t>(tags.size());
 		result["tags"] = std::move(tags);
 		result["count"] = count;
 		return result;
@@ -2004,6 +2005,289 @@ namespace {
 		result["frames"] = total_frame;
 		result["width"] = source_width;
 		result["height"] = source_height;
+		return result;
+	}
+
+	UnknownElement HandleExportApng(Object const &args) {
+		auto *ctx = RequireContext();
+		if (!ctx->project->VideoProvider() || !ctx->videoController)
+			throw std::runtime_error("no video loaded");
+		std::string path = GetString(args, "path");
+		if (path.empty())
+			throw std::runtime_error("missing 'path'");
+
+		int64_t start_frame = GetInt(args, "start_frame", -1);
+		int64_t end_frame = GetInt(args, "end_frame", -1);
+		if (start_frame < 0 || end_frame < 0)
+			throw std::runtime_error("missing 'start_frame'/'end_frame'");
+		int64_t scale_factor = GetInt(args, "scale_factor", 1);
+
+		auto *provider = ctx->project->VideoProvider();
+		int total = provider->GetFrameCount();
+		start_frame = std::clamp<int64_t>(start_frame, 0, total - 1);
+		end_frame = std::clamp<int64_t>(end_frame, 0, total - 1);
+		if (end_frame <= start_frame)
+			throw std::runtime_error("'end_frame' must be greater than 'start_frame'");
+		const int start = static_cast<int>(start_frame);
+		const int end = static_cast<int>(end_frame);
+
+		const auto frame_pts = agi::BuildGifFramePresentationTimestamps(ctx->project->Timecodes(), start, end);
+		const int total_frame = end - start + 1;
+		if (frame_pts.size() != static_cast<size_t>(total_frame))
+			throw std::runtime_error("failed to build APNG frame timestamps");
+		const auto frame_delays = agi::BuildAnimationFrameDelaysMs(frame_pts);
+		if (frame_delays.size() != static_cast<size_t>(total_frame))
+			throw std::runtime_error("failed to build APNG frame delays");
+
+		// 首帧解码以确定输出尺寸（与 GUI 导出路径一致）
+		auto first_vf = provider->GetFrame(start, ctx->project->Timecodes().TimeAtFrame(start), false);
+		wxImage first_img = GetImage(*first_vf);
+		if (!first_img.IsOk() || !first_img.GetData())
+			throw std::runtime_error("failed to decode first frame for APNG export");
+		const bool apng_hdr_enabled = OPT_GET("Video/HDR/Tone Mapping")->GetBool();
+		if (apng_hdr_enabled)
+			VideoOutGL::ApplyHDRLutToImage(first_img, provider->GetHDRType(), provider->GetDVProfile());
+		const int apng_padding_top = first_vf->padding_top;
+		const int apng_padding_bottom = first_vf->padding_bottom;
+		if (apng_padding_top > 0 || apng_padding_bottom > 0)
+			first_img = AddPaddingToImage(first_img, apng_padding_top, apng_padding_bottom);
+
+		const int source_width = first_img.GetWidth();
+		const int source_height = first_img.GetHeight();
+		// 输出尺寸按 scale_factor 等比缩小，宽高至少保留 1 像素
+		const int out_width = std::max(1, (scale_factor > 1) ? (source_width / static_cast<int>(scale_factor)) : source_width);
+		const int out_height = std::max(1, (scale_factor > 1) ? (source_height / static_cast<int>(scale_factor)) : source_height);
+
+		// 确保父目录存在
+		{
+			agi::fs::path out_path(wxString::FromUTF8(path).ToStdWstring());
+			if (agi::fs::path parent_dir = out_path.parent_path(); !parent_dir.empty()) {
+				std::error_code ec;
+				std::filesystem::create_directories(parent_dir, ec);
+				if (ec)
+					throw std::runtime_error("failed to create output directory: " + ec.message());
+			}
+		}
+
+		agi::ApngEncoder encoder(wxString::FromUTF8(path).ToStdWstring(), out_width, out_height, static_cast<uint32_t>(total_frame));
+		if (!encoder.IsOk())
+			throw std::runtime_error("failed to initialize APNG encoder");
+
+		// 逐帧喂给编码器（无裁剪，全帧导出）
+		uint32_t current_frame = 0;
+		for (int i = start; i <= end; ++i) {
+			const wxImage *img = nullptr;
+			wxImage decoded_img;
+			if (i == start) {
+				img = &first_img;
+			} else {
+				decoded_img = GetImage(*provider->GetFrame(i, ctx->project->Timecodes().TimeAtFrame(i), false));
+				if (apng_hdr_enabled)
+					VideoOutGL::ApplyHDRLutToImage(decoded_img, provider->GetHDRType(), provider->GetDVProfile());
+				if (apng_padding_top > 0 || apng_padding_bottom > 0)
+					decoded_img = AddPaddingToImage(decoded_img, apng_padding_top, apng_padding_bottom);
+				img = &decoded_img;
+			}
+			if (!img->IsOk() || !img->GetData() || img->GetWidth() != source_width || img->GetHeight() != source_height)
+				throw std::runtime_error("failed to decode frame " + std::to_string(i) + " for APNG export");
+
+			// 按缩放比例缩小后转为 RGBA 像素
+			wxImage frame_img = *img;
+			if (frame_img.GetWidth() != out_width || frame_img.GetHeight() != out_height)
+				frame_img.Rescale(out_width, out_height, wxIMAGE_QUALITY_HIGH);
+
+			const size_t pixel_count = static_cast<size_t>(out_width) * static_cast<size_t>(out_height);
+			std::vector<uint8_t> pixels(pixel_count * 4);
+			const unsigned char *imgData = frame_img.GetData();
+			for (size_t p = 0; p < pixel_count; ++p) {
+				pixels[p * 4 + 0] = imgData[p * 3 + 0];
+				pixels[p * 4 + 1] = imgData[p * 3 + 1];
+				pixels[p * 4 + 2] = imgData[p * 3 + 2];
+				pixels[p * 4 + 3] = 255;
+			}
+			if (!encoder.AddFrame(pixels.data(), frame_delays[current_frame]))
+				throw std::runtime_error("failed to add frame to APNG");
+			++current_frame;
+		}
+
+		if (!encoder.Finish())
+			throw std::runtime_error("failed to finish APNG export");
+
+		Object result;
+		result["ok"] = true;
+		result["path"] = path;
+		result["start_frame"] = start_frame;
+		result["end_frame"] = end_frame;
+		result["frames"] = total_frame;
+		result["width"] = out_width;
+		result["height"] = out_height;
+		return result;
+	}
+
+	UnknownElement HandleExportWebp(Object const &args) {
+		auto *ctx = RequireContext();
+		if (!ctx->project->VideoProvider() || !ctx->videoController)
+			throw std::runtime_error("no video loaded");
+		std::string path = GetString(args, "path");
+		if (path.empty())
+			throw std::runtime_error("missing 'path'");
+
+		int64_t start_frame = GetInt(args, "start_frame", -1);
+		int64_t end_frame = GetInt(args, "end_frame", -1);
+		if (start_frame < 0 || end_frame < 0)
+			throw std::runtime_error("missing 'start_frame'/'end_frame'");
+		int64_t quality = GetInt(args, "quality", 100);
+		int64_t scale_factor = GetInt(args, "scale_factor", 1);
+		bool lossless = GetBool(args, "lossless", false);
+
+		auto *provider = ctx->project->VideoProvider();
+		int total = provider->GetFrameCount();
+		start_frame = std::clamp<int64_t>(start_frame, 0, total - 1);
+		end_frame = std::clamp<int64_t>(end_frame, 0, total - 1);
+		if (end_frame <= start_frame)
+			throw std::runtime_error("'end_frame' must be greater than 'start_frame'");
+		const int start = static_cast<int>(start_frame);
+		const int end = static_cast<int>(end_frame);
+
+		const auto frame_pts = agi::BuildGifFramePresentationTimestamps(ctx->project->Timecodes(), start, end);
+		const int total_frame = end - start + 1;
+		if (frame_pts.size() != static_cast<size_t>(total_frame))
+			throw std::runtime_error("failed to build WebP frame timestamps");
+		const auto frame_delays = agi::BuildAnimationFrameDelaysMs(frame_pts);
+		if (frame_delays.size() != static_cast<size_t>(total_frame))
+			throw std::runtime_error("failed to build WebP frame delays");
+
+		// 首帧解码以确定输出尺寸（与 GUI 导出路径一致）
+		auto first_vf = provider->GetFrame(start, ctx->project->Timecodes().TimeAtFrame(start), false);
+		wxImage first_img = GetImage(*first_vf);
+		if (!first_img.IsOk() || !first_img.GetData())
+			throw std::runtime_error("failed to decode first frame for WebP export");
+		const bool webp_hdr_enabled = OPT_GET("Video/HDR/Tone Mapping")->GetBool();
+		if (webp_hdr_enabled)
+			VideoOutGL::ApplyHDRLutToImage(first_img, provider->GetHDRType(), provider->GetDVProfile());
+		const int webp_padding_top = first_vf->padding_top;
+		const int webp_padding_bottom = first_vf->padding_bottom;
+		if (webp_padding_top > 0 || webp_padding_bottom > 0)
+			first_img = AddPaddingToImage(first_img, webp_padding_top, webp_padding_bottom);
+
+		const int source_width = first_img.GetWidth();
+		const int source_height = first_img.GetHeight();
+		// 输出尺寸按 scale_factor 等比缩小，宽高至少保留 1 像素
+		const int out_width = std::max(1, (scale_factor > 1) ? (source_width / static_cast<int>(scale_factor)) : source_width);
+		const int out_height = std::max(1, (scale_factor > 1) ? (source_height / static_cast<int>(scale_factor)) : source_height);
+
+		// 确保父目录存在
+		{
+			agi::fs::path out_path(wxString::FromUTF8(path).ToStdWstring());
+			if (agi::fs::path parent_dir = out_path.parent_path(); !parent_dir.empty()) {
+				std::error_code ec;
+				std::filesystem::create_directories(parent_dir, ec);
+				if (ec)
+					throw std::runtime_error("failed to create output directory: " + ec.message());
+			}
+		}
+
+		// RAII 清理：任何异常路径（含解码抛异常）都释放编码器、输出数据与文件
+		struct WebpAnimGuard {
+			WebPAnimEncoder *enc = nullptr;
+			WebPData data = {};
+			FILE *f = nullptr;
+
+			~WebpAnimGuard() {
+				if (enc) WebPAnimEncoderDelete(enc);
+				WebPDataClear(&data);
+				if (f) fclose(f);
+			}
+		} guard;
+
+		WebPAnimEncoderOptions anim_config;
+		WebPAnimEncoderOptionsInit(&anim_config);
+		guard.enc = WebPAnimEncoderNew(out_width, out_height, &anim_config);
+		if (!guard.enc)
+			throw std::runtime_error("failed to initialize WebP encoder");
+
+		// 无损模式忽略质量参数，使用默认压缩配置
+		WebPConfig frame_config;
+		WebPConfigInit(&frame_config);
+		if (lossless)
+			frame_config.lossless = 1;
+		else
+			frame_config.quality = static_cast<float>(std::clamp<int64_t>(quality, 1, 100));
+
+		guard.f = _wfopen(wxString::FromUTF8(path).wc_str(), L"wb");
+		if (!guard.f)
+			throw std::runtime_error("failed to open output file for writing");
+
+		// 逐帧喂给编码器（无裁剪，全帧导出）
+		uint32_t current_frame = 0;
+		int64_t last_timestamp_ms = 0;
+		for (int i = start; i <= end; ++i) {
+			const wxImage *img = nullptr;
+			wxImage decoded_img;
+			if (i == start) {
+				img = &first_img;
+			} else {
+				decoded_img = GetImage(*provider->GetFrame(i, ctx->project->Timecodes().TimeAtFrame(i), false));
+				if (webp_hdr_enabled)
+					VideoOutGL::ApplyHDRLutToImage(decoded_img, provider->GetHDRType(), provider->GetDVProfile());
+				if (webp_padding_top > 0 || webp_padding_bottom > 0)
+					decoded_img = AddPaddingToImage(decoded_img, webp_padding_top, webp_padding_bottom);
+				img = &decoded_img;
+			}
+			if (!img->IsOk() || !img->GetData() || img->GetWidth() != source_width || img->GetHeight() != source_height)
+				throw std::runtime_error("failed to decode frame " + std::to_string(i) + " for WebP export");
+
+			// 按缩放比例缩小后转为 RGBA 像素
+			wxImage frame_img = *img;
+			if (frame_img.GetWidth() != out_width || frame_img.GetHeight() != out_height)
+				frame_img.Rescale(out_width, out_height, wxIMAGE_QUALITY_HIGH);
+
+			const size_t pixel_count = static_cast<size_t>(out_width) * static_cast<size_t>(out_height);
+			std::vector<uint8_t> pixels(pixel_count * 4);
+			const unsigned char *imgData = frame_img.GetData();
+			for (size_t p = 0; p < pixel_count; ++p) {
+				pixels[p * 4 + 0] = imgData[p * 3 + 0];
+				pixels[p * 4 + 1] = imgData[p * 3 + 1];
+				pixels[p * 4 + 2] = imgData[p * 3 + 2];
+				pixels[p * 4 + 3] = 255;
+			}
+
+			// WebPAnimEncoderAdd 使用相对首帧的累计毫秒时间戳，
+			// 中间值以 int64_t 保精度，传参时显式收窄为 int，动画时长不会超出 int 毫秒上限
+			const auto timestamp_ms = llround(frame_pts[current_frame] * 1000.0);
+			WebPPicture pic;
+			WebPPictureInit(&pic);
+			pic.width = out_width;
+			pic.height = out_height;
+			pic.use_argb = 1;
+			if (!WebPPictureImportRGBA(&pic, pixels.data(), out_width * 4) ||
+				!WebPAnimEncoderAdd(guard.enc, &pic, static_cast<int>(timestamp_ms), &frame_config)) {
+				WebPPictureFree(&pic);
+				throw std::runtime_error("failed to add frame to WebP");
+			}
+			WebPPictureFree(&pic);
+			last_timestamp_ms = timestamp_ms;
+			++current_frame;
+		}
+
+		// 结束动画并装配输出数据
+		const int64_t end_timestamp_ms = last_timestamp_ms + frame_delays[current_frame - 1];
+		if (!WebPAnimEncoderAdd(guard.enc, nullptr, static_cast<int>(end_timestamp_ms), nullptr))
+			throw std::runtime_error("failed to finalize WebP animation");
+		if (!WebPAnimEncoderAssemble(guard.enc, &guard.data))
+			throw std::runtime_error("failed to assemble WebP data");
+		if (fwrite(guard.data.bytes, 1, guard.data.size, guard.f) != guard.data.size)
+			throw std::runtime_error("failed to write WebP file");
+
+		Object result;
+		result["ok"] = true;
+		result["path"] = path;
+		result["start_frame"] = start_frame;
+		result["end_frame"] = end_frame;
+		result["frames"] = total_frame;
+		result["width"] = out_width;
+		result["height"] = out_height;
+		result["lossless"] = lossless;
 		return result;
 	}
 
@@ -2716,6 +3000,42 @@ namespace agi::mcp {
 				"Export a range of video frames (with rendered subtitles) as a GIF animation file.",
 				MakeObjectSchema(std::move(props), std::move(required)),
 				HandleExportGif
+			);
+		}
+		{
+			Object props;
+			props["path"] = MakeStringProp("Output APNG file path");
+			props["start_frame"] = MakeIntProp("First frame to export", 0);
+			props["end_frame"] = MakeIntProp("Last frame to export (exclusive of start)", 0);
+			props["scale_factor"] = MakeIntProp("Integer downscale factor for output size (1 = original)", 1);
+			Array required;
+			required.emplace_back(std::string("path"));
+			required.emplace_back(std::string("start_frame"));
+			required.emplace_back(std::string("end_frame"));
+			RegisterTool(
+				"export_apng",
+				"Export a range of video frames (with rendered subtitles) as a lossless APNG animation file.",
+				MakeObjectSchema(std::move(props), std::move(required)),
+				HandleExportApng
+			);
+		}
+		{
+			Object props;
+			props["path"] = MakeStringProp("Output WebP file path");
+			props["start_frame"] = MakeIntProp("First frame to export", 0);
+			props["end_frame"] = MakeIntProp("Last frame to export (exclusive of start)", 0);
+			props["quality"] = MakeIntProp("Lossy WebP quality 1-100 (ignored when lossless)", 100);
+			props["lossless"] = MakeBoolProp("Use lossless encoding (quality is ignored)", false);
+			props["scale_factor"] = MakeIntProp("Integer downscale factor for output size (1 = original)", 1);
+			Array required;
+			required.emplace_back(std::string("path"));
+			required.emplace_back(std::string("start_frame"));
+			required.emplace_back(std::string("end_frame"));
+			RegisterTool(
+				"export_webp",
+				"Export a range of video frames (with rendered subtitles) as an animated WebP file, lossy or lossless.",
+				MakeObjectSchema(std::move(props), std::move(required)),
+				HandleExportWebp
 			);
 		}
 		{
