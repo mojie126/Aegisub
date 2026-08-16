@@ -38,6 +38,7 @@ build*/
 .codegraph
 .reasonix
 .workbuddy
+.zcode
 
 # Documentation (generated/temporary)
 docs/*.md

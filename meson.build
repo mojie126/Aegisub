@@ -166,6 +166,11 @@ endif
 
 deps += dependency('zlib')
 
+# 动画 WebP 编码（libwebp），系统未安装时回退 subprojects wrap，
+# WebPAnimEncoder 动画编码接口位于 libwebpmux
+deps += dependency('libwebp')
+deps += dependency('libwebpmux')
+
 wx_minver = '>=' + get_option('wx_version')
 wx_dep = dependency('wxWidgets', version : wx_minver,
 					required : false,
