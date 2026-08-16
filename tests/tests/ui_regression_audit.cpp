@@ -163,6 +163,38 @@ TEST(UIRegressionAuditTest, VisualToolAnchorMarginFollowsHandleSize) {
 	EXPECT_EQ(GetAnchorMargin(DRAG_NONE, 9), 0);
 }
 
+TEST(UIRegressionAuditTest, VisualToolDragFirstLineUsesZeroHue) {
+	EXPECT_EQ(SelectPerLineHue(Vector2D(0, 0), {}, {}), 0);
+}
+
+TEST(UIRegressionAuditTest, VisualToolDragUsesComplementaryHueForOverlappingLines) {
+	// 与已有行完全重叠时取环上最远色相（互补，180 度）
+	std::vector<Vector2D> pos = {Vector2D(100, 100)};
+	std::vector<int> hues = {0};
+	EXPECT_EQ(SelectPerLineHue(Vector2D(100, 100), pos, hues), 128);
+}
+
+TEST(UIRegressionAuditTest, VisualToolDragSpreadsOverlappingLinesAroundHueRing) {
+	// 三个行重叠：0/128 后第三行取与两者最小色差最大的色相
+	std::vector<Vector2D> pos = {Vector2D(0, 0), Vector2D(0, 0)};
+	std::vector<int> hues = {0, 128};
+	EXPECT_EQ(SelectPerLineHue(Vector2D(0, 0), pos, hues), 64);
+}
+
+TEST(UIRegressionAuditTest, VisualToolDragIgnoresDistantLinesForContrast) {
+	// 距所有已分配行都远（>250px）时不参与约束，取未用色相
+	std::vector<Vector2D> pos = {Vector2D(0, 0), Vector2D(0, 0)};
+	std::vector<int> hues = {0, 128};
+	EXPECT_EQ(SelectPerLineHue(Vector2D(1000, 0), pos, hues), 32);
+}
+
+TEST(UIRegressionAuditTest, VisualToolDragNearLineDominatesFarLine) {
+	// 新行紧邻行 0 但远离行 1：只与行 0 互补，不受远处行 1 影响
+	std::vector<Vector2D> pos = {Vector2D(0, 0), Vector2D(1000, 0)};
+	std::vector<int> hues = {0, 32};
+	EXPECT_EQ(SelectPerLineHue(Vector2D(10, 0), pos, hues), 128);
+}
+
 TEST(UIRegressionAuditTest, ShowOriginalToggleMustClearPreviousMinHeightBeforeCollapsing) {
 	EXPECT_EQ(ResolveSplitToggleLayout(340, 220, false, false).min_height, 340);
 	EXPECT_EQ(ResolveSplitToggleLayout(340, 220, true, false).min_height, 220);
