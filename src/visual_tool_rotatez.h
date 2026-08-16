@@ -22,23 +22,39 @@
 #include "visual_feature.h"
 #include "visual_tool.h"
 
+#include <map>
+
 class VisualToolRotateZ final : public VisualTool<VisualDraggableFeature> {
-	float angle = 0.f; ///< Current Z rotation
-	float orig_angle = 0.f; ///< Z rotation at the beginning of the current hold
-	Vector2D pos; ///< Position of the dialogue line
-	Vector2D scale; ///< Current scale
+	/// 单个对话行的 Z 轴旋转状态
+	struct LineState {
+		float angle = 0.f; ///< Current Z rotation
+		float orig_angle = 0.f; ///< Z rotation at the beginning of the current hold
+		Vector2D pos; ///< Position of the dialogue line
+		Vector2D scale; ///< Current scale
 
-	float rotation_x = 0.f; ///< Current X rotation
-	float rotation_y = 0.f; ///< Current Y rotation
+		float rotation_x = 0.f; ///< Current X rotation
+		float rotation_y = 0.f; ///< Current Y rotation
 
-	Feature *org; ///< The origin feature
+		Feature *org = nullptr; ///< The origin feature
+	};
+
+	/// 选中及活动可见对话行到旋转状态的映射
+	std::map<AssDialogue*, LineState> line_states;
+
+	/// @brief 重建所有选中及活动可见行的特征与状态
+	void RebuildFeatures();
 
 	bool InitializeHold() override;
 	void UpdateHold() override;
 
 	void UpdateDrag(Feature *feature) override;
+	void EndDrag(Feature *feature) override { DoRefresh(); }
 
 	void DoRefresh() override;
+	void OnSelectionChanged() override;
+	// 活动行切换不改变特征集（由选中集决定），避免点击特征时重建销毁拖拽目标
+	void OnLineChanged() override { }
+	void OnFrameChanged() override { RebuildFeatures(); }
 
 	void Draw() override;
 public:
