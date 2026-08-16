@@ -13,7 +13,7 @@
 
 | 项                             | 说明                                                                                                                                                                                                                           |
 |-------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **什么是 aeg MCP**               | 你本地这个 **Aegisub fork**（即带 MCP 支持的修改版）内置了一个 MCP（Model Context Protocol）服务。它把 Aegisub 的字幕读写、样式管理、时间轴、视频帧截图、音频波形/频谱等能力，以 52 个工具的形式暴露给 AI 客户端。                                                                                   |
+| **什么是 aeg MCP**               | 你本地这个 **Aegisub fork**（即带 MCP 支持的修改版）内置了一个 MCP（Model Context Protocol）服务。它把 Aegisub 的字幕读写、样式管理、时间轴、视频帧截图、音频波形/频谱等能力，以 54 个工具的形式暴露给 AI 客户端。                                                                                   |
 | **不是官方原版**                    | 官方原版 Aegisub（aegisub.org）**没有**这个 MCP 服务。你必须使用**本 fork 3.5.3 及以上版本**的 `Aegisub.exe`（可从 [GitHub Release](https://github.com/mojie126/Aegisub/releases) 下载预编译版）。低于 3.5.3 的本 fork 旧版也可能缺失/不稳定，请认准 3.5.3+。                       |
 | **架构**                        | 你正常双击启动 Aegisub（带 GUI）→ 它内部自动起一个 HTTP 服务，监听 `127.0.0.1:7878`，提供两个端点：`/mcp`（无状态 POST，WorkBuddy 使用）与 `/sse`（HTTP+SSE，供标准 MCP 客户端使用）。WorkBuddy 通过 HTTP 连接这个服务。**你和 AI 操作的是同一个 Aegisub 实例**，AI 的修改在 GUI 里实时可见，你也能随时 `Ctrl+Z` 撤销。 |
 | **没有鉴权 / 不跨网**                | 服务只监听本机回环 `127.0.0.1`，不需要 API Key、不需要 mcp-remote 桥接，直接用 `http://127.0.0.1:7878/mcp` 连接即可。                                                                                                                                    |
@@ -97,7 +97,7 @@ curl.exe -s -X POST http://127.0.0.1:7878/mcp \
 - 返回一段 JSON（含 `protocolVersion`、`capabilities` 等）说明服务正常。
 - 如果提示 `Connection refused` / 连不上：回去检查 4.2 是否启用、Aegisub 是否在运行、端口是不是 7878。
 
-再列一下工具确认数量（应当返回 52 个工具）：
+再列一下工具确认数量（应当返回 54 个工具）：
 
 ```bash
 curl.exe -s -X POST http://127.0.0.1:7878/mcp \
@@ -161,7 +161,7 @@ curl.exe -s -X POST http://127.0.0.1:7878/mcp \
 
 1. **重启 WorkBuddy**（或新开一个任务会话），让配置生效。
 2. 在对话输入框输入 `/mcp`，回车，查看 MCP 服务器与诊断信息——应当能看到 `aeg` 显示为已连接，并列出它的工具。
-3. 也可以直接开一个对话，问一句：「列出 aeg 提供的工具」，AI 应当能调出 aeg 的工具清单（52 个）。
+3. 也可以直接开一个对话，问一句：「列出 aeg 提供的工具」，AI 应当能调出 aeg 的工具清单（54 个）。
 
 ### 5.5 方式二：直接用 AI 对话配置 aeg MCP（更省事）
 
@@ -193,35 +193,37 @@ AI 会自动把 aeg 远程服务写进配置（等价于 5.2 手动写入 `mcp.j
 
 下面列出最常用的工具：
 
-| 类别          | 工具                                                                        | 作用                           |
-|-------------|---------------------------------------------------------------------------|------------------------------|
-| **工程 / 文件** | `open_file(path)`                                                         | 按路径打开字幕文件（无对话框）              |
-|             | `save_file(path?)`                                                        | 保存当前字幕                       |
-|             | `new_file()`                                                              | 新建空白字幕                       |
-|             | `get_project_info()`                                                      | 看当前工程状态（文件名、行数、样式数、是否有视频/音频） |
-| **字幕读写**    | `get_dialogue_lines(limit?, offset?, include_comment?)`                   | 读取字幕行                        |
-|             | `search_dialogue(pattern, regex?)`                                        | 在字幕文本中搜索                     |
-|             | `update_subtitle_fields(line_index[], fields)`                            | 改某行的时间/文本/样式/边距等             |
-|             | `insert_subtitle_line(fields)` / `delete_subtitle_line(line_index[])`     | 插入 / 删除行                     |
-|             | `shift_times(offset / start_offset+end_offset, line_indices?)`            | 整体或局部偏移时间轴                   |
-|             | `set_selection(line_indices, active_line?)`                               | 设置网格选中行                      |
-| **样式管理**    | `get_styles()` / `get_style(name)`                                        | 读取样式                         |
-|             | `add_style(fields)` / `update_style(name, fields)` / `delete_style(name)` | 增改删样式                        |
-| **视频 / 帧**  | `open_video(path)` / `open_audio(path)`                                   | 按路径打开视频/音频                   |
-|             | `get_video_frame(frame?/ms?, raw?)`                                       | 取某帧截图（返回 PNG，AI 可直接看图）       |
-|             | `save_video_frame(path, frame?, format?, raw?)`                           | 把某帧存成图片                      |
-|             | `export_gif(path, start_frame, end_frame, quality?, scale_factor?)`       | 导出帧区间为 GIF                   |
-|             | `frame_from_ms(ms)` / `ms_from_frame(frame)`                              | 毫秒 ↔ 帧号                      |
-|             | `video_size()` / `keyframes()` / `get_frame()`                            | 视频尺寸 / 关键帧 / 当前帧             |
-| **音频**      | `get_audio_waveform(start_ms, end_ms, points?)`                           | 音频波形（切轴对齐用）                  |
-|             | `get_audio_spectrum(ms, fft_size?)`                                       | 音频频谱（语音/音乐判别）                |
-|             | `play_audio(start_ms, end_ms?)`                                           | 试听某段音频                       |
-| **文本 / 时间** | `time_to_ms(time)` / `ms_to_time(ms)`                                     | ASS 时间字符串 ↔ 毫秒               |
-|             | `strip_tags(text)`                                                        | 剥离 ASS 标签返回纯文本               |
-|             | `character_count(text, 忽略开关?)`                                            | 字符计数与最长行                     |
-|             | `vsmod_syntax(tag?, source?)`                                             | 查询 VSFilterMod 扩展标签语法        |
-| **通用网关**    | `run_command(command)`                                                    | 执行 Aegisub 内置的 272 个命令之一     |
-|             | `list_commands()`                                                         | 列出全部命令名 + 是否阻塞 + 对应专用工具      |
+| 类别          | 工具                                                                              | 作用                           |
+|-------------|---------------------------------------------------------------------------------|------------------------------|
+| **工程 / 文件** | `open_file(path)`                                                               | 按路径打开字幕文件（无对话框）              |
+|             | `save_file(path?)`                                                              | 保存当前字幕                       |
+|             | `new_file()`                                                                    | 新建空白字幕                       |
+|             | `get_project_info()`                                                            | 看当前工程状态（文件名、行数、样式数、是否有视频/音频） |
+| **字幕读写**    | `get_dialogue_lines(limit?, offset?, include_comment?)`                         | 读取字幕行                        |
+|             | `search_dialogue(pattern, regex?)`                                              | 在字幕文本中搜索                     |
+|             | `update_subtitle_fields(line_index[], fields)`                                  | 改某行的时间/文本/样式/边距等             |
+|             | `insert_subtitle_line(fields)` / `delete_subtitle_line(line_index[])`           | 插入 / 删除行                     |
+|             | `shift_times(offset / start_offset+end_offset, line_indices?)`                  | 整体或局部偏移时间轴                   |
+|             | `set_selection(line_indices, active_line?)`                                     | 设置网格选中行                      |
+| **样式管理**    | `get_styles()` / `get_style(name)`                                              | 读取样式                         |
+|             | `add_style(fields)` / `update_style(name, fields)` / `delete_style(name)`       | 增改删样式                        |
+| **视频 / 帧**  | `open_video(path)` / `open_audio(path)`                                         | 按路径打开视频/音频                   |
+|             | `get_video_frame(frame?/ms?, raw?)`                                             | 取某帧截图（返回 PNG，AI 可直接看图）       |
+|             | `save_video_frame(path, frame?, format?, raw?)`                                 | 把某帧存成图片                      |
+|             | `export_gif(path, start_frame, end_frame, quality?, scale_factor?)`             | 导出帧区间为 GIF                   |
+|             | `export_apng(path, start_frame, end_frame, scale_factor?)`                      | 导出帧区间为无损 APNG                |
+|             | `export_webp(path, start_frame, end_frame, quality?, lossless?, scale_factor?)` | 导出帧区间为 WebP，支持有损与无损          |
+|             | `frame_from_ms(ms)` / `ms_from_frame(frame)`                                    | 毫秒 ↔ 帧号                      |
+|             | `video_size()` / `keyframes()` / `get_frame()`                                  | 视频尺寸 / 关键帧 / 当前帧             |
+| **音频**      | `get_audio_waveform(start_ms, end_ms, points?)`                                 | 音频波形（切轴对齐用）                  |
+|             | `get_audio_spectrum(ms, fft_size?)`                                             | 音频频谱（语音/音乐判别）                |
+|             | `play_audio(start_ms, end_ms?)`                                                 | 试听某段音频                       |
+| **文本 / 时间** | `time_to_ms(time)` / `ms_to_time(ms)`                                           | ASS 时间字符串 ↔ 毫秒               |
+|             | `strip_tags(text)`                                                              | 剥离 ASS 标签返回纯文本               |
+|             | `character_count(text, 忽略开关?)`                                                  | 字符计数与最长行                     |
+|             | `vsmod_syntax(tag?, source?)`                                                   | 查询 VSFilterMod 扩展标签语法        |
+| **通用网关**    | `run_command(command)`                                                          | 执行 Aegisub 内置的 272 个命令之一     |
+|             | `list_commands()`                                                               | 列出全部命令名 + 是否阻塞 + 对应专用工具      |
 
 ### 6.3 典型工作流示例（直接照抄给 AI 的对话）
 
