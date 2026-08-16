@@ -145,16 +145,13 @@ VisualToolPerspective::VisualToolPerspective(VideoDisplay *parent, agi::Context 
 , optGrid(OPT_SET("Tool/Visual/Perspective/Grid"))
 , optOrgMode(OPT_SET("Tool/Visual/Perspective/Org Mode"))
 {
-	old_outer.resize(4);
-	old_inner.resize(4);
-
 	settings = 0;
 	if (optOuter->GetBool()) settings |= PERSP_OUTER;
 	if (optOuterLocked->GetBool()) settings |= PERSP_LOCK_OUTER;
 	if (optGrid->GetBool()) settings |= PERSP_GRID;
 	settings |= optOrgMode->GetInt();
 
-	MakeFeatures();
+	RebuildFeatures();
 }
 
 void VisualToolPerspective::SetToolbar(wxToolBar *toolBar) {
@@ -219,7 +216,7 @@ void VisualToolPerspective::SetSubTool(int subtool) {
 	optGrid->SetBool(settings & PERSP_GRID);
 	optOrgMode->SetInt(GetOrgMode());
 
-	MakeFeatures();
+	RebuildFeatures();
 	parent->Render();
 }
 
@@ -243,6 +240,18 @@ bool VisualToolPerspective::HasOrgf() {
 	return GetOrgMode() == PERSP_ORGMODE_KEEP;
 }
 
+VisualToolPerspective::LineState& VisualToolPerspective::GetLineState(AssDialogue *line) {
+	auto it = line_states.find(line);
+	if (it != line_states.end()) return it->second;
+	// 特征行未命中时回退到活动行状态，两者均无时取映射中的第一个状态
+	// 正常流程下特征与状态同建同销，此回退仅作防御
+	if (active_line) {
+		it = line_states.find(active_line);
+		if (it != line_states.end()) return it->second;
+	}
+	return line_states.begin()->second;
+}
+
 std::vector<Vector2D> VisualToolPerspective::FeaturePositions(std::vector<Feature *> features) const {
 	std::vector<Vector2D> result;
 	for (size_t i = 0; i < 4; i++) {
@@ -251,88 +260,115 @@ std::vector<Vector2D> VisualToolPerspective::FeaturePositions(std::vector<Featur
 	return result;
 }
 
-void VisualToolPerspective::UpdateInner() {
-	std::vector<Vector2D> uv = MakeRect(c1, c2);
-	std::vector<Vector2D> quad = FeaturePositions(outer_corners);
+void VisualToolPerspective::UpdateInner(LineState& state) {
+	std::vector<Vector2D> uv = MakeRect(state.c1, state.c2);
+	std::vector<Vector2D> quad = FeaturePositions(state.outer_corners);
 	for (int i = 0; i < 4; i++)
-		inner_corners[i]->pos = UVToXY(quad, uv[i]);
+		state.inner_corners[i]->pos = UVToXY(quad, uv[i]);
 }
 
-void VisualToolPerspective::UpdateOuter() {
+void VisualToolPerspective::UpdateOuter(LineState& state) {
 	if (!HasOuter())
 		return;
-	std::vector<Vector2D> uv = MakeRect(-c1 / (c2 - c1), (1 - c1) / (c2 - c1));
-	std::vector<Vector2D> quad = FeaturePositions(inner_corners);
+	std::vector<Vector2D> uv = MakeRect(-state.c1 / (state.c2 - state.c1), (1 - state.c1) / (state.c2 - state.c1));
+	std::vector<Vector2D> quad = FeaturePositions(state.inner_corners);
 	for (int i = 0; i < 4; i++)
-		outer_corners[i]->pos = UVToXY(quad, uv[i]);
+		state.outer_corners[i]->pos = UVToXY(quad, uv[i]);
 }
 
-void VisualToolPerspective::MakeFeatures() {
+void VisualToolPerspective::RebuildFeatures() {
 	sel_features.clear();
 	features.clear();
+	line_states.clear();
 	active_feature = nullptr;
 
-	inner_corners.clear();
-	outer_corners.clear();
-	orgf = nullptr;
+	// 选中集联合活动行，保证活动行不在选中集时工具仍可用
+	auto lines = c->selectionController->GetSelectedSet();
+	if (active_line) lines.insert(active_line);
 
-	centerf = new Feature(this, FEATURE_CENTER, 0);
-	centerf->type = DRAG_BIG_TRIANGLE;
-	features.push_back(*centerf);
+	for (auto line : lines) {
+		if (!IsDisplayed(line)) continue;
 
-	if (HasOrgf()) {
-		orgf = new Feature(this, FEATURE_ORG, 0);
-		orgf->type = DRAG_BIG_TRIANGLE;
-		features.push_back(*orgf);
-	}
+		LineState state;
+		state.old_outer.resize(4);
+		state.old_inner.resize(4);
 
-	for (int i = 0; i < 4; i++) {
-		inner_corners.push_back(new Feature(this, FEATURE_INNER, i));
-		inner_corners.back()->type = DRAG_SMALL_CIRCLE;
-		features.push_back(*inner_corners.back());
+		state.centerf = new Feature(this, FEATURE_CENTER, 0);
+		state.centerf->type = DRAG_BIG_TRIANGLE;
+		state.centerf->line = line;
+		features.push_back(*state.centerf);
 
-		if (HasOuter()) {
-			outer_corners.push_back(new Feature(this, FEATURE_OUTER, i));
-			outer_corners.back()->type = DRAG_SMALL_CIRCLE;
-			features.push_back(*outer_corners.back());
+		if (HasOrgf()) {
+			state.orgf = new Feature(this, FEATURE_ORG, 0);
+			state.orgf->type = DRAG_BIG_TRIANGLE;
+			state.orgf->line = line;
+			features.push_back(*state.orgf);
 		}
-	}
 
-	DoRefresh();
+		for (int i = 0; i < 4; i++) {
+			state.inner_corners.push_back(new Feature(this, FEATURE_INNER, i));
+			state.inner_corners.back()->type = DRAG_SMALL_CIRCLE;
+			state.inner_corners.back()->line = line;
+			features.push_back(*state.inner_corners.back());
+
+			if (HasOuter()) {
+				state.outer_corners.push_back(new Feature(this, FEATURE_OUTER, i));
+				state.outer_corners.back()->type = DRAG_SMALL_CIRCLE;
+				state.outer_corners.back()->line = line;
+				features.push_back(*state.outer_corners.back());
+			}
+		}
+
+		TextToPersp(state, line);
+		SetFeaturePositions(state);
+		SaveFeaturePositions(state);
+
+		line_states[line] = std::move(state);
+	}
 }
 
 void VisualToolPerspective::Draw() {
 	if (!active_line) return;
 
-	wxColour line_color = to_wx(line_color_primary_opt->GetColor());
-	wxColour line_color_secondary = to_wx(line_color_secondary_opt->GetColor());
+	// 四边形先于 DrawAllFeatures 取色，需先填充按行色相映射保证首帧颜色正确
+	UpdateLineHueMap();
 
-	// Draw Quad
-	gl.SetLineColour(line_color);
-	for (int i = 0; i < 4; i++) {
-		if (HasOuter()) {
-			int m1 = GetAnchorMargin(outer_corners[i]->type, outer_corners[i]->size);
-			int m2 = GetAnchorMargin(outer_corners[(i + 1) % 4]->type, outer_corners[(i + 1) % 4]->size);
-			Vector2D oc1 = ClampToVideo(outer_corners[i]->pos, m1);
-			Vector2D oc2 = ClampToVideo(outer_corners[(i + 1) % 4]->pos, m2);
-			gl.DrawDashedLine(oc1, oc2, 6);
-			int m3 = GetAnchorMargin(inner_corners[i]->type, inner_corners[i]->size);
-			int m4 = GetAnchorMargin(inner_corners[(i + 1) % 4]->type, inner_corners[(i + 1) % 4]->size);
-			Vector2D ic1 = ClampToVideo(inner_corners[i]->pos, m3);
-			Vector2D ic2 = ClampToVideo(inner_corners[(i + 1) % 4]->pos, m4);
-			gl.DrawLine(ic1, ic2);
-		} else {
-			int m1 = GetAnchorMargin(inner_corners[i]->type, inner_corners[i]->size);
-			int m2 = GetAnchorMargin(inner_corners[(i + 1) % 4]->type, inner_corners[(i + 1) % 4]->size);
-			Vector2D ic1 = ClampToVideo(inner_corners[i]->pos, m1);
-			Vector2D ic2 = ClampToVideo(inner_corners[(i + 1) % 4]->pos, m2);
-			gl.DrawDashedLine(ic1, ic2, 6);
+	// 为每个选中行绘制四边形
+	for (auto& [line, state] : line_states) {
+		// 多行同屏时四边形按行区分颜色
+		wxColour line_color = GetPerLineColor(line);
+
+		gl.SetLineColour(line_color);
+		for (int i = 0; i < 4; i++) {
+			if (HasOuter()) {
+				int m1 = GetAnchorMargin(state.outer_corners[i]->type, state.outer_corners[i]->size);
+				int m2 = GetAnchorMargin(state.outer_corners[(i + 1) % 4]->type, state.outer_corners[(i + 1) % 4]->size);
+				Vector2D oc1 = ClampToVideo(state.outer_corners[i]->pos, m1);
+				Vector2D oc2 = ClampToVideo(state.outer_corners[(i + 1) % 4]->pos, m2);
+				gl.DrawDashedLine(oc1, oc2, 6);
+				int m3 = GetAnchorMargin(state.inner_corners[i]->type, state.inner_corners[i]->size);
+				int m4 = GetAnchorMargin(state.inner_corners[(i + 1) % 4]->type, state.inner_corners[(i + 1) % 4]->size);
+				Vector2D ic1 = ClampToVideo(state.inner_corners[i]->pos, m3);
+				Vector2D ic2 = ClampToVideo(state.inner_corners[(i + 1) % 4]->pos, m4);
+				gl.DrawLine(ic1, ic2);
+			} else {
+				int m1 = GetAnchorMargin(state.inner_corners[i]->type, state.inner_corners[i]->size);
+				int m2 = GetAnchorMargin(state.inner_corners[(i + 1) % 4]->type, state.inner_corners[(i + 1) % 4]->size);
+				Vector2D ic1 = ClampToVideo(state.inner_corners[i]->pos, m1);
+				Vector2D ic2 = ClampToVideo(state.inner_corners[(i + 1) % 4]->pos, m2);
+				gl.DrawDashedLine(ic1, ic2, 6);
+			}
 		}
 	}
 
 	DrawAllFeatures();
 
+	// 网格仅对活动行绘制，避免多行网格叠加干扰
 	if (GetSubTool() & PERSP_GRID) {
+		auto it = line_states.find(active_line);
+		if (it == line_states.end()) return;
+		LineState& state = it->second;
+
 		// Draw Grid - Copied and modified from visual_tool_rotatexy.cpp
 
 		// Number of lines on each side of each axis
@@ -345,13 +381,16 @@ void VisualToolPerspective::Draw() {
 		static const int half_line_length = spacing * (radius + 1);
 		static const float fade_factor = 0.9f / radius;
 
+		// 多行同屏时网格颜色跟随活动行颜色
+		wxColour line_color_secondary = GetPerLineOutlineColor(active_line);
+
 		// Transform grid
-		gl.SetOrigin(ClampToVideo(FromScriptCoords(org), GetAnchorMargin(centerf->type, centerf->size)));
+		gl.SetOrigin(ClampToVideo(FromScriptCoords(state.org), GetAnchorMargin(state.centerf->type, state.centerf->size)));
 		gl.SetScale(100 * video_res / script_res);
-		gl.SetRotation(angle_x, angle_y, angle_z, script_res.Y() / layout_res.Y());
-		gl.SetScale(fsc);
-		gl.SetShear(fax, fay);
-		Vector2D glScale = (bbox.second.Y() - bbox.first.Y()) * Vector2D(1, 1) / spacing / 4;
+		gl.SetRotation(state.angle_x, state.angle_y, state.angle_z, script_res.Y() / layout_res.Y());
+		gl.SetScale(state.fsc);
+		gl.SetShear(state.fax, state.fay);
+		Vector2D glScale = (state.bbox.second.Y() - state.bbox.first.Y()) * Vector2D(1, 1) / spacing / 4;
 		gl.SetScale(100 * glScale);
 
 		// 延迟初始化网格基础数据（仅首次分配）
@@ -400,7 +439,7 @@ void VisualToolPerspective::Draw() {
 
 		// 复制基础点并应用偏移
 		std::vector<float> points(grid_base_points);
-		Vector2D offset = (ToScriptCoords(QuadMidpoint(FeaturePositions(inner_corners))) - org) / glScale;
+		Vector2D offset = (ToScriptCoords(QuadMidpoint(FeaturePositions(state.inner_corners))) - state.org) / glScale;
 		for (int i = 0; i < line_count * 8; ++i) {
 			points[i * 2 + 0] += offset.X();
 			points[i * 2 + 1] += offset.Y();
@@ -413,18 +452,22 @@ void VisualToolPerspective::Draw() {
 }
 
 void VisualToolPerspective::OnDoubleClick() {
-	std::vector<Feature *> active_features = (HasOuter() && !OuterLocked()) ? outer_corners : inner_corners;
-	int maxi = -1;
+	// 在所有选中行的角点中寻找最近者，作用于其所属行
+	Feature *closest = nullptr;
 	float mind = -1;
-	for (size_t i = 0; i < active_features.size(); i++) {
-		float d = (active_features[i]->pos - mouse_pos).Len();
-		if (maxi == -1 || d < mind) {
-			maxi = i;
-			mind = d;
+	for (auto& [line, state] : line_states) {
+		std::vector<Feature *> active_features = (HasOuter() && !OuterLocked()) ? state.outer_corners : state.inner_corners;
+		for (auto feature : active_features) {
+			float d = (feature->pos - mouse_pos).Len();
+			if (!closest || d < mind) {
+				closest = feature;
+				mind = d;
+			}
 		}
 	}
-	active_features[maxi]->pos = mouse_pos;
-	UpdateDrag(active_features[maxi]);
+	if (!closest) return;
+	closest->pos = mouse_pos;
+	UpdateDrag(closest);
 	Commit();
 }
 
@@ -440,34 +483,36 @@ void VisualToolPerspective::OnMouseEvent(wxMouseEvent &event) {
 };
 
 void VisualToolPerspective::UpdateDrag(Feature *feature) {
-	if (feature == centerf) {
-		Vector2D oldCenter = QuadMidpoint(FeaturePositions(inner_corners));
+	LineState& state = GetLineState(feature->line);
+
+	if (feature == state.centerf) {
+		Vector2D oldCenter = QuadMidpoint(FeaturePositions(state.inner_corners));
 		if (HasOuter() && !OuterLocked()) {
-			std::vector<Vector2D> quad = FeaturePositions(outer_corners);
+			std::vector<Vector2D> quad = FeaturePositions(state.outer_corners);
 			Vector2D olduv = XYToUV(quad, oldCenter);
-			Vector2D newuv = XYToUV(quad, centerf->pos);
-			c1 = c1 + newuv - olduv;
-			c2 = c2 + newuv - olduv;
-			UpdateInner();
+			Vector2D newuv = XYToUV(quad, state.centerf->pos);
+			state.c1 = state.c1 + newuv - olduv;
+			state.c2 = state.c2 + newuv - olduv;
+			UpdateInner(state);
 		} else {
-			Vector2D diff = centerf->pos - oldCenter;
+			Vector2D diff = state.centerf->pos - oldCenter;
 			for (int i = 0; i < 4; i++) {
-				inner_corners[i]->pos = inner_corners[i]->pos + diff;
+				state.inner_corners[i]->pos = state.inner_corners[i]->pos + diff;
 			}
-			UpdateOuter();
+			UpdateOuter(state);
 		}
-	} else if (HasOrgf() && feature == orgf) {
-		org = ToScriptCoords(feature->pos);
+	} else if (HasOrgf() && feature == state.orgf) {
+		state.org = ToScriptCoords(feature->pos);
 	}
 
 	std::vector<Feature *> changed_quad;
 	std::vector<Vector2D> changed_quad_old;
 	if (feature->group == FEATURE_INNER) {
-		changed_quad = inner_corners;
-		changed_quad_old = old_inner;
+		changed_quad = state.inner_corners;
+		changed_quad_old = state.old_inner;
 	} else if (HasOuter() && feature->group == FEATURE_OUTER) {
-		changed_quad = outer_corners;
-		changed_quad_old = old_outer;
+		changed_quad = state.outer_corners;
+		changed_quad_old = state.old_outer;
 	}
 
 	if (!changed_quad.empty() && !ctrl_down) {
@@ -478,7 +523,7 @@ void VisualToolPerspective::UpdateDrag(Feature *feature) {
 		float center_la1, center_la2;
 		Solve2x2(diag1.X(), diag2.X(), diag1.Y(), diag2.Y(), b.X(), b.Y(), center_la1, center_la2);
 		if (center_la1 < 0 || center_la1 > 1 || -center_la2 < 0 || -center_la2 > 1) {
-			TextToPersp();
+			TextToPersp(state, feature->line);
 			return;
 		}
 	}
@@ -521,19 +566,19 @@ void VisualToolPerspective::UpdateDrag(Feature *feature) {
 		if (HasOuter()) {
 			if (feature->group == FEATURE_INNER) {
 				if (!OuterLocked()) {
-					c1 = XYToUV(FeaturePositions(outer_corners), inner_corners[0]->pos);
-					c2 = XYToUV(FeaturePositions(outer_corners), inner_corners[2]->pos);
-					UpdateInner();
+					state.c1 = XYToUV(FeaturePositions(state.outer_corners), state.inner_corners[0]->pos);
+					state.c2 = XYToUV(FeaturePositions(state.outer_corners), state.inner_corners[2]->pos);
+					UpdateInner(state);
 				} else {
-					UpdateOuter();
+					UpdateOuter(state);
 				}
 			} else if (feature->group == FEATURE_OUTER) {
 				if (OuterLocked()) {
-					c1 = XYToUV(FeaturePositions(outer_corners), inner_corners[0]->pos);
-					c2 = XYToUV(FeaturePositions(outer_corners), inner_corners[2]->pos);
-					UpdateOuter();
+					state.c1 = XYToUV(FeaturePositions(state.outer_corners), state.inner_corners[0]->pos);
+					state.c2 = XYToUV(FeaturePositions(state.outer_corners), state.inner_corners[2]->pos);
+					UpdateOuter(state);
 				} else {
-					UpdateInner();
+					UpdateInner(state);
 				}
 			}
 		}
@@ -541,37 +586,45 @@ void VisualToolPerspective::UpdateDrag(Feature *feature) {
 		// Normally dragging one corner
 		if (feature->group == FEATURE_INNER) {
 			if (!OuterLocked()) {
-				Vector2D newuv = XYToUV(FeaturePositions(outer_corners), feature->pos);
-				c1 = Vector2D(i == 0 || i == 3 ? newuv.X() : c1.X(), i < 2 ? newuv.Y() : c1.Y());
-				c2 = Vector2D(i == 0 || i == 3 ? c2.X() : newuv.X(), i < 2 ? c2.Y() : newuv.Y());
-				UpdateInner();
+				Vector2D newuv = XYToUV(FeaturePositions(state.outer_corners), feature->pos);
+				state.c1 = Vector2D(i == 0 || i == 3 ? newuv.X() : state.c1.X(), i < 2 ? newuv.Y() : state.c1.Y());
+				state.c2 = Vector2D(i == 0 || i == 3 ? state.c2.X() : newuv.X(), i < 2 ? state.c2.Y() : newuv.Y());
+				UpdateInner(state);
 			} else {
-				UpdateOuter();
+				UpdateOuter(state);
 			}
 		} else if (feature->group == FEATURE_OUTER) {
 			if (OuterLocked()) {
-				Vector2D d1 = -c1 / (c2 - c1);
-				Vector2D d2 = (1 - c1) / (c2 - c1);
-				Vector2D newuv = XYToUV(FeaturePositions(inner_corners), feature->pos);
+				Vector2D d1 = -state.c1 / (state.c2 - state.c1);
+				Vector2D d2 = (1 - state.c1) / (state.c2 - state.c1);
+				Vector2D newuv = XYToUV(FeaturePositions(state.inner_corners), feature->pos);
 				d1 = Vector2D(i == 0 || i == 3 ? newuv.X() : d1.X(), i < 2 ? newuv.Y() : d1.Y());
 				d2 = Vector2D(i == 0 || i == 3 ? d2.X() : newuv.X(), i < 2 ? d2.Y() : newuv.Y());
-				c1 = -d1 / (d2 - d1);
-				c2 = (1 - d1) / (d2 - d1);
-				UpdateOuter();
+				state.c1 = -d1 / (d2 - d1);
+				state.c2 = (1 - d1) / (d2 - d1);
+				UpdateOuter(state);
 			} else {
-				UpdateInner();
+				UpdateInner(state);
 			}
 		}
 	}
 
-	if (!InnerToText())
-		TextToPersp();
-	SetFeaturePositions();
+	if (!InnerToText(state))
+		TextToPersp(state, feature->line);
+	SetFeaturePositions(state);
 }
 
 void VisualToolPerspective::EndDrag(Feature *feature) {
-	SaveFeaturePositions();
-	SaveOuterToLines();
+	// 拖拽的特征行即活动行（点击特征时已切换），
+	// 用活动行定位状态，避免 EndDrag 时特征已被重建销毁而悬垂
+	if (!active_line) return;
+	auto it = line_states.find(active_line);
+	if (it == line_states.end()) return;
+	SaveFeaturePositions(it->second);
+	SaveOuterToLines(it->second);
+
+	// 广播编辑后刷新所有行的状态，避免其他选中行显示过期值
+	DoRefresh();
 }
 
 void VisualToolPerspective::WrapSetOverride(AssDialogue* line, std::string const& tag, float value, int precision, float defaultval) {
@@ -584,11 +637,15 @@ void VisualToolPerspective::WrapSetOverride(AssDialogue* line, std::string const
 		SetOverride(line, tag, formatted);
 }
 
-bool VisualToolPerspective::InnerToText() {
-	Vector2D q0 = ToScriptCoords(inner_corners[0]->pos);
-	Vector2D q1 = ToScriptCoords(inner_corners[1]->pos);
-	Vector2D q2 = ToScriptCoords(inner_corners[2]->pos);
-	Vector2D q3 = ToScriptCoords(inner_corners[3]->pos);
+bool VisualToolPerspective::InnerToText(LineState& state) {
+	// 防御：状态未初始化（角点缺失）时直接失败
+	if (state.inner_corners.size() < 4)
+		return false;
+
+	Vector2D q0 = ToScriptCoords(state.inner_corners[0]->pos);
+	Vector2D q1 = ToScriptCoords(state.inner_corners[1]->pos);
+	Vector2D q2 = ToScriptCoords(state.inner_corners[2]->pos);
+	Vector2D q3 = ToScriptCoords(state.inner_corners[3]->pos);
 
 	// Find a parallelogram projecting to the quad. This is independent of translation.
 	float z1, z3;
@@ -600,7 +657,7 @@ bool VisualToolPerspective::InnerToText() {
 	Vector2D midpoint = QuadMidpoint(std::vector<Vector2D>({q0, q1, q2, q3}));
 
 	if (GetOrgMode() == PERSP_ORGMODE_CENTER) {
-		org = midpoint;
+		state.org = midpoint;
 	} else if (GetOrgMode() == PERSP_ORGMODE_NOFAX) {
 		Vector2D v1 = q1 - q0;
 		Vector2D v3 = q3 - q0;
@@ -632,7 +689,7 @@ bool VisualToolPerspective::InnerToText() {
 
 			if (sqradius <= 0) {
 				// This is actually very rare.
-				org = circleCenter;
+				state.org = circleCenter;
 			} else {
 				// Find the point on the circle closest to the current \org.
 				float radius = sqrt(sqradius);
@@ -645,14 +702,14 @@ bool VisualToolPerspective::InnerToText() {
 			}
 		}
 
-		org = q0 - t;
+		state.org = q0 - t;
 	}
 
 	// Normalize to org
-	q0 = q0 - org;
-	q1 = q1 - org;
-	q2 = q2 - org;
-	q3 = q3 - org;
+	q0 = q0 - state.org;
+	q1 = q1 - state.org;
+	q2 = q2 - state.org;
+	q3 = q3 - state.org;
 
 	Vector3D r0 = Vector3D(q0, screenZ());
 	Vector3D r1 = z1 * Vector3D(q1, screenZ());
@@ -699,26 +756,26 @@ bool VisualToolPerspective::InnerToText() {
 
 	float quadwidth = ab.Len();
 	float quadheight = abs(ad.Y());
-	float scalex = quadwidth / std::max(bbox.second.X() - bbox.first.X(), 1.0f);
-	float scaley = quadheight / std::max(bbox.second.Y() - bbox.first.Y(), 1.0f);
+	float scalex = quadwidth / std::max(state.bbox.second.X() - state.bbox.first.X(), 1.0f);
+	float scaley = quadheight / std::max(state.bbox.second.Y() - state.bbox.first.Y(), 1.0f);
 	Vector2D scale = Vector2D(scalex, scaley);
 
-	float shiftv = align <= 3 ? 1 : (align <= 6 ? 0.5 : 0);
-	float shifth = align % 3 == 0 ? 1 : (align % 3 == 2 ? 0.5 : 0);
-	pos = org + r[0].XY() - bbox.first * scale + Vector2D(quadwidth * shifth, quadheight * shiftv);
-	angle_x = rotx * rad2deg;
-	angle_y = -roty * rad2deg;
-	angle_z = -rotz * rad2deg;
-	Vector2D oldfsc = fsc;
-	fsc = 100 * scale;
-	fax = rawfax * scaley / scalex;
-	fay = 0;
+	float shiftv = state.align <= 3 ? 1 : (state.align <= 6 ? 0.5 : 0);
+	float shifth = state.align % 3 == 0 ? 1 : (state.align % 3 == 2 ? 0.5 : 0);
+	state.pos = state.org + r[0].XY() - state.bbox.first * scale + Vector2D(quadwidth * shifth, quadheight * shiftv);
+	state.angle_x = rotx * rad2deg;
+	state.angle_y = -roty * rad2deg;
+	state.angle_z = -rotz * rad2deg;
+	Vector2D oldfsc = state.fsc;
+	state.fsc = 100 * scale;
+	state.fax = rawfax * scaley / scalex;
+	state.fay = 0;
 
-	bord = bord * fsc / oldfsc;
-	shad = shad * fsc / oldfsc;
+	state.bord = state.bord * state.fsc / oldfsc;
+	state.shad = state.shad * state.fsc / oldfsc;
 
 	// Give up if any of these numbers were invalid
-	std::vector<float> allvalues({fax, fsc.X(), fsc.Y(), angle_z, angle_x, angle_y, bord.X(), bord.Y(), shad.X(), shad.Y(), org.X(), org.Y(), pos.X(), pos.Y()});
+	std::vector<float> allvalues({state.fax, state.fsc.X(), state.fsc.Y(), state.angle_z, state.angle_x, state.angle_y, state.bord.X(), state.bord.Y(), state.shad.X(), state.shad.Y(), state.org.X(), state.org.Y(), state.pos.X(), state.pos.Y()});
 	for (float f : allvalues) {
 		if (!isfinite(f)) return false;
 	}
@@ -726,38 +783,38 @@ bool VisualToolPerspective::InnerToText() {
 	for (auto line : c->selectionController->GetSelectedSet()) {
 		auto style = c->ass->GetStyle(line->Style);
 		// Maybe just set the tags manually so the line doesn't need to be parsed again for every tag?
-		WrapSetOverride(line, "\\fax", fax, 6);
+		WrapSetOverride(line, "\\fax", state.fax, 6);
 		WrapSetOverride(line, "\\fay", 0, 6);
-		WrapSetOverride(line, "\\fscx", fsc.X(), 2, style->scalex);
-		WrapSetOverride(line, "\\fscy", fsc.Y(), 2, style->scaley);
-		WrapSetOverride(line, "\\frz", angle_z, 4, style->angle);
-		WrapSetOverride(line, "\\frx", angle_x, 4);
-		WrapSetOverride(line, "\\fry", angle_y, 4);
+		WrapSetOverride(line, "\\fscx", state.fsc.X(), 2, style->scalex);
+		WrapSetOverride(line, "\\fscy", state.fsc.Y(), 2, style->scaley);
+		WrapSetOverride(line, "\\frz", state.angle_z, 4, style->angle);
+		WrapSetOverride(line, "\\frx", state.angle_x, 4);
+		WrapSetOverride(line, "\\fry", state.angle_y, 4);
 		RemoveOverride(line, "\\bord");
 		RemoveOverride(line, "\\shad");
-		WrapSetOverride(line, "\\xbord", bord.X(), 2, style->outline_w);
-		WrapSetOverride(line, "\\ybord", bord.Y(), 2, style->outline_w);
-		WrapSetOverride(line, "\\xshad", shad.X(), 2, style->shadow_w);
-		WrapSetOverride(line, "\\yshad", shad.Y(), 2, style->shadow_w);
-		SetOverride(line, "\\org", org.PStr());
-		SetOverride(line, "\\pos", pos.PStr());
+		WrapSetOverride(line, "\\xbord", state.bord.X(), 2, style->outline_w);
+		WrapSetOverride(line, "\\ybord", state.bord.Y(), 2, style->outline_w);
+		WrapSetOverride(line, "\\xshad", state.shad.X(), 2, style->shadow_w);
+		WrapSetOverride(line, "\\yshad", state.shad.Y(), 2, style->shadow_w);
+		SetOverride(line, "\\org", state.org.PStr());
+		SetOverride(line, "\\pos", state.pos.PStr());
 	}
 	return true;
 }
 
-void VisualToolPerspective::SaveFeaturePositions() {
+void VisualToolPerspective::SaveFeaturePositions(LineState& state) {
 	for (int i = 0; i < 4; i++) {
-		old_inner[i] = inner_corners[i]->pos;
+		state.old_inner[i] = state.inner_corners[i]->pos;
 		if (HasOuter())
-			old_outer[i] = outer_corners[i]->pos;
+			state.old_outer[i] = state.outer_corners[i]->pos;
 	}
 }
 
-void VisualToolPerspective::SaveOuterToLines() {
+void VisualToolPerspective::SaveOuterToLines(LineState& state) {
 	if (HasOuter()) {
 		std::string plane_descriptor;
 		for (int i = 0; i < 4; i++) {
-			Vector2D saved_corner = ToScriptCoords(outer_corners[i]->pos);
+			Vector2D saved_corner = ToScriptCoords(state.outer_corners[i]->pos);
 			if (!isfinite(saved_corner.X()) || !isfinite(saved_corner.Y()))
 				return;
 			plane_descriptor += agi::format("%.2f;%.2f", saved_corner.X(), saved_corner.Y());
@@ -779,34 +836,34 @@ void VisualToolPerspective::SaveOuterToLines() {
 	}
 }
 
-void VisualToolPerspective::SetFeaturePositions() {
-	centerf->pos = QuadMidpoint(FeaturePositions(inner_corners));
-	if (orgf != nullptr)
-		orgf->pos = FromScriptCoords(org);
+void VisualToolPerspective::SetFeaturePositions(LineState& state) {
+	state.centerf->pos = QuadMidpoint(FeaturePositions(state.inner_corners));
+	if (state.orgf != nullptr)
+		state.orgf->pos = FromScriptCoords(state.org);
 }
 
-void VisualToolPerspective::TextToPersp() {
-	if (!active_line) return;
+void VisualToolPerspective::TextToPersp(LineState& state, AssDialogue *line) {
+	if (!line) return;
 
-	org = GetLineOrigin(active_line);
-	pos = GetLinePosition(active_line);
-	if (!org)
-		org = pos;
+	state.org = GetLineOrigin(line);
+	state.pos = GetLinePosition(line);
+	if (!state.org)
+		state.org = state.pos;
 
-	GetLineRotation(active_line, angle_x, angle_y, angle_z);
-	GetLineShear(active_line, fax, fay);
-	GetLineScale(active_line, fsc);
-	GetLineOutline(active_line, bord);
-	GetLineShadow(active_line, shad);
+	GetLineRotation(line, state.angle_x, state.angle_y, state.angle_z);
+	GetLineShear(line, state.fax, state.fay);
+	GetLineScale(line, state.fsc);
+	GetLineOutline(line, state.bord);
+	GetLineShadow(line, state.shad);
 
-	align = GetLineAlignment(active_line);
+	state.align = GetLineAlignment(line);
 
-	bbox = GetLineBaseExtents(active_line);
-	float textwidth = std::max(bbox.second.X() - bbox.first.X(), 1.f);
-	float textheight = std::max(bbox.second.Y() - bbox.first.Y(), 1.f);
+	state.bbox = GetLineBaseExtents(line);
+	float textwidth = std::max(state.bbox.second.X() - state.bbox.first.X(), 1.f);
+	float textheight = std::max(state.bbox.second.Y() - state.bbox.first.Y(), 1.f);
 	double shiftx = 0., shifty = 0.;
 
-	switch ((align - 1) % 3) {
+	switch ((state.align - 1) % 3) {
 		case 1:
 			shiftx = -textwidth / 2;
 			break;
@@ -816,7 +873,7 @@ void VisualToolPerspective::TextToPersp() {
 		default:
 			break;
 	}
-	switch ((align - 1) / 3) {
+	switch ((state.align - 1) / 3) {
 		case 0:
 			shifty = -textheight;
 			break;
@@ -827,30 +884,30 @@ void VisualToolPerspective::TextToPersp() {
 			break;
 	}
 
-	std::vector<Vector2D> textrect = MakeRect(bbox.first, bbox.second);
+	std::vector<Vector2D> textrect = MakeRect(state.bbox.first, state.bbox.second);
 	for (int i = 0; i < 4; i++) {
 		Vector2D p = textrect[i];
 		// Apply \fax and \fay
-		p = Vector2D(p.X() + p.Y() * fax, p.X() * fay + p.Y());
+		p = Vector2D(p.X() + p.Y() * state.fax, p.X() * state.fay + p.Y());
 		// Translate to alignment point
 		p = p + Vector2D(shiftx, shifty);
 		// Apply scaling
-		p = Vector2D(p.X() * fsc.X() / 100., p.Y() * fsc.Y() / 100.);
+		p = Vector2D(p.X() * state.fsc.X() / 100., p.Y() * state.fsc.Y() / 100.);
 		// Translate relative to origin
-		p = p + pos - org;
+		p = p + state.pos - state.org;
 		// Rotate ZXY
 		Vector3D q(p);
-		q = q.RotateZ(-angle_z * deg2rad);
-		q = q.RotateX(-angle_x * deg2rad);
-		q = q.RotateY(angle_y * deg2rad);
+		q = q.RotateZ(-state.angle_z * deg2rad);
+		q = q.RotateX(-state.angle_x * deg2rad);
+		q = q.RotateY(state.angle_y * deg2rad);
 		// Project
 		q = (screenZ() / (q.Z() + screenZ())) * q;
 		// Move to origin
-		Vector2D r = q.XY() + org;
-		inner_corners[i]->pos = FromScriptCoords(r);
+		Vector2D r = q.XY() + state.org;
+		state.inner_corners[i]->pos = FromScriptCoords(r);
 	}
 
-	for (auto const& extra : c->ass->GetExtradata(active_line->ExtradataIds)) {
+	for (auto const& extra : c->ass->GetExtradata(line->ExtradataIds)) {
 		if (extra.key == ambient_plane_key) {
 			std::vector<std::string> fields;
 			agi::Split(fields, extra.value, '|');
@@ -872,33 +929,38 @@ void VisualToolPerspective::TextToPersp() {
 			}
 			if (saved_outer.size() != 4) break;
 
-			Vector2D d1 = XYToUV(saved_outer, ToScriptCoords(inner_corners[0]->pos));
-			Vector2D d2 = XYToUV(saved_outer, ToScriptCoords(inner_corners[2]->pos));
+			Vector2D d1 = XYToUV(saved_outer, ToScriptCoords(state.inner_corners[0]->pos));
+			Vector2D d2 = XYToUV(saved_outer, ToScriptCoords(state.inner_corners[2]->pos));
 			if (isfinite(d1.X()) && isfinite(d1.Y()) && isfinite(d2.X()) && isfinite(d2.Y())) {
-				c1 = d1;
-				c2 = d2;
+				state.c1 = d1;
+				state.c2 = d2;
 			}
 		}
 	}
 
-	UpdateOuter();
+	UpdateOuter(state);
 }
 
 void VisualToolPerspective::DoRefresh() {
-	TextToPersp();
-	SetFeaturePositions();
-	SaveFeaturePositions();
+	RebuildFeatures();
+}
+
+void VisualToolPerspective::OnSelectionChanged() {
+	RebuildFeatures();
+	parent->Render();
 }
 
 VisualToolPerspectiveDraggableFeature::VisualToolPerspectiveDraggableFeature(VisualToolPerspective *tool, int group, int index) : tool(tool), group(group), index(index) {}
 
 void VisualToolPerspectiveDraggableFeature::UpdateDrag(Vector2D d, bool single_axis) {
+	auto& state = tool->GetLineState(line);
+
 	if (tool->ctrl_down && tool->alt_down)
 		single_axis = false;   // This is handled manually later on
 
 	if (single_axis && !(group == FEATURE_CENTER && !(tool->HasOuter() && !tool->OuterLocked()))) {
 		// Snap to the axes *inside* of the quad's perspective plane.
-		std::vector<Vector2D> quad = tool->old_inner;
+		std::vector<Vector2D> quad = state.old_inner;
 		Vector2D posUV = XYToUV(quad, pos);
 		Vector2D axis1 = UVToXY(quad, posUV + Vector2D(1, 0)) - pos;
 		Vector2D axis2 = UVToXY(quad, posUV + Vector2D(0, 1)) - pos;

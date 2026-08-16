@@ -23,6 +23,8 @@
 #include "visual_tool.h"
 #include "options.h"
 
+#include <map>
+
 class wxCommandEvent;
 class wxToolBar;
 
@@ -60,39 +62,47 @@ class VisualToolPerspective final : public VisualTool<VisualToolPerspectiveDragg
 	agi::OptionValue* optGrid;
 	agi::OptionValue* optOrgMode;
 
-	// All current transform coefficients. Used for drawing the grid.
-	float angle_x = 0.f;
-	float angle_y = 0.f;
-	float angle_z = 0.f;
+	/// 单个对话行的透视状态
+	struct LineState {
+		// All current transform coefficients. Used for drawing the grid.
+		float angle_x = 0.f;
+		float angle_y = 0.f;
+		float angle_z = 0.f;
 
-	float fax = 0.f;
-	float fay = 0.f;
+		float fax = 0.f;
+		float fay = 0.f;
 
-	int align = 0;
+		int align = 0;
 
-	// Corners of the bounding box of the event without any formatting.
-	// The top left corner is the zero vector for text but might not be for drawings.
-	std::pair<Vector2D, Vector2D> bbox;
+		// Corners of the bounding box of the event without any formatting.
+		// The top left corner is the zero vector for text but might not be for drawings.
+		std::pair<Vector2D, Vector2D> bbox;
 
-	Vector2D fsc;
+		Vector2D fsc;
 
-	Vector2D org;
-	Vector2D pos;
+		Vector2D org;
+		Vector2D pos;
 
-	// Store these here to reduce rounding errors compounding on updates
-	Vector2D bord;
-	Vector2D shad;
+		// Store these here to reduce rounding errors compounding on updates
+		Vector2D bord;
+		Vector2D shad;
 
-    // Corner coordinates of the transform quad relative to the ambient quad.
-    Vector2D c1 = Vector2D(.25, .25);
-    Vector2D c2 = Vector2D(.75, .75);
+		// Corner coordinates of the transform quad relative to the ambient quad.
+		Vector2D c1 = Vector2D(.25, .25);
+		Vector2D c2 = Vector2D(.75, .75);
 
-	Feature *centerf;
-	Feature *orgf;
-	Vector2D old_centerf;
+		Feature *centerf = nullptr;
+		Feature *orgf = nullptr;
 
-	std::vector<Feature *> inner_corners;
-	std::vector<Feature *> outer_corners;
+		std::vector<Feature *> inner_corners;
+		std::vector<Feature *> outer_corners;
+
+		std::vector<Vector2D> old_inner;
+		std::vector<Vector2D> old_outer;
+	};
+
+	/// 选中及活动可见对话行到透视状态的映射
+	std::map<AssDialogue*, LineState> line_states;
 
 	/// @brief 预计算的网格基础点坐标（不含偏移）
 	std::vector<float> grid_base_points;
@@ -104,23 +114,28 @@ class VisualToolPerspective final : public VisualTool<VisualToolPerspectiveDragg
 	inline float screenZ() const;
 
 	std::vector<Vector2D> FeaturePositions(std::vector<Feature *> features) const;
-    void UpdateInner();
-    void UpdateOuter();
-    void TextToPersp();
-    bool InnerToText();
+    void UpdateInner(LineState& state);
+    void UpdateOuter(LineState& state);
+    void TextToPersp(LineState& state, AssDialogue *line);
+    bool InnerToText(LineState& state);
 
     void WrapSetOverride(AssDialogue* line, std::string const& tag, float value, int precision, float defaultval=0);
 
 	void OnMouseEvent(wxMouseEvent &event) override;
 	void DoRefresh() override;
+	void OnSelectionChanged() override;
+	// 活动行切换不改变特征集（由选中集决定），避免点击特征时重建销毁拖拽目标
+	void OnLineChanged() override { }
+	void OnFrameChanged() override { RebuildFeatures(); }
 	void Draw() override;
 	void OnDoubleClick() override;
 	void UpdateDrag(Feature *feature) override;
 	void EndDrag(Feature *feature) override;
-    void MakeFeatures();
-	void SetFeaturePositions();
-	void SaveFeaturePositions();
-	void SaveOuterToLines();
+	/// @brief 重建所有选中及活动可见行的特征与状态
+	void RebuildFeatures();
+	void SetFeaturePositions(LineState& state);
+	void SaveFeaturePositions(LineState& state);
+	void SaveOuterToLines(LineState& state);
 
 	void AddTool(std::string command_name, VisualToolPerspectiveSetting mode);
 
@@ -129,8 +144,9 @@ public:
 	bool shift_down = false;
 	bool alt_down = false;
 
-	std::vector<Vector2D> old_inner;
-	std::vector<Vector2D> old_outer;
+	/// @brief 获取指定行对应的透视状态，行无效时回退到活动行状态
+	/// @param line 特征所属对话行
+	LineState& GetLineState(AssDialogue *line);
 
 	VisualToolPerspective(VideoDisplay *parent, agi::Context *context);
 

@@ -34,12 +34,13 @@ int BUTTON_ID_BASE = 1300;
 
 VisualToolVectorClip::VisualToolVectorClip(VideoDisplay *parent, agi::Context *context)
 : VisualTool<VisualToolVectorClipDraggableFeature>(parent, context)
-, spline(this)
 {
 	// 从选项恢复上次使用的辅助工具模式
 	int saved_mode = OPT_GET("Tool/Visual/Vector Clip/Mode")->GetInt();
 	if (saved_mode >= 0 && saved_mode < VCLIP_LAST)
 		mode = saved_mode;
+
+	RebuildFeatures();
 }
 
 // Having the mode as an extra argument here isn't the cleanest, but using a counter instead
@@ -101,26 +102,49 @@ int VisualToolVectorClip::GetSubTool() {
 
 void VisualToolVectorClip::Draw() {
 	if (!active_line) return;
-	if (spline.empty()) return;
 
-	// Parse vector
-	std::vector<int> start;
-	std::vector<int> count;
-	auto points = spline.GetPointList(start, count);
-	assert(!start.empty());
-	assert(!count.empty());
+	// 本工具自绘特征不经过 DrawAllFeatures，需手动填充按行色相映射
+	UpdateLineHueMap();
 
-	// Load colors from options
-	wxColour line_color = to_wx(line_color_primary_opt->GetColor());
-	wxColour highlight_color_primary = to_wx(highlight_color_primary_opt->GetColor());
-	wxColour highlight_color_secondary = to_wx(highlight_color_secondary_opt->GetColor());
+	bool any_spline = false;
+	for (auto& [line, state] : line_states) {
+		if (!state.spline.empty()) {
+			any_spline = true;
+			break;
+		}
+	}
+	if (!any_spline) return;
+
 	float shaded_alpha = static_cast<float>(shaded_area_alpha_opt->GetDouble());
 
-	gl.SetLineColour(line_color, .5f, 2);
-	gl.SetFillColour(*wxBLACK, shaded_alpha);
+	// 每行绘制裁剪阴影、路径线和 bicubic 控制柄线
+	for (auto& [line, state] : line_states) {
+		if (state.spline.empty()) continue;
 
-	// draw the shade over clipped out areas and line showing the clip
-	gl.DrawMultiPolygon(points, start, count, video_pos, video_res, !inverse);
+		// 多行同屏时路径线按行区分颜色
+		wxColour line_color = GetPerLineColor(line);
+
+		std::vector<int> start;
+		std::vector<int> count;
+		auto points = state.spline.GetPointList(start, count);
+		assert(!start.empty());
+		assert(!count.empty());
+
+		gl.SetLineColour(line_color, .5f, 2);
+		gl.SetFillColour(*wxBLACK, shaded_alpha);
+
+		// draw the shade over clipped out areas and line showing the clip
+		gl.DrawMultiPolygon(points, start, count, video_pos, video_res, !state.inverse);
+
+		// Draw lines connecting the bicubic features
+		gl.SetLineColour(line_color, 0.9f, 1);
+		for (auto const& curve : state.spline) {
+			if (curve.type == SplineCurve::BICUBIC) {
+				gl.DrawDashedLine(curve.p1, curve.p2, 6);
+				gl.DrawDashedLine(curve.p3, curve.p4, 6);
+			}
+		}
+	}
 
 	if (mode == VCLIP_DRAG && holding && drag_start && mouse_pos) {
 		// Draw drag-select box
@@ -132,42 +156,55 @@ void VisualToolVectorClip::Draw() {
 		gl.DrawDashedLine(Vector2D(bottom_right.X(), top_left.Y()), top_left, 6);
 	}
 
-	Vector2D pt;
-	float t;
-	Spline::iterator highlighted_curve;
-	spline.GetClosestParametricPoint(mouse_pos, highlighted_curve, t, pt);
+	// 活动行的编辑预览（高亮曲线/插入预览）
+	auto it = line_states.find(active_line);
+	if (it != line_states.end() && !it->second.spline.empty()) {
+		LineState& state = it->second;
+		wxColour line_color = GetPerLineColor(active_line);
 
-	// Draw highlighted line
-	if ((mode == VCLIP_CONVERT || mode == VCLIP_INSERT) && !active_feature && points.size() > 2) {
-		auto highlighted_points = spline.GetPointList(highlighted_curve);
-		if (!highlighted_points.empty()) {
-			gl.SetLineColour(highlight_color_secondary, 1.f, 2);
-			gl.DrawLineStrip(2, highlighted_points);
+		Vector2D pt;
+		float t;
+		Spline::iterator highlighted_curve;
+		state.spline.GetClosestParametricPoint(mouse_pos, highlighted_curve, t, pt);
+
+		// Draw highlighted line
+		if ((mode == VCLIP_CONVERT || mode == VCLIP_INSERT) && !active_feature && state.spline.size() > 2) {
+			auto highlighted_points = state.spline.GetPointList(highlighted_curve);
+			if (!highlighted_points.empty()) {
+				gl.SetLineColour(line_color, 1.f, 2);
+				gl.DrawLineStrip(2, highlighted_points);
+			}
 		}
+
+		// Draw preview of inserted line
+		if (mode == VCLIP_LINE || mode == VCLIP_BICUBIC) {
+			if (state.spline.size() && mouse_pos) {
+				auto c0 = std::find_if(state.spline.rbegin(), state.spline.rend(),
+					[](SplineCurve const& s) { return s.type == SplineCurve::POINT; });
+				SplineCurve *c1 = &state.spline.back();
+				gl.DrawDashedLine(mouse_pos, c0->p1, 6);
+				gl.DrawDashedLine(mouse_pos, c1->EndPoint(), 6);
+			}
+		}
+
+		// Draw preview of insert point
+		if (mode == VCLIP_INSERT)
+			gl.DrawCircle(pt, 4);
 	}
 
-	// Draw lines connecting the bicubic features
-	gl.SetLineColour(line_color, 0.9f, 1);
-	for (auto const& curve : spline) {
-		if (curve.type == SplineCurve::BICUBIC) {
-			gl.DrawDashedLine(curve.p1, curve.p2, 6);
-			gl.DrawDashedLine(curve.p3, curve.p4, 6);
-		}
-	}
-
-	// Draw features
+	// 按行着色绘制控制点特征
 	const int featureSize = OPT_GET("Tool/Visual/Shape Handle Size")->GetInt();
 	for (auto& feature : features) {
-		wxColour feature_color = line_color;
+		wxColour feature_color = GetPerLineColor(feature.line);
 		if (&feature == active_feature)
-			feature_color = highlight_color_primary;
+			feature_color = to_wx(highlight_color_primary_opt->GetColor());
 		else if (sel_features.count(&feature))
-			feature_color = highlight_color_secondary;
+			feature_color = to_wx(highlight_color_secondary_opt->GetColor());
 		gl.SetFillColour(feature_color, .6f);
 
 		ScopedClamp clamp(feature, ClampToVideo(feature.pos, GetAnchorMargin(feature.type, featureSize)));
 		if (feature.type == DRAG_SMALL_SQUARE) {
-			gl.SetLineColour(line_color, .5f, 1);
+			gl.SetLineColour(GetPerLineColor(feature.line), .5f, 1);
 			gl.DrawRectangle(feature.pos - featureSize, feature.pos + featureSize);
 		}
 		else {
@@ -175,26 +212,12 @@ void VisualToolVectorClip::Draw() {
 			gl.DrawCircle(feature.pos, featureSize * 2.f / 3.f);
 		}
 	}
-
-	// Draw preview of inserted line
-	if (mode == VCLIP_LINE || mode == VCLIP_BICUBIC) {
-		if (spline.size() && mouse_pos) {
-			auto c0 = std::find_if(spline.rbegin(), spline.rend(),
-				[](SplineCurve const& s) { return s.type == SplineCurve::POINT; });
-			SplineCurve *c1 = &spline.back();
-			gl.DrawDashedLine(mouse_pos, c0->p1, 6);
-			gl.DrawDashedLine(mouse_pos, c1->EndPoint(), 6);
-		}
-	}
-
-	// Draw preview of insert point
-	if (mode == VCLIP_INSERT)
-		gl.DrawCircle(pt, 4);
 }
 
-void VisualToolVectorClip::MakeFeature(size_t idx) {
+void VisualToolVectorClip::MakeFeature(Spline& spline, AssDialogue *line, size_t idx) {
 	auto feat = std::make_unique<Feature>();
 	feat->idx = idx;
+	feat->line = line;
 
 	auto const& curve = spline[idx];
 	if (curve.type == SplineCurve::POINT) {
@@ -216,6 +239,7 @@ void VisualToolVectorClip::MakeFeature(size_t idx) {
 
 		feat = std::make_unique<Feature>();
 		feat->idx = idx;
+		feat->line = line;
 		feat->pos = curve.p3;
 		feat->point = 2;
 		feat->type = DRAG_SMALL_SQUARE;
@@ -224,6 +248,7 @@ void VisualToolVectorClip::MakeFeature(size_t idx) {
 		// End point
 		feat = std::make_unique<Feature>();
 		feat->idx = idx;
+		feat->line = line;
 		feat->pos = curve.p4;
 		feat->point = 3;
 		feat->type = DRAG_SMALL_CIRCLE;
@@ -231,19 +256,55 @@ void VisualToolVectorClip::MakeFeature(size_t idx) {
 	features.push_back(*feat.release());
 }
 
-void VisualToolVectorClip::MakeFeatures() {
-	sel_features.clear();
+void VisualToolVectorClip::RebuildLineFeatures(AssDialogue *line) {
+	auto it = features.begin();
+	while (it != features.end()) {
+		if (it->line == line)
+			it = features.erase(it);
+		else
+			++it;
+	}
+	auto state_it = line_states.find(line);
+	if (state_it == line_states.end()) return;
+	for (size_t i = 0; i < state_it->second.spline.size(); ++i)
+		MakeFeature(state_it->second.spline, line, i);
+}
+
+void VisualToolVectorClip::RebuildFeatures() {
 	features.clear();
+	line_states.clear();
+	sel_features.clear();
 	active_feature = nullptr;
-	for (size_t i = 0; i < spline.size(); ++i)
-		MakeFeature(i);
+
+	// 选中集联合活动行，保证活动行不在选中集时工具仍可用
+	auto lines = c->selectionController->GetSelectedSet();
+	if (active_line) lines.insert(active_line);
+
+	for (auto line : lines) {
+		if (!IsDisplayed(line)) continue;
+
+		auto state_it = line_states.emplace(line, this);
+		LineState& state = state_it.first->second;
+
+		int scale;
+		std::string vect = GetLineVectorClip(line, scale, state.inverse);
+		state.spline.SetScale(scale);
+		state.spline.DecodeFromAss(vect);
+
+		for (size_t i = 0; i < state.spline.size(); ++i)
+			MakeFeature(state.spline, line, i);
+	}
 }
 
 void VisualToolVectorClip::Save() {
+	auto it = line_states.find(active_line);
+	if (it == line_states.end()) return;
+	LineState& state = it->second;
+
 	std::string value = "(";
-	if (spline.GetScale() != 1)
-		value += std::to_string(spline.GetScale()) + ",";
-	value += spline.EncodeToAss() + ")";
+	if (state.spline.GetScale() != 1)
+		value += std::to_string(state.spline.GetScale()) + ",";
+	value += state.spline.EncodeToAss() + ")";
 
 	for (auto line : c->selectionController->GetSelectedSet()) {
 		// This check is technically not correct as it could be outside of an
@@ -254,12 +315,18 @@ void VisualToolVectorClip::Save() {
 }
 
 void VisualToolVectorClip::Commit(wxString message) {
-	Save();
+	// 框选（VCLIP_DRAG 的 hold）只是选择特征，不修改数据，跳过 Save
+	// 避免把活动行值意外写入所有选中行
+	if (!(holding && mode == VCLIP_DRAG))
+		Save();
 	VisualToolBase::Commit(message);
 }
 
 void VisualToolVectorClip::UpdateDrag(Feature *feature) {
-	spline.MovePoint(spline.begin() + feature->idx, feature->point, feature->pos);
+	if (!feature->line) return;
+	auto it = line_states.find(feature->line);
+	if (it == line_states.end()) return;
+	it->second.spline.MovePoint(it->second.spline.begin() + feature->idx, feature->point, feature->pos);
 }
 
 bool VisualToolVectorClip::InitializeDrag(Feature *feature) {
@@ -268,7 +335,13 @@ bool VisualToolVectorClip::InitializeDrag(Feature *feature) {
 	last_down_ms = 0;
 	if (mode != 5) return true;
 
-	auto curve = spline.begin() + feature->idx;
+	// 特征可能在拖拽起点被重建销毁，防御空指针
+	if (!feature || !feature->line) return false;
+	auto it = line_states.find(feature->line);
+	if (it == line_states.end()) return false;
+	LineState& state = it->second;
+
+	auto curve = state.spline.begin() + feature->idx;
 	if (curve->type == SplineCurve::BICUBIC && (feature->point == 1 || feature->point == 2)) {
 		// Deleting bicubic curve handles, so convert to line
 		curve->type = SplineCurve::LINE;
@@ -276,7 +349,7 @@ bool VisualToolVectorClip::InitializeDrag(Feature *feature) {
 	}
 	else {
 		auto next = std::next(curve);
-		if (next != spline.end()) {
+		if (next != state.spline.end()) {
 			if (curve->type == SplineCurve::POINT) {
 				next->p1 = next->EndPoint();
 				next->type = SplineCurve::POINT;
@@ -286,11 +359,11 @@ bool VisualToolVectorClip::InitializeDrag(Feature *feature) {
 			}
 		}
 
-		spline.erase(curve);
+		state.spline.erase(curve);
 	}
 	active_feature = nullptr;
 
-	MakeFeatures();
+	RebuildLineFeatures(feature->line);
 	Commit(_("delete control point"));
 
 	return false;
@@ -300,6 +373,11 @@ bool VisualToolVectorClip::InitializeHold() {
 	navigating = false;
 	down_press_count = 0;
 	last_down_ms = 0;
+
+	auto state_it = line_states.find(active_line);
+	if (state_it == line_states.end()) return false;
+	LineState& state = state_it->second;
+
 	// Box selection
 	if (mode == VCLIP_DRAG) {
 		box_added.clear();
@@ -311,20 +389,20 @@ bool VisualToolVectorClip::InitializeHold() {
 		SplineCurve curve;
 
 		// New spline beginning at the clicked point
-		if (spline.empty()) {
+		if (state.spline.empty()) {
 			curve.p1 = mouse_pos;
 			curve.type = SplineCurve::POINT;
 		}
 		else {
 			// Continue from the spline in progress
 			// Don't bother setting p2 as UpdateHold will handle that
-			curve.p1 = spline.back().EndPoint();
+			curve.p1 = state.spline.back().EndPoint();
 			curve.type = mode == VCLIP_LINE ? SplineCurve::LINE : SplineCurve::BICUBIC;
 		}
 
-		spline.push_back(curve);
+		state.spline.push_back(curve);
 		sel_features.clear();
-		MakeFeature(spline.size() - 1);
+		MakeFeature(state.spline, active_line, state.spline.size() - 1);
 		UpdateHold();
 		return true;
 	}
@@ -335,11 +413,11 @@ bool VisualToolVectorClip::InitializeHold() {
 		Vector2D pt;
 		Spline::iterator curve;
 		float t;
-		spline.GetClosestParametricPoint(mouse_pos, curve, t, pt);
+		state.spline.GetClosestParametricPoint(mouse_pos, curve, t, pt);
 
 		// Convert line <-> bicubic
 		if (mode == VCLIP_CONVERT) {
-			if (curve != spline.end()) {
+			if (curve != state.spline.end()) {
 				if (curve->type == SplineCurve::LINE) {
 					curve->type = SplineCurve::BICUBIC;
 					curve->p4 = curve->p2;
@@ -355,22 +433,22 @@ bool VisualToolVectorClip::InitializeHold() {
 		}
 		// Insert
 		else {
-			if (spline.empty()) return false;
+			if (state.spline.empty()) return false;
 
 			// Split the curve
-			if (curve == spline.end()) {
-				SplineCurve ct(spline.back().EndPoint(), spline.front().p1);
+			if (curve == state.spline.end()) {
+				SplineCurve ct(state.spline.back().EndPoint(), state.spline.front().p1);
 				ct.p2 = ct.p1 * (1 - t) + ct.p2 * t;
-				spline.push_back(ct);
+				state.spline.push_back(ct);
 			}
 			else {
 				std::pair<SplineCurve, SplineCurve> split = curve->Split(t);
 				*curve = split.first;
-				spline.insert(++curve, split.second);
+				state.spline.insert(++curve, split.second);
 			}
 		}
 
-		MakeFeatures();
+		RebuildLineFeatures(active_line);
 		Commit();
 		return false;
 	}
@@ -378,10 +456,16 @@ bool VisualToolVectorClip::InitializeHold() {
 	// Freehand spline draw
 	if (mode == VCLIP_FREEHAND || mode == VCLIP_FREEHAND_SMOOTH) {
 		sel_features.clear();
-		features.clear();
+		auto fit = features.begin();
+		while (fit != features.end()) {
+			if (fit->line == active_line)
+				fit = features.erase(fit);
+			else
+				++fit;
+		}
 		active_feature = nullptr;
-		spline.clear();
-		spline.emplace_back(mouse_pos);
+		state.spline.clear();
+		state.spline.emplace_back(mouse_pos);
 		return true;
 	}
 
@@ -397,6 +481,10 @@ static bool in_box(Vector2D top_left, Vector2D bottom_right, Vector2D p) {
 }
 
 void VisualToolVectorClip::UpdateHold() {
+	auto state_it = line_states.find(active_line);
+	if (state_it == line_states.end()) return;
+	LineState& state = state_it->second;
+
 	// Box selection
 	if (mode == VCLIP_DRAG) {
 		std::set<Feature *> boxed_features;
@@ -423,35 +511,35 @@ void VisualToolVectorClip::UpdateHold() {
 	}
 
 	if (mode == VCLIP_LINE) {
-		spline.back().EndPoint() = mouse_pos;
-		features.back().pos = mouse_pos;
+		state.spline.back().EndPoint() = mouse_pos;
+		RebuildLineFeatures(active_line);
 	}
 
 	// Insert bicubic
 	else if (mode == VCLIP_BICUBIC) {
-		SplineCurve &curve = spline.back();
+		SplineCurve &curve = state.spline.back();
 		curve.EndPoint() = mouse_pos;
 
 		// Control points
-		if (spline.size() > 1) {
-			SplineCurve &c0 = spline.back();
+		if (state.spline.size() > 1) {
+			SplineCurve &c0 = state.spline.back();
 			float len = (curve.p4 - curve.p1).Len();
 			curve.p2 = (c0.type == SplineCurve::LINE ? c0.p2 - c0.p1 : c0.p4 - c0.p3).Unit() * (0.25f * len) + curve.p1;
 		}
 		else
 			curve.p2 = curve.p1 * 0.75 + curve.p4 * 0.25;
 		curve.p3 = curve.p1 * 0.25 + curve.p4 * 0.75;
-		MakeFeatures();
+		RebuildLineFeatures(active_line);
 	}
 
 	// Freehand
 	else if (mode == VCLIP_FREEHAND || mode == VCLIP_FREEHAND_SMOOTH) {
 		// See if distance is enough
-		Vector2D const& last = spline.back().EndPoint();
+		Vector2D const& last = state.spline.back().EndPoint();
 		float len = (last - mouse_pos).SquareLen();
 		if ((mode == VCLIP_FREEHAND && len >= 900) || (mode == VCLIP_FREEHAND_SMOOTH && len >= 3600)) {
-			spline.emplace_back(last, mouse_pos);
-			MakeFeature(spline.size() - 1);
+			state.spline.emplace_back(last, mouse_pos);
+			MakeFeature(state.spline, active_line, state.spline.size() - 1);
 		}
 	}
 
@@ -459,24 +547,22 @@ void VisualToolVectorClip::UpdateHold() {
 
 	// Smooth spline
 	if (!holding && mode == VCLIP_FREEHAND_SMOOTH)
-		spline.Smooth();
+		state.spline.Smooth();
 
 	// End freedraw
 	if (!holding && (mode == VCLIP_FREEHAND || mode == VCLIP_FREEHAND_SMOOTH)) {
 		SetSubTool(VCLIP_DRAG);
-		MakeFeatures();
+		RebuildFeatures();
 	}
 }
 
 void VisualToolVectorClip::DoRefresh() {
-	if (!active_line) return;
+	RebuildFeatures();
+}
 
-	int scale;
-	std::string vect = GetLineVectorClip(active_line, scale, inverse);
-	spline.SetScale(scale);
-	spline.DecodeFromAss(vect);
-
-	MakeFeatures();
+void VisualToolVectorClip::OnSelectionChanged() {
+	RebuildFeatures();
+	parent->Render();
 }
 
 bool VisualToolVectorClip::OnKeyDown(wxKeyEvent &event) {
@@ -499,7 +585,8 @@ bool VisualToolVectorClip::OnKeyDown(wxKeyEvent &event) {
 	if (key == WXK_DOWN) {
 		// 仅在绘制进行中或当前行已有矢量内容时拦截下方向键，
 		// 否则放行给视频热键，避免空状态下误吞按键或误跳行
-		if (!holding && spline.empty())
+		auto state_it = line_states.find(active_line);
+		if (!holding && (state_it == line_states.end() || state_it->second.spline.empty()))
 			return false;
 
 		long long now = wxGetLocalTimeMillis().GetValue();

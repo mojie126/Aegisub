@@ -21,6 +21,8 @@
 #include "spline.h"
 #include "command/command.h"
 
+#include <map>
+
 class wxToolBar;
 
 /// Button IDs
@@ -47,10 +49,18 @@ struct VisualToolVectorClipDraggableFeature final : public VisualDraggableFeatur
 };
 
 class VisualToolVectorClip final : public VisualTool<VisualToolVectorClipDraggableFeature> {
-	Spline spline; /// The current spline
+	/// 单个对话行的矢量裁剪状态
+	struct LineState {
+		explicit LineState(VisualToolVectorClip *tool) : spline(tool) {}
+		Spline spline; ///< 该行的裁剪路径
+		bool inverse = false; /// is iclip?
+	};
+
+	/// 选中及活动可见对话行到矢量裁剪状态的映射
+	std::map<AssDialogue*, LineState> line_states;
+
 	wxToolBar *toolBar = nullptr; /// The subtoolbar
 	int mode = VCLIP_DRAG; /// 0-7
-	bool inverse = false; /// is iclip?
 
 	int down_press_count = 0; /// 连续按下方向键计数
 	long long last_down_ms = 0; /// 上次按下方向键的时间戳
@@ -64,16 +74,24 @@ class VisualToolVectorClip final : public VisualTool<VisualToolVectorClipDraggab
 
 	void AddTool(std::string command_name, VisualToolVectorClipMode mode);
 
-	void MakeFeature(size_t idx);
-	void MakeFeatures();
+	void MakeFeature(Spline& spline, AssDialogue *line, size_t idx);
+	/// @brief 重建指定行的特征（spline 变化后调用）
+	void RebuildLineFeatures(AssDialogue *line);
+	/// @brief 重建所有选中及活动可见行的状态与特征
+	void RebuildFeatures();
 
 	bool InitializeHold() override;
 	void UpdateHold() override;
 
 	void UpdateDrag(Feature *feature) override;
+	void EndDrag(Feature *feature) override { DoRefresh(); }
 	bool InitializeDrag(Feature *feature) override;
 
 	void DoRefresh() override;
+	void OnSelectionChanged() override;
+	// 活动行切换不改变特征集（由选中集决定），避免点击特征时重建销毁拖拽目标
+	void OnLineChanged() override { }
+	void OnFrameChanged() override { RebuildFeatures(); }
 	void Draw() override;
 
 public:
