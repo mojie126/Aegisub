@@ -33,6 +33,7 @@
 
 #include "command.h"
 
+#include "../apng_encoder.h"
 #include "../ass_dialogue.h"
 #include "../ass_file.h"
 #include "../async_video_provider.h"
@@ -57,6 +58,9 @@
 #include "../video_out_gl.h"
 #include "../gifski/inc/gifski.h"
 
+#include <webp/encode.h>
+#include <webp/mux.h>
+
 #include <libaegisub/ass/time.h>
 #include <libaegisub/fs.h>
 #include <libaegisub/path.h>
@@ -66,7 +70,6 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/filesystem.hpp>
 
-#include <wx/dir.h>
 #include <wx/filename.h>
 #include <wx/msgdlg.h>
 #include <wx/textdlg.h>
@@ -78,7 +81,7 @@ namespace {
 
 	/// 将文件名中的非法字符替换为下划线
 	/// Windows 文件名不允许: \ / : * ? " < > |
-	wxString SanitizeFileName(const wxString& name) {
+	wxString SanitizeFileName(const wxString &name) {
 		wxString result = name;
 		for (size_t i = 0; i < result.length(); ++i) {
 			wxUniChar ch = result[i];
@@ -110,8 +113,7 @@ namespace {
 			basepath = c->path->Decode(option);
 			if ((basepath == "\\") || (basepath == "/"))
 				basepath = agi::fs::path(wxGetHomeDir().ToStdWstring());
-		}
-		else {
+		} else {
 			basepath = c->path->MakeAbsolute(option, "?user/");
 		}
 
@@ -134,8 +136,10 @@ namespace {
 	/// @param end_frame 结束帧
 	/// @return 追加帧范围后的目录路径
 	agi::fs::path MakeDefaultClipExportDirectory(const agi::fs::path &output_base, long start_frame, long end_frame) {
-		wxString dir_name = wxString::Format(wxT("%s [%ld-%ld]"),
-			wxString(output_base.filename().wstring()), start_frame, end_frame);
+		const wxString dir_name = wxString::Format(
+			wxT("%s [%ld-%ld]"),
+			wxString(output_base.filename().wstring()), start_frame, end_frame
+		);
 		return output_base.parent_path() / agi::fs::path(dir_name.ToStdWstring());
 	}
 
@@ -148,9 +152,11 @@ namespace {
 	/// @param subtitle_only 是否仅导出字幕层
 	/// @return 生成的完整文件路径
 	agi::fs::path MakeClipExportFramePath(const agi::fs::path &output_dir, const wxString &image_name,
-		long start_frame, long end_frame, int current_frame, bool subtitle_only) {
-		const wxString filename = wxString::Format(wxT("%s_[%ld-%ld]_%05d.%s"),
-			image_name, start_frame, end_frame, current_frame, subtitle_only ? wxT("png") : wxT("jpg"));
+										const long start_frame, const long end_frame, const int current_frame, const bool subtitle_only) {
+		const wxString filename = wxString::Format(
+			wxT("%s_[%ld-%ld]_%05d.%s"),
+			image_name, start_frame, end_frame, current_frame, subtitle_only ? wxT("png") : wxT("jpg")
+		);
 		return output_dir / agi::fs::path(filename.ToStdWstring());
 	}
 
@@ -160,9 +166,11 @@ namespace {
 	/// @param frame 当前帧号
 	/// @param image_suffix 图片后缀
 	/// @return 完整截图文件路径
-	agi::fs::path MakeSnapshotPath(const agi::fs::path &basepath, int shot_count, int frame, const wxString &image_suffix) {
-		const wxString filename = wxString::Format(wxT("%s_%03d_%d.%s"),
-			wxString(basepath.filename().wstring()), shot_count, frame, image_suffix);
+	agi::fs::path MakeSnapshotPath(const agi::fs::path &basepath, const int shot_count, const int frame, const wxString &image_suffix) {
+		const wxString filename = wxString::Format(
+			wxT("%s_%03d_%d.%s"),
+			wxString(basepath.filename().wstring()), shot_count, frame, image_suffix
+		);
 		return basepath.parent_path() / agi::fs::path(filename.ToStdWstring());
 	}
 
@@ -174,15 +182,66 @@ namespace {
 	/// @param scale_factor 分辨率缩放比例
 	/// @return 完整 GIF 文件路径
 	agi::fs::path MakeGifExportPath(const agi::fs::path &output_dir, const wxString &image_name,
-		long start_frame, long end_frame, int scale_factor) {
+									const long start_frame, const long end_frame, const int scale_factor) {
 		wxString gif_name;
 		if (scale_factor > 1)
-			gif_name = wxString::Format(wxT("%s_[%ld-%ld]_s%d.gif"),
-				image_name, start_frame, end_frame, scale_factor);
+			gif_name = wxString::Format(
+				wxT("%s_[%ld-%ld]_s%d.gif"),
+				image_name, start_frame, end_frame, scale_factor
+			);
 		else
-			gif_name = wxString::Format(wxT("%s_[%ld-%ld].gif"),
-				image_name, start_frame, end_frame);
+			gif_name = wxString::Format(
+				wxT("%s_[%ld-%ld].gif"),
+				image_name, start_frame, end_frame
+			);
 		return output_dir / agi::fs::path(gif_name.ToStdWstring());
+	}
+
+	/// @brief 构造 APNG 导出的文件路径
+	/// @param output_dir 目标目录
+	/// @param image_name 导出文件名前缀
+	/// @param start_frame 起始帧
+	/// @param end_frame 结束帧
+	/// @param scale_factor 分辨率缩放比例
+	/// @return 完整 APNG 文件路径
+	agi::fs::path MakeApngExportPath(const agi::fs::path &output_dir, const wxString &image_name,
+									const long start_frame, const long end_frame, const int scale_factor) {
+		wxString apng_name;
+		if (scale_factor > 1)
+			apng_name = wxString::Format(
+				wxT("%s_[%ld-%ld]_s%d.apng"),
+				image_name, start_frame, end_frame, scale_factor
+			);
+		else
+			apng_name = wxString::Format(
+				wxT("%s_[%ld-%ld].apng"),
+				image_name, start_frame, end_frame
+			);
+		return output_dir / agi::fs::path(apng_name.ToStdWstring());
+	}
+
+	/// @brief 构造 WebP 导出的文件路径
+	/// @param output_dir 目标目录
+	/// @param image_name 导出文件名前缀
+	/// @param start_frame 起始帧
+	/// @param end_frame 结束帧
+	/// @param scale_factor 分辨率缩放比例
+	/// @param lossless 是否无损
+	/// @return 完整 WebP 文件路径，文件名以 lossy 或 lossless 标注编码模式
+	agi::fs::path MakeWebpExportPath(const agi::fs::path &output_dir, const wxString &image_name,
+									const long start_frame, const long end_frame, const int scale_factor, const bool lossless) {
+		wxString webp_name;
+		if (scale_factor > 1)
+			webp_name = wxString::Format(
+				wxT("%s_[%ld-%ld]_s%d_%s.webp"),
+				image_name, start_frame, end_frame, scale_factor, lossless ? wxT("lossless") : wxT("lossy")
+			);
+		else
+			webp_name = wxString::Format(
+				wxT("%s_[%ld-%ld]_%s.webp"),
+				image_name, start_frame, end_frame, lossless ? wxT("lossless") : wxT("lossy")
+			);
+		return output_dir / agi::fs::path(webp_name.ToStdWstring());
 	}
 
 	/// @brief 清理导出目录中的已有文件
@@ -457,8 +516,8 @@ namespace {
 	}
 
 	// gifski write callback：将数据写入 FILE*
-	static int gifski_write_cb(size_t buf_len, const uint8_t* buf, void* user_data) {
-		FILE* f = static_cast<FILE*>(user_data);
+	int gifski_write_cb(const size_t buf_len, const uint8_t *buf, void *user_data) {
+		const auto f = static_cast<FILE *>(user_data);
 		if (buf_len == 0) {
 			fflush(f);
 			return GIFSKI_OK;
@@ -480,7 +539,8 @@ namespace {
 		}
 
 		auto first_vf = c->project->VideoProvider()->GetFrame(
-			start_frame, c->project->Timecodes().TimeAtFrame(start_frame), false);
+			start_frame, c->project->Timecodes().TimeAtFrame(start_frame), false
+		);
 		wxImage first_img = GetImage(*first_vf);
 		if (!first_img.IsOk() || first_img.GetData() == nullptr) {
 			wxLogError("Failed to decode first frame for GIF export");
@@ -546,19 +606,23 @@ namespace {
 				std::error_code ec;
 				std::filesystem::create_directories(parent_dir, ec);
 				if (ec) {
-					wxLogError("Failed to create output directory: %s (error: %s)",
-						parent_dir.string().c_str(), ec.message().c_str());
+					wxLogError(
+						"Failed to create output directory: %s (error: %s)",
+						parent_dir.string().c_str(), ec.message().c_str()
+					);
 					gifski_finish(g);
 					return false;
 				}
 			}
 		}
 
-		FILE* output_file = _wfopen(outputPath.c_str(), L"wb");
+		FILE *output_file = _wfopen(outputPath.c_str(), L"wb");
 		if (!output_file) {
 			int err = errno;
-			wxLogError("Failed to open output file for writing: %s (errno=%d: %s)",
-				wxString(outputPath).c_str(), err, strerror(err));
+			wxLogError(
+				"Failed to open output file for writing: %s (errno=%d: %s)",
+				wxString(outputPath).c_str(), err, strerror(err)
+			);
 			gifski_finish(g);
 			return false;
 		}
@@ -579,8 +643,7 @@ namespace {
 			wxImage decoded_img;
 			if (i == start_frame) {
 				img = &first_img;
-			}
-			else {
+			} else {
 				decoded_img = GetImage(*c->project->VideoProvider()->GetFrame(i, c->project->Timecodes().TimeAtFrame(i), false));
 				// 如果HDR色彩映射已启用，对后续帧也应用LUT
 				if (gif_hdr_enabled)
@@ -644,50 +707,507 @@ namespace {
 		return true;
 	}
 
-	void export_gif(agi::Context *c) {
+	/// @brief 将指定帧范围的视频帧编码为 APNG 动画
+	/// @param c 项目上下文
+	/// @param ps 进度回调
+	/// @param outputPath 输出文件路径
+	/// @param totalFrame 总帧数
+	/// @param scale_factor 分辨率缩放比例
+	/// @return 成功返回 true
+	bool CreateApngFromWxImages(const agi::Context *c, agi::ProgressSink *ps, const std::wstring &outputPath, const int totalFrame, const int scale_factor = 1) {
+		const int start_frame = getStartFrame();
+		const int end_frame = getEndFrame();
+		if (!agi::IsValidMultiFrameExportRange(start_frame, end_frame)) {
+			wxLogError("Invalid frame range for APNG export");
+			return false;
+		}
+		const auto frame_pts = agi::BuildGifFramePresentationTimestamps(c->project->Timecodes(), start_frame, end_frame);
+		if (frame_pts.size() != static_cast<size_t>(totalFrame)) {
+			wxLogError("Failed to build APNG frame timestamps");
+			return false;
+		}
+		const auto frame_delays = agi::BuildAnimationFrameDelaysMs(frame_pts);
+		if (frame_delays.size() != static_cast<size_t>(totalFrame)) {
+			wxLogError("Failed to build APNG frame delays");
+			return false;
+		}
+
+		auto first_vf = c->project->VideoProvider()->GetFrame(
+			start_frame, c->project->Timecodes().TimeAtFrame(start_frame), false
+		);
+		wxImage first_img = GetImage(*first_vf);
+		if (!first_img.IsOk() || first_img.GetData() == nullptr) {
+			wxLogError("Failed to decode first frame for APNG export");
+			return false;
+		}
+
+		// 如果HDR色彩映射已启用，对APNG导出帧应用CPU侧LUT色彩映射
+		const bool apng_hdr_enabled = OPT_GET("Video/HDR/Tone Mapping")->GetBool();
+		const HDRType apng_hdr_type = c->project->VideoProvider()->GetHDRType();
+		const int apng_hdr_dv_profile = c->project->VideoProvider()->GetDVProfile();
+		if (apng_hdr_enabled)
+			VideoOutGL::ApplyHDRLutToImage(first_img, apng_hdr_type, apng_hdr_dv_profile);
+
+		// ABB 黑边填充（使用帧自身的自适应padding值）
+		const int apng_padding_top = first_vf->padding_top;
+		const int apng_padding_bottom = first_vf->padding_bottom;
+		if (apng_padding_top > 0 || apng_padding_bottom > 0)
+			first_img = AddPaddingToImage(first_img, apng_padding_top, apng_padding_bottom);
+
+		const int source_width = first_img.GetWidth();
+		const int source_height = first_img.GetHeight();
+
+		// 确定实际输出尺寸（全帧或裁剪区域）
+		bool crop = getHasCropRegion();
+		int cx = crop ? getCropX() : 0;
+		int cy = crop ? getCropY() : 0;
+		int cw = crop ? getCropW() : source_width;
+		int ch = crop ? getCropH() : source_height;
+
+		// 裁剪区域边界校验
+		if (cx < 0) cx = 0;
+		if (cy < 0) cy = 0;
+		if (cx + cw > source_width) cw = source_width - cx;
+		if (cy + ch > source_height) ch = source_height - cy;
+		if (cw <= 0 || ch <= 0) {
+			wxLogError("Invalid crop region");
+			return false;
+		}
+
+		// scale_factor > 1 时缩小输出分辨率，宽高至少保留 1 像素
+		const int out_width = std::max(1, scale_factor > 1 ? cw / scale_factor : cw);
+		const int out_height = std::max(1, scale_factor > 1 ? ch / scale_factor : ch);
+
+		// 确保父目录存在
+		{
+			agi::fs::path parent_dir(outputPath);
+			parent_dir = parent_dir.parent_path();
+			if (!parent_dir.empty()) {
+				std::error_code ec;
+				std::filesystem::create_directories(parent_dir, ec);
+				if (ec) {
+					wxLogError(
+						"Failed to create output directory: %s (error: %s)",
+						parent_dir.string().c_str(), ec.message().c_str()
+					);
+					return false;
+				}
+			}
+		}
+
+		agi::ApngEncoder encoder(outputPath, out_width, out_height, static_cast<uint32_t>(totalFrame));
+		if (!encoder.IsOk()) {
+			wxLogError("Failed to initialize APNG encoder");
+			return false;
+		}
+
+		// 逐帧添加至编码器
+		uint32_t current_frame = 0;
+		ps->SetMessage(from_wx(agi::wxformat(_("Exporting apng image, please later..."))));
+		for (int i = start_frame; i <= end_frame; ++i) {
+			const wxImage *img = nullptr;
+			wxImage decoded_img;
+			if (i == start_frame) {
+				img = &first_img;
+			} else {
+				decoded_img = GetImage(*c->project->VideoProvider()->GetFrame(i, c->project->Timecodes().TimeAtFrame(i), false));
+				// 如果HDR色彩映射已启用，对后续帧也应用LUT
+				if (apng_hdr_enabled)
+					VideoOutGL::ApplyHDRLutToImage(decoded_img, apng_hdr_type, apng_hdr_dv_profile);
+				// 为后续帧添加与首帧相同的黑边填充
+				if (apng_padding_top > 0 || apng_padding_bottom > 0)
+					decoded_img = AddPaddingToImage(decoded_img, apng_padding_top, apng_padding_bottom);
+				img = &decoded_img;
+			}
+			if (!img->IsOk() || img->GetData() == nullptr) {
+				wxLogError("Failed to decode frame %d for APNG export", i);
+				return false;
+			}
+			if (img->GetWidth() != source_width || img->GetHeight() != source_height) {
+				wxLogError("Inconsistent frame size detected during APNG export");
+				return false;
+			}
+
+			ps->SetProgress(current_frame, totalFrame);
+			if (ps->IsCancelled()) break;
+
+			// 裁剪到输出区域后按缩放比例缩小
+			wxImage frame_img = crop ? img->GetSubImage(wxRect(cx, cy, cw, ch)) : *img;
+			if (frame_img.GetWidth() != out_width || frame_img.GetHeight() != out_height)
+				frame_img.Rescale(out_width, out_height, wxIMAGE_QUALITY_HIGH);
+
+			// RGB 转 RGBA
+			std::vector<uint8_t> pixels(static_cast<size_t>(out_width) * out_height * 4);
+			const unsigned char *imgData = frame_img.GetData();
+			const size_t pixel_count = static_cast<size_t>(out_width) * out_height;
+			for (size_t p = 0; p < pixel_count; ++p) {
+				pixels[p * 4 + 0] = imgData[p * 3 + 0]; // R
+				pixels[p * 4 + 1] = imgData[p * 3 + 1]; // G
+				pixels[p * 4 + 2] = imgData[p * 3 + 2]; // B
+				pixels[p * 4 + 3] = 255; // A
+			}
+
+			if (!encoder.AddFrame(pixels.data(), frame_delays[current_frame])) {
+				wxLogError("Failed to add frame %d to APNG encoder", i);
+				return false;
+			}
+			++current_frame;
+		}
+		// 循环结束后将进度设置为100%
+		ps->SetProgress(totalFrame, totalFrame);
+
+		// 完成APNG写入，帧数不完整（用户取消）时由编码器回写修正
+		if (!encoder.Finish()) {
+			wxLogError("Failed to finish APNG");
+			return false;
+		}
+
+		return true;
+	}
+
+	/// @brief WebP 动画编码资源守卫，
+	/// 任何退出路径统一释放编码器、输出数据与文件句柄
+	struct WebpAnimGuard {
+		WebPAnimEncoder *enc = nullptr;
+		WebPData data = {};
+		std::FILE *file = nullptr;
+
+		~WebpAnimGuard() {
+			if (enc)
+				WebPAnimEncoderDelete(enc);
+			WebPDataClear(&data);
+			if (file)
+				std::fclose(file);
+		}
+	};
+
+	/// @brief 将指定帧范围的视频帧编码为 WebP 动画
+	/// @param c 项目上下文
+	/// @param ps 进度回调
+	/// @param outputPath 输出文件路径
+	/// @param totalFrame 总帧数
+	/// @param scale_factor 分辨率缩放比例
+	/// @param quality 有损质量（1-100），无损模式下忽略
+	/// @param lossless 是否无损编码
+	/// @return 成功返回 true
+	bool CreateWebpFromWxImages(const agi::Context *c, agi::ProgressSink *ps, const std::wstring &outputPath,
+								const int totalFrame, const int scale_factor, const int quality, const bool lossless) {
+		const int start_frame = getStartFrame();
+		const int end_frame = getEndFrame();
+		if (!agi::IsValidMultiFrameExportRange(start_frame, end_frame)) {
+			wxLogError("Invalid frame range for WebP export");
+			return false;
+		}
+		const auto frame_pts = agi::BuildGifFramePresentationTimestamps(c->project->Timecodes(), start_frame, end_frame);
+		if (frame_pts.size() != static_cast<size_t>(totalFrame)) {
+			wxLogError("Failed to build WebP frame timestamps");
+			return false;
+		}
+		const auto frame_delays = agi::BuildAnimationFrameDelaysMs(frame_pts);
+		if (frame_delays.size() != static_cast<size_t>(totalFrame)) {
+			wxLogError("Failed to build WebP frame delays");
+			return false;
+		}
+
+		auto first_vf = c->project->VideoProvider()->GetFrame(
+			start_frame, c->project->Timecodes().TimeAtFrame(start_frame), false
+		);
+		wxImage first_img = GetImage(*first_vf);
+		if (!first_img.IsOk() || first_img.GetData() == nullptr) {
+			wxLogError("Failed to decode first frame for WebP export");
+			return false;
+		}
+
+		// 如果HDR色彩映射已启用，对WebP导出帧应用CPU侧LUT色彩映射
+		const bool webp_hdr_enabled = OPT_GET("Video/HDR/Tone Mapping")->GetBool();
+		const HDRType webp_hdr_type = c->project->VideoProvider()->GetHDRType();
+		const int webp_hdr_dv_profile = c->project->VideoProvider()->GetDVProfile();
+		if (webp_hdr_enabled)
+			VideoOutGL::ApplyHDRLutToImage(first_img, webp_hdr_type, webp_hdr_dv_profile);
+
+		// ABB 黑边填充（使用帧自身的自适应padding值）
+		const int webp_padding_top = first_vf->padding_top;
+		const int webp_padding_bottom = first_vf->padding_bottom;
+		if (webp_padding_top > 0 || webp_padding_bottom > 0)
+			first_img = AddPaddingToImage(first_img, webp_padding_top, webp_padding_bottom);
+
+		const int source_width = first_img.GetWidth();
+		const int source_height = first_img.GetHeight();
+
+		// 确定实际输出尺寸（全帧或裁剪区域）
+		bool crop = getHasCropRegion();
+		int cx = crop ? getCropX() : 0;
+		int cy = crop ? getCropY() : 0;
+		int cw = crop ? getCropW() : source_width;
+		int ch = crop ? getCropH() : source_height;
+
+		// 裁剪区域边界校验
+		if (cx < 0) cx = 0;
+		if (cy < 0) cy = 0;
+		if (cx + cw > source_width) cw = source_width - cx;
+		if (cy + ch > source_height) ch = source_height - cy;
+		if (cw <= 0 || ch <= 0) {
+			wxLogError("Invalid crop region");
+			return false;
+		}
+
+		// scale_factor > 1 时缩小输出分辨率，宽高至少保留 1 像素
+		const int out_width = std::max(1, scale_factor > 1 ? cw / scale_factor : cw);
+		const int out_height = std::max(1, scale_factor > 1 ? ch / scale_factor : ch);
+
+		// 确保父目录存在
+		{
+			agi::fs::path parent_dir(outputPath);
+			parent_dir = parent_dir.parent_path();
+			if (!parent_dir.empty()) {
+				std::error_code ec;
+				std::filesystem::create_directories(parent_dir, ec);
+				if (ec) {
+					wxLogError(
+						"Failed to create output directory: %s (error: %s)",
+						parent_dir.string().c_str(), ec.message().c_str()
+					);
+					return false;
+				}
+			}
+		}
+
+		WebpAnimGuard guard;
+		guard.file = _wfopen(outputPath.c_str(), L"wb");
+		if (!guard.file) {
+			int err = errno;
+			wxLogError(
+				"Failed to open output file for writing: %s (errno=%d: %s)",
+				wxString(outputPath).c_str(), err, strerror(err)
+			);
+			return false;
+		}
+
+		WebPAnimEncoderOptions anim_config;
+		WebPAnimEncoderOptionsInit(&anim_config);
+		guard.enc = WebPAnimEncoderNew(out_width, out_height, &anim_config);
+		if (!guard.enc) {
+			wxLogError("Failed to initialize WebP encoder");
+			return false;
+		}
+
+		// 无损模式忽略质量参数，使用默认压缩配置
+		WebPConfig frame_config;
+		WebPConfigInit(&frame_config);
+		if (lossless)
+			frame_config.lossless = 1;
+		else
+			frame_config.quality = static_cast<float>(std::clamp(quality, 1, 100));
+
+		// 逐帧添加至编码器
+		uint32_t current_frame = 0;
+		int64_t last_timestamp_ms = 0;
+		ps->SetMessage(from_wx(agi::wxformat(_("Exporting webp image, please later..."))));
+		for (int i = start_frame; i <= end_frame; ++i) {
+			const wxImage *img = nullptr;
+			wxImage decoded_img;
+			if (i == start_frame) {
+				img = &first_img;
+			} else {
+				decoded_img = GetImage(*c->project->VideoProvider()->GetFrame(i, c->project->Timecodes().TimeAtFrame(i), false));
+				// 如果HDR色彩映射已启用，对后续帧也应用LUT
+				if (webp_hdr_enabled)
+					VideoOutGL::ApplyHDRLutToImage(decoded_img, webp_hdr_type, webp_hdr_dv_profile);
+				// 为后续帧添加与首帧相同的黑边填充
+				if (webp_padding_top > 0 || webp_padding_bottom > 0)
+					decoded_img = AddPaddingToImage(decoded_img, webp_padding_top, webp_padding_bottom);
+				img = &decoded_img;
+			}
+			if (!img->IsOk() || img->GetData() == nullptr) {
+				wxLogError("Failed to decode frame %d for WebP export", i);
+				return false;
+			}
+			if (img->GetWidth() != source_width || img->GetHeight() != source_height) {
+				wxLogError("Inconsistent frame size detected during WebP export");
+				return false;
+			}
+
+			ps->SetProgress(current_frame, totalFrame);
+			if (ps->IsCancelled()) break;
+
+			// 裁剪到输出区域后按缩放比例缩小
+			wxImage frame_img = crop ? img->GetSubImage(wxRect(cx, cy, cw, ch)) : *img;
+			if (frame_img.GetWidth() != out_width || frame_img.GetHeight() != out_height)
+				frame_img.Rescale(out_width, out_height, wxIMAGE_QUALITY_HIGH);
+
+			// RGB 转 RGBA
+			std::vector<uint8_t> pixels(static_cast<size_t>(out_width) * out_height * 4);
+			const unsigned char *imgData = frame_img.GetData();
+			const size_t pixel_count = static_cast<size_t>(out_width) * out_height;
+			for (size_t p = 0; p < pixel_count; ++p) {
+				pixels[p * 4 + 0] = imgData[p * 3 + 0]; // R
+				pixels[p * 4 + 1] = imgData[p * 3 + 1]; // G
+				pixels[p * 4 + 2] = imgData[p * 3 + 2]; // B
+				pixels[p * 4 + 3] = 255; // A
+			}
+
+			// WebPAnimEncoderAdd 使用相对首帧的累计毫秒时间戳，
+			// 中间值以 int64_t 保精度，传参时显式收窄为 int，动画时长不会超出 int 毫秒上限
+			const auto timestamp_ms = llround(frame_pts[current_frame] * 1000.0);
+			WebPPicture pic;
+			WebPPictureInit(&pic);
+			pic.width = out_width;
+			pic.height = out_height;
+			pic.use_argb = 1;
+			if (!WebPPictureImportRGBA(&pic, pixels.data(), out_width * 4) ||
+				!WebPAnimEncoderAdd(guard.enc, &pic, static_cast<int>(timestamp_ms), &frame_config)) {
+				wxLogError("Failed to add frame %d to WebP encoder", i);
+				WebPPictureFree(&pic);
+				return false;
+			}
+			WebPPictureFree(&pic);
+			last_timestamp_ms = timestamp_ms;
+			++current_frame;
+		}
+		// 循环结束后将进度设置为100%
+		ps->SetProgress(totalFrame, totalFrame);
+
+		// 用户取消时帧数不完整，仍以已写入帧结束动画保证输出可用
+		if (current_frame == 0) {
+			wxLogError("No frames exported for WebP");
+			return false;
+		}
+		if (const int64_t end_timestamp_ms = last_timestamp_ms + frame_delays[current_frame - 1];
+			!WebPAnimEncoderAdd(guard.enc, nullptr, static_cast<int>(end_timestamp_ms), nullptr)) {
+			wxLogError("Failed to finalize WebP animation");
+			return false;
+		}
+		if (!WebPAnimEncoderAssemble(guard.enc, &guard.data)) {
+			wxLogError("Failed to assemble WebP data");
+			return false;
+		}
+		if (std::fwrite(guard.data.bytes, 1, guard.data.size, guard.file) != guard.data.size) {
+			wxLogError("Failed to write WebP file");
+			return false;
+		}
+
+		return true;
+	}
+
+	/// @brief GIF 导出执行（共享导出对话框确认后调用）
+	/// @param c 项目上下文
+	/// @param output_dir 已解析的输出目录
+	void RunGifExport(const agi::Context *c, const agi::fs::path &output_dir) {
 		const auto videoname = c->project->VideoName();
+		const wxFileName fName(wxString(videoname.wstring()));
+
+		DialogProgress progress(nullptr, _("Export gif image"), wxEmptyString);
+		const int scale_factor = getGifScaleFactor();
+		const auto gif_path = MakeGifExportPath(
+			output_dir, SanitizeFileName(fName.GetName()),
+			getStartFrame(), getEndFrame(), scale_factor
+		);
+		try {
+			progress.Run(
+				[&](agi::ProgressSink *ps) {
+					CreateGifFromWxImages(
+						c, ps, gif_path.wstring(), getEndFrame() - getStartFrame() + 1, scale_factor
+					);
+				}
+			);
+		} catch (agi::Exception &err) {
+			std::cerr << err.GetMessage() << std::endl;
+		}
+	}
+
+	/// @brief APNG 导出执行（共享导出对话框确认后调用）
+	/// @param c 项目上下文
+	/// @param output_dir 已解析的输出目录
+	void RunApngExport(const agi::Context *c, const agi::fs::path &output_dir) {
+		const auto videoname = c->project->VideoName();
+		const wxFileName fName(wxString(videoname.wstring()));
+
+		DialogProgress progress(nullptr, _("Export apng image"), wxEmptyString);
+		const int scale_factor = getGifScaleFactor();
+		const auto apng_path = MakeApngExportPath(
+			output_dir, SanitizeFileName(fName.GetName()),
+			getStartFrame(), getEndFrame(), scale_factor
+		);
+		try {
+			progress.Run(
+				[&](agi::ProgressSink *ps) {
+					CreateApngFromWxImages(
+						c, ps, apng_path.wstring(), getEndFrame() - getStartFrame() + 1, scale_factor
+					);
+				}
+			);
+		} catch (agi::Exception &err) {
+			std::cerr << err.GetMessage() << std::endl;
+		}
+	}
+
+	/// @brief WebP 导出执行（共享导出对话框确认后调用）
+	/// @param c 项目上下文
+	/// @param output_dir 已解析的输出目录
+	/// @param lossless 是否无损编码
+	void RunWebpExport(const agi::Context *c, const agi::fs::path &output_dir, const bool lossless) {
+		const auto videoname = c->project->VideoName();
+		const wxFileName fName(wxString(videoname.wstring()));
+
+		DialogProgress progress(nullptr, _("Export webp image"), wxEmptyString);
+		const int scale_factor = getGifScaleFactor();
+		const int quality = static_cast<int>(getGifQuality());
+		const auto webp_path = MakeWebpExportPath(
+			output_dir, SanitizeFileName(fName.GetName()),
+			getStartFrame(), getEndFrame(), scale_factor, lossless
+		);
+		try {
+			progress.Run(
+				[&](agi::ProgressSink *ps) {
+					CreateWebpFromWxImages(
+						c, ps, webp_path.wstring(), getEndFrame() - getStartFrame() + 1,
+						scale_factor, quality, lossless
+					);
+				}
+			);
+		} catch (agi::Exception &err) {
+			std::cerr << err.GetMessage() << std::endl;
+		}
+	}
+
+	/// @brief 导出动画入口，弹出共享导出对话框并按所选格式分发
+	/// @details 各格式共享导出路径与设置项，
+	/// 对话框中已按格式能力禁用不支持的参数，导出时同样忽略该参数
+	void export_animation(agi::Context *c) {
 		const auto basepath = ResolveVideoExportBasePath(c, OPT_GET("Path/Screenshot")->GetString());
 
-		auto gif_export_path = OPT_GET("Path/GifExport")->GetString();
-		const auto output_dir = ResolveConfiguredExportDirectory(gif_export_path, basepath);
+		auto export_path = OPT_GET("Path/GifExport")->GetString();
+		const auto output_dir = ResolveConfiguredExportDirectory(export_path, basepath);
 		try {
 			std::filesystem::create_directories(output_dir);
-		} catch (const std::filesystem::filesystem_error& e) {
+		} catch (const std::filesystem::filesystem_error &e) {
 			wxLogError("Failed to create output directory: %s", e.what());
 			return;
 		}
-
-		const wxFileName fName(wxString(videoname.wstring()));
 
 		// 设置帧到帧
 		c->videoController->Stop();
 		ShowJumpFrameToDialog(c);
 		c->videoSlider->SetFocus();
 
-		if (getOnOK()) {
-			DialogProgress progress(nullptr, _("Export gif image"), wxEmptyString);
-			const int scale_factor = getGifScaleFactor();
-			const auto gif_path = MakeGifExportPath(output_dir, SanitizeFileName(fName.GetName()),
-				getStartFrame(), getEndFrame(), scale_factor);
-			try {
-				progress.Run(
-					[&](agi::ProgressSink *ps) {
-						CreateGifFromWxImages(
-							c, ps, gif_path.wstring(), getEndFrame() - getStartFrame() + 1, scale_factor
-						);
-					}
-				);
-			} catch (agi::Exception &err) {
-				std::cerr << err.GetMessage() << std::endl;
-			}
-		}
+		if (!getOnOK())
+			return;
+
+		if (const std::string format = getExportFormat(); format == "APNG")
+			RunApngExport(c, output_dir);
+		else if (format == "WebP")
+			RunWebpExport(c, output_dir, false);
+		else if (format == "WebP (Lossless)")
+			RunWebpExport(c, output_dir, true);
+		else
+			RunGifExport(c, output_dir);
 	}
 
-	struct video_to_gif final : validator_video_loaded {
-		CMD_NAME("video/save/gif")
-		STR_MENU("Export GIF")
-		STR_DISP("Export GIF")
-		STR_HELP("Export video clips as GIF animation")
+	struct video_export_animation final : validator_video_loaded {
+		CMD_NAME("video/save/animation")
+		STR_MENU("Export Animation")
+		STR_DISP("Export Animation")
+		STR_HELP("Export video clips as animation")
 		CMD_TYPE(COMMAND_VALIDATE)
 
 		bool Validate(const agi::Context *c) override {
@@ -695,23 +1215,25 @@ namespace {
 		}
 
 		void operator()(agi::Context *c) override {
-			export_gif(c);
+			export_animation(c);
 		}
 	};
 
 	/// 导出视频帧图像序列（JPEG），或仅导出字幕（PNG）
 	bool export_clip_image_sequences(const agi::Context *c, agi::ProgressSink *ps, const agi::fs::path &output_base,
-		long start_frame, long end_frame, const wxString &image_name, bool subtitle_only) {
+									long start_frame, long end_frame, const wxString &image_name, const bool subtitle_only) {
 		int current_frame = 1, duration_frame = end_frame - start_frame + 1;
-		auto clip_export_path = OPT_GET("Path/ClipExport")->GetString();
-		const auto output_dir = ResolveConfiguredExportDirectory(clip_export_path,
-			MakeDefaultClipExportDirectory(output_base, start_frame, end_frame));
+		const auto clip_export_path = OPT_GET("Path/ClipExport")->GetString();
+		const auto output_dir = ResolveConfiguredExportDirectory(
+			clip_export_path,
+			MakeDefaultClipExportDirectory(output_base, start_frame, end_frame)
+		);
 
 		try {
 			std::filesystem::create_directories(output_dir);
 			if (!clip_export_path.empty())
 				ClearExportDirectoryFiles(output_dir);
-		} catch (const std::filesystem::filesystem_error& e) {
+		} catch (const std::filesystem::filesystem_error &e) {
 			wxLogError("Failed to prepare output directory: %s", e.what());
 			return false;
 		}
@@ -859,21 +1381,27 @@ namespace {
 			comment_line->Start = start_ms;
 			comment_line->End = fr.TimeAtFrame(start_frame + count, agi::vfr::START);
 			comment_line->Style = active->Style;
-			comment_line->Text = from_wx(agi::wxformat(_("1img sequence: %s ~ %s | frames %d~%d (%d images) | %dx%d"),
-				to_wx(result.files.front().filename().string()),
-				to_wx(result.files.back().filename().string()),
-				start_frame, start_frame + count - 1, count,
-				result.img_width, result.img_height));
+			comment_line->Text = from_wx(
+				agi::wxformat(
+					_("1img sequence: %s ~ %s | frames %d~%d (%d images) | %dx%d"),
+					to_wx(result.files.front().filename().string()),
+					to_wx(result.files.back().filename().string()),
+					start_frame, start_frame + count - 1, count,
+					result.img_width, result.img_height
+				)
+			);
 			c->ass->Events.insert(pos, *comment_line);
 
 			// 插入图片行
 			for (int i = 0; i < count; ++i) {
-				auto line = new AssDialogue;
+				const auto line = new AssDialogue;
 				line->Start = fr.TimeAtFrame(start_frame + i, agi::vfr::START);
 				line->End = fr.TimeAtFrame(start_frame + i + 1, agi::vfr::START);
 				line->Style = active->Style;
-				line->Text = agi::format("{\\an7\\pos(0,0)\\bord0\\shad0\\fscx100\\fscy100\\1img(%s)\\p1}m 0 0 l %d 0 l %d %d l 0 %d",
-					result.files[i].string(), result.img_width, result.img_width, result.img_height, result.img_height);
+				line->Text = agi::format(
+					"{\\an7\\pos(0,0)\\bord0\\shad0\\fscx100\\fscy100\\1img(%s)\\p1}m 0 0 l %d 0 l %d %d l 0 %d",
+					result.files[i].string(), result.img_width, result.img_width, result.img_height, result.img_height
+				);
 				c->ass->Events.insert(pos, *line);
 			}
 
@@ -1439,7 +1967,7 @@ namespace cmd {
 		reg(std::make_unique<video_zoom_50>());
 		reg(std::make_unique<video_zoom_in>());
 		reg(std::make_unique<video_zoom_out>());
-		reg(std::make_unique<video_to_gif>());
+		reg(std::make_unique<video_export_animation>());
 		reg(std::make_unique<video_frame_export>());
 		reg(std::make_unique<video_save_clip>());
 		reg(std::make_unique<video_import_image_sequence>());

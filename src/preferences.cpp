@@ -306,7 +306,7 @@ void Video(wxTreebook *book, Preferences *parent) {
 	const wxString image_suffix[2] = { "png", "jpg" };
 	const wxArrayString image_suffix_res(2, image_suffix);
 	p->OptionChoice(general, _("Image Suffix"), image_suffix_res, "Path/ImageSuffix");
-	p->OptionBrowse(general, _("GIF export path"), "Path/GifExport");
+	p->OptionBrowse(general, _("Animation export path"), "Path/GifExport");
 	p->OptionBrowse(general, _("Clip export path"), "Path/ClipExport");
 
 	auto resolution = p->PageSizer(_("Script Resolution"));

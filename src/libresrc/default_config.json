@@ -767,7 +767,8 @@
 		},
 		"GIF Export": {
 			"Quality": 90,
-			"Resolution Scale": 4
+			"Resolution Scale": 4,
+			"Format": "GIF"
 		}
 	},
 	"Version": {

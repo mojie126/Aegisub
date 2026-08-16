@@ -28,12 +28,12 @@
 // Aegisub Project http://www.aegisub.org/
 
 #include <ass_dialogue.h>
-#include <ass_file.h>
 #include <dialog_manager.h>
 #include <initial_line_state.h>
 #include <selection_controller.h>
 
 #include "async_video_provider.h"
+#include "compat.h"
 #include "format.h"
 #include "include/aegisub/context.h"
 #include "libresrc/libresrc.h"
@@ -51,7 +51,9 @@
 #include <algorithm>
 #include <atomic>
 #include <climits>
+#include <iterator>
 #include <mutex>
+#include <string>
 #include <thread>
 
 #include <wx/dcbuffer.h>
@@ -71,6 +73,7 @@ long eFrame;
 bool onOK = false;
 long onGifQuality;
 int onGifScaleFactor = 1; ///< GIF导出分辨率缩放比例（1-10整数）
+std::string onExportFormat = "GIF"; ///< 导出动画格式标识，取值为格式能力表中的名称
 
 /// 裁剪区域坐标（视频实际像素坐标）
 int cropX = 0;
@@ -686,14 +689,30 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		}
 	};
 
+	/// 导出格式能力表，声明各格式是否支持质量参数
+	struct AnimationExportFormatInfo {
+		const char *id;         ///< 内部格式标识，用于持久化与导出分发
+		const char *display;    ///< 下拉显示名的翻译键
+		bool supports_quality;  ///< 是否支持质量参数
+	};
+
+	constexpr AnimationExportFormatInfo animation_export_formats[] = {
+		{"GIF", "GIF", true},
+		{"APNG", "APNG", false},
+		{"WebP", "WebP [Lossy]", true},
+		{"WebP (Lossless)", "WebP [Lossless]", false},
+	};
+
 	struct DialogJumpFrameTo {
 		wxDialog d;
 		agi::Context *c; ///< Project context
+		wxChoice *formatChoice; ///< 导出格式选择控件
 		int startFrame; ///< 起始帧号
 		wxTextCtrl *editStartFrame; ///< 起始帧编辑控件
 		int endFrame; ///< 结束帧号
 		wxTextCtrl *editEndFrame; ///< 结束帧编辑控件
 		long gifQuality;
+		wxStaticText *gifQualityLabel; ///< 质量参数标签
 		wxSpinCtrl *editGifQuality;
 		int gifScaleFactor; ///< 分辨率缩放比例（1-10整数）
 		wxTextCtrl *editScaleFactor; ///< 分辨率缩放比例输入框
@@ -714,14 +733,20 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 
 		void OnEditScaleFactor(wxCommandEvent &event);
 
+		/// 导出格式切换时更新质量参数可用状态
+		void OnFormatChange(wxCommandEvent &event);
+
 		/// Dialog initializer to set default focus and selection
 		void OnInitDialog(wxInitDialogEvent &);
+
+		/// 按当前格式能力禁用不支持的设置项
+		void ApplyFormatCapabilities() const;
 
 		explicit DialogJumpFrameTo(agi::Context *c);
 	};
 
 	DialogJumpFrameTo::DialogJumpFrameTo(agi::Context *c)
-		: d(c->parent, -1, _("Export GIF"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxWANTS_CHARS)
+		: d(c->parent, -1, _("Export Animation"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxWANTS_CHARS)
 		, c(c)
 		, startFrame(INT_MAX)
 		, endFrame(INT_MIN)
@@ -752,6 +777,28 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		auto *range_grid = new wxFlexGridSizer(2, inner_pad, inner_pad);
 		range_grid->AddGrowableCol(1, 1);
 
+		// 导出格式选择，各格式共享其余设置项，不支持的参数禁用并在导出时忽略
+		range_grid->Add(
+			new wxStaticText(&d, -1, _("Format:")),
+			0, wxALIGN_CENTER_VERTICAL
+		);
+		wxArrayString format_names;
+		for (const auto &info : animation_export_formats)
+			format_names.push_back(wxGetTranslation(info.display));
+		formatChoice = new wxChoice(&d, -1, wxDefaultPosition, wxDefaultSize, format_names);
+		// 按持久化的格式标识恢复选择，无效时回退首项
+		const std::string saved_format = OPT_GET("Tool/GIF Export/Format")->GetString();
+		int saved_index = 0;
+		for (size_t i = 0; i < std::size(animation_export_formats); ++i) {
+			if (saved_format == animation_export_formats[i].id) {
+				saved_index = static_cast<int>(i);
+				break;
+			}
+		}
+		formatChoice->SetSelection(saved_index);
+		formatChoice->SetToolTip(_("Output animation format, parameters not supported by the format are ignored"));
+		range_grid->Add(formatChoice, 1, wxEXPAND);
+
 		range_grid->Add(
 			new wxStaticText(&d, -1, _("Start Frame:")),
 			0, wxALIGN_CENTER_VERTICAL
@@ -774,8 +821,9 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		editEndFrame->SetMaxLength(std::to_string(c->project->VideoProvider()->GetFrameCount() - 1).size());
 		range_grid->Add(editEndFrame, 1, wxEXPAND);
 
+		gifQualityLabel = new wxStaticText(&d, -1, _("GIF Quality:"));
 		range_grid->Add(
-			new wxStaticText(&d, -1, _("GIF Quality:")),
+			gifQualityLabel,
 			0, wxALIGN_CENTER_VERTICAL
 		);
 		editGifQuality = new wxSpinCtrl(
@@ -850,6 +898,10 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		editEndFrame->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditEndFrame, this);
 		editGifQuality->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditGifQuality, this);
 		editScaleFactor->Bind(wxEVT_TEXT, &DialogJumpFrameTo::OnEditScaleFactor, this);
+		formatChoice->Bind(wxEVT_CHOICE, &DialogJumpFrameTo::OnFormatChange, this);
+
+		// 按初始格式禁用不支持的设置项
+		ApplyFormatCapabilities();
 		playBtn->Bind(
 			wxEVT_TOGGLEBUTTON, [this](wxCommandEvent &) {
 				// 切换播放前同步帧范围
@@ -879,6 +931,12 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		eFrame = endFrame;
 		d.EndModal(0);
 		onOK = true;
+		// 导出格式写回全局并持久化，其余设置项各格式共享
+		const int format_index = formatChoice->GetSelection();
+		onExportFormat = format_index >= 0 && format_index < static_cast<int>(std::size(animation_export_formats))
+			? animation_export_formats[format_index].id
+			: "GIF";
+		OPT_SET("Tool/GIF Export/Format")->SetString(onExportFormat);
 		onGifQuality = gifQuality = editGifQuality->GetValue();
 		// 从输入框最终读取分辨率缩放比例，确保值在有效范围内
 		{
@@ -932,6 +990,21 @@ auto TimesSizer = new wxFlexGridSizer(2, 5, 5);
 		long val = 0;
 		if (editScaleFactor->GetValue().ToLong(&val) && val >= 1 && val <= 10)
 			gifScaleFactor = static_cast<int>(val);
+	}
+
+	void DialogJumpFrameTo::OnFormatChange(wxCommandEvent &event) {
+		ApplyFormatCapabilities();
+		event.Skip();
+	}
+
+	void DialogJumpFrameTo::ApplyFormatCapabilities() const {
+		const int format_index = formatChoice->GetSelection();
+		// 不支持质量参数的格式禁用质量控件，导出时忽略该参数
+		const bool supports_quality = format_index >= 0 && format_index < static_cast<int>(std::size(animation_export_formats))
+			? animation_export_formats[format_index].supports_quality
+			: true;
+		gifQualityLabel->Enable(supports_quality);
+		editGifQuality->Enable(supports_quality);
 	}
 
 	/// 帧序列导出对话框（仅帧范围，不含裁剪和GIF质量）
@@ -1087,6 +1160,10 @@ bool getOnOK() {
 
 long getGifQuality() {
 	return onGifQuality;
+}
+
+std::string getExportFormat() {
+	return onExportFormat;
 }
 
 int getGifScaleFactor() {

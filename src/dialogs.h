@@ -23,7 +23,6 @@
 #include <functional>
 #include <string>
 #include <vector>
-#include <wx/string.h>
 
 class AssFile;
 class AsyncVideoProvider;
@@ -72,7 +71,7 @@ std::string CreateImageVideo(wxWindow *parent);
 /// @brief 导入图片序列对话框的返回结果
 struct ImportImageSequenceResult {
 	std::vector<agi::fs::path> files;
-	int img_width  = 0;
+	int img_width = 0;
 	int img_height = 0;
 	explicit operator bool() const { return !files.empty(); }
 };
@@ -81,7 +80,7 @@ struct ImportImageSequenceResult {
 /// @param parent 父窗口
 /// @param fr 视频帧率（用于展示时长信息）
 /// @return 图片文件列表和尺寸，用户取消时返回空结果
-ImportImageSequenceResult ShowImportImageSequence(wxWindow *parent, agi::vfr::Framerate const& fr);
+ImportImageSequenceResult ShowImportImageSequence(wxWindow *parent, agi::vfr::Framerate const &fr);
 
 bool ShowPasteOverDialog(wxWindow *parent);
 
@@ -113,6 +112,8 @@ long getGifQuality();
 
 int getGifScaleFactor();
 
+std::string getExportFormat();
+
 int getCropX();
 
 int getCropY();
@@ -138,7 +139,9 @@ void ShowLogWindow(agi::Context *c);
 void ShowPreferences(agi::Context *c);
 
 void ShowPropertiesDialog(agi::Context *c);
+
 void ShowSearchReplaceDialog(agi::Context *c, bool replace);
+
 void ShowSelectLinesDialog(agi::Context *c);
 
 void ShowShiftTimesDialog(agi::Context *c);

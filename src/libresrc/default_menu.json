@@ -56,7 +56,7 @@
 		},
 		{},
 		{
-			"command": "video/save/gif"
+			"command": "video/save/animation"
 		},
 		{
 			"command": "video/save/clip"
