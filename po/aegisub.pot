@@ -8755,3 +8755,47 @@ msgstr ""
 #: ../src/preferences.cpp:637
 msgid "Connection"
 msgstr ""
+
+#: ../src/command/video.cpp
+msgid "Export Animation"
+msgstr ""
+
+#: ../src/command/video.cpp
+msgid "Export video clips as animation"
+msgstr ""
+
+#: ../src/command/video.cpp
+msgid "Export apng image"
+msgstr ""
+
+#: ../src/command/video.cpp
+msgid "Exporting apng image, please later..."
+msgstr ""
+
+#: ../src/command/video.cpp
+msgid "Export webp image"
+msgstr ""
+
+#: ../src/command/video.cpp
+msgid "Exporting webp image, please later..."
+msgstr ""
+
+#: ../src/dialog_jumpto.cpp
+msgid "Format:"
+msgstr ""
+
+#: ../src/dialog_jumpto.cpp
+msgid "WebP [Lossy]"
+msgstr ""
+
+#: ../src/dialog_jumpto.cpp
+msgid "WebP [Lossless]"
+msgstr ""
+
+#: ../src/dialog_jumpto.cpp
+msgid "Output animation format, parameters not supported by the format are ignored"
+msgstr ""
+
+#: ../src/preferences.cpp
+msgid "Animation export path"
+msgstr ""

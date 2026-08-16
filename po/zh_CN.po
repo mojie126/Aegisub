@@ -7606,9 +7606,6 @@ msgstr "关键帧文件格式未知："
 #~ msgid "Export the clip"
 #~ msgstr "导出视频片段"
 
-msgid "Export GIF"
-msgstr "导出GIF动画"
-
 #~ msgid "Export video clips from frame to frame at a specified time"
 #~ msgstr "导出指定帧到帧之间的视频片段"
 
@@ -8093,8 +8090,39 @@ msgstr "导出选中行的视频帧为JPEG图像序列"
 msgid "Exporting gif image, please later..."
 msgstr "正在导出GIF动画，请稍后..."
 
-msgid "GIF export path"
-msgstr "GIF导出路径"
+#. 动画导出（video.cpp / dialog_jumpto.cpp / preferences.cpp）
+msgid "Export Animation"
+msgstr "导出动画"
+
+msgid "Export video clips as animation"
+msgstr "导出视频片段为动画"
+
+msgid "Export apng image"
+msgstr "导出APNG动画"
+
+msgid "Exporting apng image, please later..."
+msgstr "正在导出APNG动画，请稍后..."
+
+msgid "Export webp image"
+msgstr "导出WebP动画"
+
+msgid "Exporting webp image, please later..."
+msgstr "正在导出WebP动画，请稍后..."
+
+msgid "Format:"
+msgstr "格式："
+
+msgid "WebP [Lossy]"
+msgstr "WebP[有损]"
+
+msgid "WebP [Lossless]"
+msgstr "WebP[无损]"
+
+msgid "Output animation format, parameters not supported by the format are ignored"
+msgstr "输出动画格式，格式不支持的参数直接忽略"
+
+msgid "Animation export path"
+msgstr "动画导出路径"
 
 msgid "Image Suffix"
 msgstr "图像格式"
