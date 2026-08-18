@@ -256,61 +256,7 @@ try
 {
 
 	# DependencyControl（release 最新版）
-	# v0.8.1 存在 getUpdaterErrorMsg 调用 bug：该方法定义在 UpdateTask 类，
-	# 而 ModuleLoader 在 Updater 实例上调用（类上取实例方法为 nil），导致依赖模块
-	# 加载失败时连锁报错，上游 master 已修复，此处应用等价补丁
-	# 补丁 2：Updater.moon 的 msgs 表补充 updateError 消息（实现内联引用）
-	$DepCtrlPatchMsgs = @"
-  updateError: {
-    [UpdateStatus.UpToDate]: "Couldn't complete the %s of %s '%s' because of a paradox: module not found but updater says up-to-date (%s)"
-    [UpdateStatus.UpdaterDisabled]: "Couldn't complete the %s of %s '%s' because the updater is disabled."
-    [UpdateStatus.InvalidNamespace]: "Skipping %s of %s '%s': namespace '%s' doesn't conform to rules."
-    [UpdateStatus.Unmanaged]: "Skipping %s of unmanaged %s '%s'."
-    [UpdateStatus.AnotherUpdateRunning]: "Skipped %s of %s '%s': another update initiated by %s is already running."
-    [UpdateStatus.NoSuitablePackage]: "The %s of %s '%s' failed because no suitable package could be found %s."
-    [UpdateStatus.NoInternet]: "Skipped %s of %s '%s': an internet connection is currently not available."
-    [UpdateStatus.InvalidVersion]: "Couldn't complete the %s of %s '%s' because the requested version is invalid: %s"
-    [UpdateStatus.ProtectedInstall]: "Skipped %s of %s '%s' because its entry point (%s) is in Aegisub's data automation directory. If it's managed by a system package manager, please update it through that instead."
-    [UpdateStatus.TaskAlreadyRunning]: "Skipped %s of %s '%s': the update task is already running."
-    [UpdateStatus.RequirementsUnmet]: "Couldn't complete the %s of %s '%s' because its requirements could not be satisfied: %s"
-    [UpdateStatus.UntrustedFeed]: "Couldn't complete the %s of %s '%s' because a suitable package was only found in an untrusted feed (%s). Add it to your trusted feeds to proceed."
-    [UpdateStatus.PinnedUnavailable]: "Couldn't complete the %s of %s '%s' because its pinned package source is no longer available. Update or clear the pin to proceed."
-    [UpdateStatus.UserAborted]: "Aborted the %s of %s '%s' at your request."
-    [UpdateStatus.BlockedFeed]: "Couldn't complete the %s of %s '%s' because you blocked the feed (%s) it would be installed from."
-    [UpdateStatus.TempDirFailed]: "Couldn't complete the %s of %s '%s': failed to create temporary download directory %s"
-    [UpdateStatus.PathTraversal]: "Aborted the %s of %s '%s' because it attempted to deploy a file (%s) outside of its namespaced path."
-    [UpdateStatus.BadHash]: "Aborted the %s of %s '%s' because the feed contained a missing or malformed SHA-1 hash for file %s."
-    [UpdateStatus.MoveFailed]: "Couldn't finish the %s of %s '%s' because some files couldn't be moved to their target location: %s"
-    [UpdateStatus.ModuleNotFound]: "The %s of %s '%s' succeeded, but the module couldn't be located by the module loader."
-    [UpdateStatus.ModuleLoadFailed]: "The %s of %s '%s' succeeded, but an error occurred while loading the module: %s"
-    [UpdateStatus.MissingVersionRecord]: "The %s of %s '%s' succeeded, but it's missing a version record."
-    [UpdateStatus.RecordCreateFailed]: "The %s of unmanaged %s '%s' succeeded, but an error occurred while creating a DependencyControl record: %s"
-    component: "Error (%d) in component %s during the %s of %s '%s':`n— %s"
-    unknown: "Couldn't complete the %s of %s '%s' (unrecognized updater status: %s)."
-  }
-  updaterErrorComponent: {"DownloadManager (adding download)", "DownloadManager"}
-  scheduleUpdate: {
-"@
-	# 补丁 3：Updater.moon 类中内联 getUpdaterErrorMsg 实现（UpdateTask 的
-	# 模块返回值被 withTestExports 包装，无法直接取类方法，故复制实现）
-	$DepCtrlPatchMethod = @"
-  getUpdaterErrorMsg: (code, name, scriptType, isInstall, detailMsg) =>
-    isInstall or= false
-    detailMsg or= ""
-    if code and code <= -100
-      return msgs.updateError.component\format -code, msgs.updaterErrorComponent[math.floor(-code/100)],
-        domain.terms.isInstall[isInstall], domain.terms.scriptType.singular[scriptType], name, detailMsg
-    template = msgs.updateError[code]
-    unless template
-      return msgs.updateError.unknown\format domain.terms.isInstall[isInstall],
-        domain.terms.scriptType.singular[scriptType], name, tostring code
-    return template\format domain.terms.isInstall[isInstall],
-      domain.terms.scriptType.singular[scriptType],
-      name, detailMsg
-"@
-	$DepCtrlMethodAnchor = "  @defaultOrphanTimeout = 50"
-	$DepCtrlPatchMethodFull = $DepCtrlPatchMethod.TrimEnd() + "`n" + $DepCtrlMethodAnchor
-	Install-ReleaseScript -Name "DependencyControl" -Repo "TypesettingTools/DependencyControl" -Pattern "\.zip$" -PatchTag "v0.8.1" -PatchFiles @("include/l0/DependencyControl/ModuleLoader.moon", "include/l0/DependencyControl/Updater.moon", "include/l0/DependencyControl/Updater.moon") -PatchFroms @("@@updater.__class.getUpdaterErrorMsg", "  scheduleUpdate: {", $DepCtrlMethodAnchor) -PatchTos @("@@updater\getUpdaterErrorMsg", $DepCtrlPatchMsgs, $DepCtrlPatchMethodFull)
+	Install-ReleaseScript -Name "DependencyControl" -Repo "TypesettingTools/DependencyControl" -Pattern "\.zip$"
 
 	# Aegisub-Motion（DepCtrl 分支）
 	Install-GitScript -Name "Aegisub-Motion" -Repo "https://github.com/TypesettingTools/Aegisub-Motion.git" -Branch "DepCtrl" -Copy @("a-mo.Aegisub-Motion.moon=autoload", "src=include/a-mo")

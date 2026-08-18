@@ -361,7 +361,8 @@ bool AegisubApp::OnInit() {
 		{
 			auto depctrl_path = config::path->Decode("?user/config/l0.DependencyControl.json");
 			try {
-				bool enabled = OPT_GET("App/Auto/Dependency Check")->GetBool();
+				// v0.7.0 起配置改为分段格式，更新模式存于 config.updates.mode
+				json::String mode = OPT_GET("App/Auto/Dependency Check")->GetBool() ? "auto-update" : "off";
 
 				json::Object root_obj;
 				if (agi::fs::FileExists(depctrl_path)) {
@@ -381,17 +382,27 @@ bool AegisubApp::OnInit() {
 
 				// 检查现有值是否匹配，避免每次启动都写入文件
 				bool needs_write = true;
-				auto updater_it = config_obj.find("updaterEnabled");
-				if (updater_it != config_obj.end()) {
+				json::Object updates_obj;
+				auto updates_it = config_obj.find("updates");
+				if (updates_it != config_obj.end()) {
 					try {
-						if (static_cast<json::Boolean>(updater_it->second) == enabled)
+						updates_obj = std::move(static_cast<json::Object &>(updates_it->second));
+					} catch (...) {}
+				}
+				auto mode_it = updates_obj.find("mode");
+				if (mode_it != updates_obj.end()) {
+					try {
+						if (static_cast<json::String>(mode_it->second) == mode)
 							needs_write = false;
 					} catch (...) {}
 				}
 
 				if (needs_write) {
 					agi::fs::CreateDirectory(depctrl_path.parent_path());
-					config_obj["updaterEnabled"] = json::UnknownElement(enabled);
+					// 删除 v0.7.0 起废弃的旧键，避免无 $schema 时迁移覆盖 updates.mode
+					config_obj.erase("updaterEnabled");
+					updates_obj["mode"] = json::UnknownElement(mode);
+					config_obj["updates"] = json::UnknownElement(std::move(updates_obj));
 					root_obj["config"] = json::UnknownElement(std::move(config_obj));
 
 					agi::io::Save file(depctrl_path);

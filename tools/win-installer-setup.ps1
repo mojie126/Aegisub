@@ -37,44 +37,6 @@ if (!(Test-Path DependencyControl))
 	Move-Item DependencyControl\automation\autoload DependencyControl\macros
 	Move-Item DependencyControl\automation\include\l0 DependencyControl\modules
 	Remove-Item -Recurse DependencyControl\automation
-	# v0.8.1 存在 getUpdaterErrorMsg 调用 bug：该方法定义在 UpdateTask 类，
-	# 而 ModuleLoader 在 Updater 实例上调用（类上取实例方法为 nil），导致依赖模块
-	# 加载失败时连锁报错，上游 master 已修复，此处仅对 v0.8.1 应用等价补丁，
-	# 新版本发布后自动跳过（若新版本已修复 bug，可删除本段补丁代码）
-	if ($dcReleases.tag_name -eq 'v0.8.1')
-	{
-		$mlPath = Join-Path $DepsDir "DependencyControl\modules\DependencyControl\ModuleLoader.moon"
-		$mlContent = [System.IO.File]::ReadAllText($mlPath)
-		$mlFixed = $mlContent.Replace('@@updater.__class.getUpdaterErrorMsg', '@@updater\getUpdaterErrorMsg')
-		if ($mlFixed -ne $mlContent)
-		{
-			[System.IO.File]::WriteAllText($mlPath, $mlFixed,[System.Text.UTF8Encoding]::new($false))
-		}
-		else
-		{
-			Write-Warning "Patch pattern not found in ModuleLoader.moon: @@updater.__class.getUpdaterErrorMsg"
-		}
-		# UpdateTask 的模块返回值被 withTestExports 包装，无法直接取类方法，
-		# 故在 Updater.moon 的 msgs 表补充 updateError 消息并内联方法实现
-		$upPath = Join-Path $DepsDir "DependencyControl\modules\DependencyControl\Updater.moon"
-		$upContent = [System.IO.File]::ReadAllText($upPath)
-		$upPatchMsgs = "  updateError: {`n    [UpdateStatus.UpToDate]: `"Couldn't complete the %s of %s '%s' because of a paradox: module not found but updater says up-to-date (%s)`"`n    [UpdateStatus.UpdaterDisabled]: `"Couldn't complete the %s of %s '%s' because the updater is disabled.`"`n    [UpdateStatus.InvalidNamespace]: `"Skipping %s of %s '%s': namespace '%s' doesn't conform to rules.`"`n    [UpdateStatus.Unmanaged]: `"Skipping %s of unmanaged %s '%s'.`"`n    [UpdateStatus.AnotherUpdateRunning]: `"Skipped %s of %s '%s': another update initiated by %s is already running.`"`n    [UpdateStatus.NoSuitablePackage]: `"The %s of %s '%s' failed because no suitable package could be found %s.`"`n    [UpdateStatus.NoInternet]: `"Skipped %s of %s '%s': an internet connection is currently not available.`"`n    [UpdateStatus.InvalidVersion]: `"Couldn't complete the %s of %s '%s' because the requested version is invalid: %s`"`n    [UpdateStatus.ProtectedInstall]: `"Skipped %s of %s '%s' because its entry point (%s) is in Aegisub's data automation directory. If it's managed by a system package manager, please update it through that instead.`"`n    [UpdateStatus.TaskAlreadyRunning]: `"Skipped %s of %s '%s': the update task is already running.`"`n    [UpdateStatus.RequirementsUnmet]: `"Couldn't complete the %s of %s '%s' because its requirements could not be satisfied: %s`"`n    [UpdateStatus.UntrustedFeed]: `"Couldn't complete the %s of %s '%s' because a suitable package was only found in an untrusted feed (%s). Add it to your trusted feeds to proceed.`"`n    [UpdateStatus.PinnedUnavailable]: `"Couldn't complete the %s of %s '%s' because its pinned package source is no longer available. Update or clear the pin to proceed.`"`n    [UpdateStatus.UserAborted]: `"Aborted the %s of %s '%s' at your request.`"`n    [UpdateStatus.BlockedFeed]: `"Couldn't complete the %s of %s '%s' because you blocked the feed (%s) it would be installed from.`"`n    [UpdateStatus.TempDirFailed]: `"Couldn't complete the %s of %s '%s': failed to create temporary download directory %s`"`n    [UpdateStatus.PathTraversal]: `"Aborted the %s of %s '%s' because it attempted to deploy a file (%s) outside of its namespaced path.`"`n    [UpdateStatus.BadHash]: `"Aborted the %s of %s '%s' because the feed contained a missing or malformed SHA-1 hash for file %s.`"`n    [UpdateStatus.MoveFailed]: `"Couldn't finish the %s of %s '%s' because some files couldn't be moved to their target location: %s`"`n    [UpdateStatus.ModuleNotFound]: `"The %s of %s '%s' succeeded, but the module couldn't be located by the module loader.`"`n    [UpdateStatus.ModuleLoadFailed]: `"The %s of %s '%s' succeeded, but an error occurred while loading the module: %s`"`n    [UpdateStatus.MissingVersionRecord]: `"The %s of %s '%s' succeeded, but it's missing a version record.`"`n    [UpdateStatus.RecordCreateFailed]: `"The %s of unmanaged %s '%s' succeeded, but an error occurred while creating a DependencyControl record: %s`"`n    component: `"Error (%d) in component %s during the %s of %s '%s':`n— %s`"`n    unknown: `"Couldn't complete the %s of %s '%s' (unrecognized updater status: %s).`"`n  }`n  updaterErrorComponent: {`"DownloadManager (adding download)`", `"DownloadManager`"}`n  scheduleUpdate: {"
-		$upPatchMethod = "  getUpdaterErrorMsg: (code, name, scriptType, isInstall, detailMsg) =>`n    isInstall or= false`n    detailMsg or= `"`"`n    if code and code <= -100`n      return msgs.updateError.component\format -code, msgs.updaterErrorComponent[math.floor(-code/100)],`n        domain.terms.isInstall[isInstall], domain.terms.scriptType.singular[scriptType], name, detailMsg`n    template = msgs.updateError[code]`n    unless template`n      return msgs.updateError.unknown\format domain.terms.isInstall[isInstall],`n        domain.terms.scriptType.singular[scriptType], name, tostring code`n    return template\format domain.terms.isInstall[isInstall],`n      domain.terms.scriptType.singular[scriptType],`n      name, detailMsg"
-		$upFixed = $upContent.Replace('  scheduleUpdate: {', $upPatchMsgs)
-		$upFixed = $upFixed.Replace('  @defaultOrphanTimeout = 50', $upPatchMethod.TrimEnd() + "`n  @defaultOrphanTimeout = 50")
-		if ($upFixed -ne $upContent)
-		{
-			[System.IO.File]::WriteAllText($upPath, $upFixed,[System.Text.UTF8Encoding]::new($false))
-		}
-		else
-		{
-			Write-Warning "Patch pattern not found in Updater.moon: scheduleUpdate / @defaultOrphanTimeout"
-		}
-	}
-	else
-	{
-		Write-Host "DependencyControl $( $dcReleases.tag_name ): no patch needed"
-	}
 }
 
 # Aegisub-Motion
