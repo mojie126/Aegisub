@@ -256,7 +256,26 @@ try
 {
 
 	# DependencyControl（release 最新版）
-	Install-ReleaseScript -Name "DependencyControl" -Repo "TypesettingTools/DependencyControl" -Pattern "\.zip$"
+	# v0.8.2 存在安装体验缺陷：Install Script 爬取 feed 期间未调用 aegisub.progress.task，
+	# 进度对话框消息区一直空白（无反馈），且全部脚本已登记时列表为空且无提示，
+	# 此处应用等价补丁（新版本若已修复可移除对应补丁参数）
+	$ToolboxPatchScanning = @"
+  macros, modules = {}, {}
+  aegisub.progress.task "Scanning available feeds..."
+  entries = crawlWithPrompt buildFeedInventory!
+"@
+	$ToolboxPatchLoading = @"
+  aegisub.progress.task "Loading feed data..."
+  logger\log msgs.install.scanning, #entries
+"@
+	$ToolboxPatchEmpty = @"
+  unless next(macros) or next(modules)
+    aegisub.log 0, "All available scripts are already installed; nothing new to install."
+    return
+
+  moduleList, moduleMap = buildDlgList modules
+"@
+	Install-ReleaseScript -Name "DependencyControl" -Repo "TypesettingTools/DependencyControl" -Pattern "\.zip$" -PatchTag "v0.8.2" -PatchFiles @("autoload/l0.DependencyControl.Toolbox.moon", "autoload/l0.DependencyControl.Toolbox.moon", "autoload/l0.DependencyControl.Toolbox.moon") -PatchFroms @("  macros, modules = {}, {}`n  entries = crawlWithPrompt buildFeedInventory!", "  logger\log msgs.install.scanning, #entries", "  moduleList, moduleMap = buildDlgList modules`n  macroList, macroMap = buildDlgList macros") -PatchTos @($ToolboxPatchScanning, $ToolboxPatchLoading, $ToolboxPatchEmpty)
 
 	# Aegisub-Motion（DepCtrl 分支）
 	Install-GitScript -Name "Aegisub-Motion" -Repo "https://github.com/TypesettingTools/Aegisub-Motion.git" -Branch "DepCtrl" -Copy @("a-mo.Aegisub-Motion.moon=autoload", "src=include/a-mo")
@@ -270,8 +289,12 @@ try
 	# ASSFoundation
 	Install-GitScript -Name "ASSFoundation" -Repo "https://github.com/TypesettingTools/ASSFoundation.git" -Copy @("l0=include/l0")
 
-	# YUtils
-	Install-GitScript -Name "YUtils" -Repo "https://github.com/TypesettingTools/YUtils.git" -Copy @("src/Yutils.lua=include")
+	# YUtils（v1.0.0 起按 DepCtrl 命名空间安装到 include/tstools/，
+	# 通过 provides 别名注册 Yutils 供旧脚本 require）
+	Install-GitScript -Name "YUtils" -Repo "https://github.com/TypesettingTools/YUtils.git" -Copy @("src/Yutils.lua=include/tstools")
+
+	# 移除 YUtils 旧布局残留（include/Yutils.lua），避免绕过 DepCtrl 记录
+	Remove-Item -Force (Join-Path $AutomationDir "include/Yutils.lua") -ErrorAction SilentlyContinue
 
 	# luajson
 	Install-GitScript -Name "luajson" -Repo "https://github.com/harningt/luajson.git" -Copy @("lua=include")

@@ -88,7 +88,7 @@ Copy-New-Items "$InstallerDepsDir\DependencyControl\modules\*"  "$PortableOutput
 Copy-New-Items "$InstallerDepsDir\DependencyControl\macros\*"  "$PortableOutputDir\automation\autoload\"  -Recurse
 Copy-New-Items $InstallerDepsDir\Aegisub-Motion\a-mo.Aegisub-Motion.moon  $PortableOutputDir\automation\autoload
 Copy-New-Items "$InstallerDepsDir\Aegisub-Motion\src\*"  "$PortableOutputDir\automation\include\a-mo\"  -Recurse
-Copy-New-Item $InstallerDepsDir\Yutils\src\Yutils.lua  $PortableOutputDir\automation\include
+Copy-New-Item $InstallerDepsDir\Yutils\src\Yutils.lua  $PortableOutputDir\automation\include\tstools\Yutils.lua
 Copy-New-Items "$InstallerDepsDir\luajson\lua\*"  "$PortableOutputDir\automation\include\"  -Recurse
 
 # Functional

@@ -36,7 +36,7 @@ DestDir: {app}\automation\vapoursynth; Source: {#SOURCE_ROOT}\automation\vapours
 ; DepCtrl
 DestDir: {userappdata}\Aegisub\automation\include\l0; Source: {#DEPS_DIR}\DependencyControl\modules\*; Flags: ignoreversion recursesubdirs createallsubdirs; Components: macros\modules\depctrl
 DestDir: {userappdata}\Aegisub\automation\autoload; Source: {#DEPS_DIR}\DependencyControl\macros\*; Flags: ignoreversion recursesubdirs createallsubdirs; Components: macros\modules\depctrl
-DestDir: {userappdata}\Aegisub\automation\include; Source: {#DEPS_DIR}\Yutils\src\Yutils.lua; Flags: ignoreversion; Components: macros\modules\yutils
+DestDir: {userappdata}\Aegisub\automation\include\tstools; Source: {#DEPS_DIR}\Yutils\src\Yutils.lua; Flags: ignoreversion; Components: macros\modules\yutils
 DestDir: {userappdata}\Aegisub\automation\include; Source: {#DEPS_DIR}\luajson\lua\*; Flags: ignoreversion recursesubdirs createallsubdirs; Components: macros\modules\luajson
 
 ; Functional
