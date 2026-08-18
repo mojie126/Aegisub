@@ -2372,3 +2372,75 @@ TEST(MotionLineMetrics, AlignInFirstBlockAnchorsLine) {
 	line.extract_metrics(5, 10, 10, 20, 640, 360);
 	EXPECT_EQ(line.align, 8);
 }
+
+TEST(MochaLine, DeduplicateSkipsRectClipInRepeatTags) {
+	// 对应上游 #89：矩形 clip 渲染器顺序应用，deduplicate 为 false，
+	// 同一标签块内重复出现也不参与可重复标签去重
+	MotionLine line;
+	line.text = R"({\clip(0,0,10,10)\clip(5,5,15,15)}hello)";
+	line.deduplicate_tags();
+
+	EXPECT_NE(line.text.find(R"(\clip(0,0,10,10))"), std::string::npos)
+		<< "First rect clip should be kept, got: " << line.text;
+	EXPECT_NE(line.text.find(R"(\clip(5,5,15,15))"), std::string::npos)
+		<< "Second rect clip should be kept (sequential renderer application), got: " << line.text;
+}
+
+TEST(MochaLine, CombineIdenticalLinesKeepsDistinctFieldLines) {
+	// 对应上游 #89 combineWithLine：除 text/style 外，actor/effect/layer/margins
+	// 等行属性不同时不合并
+	auto make_line = [](const std::string &text, const std::string &effect, int layer) {
+		MotionLine line;
+		line.text = text;
+		line.style = "Default";
+		line.effect = effect;
+		line.layer = layer;
+		line.start_time = 0;
+		line.end_time = 1000;
+		return line;
+	};
+
+	std::vector<MotionLine> lines = {
+		make_line(R"({\pos(320,240)}hello)", "", 0),
+		make_line(R"({\pos(320,240)}hello)", "fx", 0),
+		make_line(R"({\pos(320,240)}hello)", "fx", 1),
+	};
+	// 第三行 actor 与第二行不同，同样不得合并
+	lines[2].actor = "different";
+	// 相邻行时间相接（第二行 1000 接第三行 2000）
+	lines[1].start_time = 1000;
+	lines[1].end_time = 2000;
+	lines[2].start_time = 2000;
+	lines[2].end_time = 3000;
+
+	MotionProcessor::combine_identical_lines(lines);
+	EXPECT_EQ(lines.size(), 3u) << "Lines with differing fields must not be merged";
+}
+
+TEST(MochaLine, CombineIdenticalLinesMergesFullyMatchingFields) {
+	// 对应上游 #89 combineWithLine：text/style/actor/effect/layer/margins 全部相同
+	// 且时间相邻时才合并
+	auto make_line = [](int start, int end) {
+		MotionLine line;
+		line.text = R"({\pos(320,240)}hello)";
+		line.style = "Default";
+		line.effect = "";
+		line.layer = 0;
+		line.margin_l = 10;
+		line.margin_r = 20;
+		line.margin_t = 30;
+		line.start_time = start;
+		line.end_time = end;
+		return line;
+	};
+
+	std::vector<MotionLine> lines = {
+		make_line(0, 1000),
+		make_line(1000, 2000),
+	};
+	MotionProcessor::combine_identical_lines(lines);
+
+	ASSERT_EQ(lines.size(), 1u);
+	EXPECT_EQ(lines[0].start_time, 0);
+	EXPECT_EQ(lines[0].end_time, 2000);
+}

@@ -497,11 +497,21 @@ namespace mocha {
 	void MotionProcessor::combine_identical_lines(std::vector<MotionLine> &lines) {
 		// 对应 MoonScript combineIdenticalLines()
 		// 合并文本和样式完全相同的相邻行（双指针原地压缩，O(n) 复杂度）
+		// 字段比较对齐上游 #89 combineWithLine：除 text/style 外还需比较
+		// actor/effect/comment/layer/margins/ambient_plane 等行属性，避免错误合并不同属性的行
 		if (lines.size() < 2) return;
+
+		auto line_fields_equal = [](const MotionLine &a, const MotionLine &b) {
+			return a.text == b.text && a.style == b.style &&
+				a.actor == b.actor && a.effect == b.effect && a.comment == b.comment &&
+				a.layer == b.layer &&
+				a.margin_l == b.margin_l && a.margin_r == b.margin_r && a.margin_t == b.margin_t &&
+				a.ambient_plane == b.ambient_plane;
+		};
 
 		size_t write = 0;
 		for (size_t read = 1; read < lines.size(); ++read) {
-			if (lines[write].text == lines[read].text && lines[write].style == lines[read].style &&
+			if (line_fields_equal(lines[write], lines[read]) &&
 				(lines[write].start_time == lines[read].end_time || lines[write].end_time == lines[read].start_time)) {
 				// 扩展时间范围
 				lines[write].end_time = std::max(lines[write].end_time, lines[read].end_time);

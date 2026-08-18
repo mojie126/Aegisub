@@ -244,6 +244,11 @@ namespace {
 			);
 			std::ranges::reverse(selected_lines);
 
+			// 过滤注释行：对应上游 #89（LineCollection.collectLines 只收集
+			// 未注释的 dialogue 行），注释行不参与选区范围计算、追踪应用与删除
+			std::erase_if(selected_lines, [](const AssDialogue *line) { return line->Comment; });
+			if (selected_lines.empty()) return;
+
 			// 计算行集合的帧范围（遍历所有选中行的最早起始帧和最晚结束帧）
 			// 对应 MoonScript: LineCollection.startFrame / .endFrame / .totalFrames
 			int collection_start_frame = c->videoController->FrameAtTime(selected_lines.back()->Start, agi::vfr::START);
@@ -528,6 +533,11 @@ namespace {
 					return false;
 				});
 			std::ranges::reverse(selected_lines);
+
+			// 过滤注释行：与摩卡命令一致，对应上游 LineCollection.collectLines
+			// 只收集未注释的 dialogue 行，注释行不参与范围计算与处理
+			std::erase_if(selected_lines, [](const AssDialogue *line) { return line->Comment; });
+			if (selected_lines.empty()) return;
 
 			// 计算选中行的帧范围
 			int collection_start_frame = c->videoController->FrameAtTime(selected_lines.back()->Start, agi::vfr::START);

@@ -662,10 +662,12 @@ namespace mocha {
 		}
 
 		// 处理可重复标签（保留最后一个）
+		// deduplicate 为 false 的标签（矩形 clip）渲染器顺序应用，不参与去重（对应上游 #89）
 		text = tag_utils::run_callback_on_overrides(
 			text, [&](const std::string &tag_block, int major) {
 				std::string result = tag_block;
 				for (const auto *tag_def : registry.repeat_tags()) {
+					if (!tag_def->deduplicate) continue;
 					result = tag_utils::deduplicate_tag(result, tag_def->compiled_pattern);
 				}
 				return result;

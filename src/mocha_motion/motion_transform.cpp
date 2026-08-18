@@ -85,9 +85,11 @@ namespace mocha {
 
 			// 对应上游 #78：\t 内部是独立作用域，可重复标签单独去重（保留最后一个），
 			// 避免行级去重把 \t 内部标签与外部同名标签混为一谈（Issue #69）
+			// deduplicate 为 false 的标签（矩形 clip）不参与去重（对应上游 #89）
 			{
 				const auto &tag_registry = TagRegistry::instance();
 				for (const auto *tag_def : tag_registry.repeat_tags()) {
+					if (!tag_def->deduplicate) continue;
 					t.effect = tag_utils::deduplicate_tag(t.effect, tag_def->compiled_pattern);
 				}
 			}

@@ -266,9 +266,10 @@ namespace mocha {
 
 		// --- Clip ---
 		// rectClip 是可变换的多值标签，渲染器顺序应用矩形 clip（后出现覆盖前），
-		// 不参与整行 one-time 去重（对应上游 #89）
-		all_tags_["rectClip"] = {"rectClip", R"(\\clip\(([\-\d.]+,[\-\d.]+,[\-\d.]+,[\-\d.]+)\))", "\\clip", true, false, "", TagType::MULTI, {}, {"xLeft", "yTop", "xRight", "yBottom"}};
-		all_tags_["rectiClip"] = {"rectiClip", R"(\\iclip\(([\-\d.]+,[\-\d.]+,[\-\d.]+,[\-\d.]+)\))", "\\iclip", true, false, "", TagType::MULTI, {}, {"xLeft", "yTop", "xRight", "yBottom"}};
+		// rectClip 是可变换的多值标签，渲染器顺序应用矩形 clip（后出现覆盖前），
+		// 完全不参与标签去重（对应上游 #89 deduplicate: false）
+		all_tags_["rectClip"] = {"rectClip", R"(\\clip\(([\-\d.]+,[\-\d.]+,[\-\d.]+,[\-\d.]+)\))", "\\clip", true, false, "", TagType::MULTI, {}, {"xLeft", "yTop", "xRight", "yBottom"}, false, false};
+		all_tags_["rectiClip"] = {"rectiClip", R"(\\iclip\(([\-\d.]+,[\-\d.]+,[\-\d.]+,[\-\d.]+)\))", "\\iclip", true, false, "", TagType::MULTI, {}, {"xLeft", "yTop", "xRight", "yBottom"}, false, false};
 		// 矢量 clip 模式要求可选 scale 后跟绘图命令字母，避免误匹配矩形 clip 内容，
 		// 支持 scale 与命令间空格（对应上游 #89）
 		all_tags_["vectClip"] = {"vectClip", R"(\\clip\((\d*,?\s*[mnlbspc][^,]*)\))", "\\clip", false, true, "", TagType::MULTI, {}, {"scale", "shape"}};

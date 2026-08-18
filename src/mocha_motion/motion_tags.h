@@ -38,6 +38,7 @@ namespace mocha {
 		std::vector<std::string> affected_by; // 受影响标签列表（如 \alpha 影响 \1a-\4a）
 		std::vector<std::string> field_names; // 多值标签的字段名列表
 		bool is_integer = false; // 是否使用整数格式输出（如 \be）
+		bool deduplicate = true; // 是否参与标签去重（对应上游 deduplicate 标志，\clip 等渲染器顺序应用的标签置 false）
 
 		/// 预编译的正则表达式对象（由 TagRegistry 初始化时统一编译）
 		/// 避免运行时每次使用 std::regex(pattern) 反复编译
