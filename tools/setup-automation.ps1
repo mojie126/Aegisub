@@ -1,4 +1,4 @@
-#!/usr/bin/env powershell
+﻿#!/usr/bin/env powershell
 <#
 .SYNOPSIS
     安装 automation 脚本到指定目录，供开发环境运行时使用。
@@ -273,21 +273,58 @@ try
 	$ToolboxPatchScanning = @"
   macros, modules = {}, {}
   aegisub.progress.task "Scanning available feeds..."
-  entries = crawlWithPrompt buildFeedInventory!
+  entries = crawlWithPrompt buildFeedInventory!, (fetched, known) ->
+    aegisub.progress.set math.floor fetched * 100 / known
+    -- 用户取消时中断 crawl，error 穿透到 crawlWithPrompt 的 pcall 静默退出
+    error "cancelled", 0 if aegisub.progress.is_cancelled!
+  -- 收尾到满格，抓取失败或被预算截断的 feed 不触发回调，进度会停在最后一次成功回调的值
+  aegisub.progress.set 100
+  return unless entries
 "@
 	$ToolboxPatchLoading = @"
   aegisub.progress.task "Loading feed data..."
   logger\log msgs.install.scanning, #entries
 "@
+	# FeedInventory 进度回调（crawl 每抓取一个 feed 通知调用方，
+	# known 随 BFS 发现新 feed 动态增长，进度可能小幅回退属预期）
+	$FeedInventoryPatchCrawl = @"
+  crawl: (onProgress) =>
+    inventoryEntriesByUrl = @__collectConfigFeeds!
+    stats = @__crawlKnownFeeds inventoryEntriesByUrl, onProgress
+"@
+	$FeedInventoryPatchSink = @"
+  __crawlKnownFeeds: (inventoryEntriesByUrl, onProgress) =>
+"@
+	$FeedInventoryPatchNotify = @"
+      stats.fetched += 1
+      inventoryEntriesByUrl[feedUrl].fetched = true
+      onProgress stats.fetched, #queue - head + 1 + stats.fetched if onProgress
+"@
+	$ToolboxPatchCrawlWithPrompt = @"
+crawlWithPrompt = (inventory, onProgress) ->
+  feedTrust = DepCtrl.updater.feedTrust
+  feedTrust\setPrompter promptUntrustedFeed
+  ok, entries = pcall inventory.crawl, inventory, onProgress
+  feedTrust\setPrompter nil
+  if not ok and entries != "cancelled"
+    error entries, 0
+  return nil unless ok
+  entries
+"@
 	$ToolboxPatchEmpty = @"
-  unless next(macros) or next(modules)
-    aegisub.log 0, "All available scripts are already installed; nothing new to install."
-    return
-
   moduleList, moduleMap = buildDlgList modules
   macroList, macroMap = buildDlgList macros
+
+  if #moduleList == 0 and #macroList == 0
+    unfetched = #[entry for entry in *entries when not entry.fetched]
+    message = unfetched > 0 and ("No scripts are available to install (%d of %d known feeds could not be fetched).")\format(unfetched, #entries) or "All available scripts are already installed."
+    aegisub.dialog.display {{class: "label", x: 0, y: 0, width: 1, height: 1, label: message}},
+      {buttons.close}, {ok: buttons.close, cancel: buttons.close}
+    return
+
+  btn, res = aegisub.dialog.display getScriptListDlg macroList, moduleList
 "@
-	Install-ReleaseScript -Name "DependencyControl" -Repo "TypesettingTools/DependencyControl" -Pattern "\.zip$" -PatchTag "v0.9.0" -PatchFiles @("autoload/l0.DependencyControl.Toolbox.moon", "autoload/l0.DependencyControl.Toolbox.moon", "autoload/l0.DependencyControl.Toolbox.moon") -PatchFroms @("  macros, modules = {}, {}`n  entries = crawlWithPrompt buildFeedInventory!", "  logger\log msgs.install.scanning, #entries", "  moduleList, moduleMap = buildDlgList modules`n  macroList, macroMap = buildDlgList macros") -PatchTos @($ToolboxPatchScanning, $ToolboxPatchLoading, $ToolboxPatchEmpty)
+	Install-ReleaseScript -Name "DependencyControl" -Repo "TypesettingTools/DependencyControl" -Pattern "\.zip$" -PatchTag "v0.9.0" -PatchFiles @("autoload/l0.DependencyControl.Toolbox.moon", "autoload/l0.DependencyControl.Toolbox.moon", "autoload/l0.DependencyControl.Toolbox.moon", "autoload/l0.DependencyControl.Toolbox.moon", "include/l0/DependencyControl/FeedInventory.moon", "include/l0/DependencyControl/FeedInventory.moon", "include/l0/DependencyControl/FeedInventory.moon") -PatchFroms @("  macros, modules = {}, {}`n  entries = crawlWithPrompt buildFeedInventory!", "  logger\log msgs.install.scanning, #entries", "crawlWithPrompt = (inventory) ->`n  feedTrust = DepCtrl.updater.feedTrust`n  feedTrust\setPrompter promptUntrustedFeed`n  entries = inventory\crawl!`n  feedTrust\setPrompter nil`n  entries", "  moduleList, moduleMap = buildDlgList modules`n  macroList, macroMap = buildDlgList macros`n`n  btn, res = aegisub.dialog.display getScriptListDlg macroList, moduleList", "  crawl: =>`n    inventoryEntriesByUrl = @__collectConfigFeeds!`n    stats = @__crawlKnownFeeds inventoryEntriesByUrl", "  __crawlKnownFeeds: (inventoryEntriesByUrl) =>", "      stats.fetched += 1`n      inventoryEntriesByUrl[feedUrl].fetched = true") -PatchTos @($ToolboxPatchScanning, $ToolboxPatchLoading, $ToolboxPatchCrawlWithPrompt, $ToolboxPatchEmpty, $FeedInventoryPatchCrawl, $FeedInventoryPatchSink, $FeedInventoryPatchNotify)
 
 	# Aegisub-Motion（DepCtrl 分支）
 	Install-GitScript -Name "Aegisub-Motion" -Repo "https://github.com/TypesettingTools/Aegisub-Motion.git" -Branch "DepCtrl" -Copy @("a-mo.Aegisub-Motion.moon=autoload", "src=include/a-mo")
