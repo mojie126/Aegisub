@@ -37,6 +37,7 @@ tests_src = [
 	'tests/line_at_time.cpp',
 	'tests/line_iterator.cpp',
 	'tests/line_wrap.cpp',
+	'tests/lua_lfs.cpp',
 	'tests/mru.cpp',
 	'tests/option.cpp',
 	'tests/path.cpp',
@@ -152,7 +153,7 @@ runner = executable(
 	include_directories : [tests_inc, libaegisub_inc, mocha_inc, persp_inc, aegisub_src_inc, aegisub_src_dir_inc, version_inc],
 	dependencies : [tests_deps, deps],
 	cpp_args : tests_args,
-	link_with : libaegisub,
+	link_with : [libaegisub, libluabins],
 )
 
 test('gtest main', runner)

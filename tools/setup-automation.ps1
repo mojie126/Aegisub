@@ -188,14 +188,25 @@ function Install-ReleaseScript
 		}
 		if ($allMatch)
 		{
+			# 同一文件的多处补丁在内存中依次累积，最后一次写回，
+			# 避免各补丁基于同一份预读内容写入时相互覆盖
+			$patched = [ordered]@{}
 			for ($i = 0; $i -lt $PatchFiles.Count; $i++)
 			{
-				$fixed = $targets[$i].Content.Replace($PatchFroms[$i], $PatchTos[$i])
-				if ($fixed -ne $targets[$i].Content)
+				$key = $PatchFiles[$i]
+				if (!$patched.Contains($key))
 				{
-					[System.IO.File]::WriteAllText($targets[$i].Path, $fixed,[System.Text.UTF8Encoding]::new($false))
-					Write-Host "  -> patched $( $PatchFiles[$i] )"
+					$patched[$key] = $targets[$i].Content
 				}
+				$patched[$key] = $patched[$key].Replace($PatchFroms[$i], $PatchTos[$i])
+				if ($patched[$key] -ne $targets[$i].Content)
+				{
+					Write-Host "  -> patched $( $key )"
+				}
+			}
+			foreach ($key in $patched.Keys)
+			{
+				[System.IO.File]::WriteAllText((Join-Path $AutomationDir $key), $patched[$key], [System.Text.UTF8Encoding]::new($false))
 			}
 		}
 		else
@@ -256,7 +267,7 @@ try
 {
 
 	# DependencyControl（release 最新版）
-	# v0.8.2 存在安装体验缺陷：Install Script 爬取 feed 期间未调用 aegisub.progress.task，
+	# v0.8.2~v0.9.0 存在安装体验缺陷：Install Script 爬取 feed 期间未调用 aegisub.progress.task，
 	# 进度对话框消息区一直空白（无反馈），且全部脚本已登记时列表为空且无提示，
 	# 此处应用等价补丁（新版本若已修复可移除对应补丁参数）
 	$ToolboxPatchScanning = @"
@@ -274,8 +285,9 @@ try
     return
 
   moduleList, moduleMap = buildDlgList modules
+  macroList, macroMap = buildDlgList macros
 "@
-	Install-ReleaseScript -Name "DependencyControl" -Repo "TypesettingTools/DependencyControl" -Pattern "\.zip$" -PatchTag "v0.8.2" -PatchFiles @("autoload/l0.DependencyControl.Toolbox.moon", "autoload/l0.DependencyControl.Toolbox.moon", "autoload/l0.DependencyControl.Toolbox.moon") -PatchFroms @("  macros, modules = {}, {}`n  entries = crawlWithPrompt buildFeedInventory!", "  logger\log msgs.install.scanning, #entries", "  moduleList, moduleMap = buildDlgList modules`n  macroList, macroMap = buildDlgList macros") -PatchTos @($ToolboxPatchScanning, $ToolboxPatchLoading, $ToolboxPatchEmpty)
+	Install-ReleaseScript -Name "DependencyControl" -Repo "TypesettingTools/DependencyControl" -Pattern "\.zip$" -PatchTag "v0.9.0" -PatchFiles @("autoload/l0.DependencyControl.Toolbox.moon", "autoload/l0.DependencyControl.Toolbox.moon", "autoload/l0.DependencyControl.Toolbox.moon") -PatchFroms @("  macros, modules = {}, {}`n  entries = crawlWithPrompt buildFeedInventory!", "  logger\log msgs.install.scanning, #entries", "  moduleList, moduleMap = buildDlgList modules`n  macroList, macroMap = buildDlgList macros") -PatchTos @($ToolboxPatchScanning, $ToolboxPatchLoading, $ToolboxPatchEmpty)
 
 	# Aegisub-Motion（DepCtrl 分支）
 	Install-GitScript -Name "Aegisub-Motion" -Repo "https://github.com/TypesettingTools/Aegisub-Motion.git" -Branch "DepCtrl" -Copy @("a-mo.Aegisub-Motion.moon=autoload", "src=include/a-mo")
