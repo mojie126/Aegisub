@@ -100,11 +100,11 @@ void VisualToolClip::Draw() {
 	DrawAllFeatures();
 
 	// Load colors from options
-	float shaded_alpha = static_cast<float>(shaded_area_alpha_opt->GetDouble());
+	const auto shaded_alpha = static_cast<float>(shaded_area_alpha_opt->GetDouble());
 
 	for (auto& [line, state] : line_states) {
 		// 多行同屏时矩形边框按行区分颜色
-		wxColour line_color = GetPerLineColor(line);
+		const wxColour line_color = GetPerLineColor(line);
 
 		// Draw rectangle
 		gl.SetLineColour(line_color, 1.0f, 2);
@@ -131,6 +131,10 @@ void VisualToolClip::Draw() {
 }
 
 bool VisualToolClip::InitializeHold() {
+	return true;
+}
+
+bool VisualToolClip::InitializeDrag(ClipCorner *) {
 	return true;
 }
 

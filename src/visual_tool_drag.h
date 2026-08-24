@@ -18,6 +18,7 @@
 /// @see visual_tool_drag.cpp
 /// @ingroup visual_ts
 ///
+#pragma once
 
 #include "visual_feature.h"
 #include "visual_tool.h"

@@ -18,6 +18,7 @@
 /// @see visual_tool_clip.cpp
 /// @ingroup visual_ts
 ///
+#pragma once
 
 #include "visual_feature.h"
 #include "visual_tool.h"
@@ -62,11 +63,15 @@ class VisualToolClip final : public VisualTool<ClipCorner> {
 	void OnFrameChanged() override { RebuildFeatures(); }
 	void SetFeaturePositions(LineState& state);
 
-	bool InitializeDrag([[maybe_unused]] ClipCorner *feature) override { return true; }
+	bool InitializeDrag(ClipCorner *feature) override;
 	void UpdateDrag(ClipCorner *feature) override;
 	void EndDrag(ClipCorner *feature) override { DoRefresh(); }
 
 	void Draw() override;
 public:
 	VisualToolClip(VideoDisplay *parent, agi::Context *context);
+
+protected:
+	/// @brief 矩形调整进行中允许方向键提交当前矩形并跳行
+	bool CanFinishHold() const override { return true; }
 };

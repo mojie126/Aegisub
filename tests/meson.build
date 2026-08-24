@@ -53,6 +53,7 @@ tests_src = [
 	'tests/vfr.cpp',
 	'tests/word_split.cpp',
 	'tests/mocha_motion.cpp',
+	'tests/drag_selection_restore.cpp',
 	'tests/perspective_math_test.cpp',
 	'tests/perspective_processor_test.cpp',
 	'tests/perspective_integration_test.cpp',

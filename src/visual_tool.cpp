@@ -133,6 +133,55 @@ bool VisualToolBase::IsDisplayed(AssDialogue *line) const {
 		&& c->videoController->FrameAtTime(line->End, agi::vfr::END) >= frame;
 }
 
+bool VisualToolBase::OnKeyDown(wxKeyEvent &event) {
+	const int key = event.GetKeyCode();
+	if (key != WXK_DOWN && key != WXK_UP)
+		return false;
+
+	const bool next = key == WXK_DOWN;
+
+	// 特征拖拽进行中仅消费按键，防止跳行中断拖拽导致鼠标捕获泄漏
+	if (dragging) {
+		event.Skip(false);
+		return true;
+	}
+
+	if (holding) {
+		// 不允许终止的交互仅消费按键
+		if (!CanFinishHold()) {
+			event.Skip(false);
+			return true;
+		}
+
+		FinishHoldAndNavigate(next);
+		event.Skip(false);
+		return true;
+	}
+
+	Navigate(next);
+	event.Skip(false);
+	return true;
+}
+
+void VisualToolBase::Navigate(bool next) {
+	if (next)
+		c->selectionController->NextLine();
+	else
+		c->selectionController->PrevLine();
+	parent->SetFocus();
+}
+
+void VisualToolBase::FinishHoldAndNavigate(bool next) {
+	if (holding) {
+		holding = false;
+		UpdateHold();
+		Commit();
+		// 终止交互时释放鼠标捕获，避免视频显示区持续捕获导致后续鼠标交互异常
+		parent->ReleaseMouse();
+	}
+	Navigate(next);
+}
+
 void VisualToolBase::Commit(wxString message) {
 	file_changed_connection.Block();
 	if (message.empty())

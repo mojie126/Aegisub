@@ -22,6 +22,7 @@
 
 #include "ass_dialogue.h"
 #include "ass_file.h"
+#include "base_grid.h"
 #include "compat.h"
 #include "include/aegisub/context.h"
 #include "libresrc/libresrc.h"
@@ -36,6 +37,8 @@
 #include <limits>
 
 #include <wx/toolbar.h>
+
+#include "visual_tool_drag_selection.h"
 
 static const DraggableFeatureType DRAG_ORIGIN = DRAG_BIG_TRIANGLE;
 static const DraggableFeatureType DRAG_START = DRAG_BIG_SQUARE;
@@ -135,6 +138,11 @@ void VisualToolDrag::OnSubTool(wxCommandEvent &) {
 	Commit();
 	OnFileChanged();
 	UpdateToggleButtons();
+
+	// 本工具无键盘绘制流程，点击 \move/\pos 切换按钮后焦点会落在按钮上，
+	// 交还字幕网格使方向键继续跳行
+	if (c->subsGrid)
+		c->subsGrid->SetFocus();
 }
 
 void VisualToolDrag::OnLineChanged() {
@@ -158,7 +166,10 @@ void VisualToolDrag::OnMouseEvent(wxMouseEvent &event) {
 }
 
 void VisualToolDrag::OnFileChanged() {
-	/// @todo it should be possible to preserve the selection in some cases
+	// 重建前提取选中集与主特征的身份键，行未删除时用于恢复选择，
+	// 行唯一 Id 跨提交与撤销快照稳定，撤销等行对象整体替换场景同样可匹配
+	auto [identities, primary_identity] = visual_tool_drag_detail::CollectDragSelectionIdentity(primary, sel_features);
+
 	features.clear();
 	sel_features.clear();
 	primary = nullptr;
@@ -168,6 +179,10 @@ void VisualToolDrag::OnFileChanged() {
 		if (IsDisplayed(&diag))
 			MakeFeatures(&diag);
 	}
+
+	// 按 (行 Id, 特征类型) 回填选择状态，
+	// 行被删或不再显示时匹配自然失败，退化为清空选择的旧行为
+	visual_tool_drag_detail::RestoreDragSelection(features, identities, primary_identity, sel_features, primary);
 
 	UpdateToggleButtons();
 }

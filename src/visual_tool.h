@@ -24,7 +24,6 @@
 #include <libaegisub/signal.h>
 
 #include <algorithm>
-#include <cmath>
 #include <map>
 #include <set>
 #include <vector>
@@ -88,6 +87,10 @@ protected:
 
 	/// Called when the user double-clicks
 	virtual void OnDoubleClick() { }
+
+	/// @brief hold 进行中每次鼠标事件的更新回调，
+	///        原位于 VisualTool 模板类，因键盘终止流程（FinishHoldAndNavigate）需在基类调用而上移
+	virtual void UpdateHold() { }
 
 	/// @brief 鼠标捕获丢失时清理拖拽状态（由 OnMouseCaptureLost 调用）
 	/// 派生类应在此清理 active_feature、sel_features 等拖拽相关状态
@@ -159,7 +162,6 @@ protected:
 	void GetLineScale(AssDialogue *diag, Vector2D &scale);
 	void GetLineOutline(AssDialogue *diag, Vector2D &outline);
 	void GetLineShadow(AssDialogue *diag, Vector2D &shadow);
-	float GetLineFontSize(AssDialogue *diag);
 	int GetLineAlignment(AssDialogue *diag);
 	/// @brief Compute text extents of the given line without any formatting
 	/// @param diag The dialogue line
@@ -199,9 +201,29 @@ public:
 	virtual void SetToolbar(wxToolBar *) { }
 	virtual void SetSubTool(int subtool) { }
 	virtual int GetSubTool() { return 0; }
-	/// @brief 由 VideoDisplay 转发键盘事件，返回 true 表示事件已被工具消费
-	virtual bool OnKeyDown(wxKeyEvent &event) { return false; }
+	/// @brief 由 VideoDisplay 转发键盘事件，返回 true 表示事件已被工具消费，
+	///        统一语义：空闲时单击上/下方向键逐行跳转；
+	///        拖拽进行中仅消费不跳行；hold 进行中按 CanFinishHold() 分流为
+	///        终止当前交互并朝按键方向跳行或仅消费；
+	///        左右方向键始终不拦截，交由视频逐帧导航热键处理
+	virtual bool OnKeyDown(wxKeyEvent &event);
 
+protected:
+	/// @brief hold 进行中按下方向键是否允许终止当前交互并跳行，
+	///        默认不允许（仅消费按键防止中断导致鼠标捕获泄漏），
+	///        绘制类工具覆写为允许以支持键盘终止绘制
+	virtual bool CanFinishHold() const { return false; }
+
+private:
+	/// @brief 跳转到相邻行并保持视频显示区焦点
+	/// @param next true 跳下一行，false 跳上一行
+	void Navigate(bool next);
+
+	/// @brief 安全终止进行中的 hold 并跳行：提交末帧修改并释放鼠标捕获
+	/// @param next true 跳下一行，false 跳上一行
+	void FinishHoldAndNavigate(bool next);
+
+public:
 	/// @brief 选中集变化时由基类调用，默认不处理，派生类可重写以重建多行特征
 	virtual void OnSelectionChanged() { }
 
@@ -219,11 +241,11 @@ inline int HueRingDistance(int a, int b) {
 /// @param assigned_pos 已分配行的锚点位置列表
 /// @param assigned_hues 已分配行的色相列表（0..255，与 assigned_pos 一一对应）
 /// @return 色相值 0..255
-inline int SelectPerLineHue(Vector2D line_pos, std::vector<Vector2D> const& assigned_pos, std::vector<int> const& assigned_hues) {
+inline int SelectPerLineHue(const Vector2D line_pos, std::vector<Vector2D> const& assigned_pos, std::vector<int> const& assigned_hues) {
 	// 近邻判定距离（像素），超过该距离的行不参与色差约束
-	static const float near_threshold = 250.f;
+	static constexpr float near_threshold = 250.f;
 	// 孤立行使用的最小色相差，保证错开且不过度消耗色相
-	static const int min_spread = 32;
+	static constexpr int min_spread = 32;
 
 	// 近邻行参与最大最小化：最大化与所有近邻的最小色差
 	int best_hue = 0;
@@ -233,7 +255,7 @@ inline int SelectPerLineHue(Vector2D line_pos, std::vector<Vector2D> const& assi
 		int score = 256;
 		bool constrained = false;
 		for (size_t j = 0; j < assigned_hues.size(); ++j) {
-			float d = (line_pos - assigned_pos[j]).Len();
+			const float d = (line_pos - assigned_pos[j]).Len();
 			if (d > near_threshold) continue;
 			constrained = true;
 			score = std::min(score, HueRingDistance(h, assigned_hues[j]));
@@ -250,7 +272,7 @@ inline int SelectPerLineHue(Vector2D line_pos, std::vector<Vector2D> const& assi
 	// 无近邻（孤立行）：取与所有已分配行色差足够大的最小未用色相
 	for (int h = 0; h < 256; h += 4) {
 		bool ok = true;
-		for (int hue : assigned_hues) {
+		for (const int hue : assigned_hues) {
 			if (HueRingDistance(h, hue) < min_spread) {
 				ok = false;
 				break;
@@ -261,7 +283,7 @@ inline int SelectPerLineHue(Vector2D line_pos, std::vector<Vector2D> const& assi
 	return 0;
 }
 
-/// Visual tool base class containing all common feature-related functionality
+/// 视觉工具基类，包含全部特征相关的通用功能
 template<class FeatureType>
 class VisualTool : public VisualToolBase {
 protected:
@@ -269,34 +291,31 @@ protected:
 	typedef agi::owning_intrusive_list<FeatureType> feature_list;
 
 private:
-	bool sel_changed = false; /// Has the selection already been changed in the current click?
+	bool sel_changed = false; ///< 本次点击中是否已发生过选择变更
 
-	/// @brief Called when a hold is begun
-	/// @return Should the hold actually happen?
+	/// @brief hold 开始时调用
+	/// @return 是否真正开始 hold
 	virtual bool InitializeHold() { return false; }
-	/// @brief Called on every mouse event during a hold
-	virtual void UpdateHold() { }
-	/// @brief Called when the hold ended
+	/// @brief hold 结束时调用
 	virtual void EndHold() { }
-
-	/// @brief Called at the beginning of a drag
-	/// @param feature The visual feature clicked on
-	/// @return Should the drag happen?
+	/// @brief 拖拽开始时调用
+	/// @param feature 点击命中的视觉特征
+	/// @return 是否真正执行拖拽
 	virtual bool InitializeDrag(FeatureType *feature) { return true; }
-	/// @brief Called on every mouse event during a drag
-	/// @param feature The current feature to process; not necessarily the one clicked on
+	/// @brief 拖拽期间每次鼠标事件时调用
+	/// @param feature 当前拖拽的特征；不一定是点击命中的那一个
 	virtual void UpdateDrag(FeatureType *feature) { }
-	/// @brief Called at the end of a drag
-	/// @param feature The current feature to process; not necessarily the one clicked on
+	/// @brief 拖拽结束时调用
+	/// @param feature 当前拖拽的特征；不一定是点击命中的那一个
 	virtual void EndDrag(FeatureType *feature) { }
 
 protected:
-	std::set<FeatureType *> sel_features; ///< Currently selected visual features
+	std::set<FeatureType *> sel_features; ///< 当前已选中的视觉特征集合
 
-	/// Topmost feature under the mouse; generally only valid during a drag
+	/// 鼠标下最顶层的特征；通常仅在拖拽期间有效
 	FeatureType *active_feature = nullptr;
-	/// List of features which are drawn and can be clicked on
-	/// List is used here for the iterator invalidation properties
+	/// 已绘制且可点击的特征列表
+	/// 使用链表以获得所需的迭代器失效特性
 	feature_list features;
 
 	/// 特征所属对话行到色相的映射，多行同屏时按空间位置贪心分配
@@ -318,28 +337,29 @@ protected:
 	/// @brief 获取指定行的连接线颜色，多行时返回按行分配的互补纯色
 	wxColour GetPerLineColor(AssDialogue *line) const override;
 
-	/// Draw all of the features in the list
+	/// 绘制列表中的全部特征
 	void DrawAllFeatures();
 
-	/// @brief Remove a feature from the selection
-	/// @param i Index in the feature list
-	/// Also deselects lines if all features for that line have been deselected
+	/// @brief 取消选择一个特征
+	/// @param feat 要取消选择的特征
+	/// 若该行的所有特征均已被取消选择，则同时取消该行的选择
 	void RemoveSelection(FeatureType *feat);
 
-	/// @brief Set the selection to a single feature, deselecting everything else
-	/// @param i Index in the feature list
+	/// @brief 设置选择集为单个特征，取消其他所有特征的选择
+	/// @param feat 要选中的特征
+	/// @param clear 是否同时清除既有特征选择集
 	void SetSelection(FeatureType *feat, bool clear);
 
 public:
-	/// @brief Handler for all mouse events
-	/// @param event Shockingly enough, the mouse event
+	/// @brief 处理全部鼠标事件
+	/// @param event 鼠标事件
 	void OnMouseEvent(wxMouseEvent &event) override;
 
 	/// @brief 鼠标捕获丢失时清理拖拽选择集和活动特征
 	void OnDragCleanup() override;
 
-	/// @brief Constructor
-	/// @param parent The VideoDisplay to use for coordinate conversion
-	/// @param video Video and mouse information passing blob
+	/// @brief 构造函数
+	/// @param parent 用于坐标转换的视频显示区
+	/// @param context 项目上下文
 	VisualTool(VideoDisplay *parent, agi::Context *context);
 };

@@ -20,6 +20,7 @@
 
 #include "visual_tool_perspective.h"
 
+#include "base_grid.h"
 #include "command/command.h"
 #include "compat.h"
 #include "include/aegisub/context.h"
@@ -34,8 +35,6 @@
 #include <libaegisub/format.h>
 #include <libaegisub/split.h>
 #include <libaegisub/util.h>
-
-#include <libaegisub/log.h>
 
 #include <cmath>
 #include <wx/colour.h>
@@ -218,6 +217,11 @@ void VisualToolPerspective::SetSubTool(int subtool) {
 
 	RebuildFeatures();
 	parent->Render();
+
+	// 本工具无键盘绘制流程，点击辅助工具栏后焦点会落在按钮上，
+	// 交还字幕网格使方向键继续跳行
+	if (c->subsGrid)
+		c->subsGrid->SetFocus();
 }
 
 int VisualToolPerspective::GetSubTool() {
