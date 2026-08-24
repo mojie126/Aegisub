@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env powershell
+#!/usr/bin/env powershell
 
 param (
 	[Parameter(Position = 0)]
@@ -148,7 +148,7 @@ if (!(Test-Path BestSource))
 	# $basReleases = Invoke-WebRequest "https://api.github.com/repos/vapoursynth/bestsource/releases/latest" -Headers $GitHeaders -UseBasicParsing | ConvertFrom-Json
 	# $bsUrl = $basReleases.assets[0].browser_download_url
 	# R20 起资产为带版本后缀的单文件 zip（R19 为 7z 且 DLL 名为 BestSource.dll）
-	$bsUrl = "https://github.com/vapoursynth/bestsource/releases/download/R20/BestSource-R20-win64-msvc.zip"
+	$bsUrl = "https://github.com/vapoursynth/bestsource/releases/download/R21/BestSource-R21-win64-msvc.zip"
 	Invoke-WebRequest $bsUrl -OutFile bestsource.zip -UseBasicParsing
 	7z x bestsource.zip -y
 	Remove-Item bestsource.zip

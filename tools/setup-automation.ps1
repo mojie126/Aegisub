@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env powershell
+#!/usr/bin/env powershell
 <#
 .SYNOPSIS
     安装 automation 脚本到指定目录，供开发环境运行时使用。

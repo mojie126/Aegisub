@@ -1,6 +1,6 @@
 [wrap-git]
 url = https://github.com/vapoursynth/bestsource
-revision = R20
+revision = R21
 clone-recursive = true
 
 [provide]
