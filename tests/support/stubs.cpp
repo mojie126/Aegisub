@@ -14,6 +14,8 @@ std::string float_to_string(double val, int precision) {
 #include "../src/ass_style.h"
 AssEntryGroup AssStyle::Group() const { return AssEntryGroup::STYLE; }
 
+AssStyle::AssStyle() = default;
+
 namespace Automation4 {
 	bool CalculateTextExtents(AssStyle *, std::string const &, double &, double &, double &, double &) {
 		return false;

@@ -453,6 +453,51 @@ namespace mocha {
 			}
 			tags.drawing_scale = p_scale;
 
+			// 行内字体类覆盖(\fn/\b/\i/\u/\s/\fsp),随 override 块继承,
+			// 未覆盖时保持 inherited 或 nullopt(回退样式默认值),
+			// 上游 ASSFoundation getEffectiveTags 按有效标签状态做文本测量,
+			// 缺失这些状态时会按样式默认字体测量,尺寸偏离实际渲染字体,
+			// 在小四边形 uv 外推场景下放大为明显的位置偏差
+			if (const TagDef *td = registry.get("fontName")) {
+				std::string val = get_last_val(td);
+				if (!val.empty()) {
+					// 去除尾部空白,与 libass \fn 解析一致
+					while (!val.empty() && (val.back() == ' ' || val.back() == '\t'))
+						val.pop_back();
+					tags.font_name = std::move(val);
+				}
+			}
+			if (const TagDef *td = registry.get("fontSp")) {
+				std::string val = get_last_val(td);
+				if (!val.empty()) {
+					try { tags.spacing = std::stod(val); } catch (...) {}
+				}
+			}
+			if (const TagDef *td = registry.get("bold")) {
+				std::string val = get_last_val(td);
+				if (!val.empty()) {
+					try { tags.bold = static_cast<int>(std::stod(val)); } catch (...) {}
+				}
+			}
+			if (const TagDef *td = registry.get("italic")) {
+				std::string val = get_last_val(td);
+				if (!val.empty()) {
+					try { tags.italic = static_cast<int>(std::stod(val)); } catch (...) {}
+				}
+			}
+			if (const TagDef *td = registry.get("underline")) {
+				std::string val = get_last_val(td);
+				if (!val.empty()) {
+					try { tags.underline = static_cast<int>(std::stod(val)); } catch (...) {}
+				}
+			}
+			if (const TagDef *td = registry.get("strike")) {
+				std::string val = get_last_val(td);
+				if (!val.empty()) {
+					try { tags.strikeout = static_cast<int>(std::stod(val)); } catch (...) {}
+				}
+			}
+
 			std::string draw_text;
 			if (p_scale >= 1) {
 				size_t ppos = block_content.find("\\p" + std::to_string(p_scale));
@@ -505,6 +550,9 @@ namespace mocha {
 					// 否则回退样式值），保证测量结果与除回基准的 scale 一致
 					temp_style.scalex = tags.scale_x;
 					temp_style.scaley = tags.scale_y;
+					// 应用行内字体类覆盖,使测量字体与实际渲染字体一致
+					// 对应上游 ASSFoundation 按有效标签状态测量
+					ApplyFontOverrides(temp_style, tags);
 					double descent, extlead;
 					if (Automation4::CalculateTextExtents(
 						&temp_style, visible_text,
@@ -942,6 +990,16 @@ namespace mocha {
 			return remaining;
 		}
 	} // anonymous namespace
+
+	void ApplyFontOverrides(AssStyle &style, const PerspectiveTagVals &tags) {
+		if (tags.font_name && !tags.font_name->empty())
+			style.font = *tags.font_name;
+		if (tags.bold) style.bold = *tags.bold != 0;
+		if (tags.italic) style.italic = *tags.italic != 0;
+		if (tags.underline) style.underline = *tags.underline != 0;
+		if (tags.strikeout) style.strikeout = *tags.strikeout != 0;
+		if (tags.spacing) style.spacing = *tags.spacing;
+	}
 
 /// @brief 解析 ASS 绘图指令的坐标范围以计算尺寸
 /// 对应 MoonScript DrawingBase:getExtremePoints()

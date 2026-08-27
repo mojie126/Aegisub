@@ -50,6 +50,13 @@ namespace mocha {
 		bool write_conf = true; ///< 保存配置
 	};
 
+	/// @brief 将标签中的字体类覆盖状态应用到样式副本,用于文本测量
+	/// 仅修改被覆盖的字段(\fn/\b/\i/\u/\s/\fsp),
+	/// 未覆盖字段(nullopt)保留样式值,公开用于单测
+	/// @param style[in,out] 测量用样式副本
+	/// @param tags 含字体类覆盖状态的标签值
+	void ApplyFontOverrides(AssStyle &style, const PerspectiveTagVals &tags);
+
 	/// 透视追踪处理器
 	/// 将 Power-Pin 追踪数据应用到字幕行集合
 	class PerspectiveProcessor {

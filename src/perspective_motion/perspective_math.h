@@ -11,12 +11,10 @@
 #pragma once
 
 #include "../vector2d.h"
-#include "../vector3d.h"
 
 #include <vector>
 #include <string>
 #include <optional>
-#include <cmath>
 
 namespace mocha {
 	/// 四边形的四个角点（屏幕坐标）
@@ -40,9 +38,17 @@ namespace mocha {
 		double outline_y = 0; // \ybord
 		double shadow_x = 0; // \xshad
 		double shadow_y = 0; // \yshad
-		int align = 7; // \an (默认 7: 左上)
+		int align = 7; // \an (默认 7：左上)
 		double font_size = 48; // \fs，用于跨 override 块继承绘制尺寸
 		int drawing_scale = 0; // \p，用于跨 override 块继承绘图模式
+		// 行内字体类覆盖状态，随 override 块继承，
+		// nullopt 表示未覆盖(使用样式默认值)，文本测量时应用
+		std::optional<std::string> font_name; // \fn 覆盖字体名
+		std::optional<double> spacing; // \fsp 字间距
+		std::optional<int> bold; // \b(非 0 为加粗)
+		std::optional<int> italic; // \i
+		std::optional<int> underline; // \u
+		std::optional<int> strikeout; // \s
 	};
 
 	/// 透视追踪数学工具类

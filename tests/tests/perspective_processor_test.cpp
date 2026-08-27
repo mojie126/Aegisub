@@ -5,6 +5,7 @@
 
 #include "../src/perspective_motion/perspective_processor.h"
 #include "../src/mocha_motion/motion_tags.h"
+#include "../src/ass_style.h"
 
 #include <cmath>
 #include <algorithm>
@@ -59,6 +60,104 @@ TEST(PerspectiveProcessorTest, PrepareForPerspectiveReadsShearAndBorder) {
 	EXPECT_NEAR(tags.outline_y, 2, 0.01); // 无 ybord, 回退到 bord=2
 	EXPECT_NEAR(tags.shadow_x, 5, 0.01); // xshad 优先于 shad
 	EXPECT_NEAR(tags.shadow_y, 4, 0.01); // 无 yshad, 回退到 shad=4
+}
+
+// ============================================================================
+// 字体类覆盖状态(\fn/\b/\i/\u/\s/\fsp):文本测量需与实际渲染字体一致
+// ============================================================================
+
+TEST(PerspectiveProcessorTest, PrepareForPerspectiveExtractsFontOverrides) {
+	PerspectiveOptions opts;
+	PerspectiveProcessor processor(opts, 1920, 1080);
+
+	MotionLine line;
+	line.text = "{\\fn测试字体\\b1\\i0\\u1\\s1\\fsp2.5\\pos(100,100)}text";
+	line.style = "Default";
+	line.x_position = 100;
+	line.y_position = 100;
+
+	double width, height;
+	auto tags = processor.PrepareForPerspective(line, width, height);
+
+	ASSERT_TRUE(tags.font_name.has_value());
+	EXPECT_EQ(*tags.font_name, "测试字体");
+	ASSERT_TRUE(tags.bold.has_value());
+	EXPECT_EQ(*tags.bold, 1);
+	ASSERT_TRUE(tags.italic.has_value());
+	EXPECT_EQ(*tags.italic, 0);
+	ASSERT_TRUE(tags.underline.has_value());
+	EXPECT_EQ(*tags.underline, 1);
+	ASSERT_TRUE(tags.strikeout.has_value());
+	EXPECT_EQ(*tags.strikeout, 1);
+	ASSERT_TRUE(tags.spacing.has_value());
+	EXPECT_NEAR(*tags.spacing, 2.5, 0.001);
+}
+
+TEST(PerspectiveProcessorTest, PrepareForPerspectiveFontOverridesDefaultToNullopt) {
+	PerspectiveOptions opts;
+	PerspectiveProcessor processor(opts, 1920, 1080);
+
+	MotionLine line;
+	line.text = "{\\pos(5,6)}text";
+	line.style = "Default";
+	line.x_position = 5;
+	line.y_position = 6;
+
+	double width, height;
+	auto tags = processor.PrepareForPerspective(line, width, height);
+
+	EXPECT_FALSE(tags.font_name.has_value());
+	EXPECT_FALSE(tags.bold.has_value());
+	EXPECT_FALSE(tags.italic.has_value());
+	EXPECT_FALSE(tags.underline.has_value());
+	EXPECT_FALSE(tags.strikeout.has_value());
+	EXPECT_FALSE(tags.spacing.has_value());
+}
+
+TEST(PerspectiveProcessorTest, PrepareForPerspectiveTrimsFontNameTrailingSpace) {
+	PerspectiveOptions opts;
+	PerspectiveProcessor processor(opts, 1920, 1080);
+
+	MotionLine line;
+	line.text = "{\\fnMy Font }text";
+	line.style = "Default";
+	line.x_position = 0;
+	line.y_position = 0;
+
+	double width, height;
+	auto tags = processor.PrepareForPerspective(line, width, height);
+
+	ASSERT_TRUE(tags.font_name.has_value());
+	EXPECT_EQ(*tags.font_name, "My Font");
+}
+
+TEST(PerspectiveProcessorTest, ApplyFontOverridesModifiesOnlyCoveredFields) {
+	AssStyle style;
+	style.font = "BaseFont";
+	style.bold = false;
+	style.italic = true;
+	style.underline = false;
+	style.strikeout = false;
+	style.spacing = 0;
+
+	// 全部未覆盖:样式保持原值
+	PerspectiveTagVals none;
+	ApplyFontOverrides(style, none);
+	EXPECT_EQ(style.font, "BaseFont");
+	EXPECT_FALSE(style.bold);
+	EXPECT_TRUE(style.italic);
+	EXPECT_NEAR(style.spacing, 0, 0.001);
+
+	// 覆盖字段被应用,未覆盖字段保留样式值
+	PerspectiveTagVals tags;
+	tags.font_name = "OverrideFont";
+	tags.bold = 1;
+	tags.spacing = 2.5;
+	ApplyFontOverrides(style, tags);
+	EXPECT_EQ(style.font, "OverrideFont");
+	EXPECT_TRUE(style.bold);
+	EXPECT_TRUE(style.italic);
+	EXPECT_NEAR(style.spacing, 2.5, 0.001);
 }
 
 TEST(PerspectiveProcessorTest, PrepareForPerspectiveReadsPosAndOrg) {
