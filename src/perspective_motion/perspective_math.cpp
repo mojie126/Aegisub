@@ -4,6 +4,8 @@
 
 #include "perspective_math.h"
 
+#include "../vector3d.h"
+
 #include <cmath>
 #include <algorithm>
 #include <limits>
